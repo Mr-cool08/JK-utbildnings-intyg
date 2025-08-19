@@ -1,0 +1,14 @@
+/* Minimal inline styling so the page is usable immediately */
+        body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 32px auto; padding: 0 16px; color: #222; }
+        h1 { margin-bottom: 8px; }
+        form { background: #f9f9f9; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        label { display:block; margin: 12px 0 6px; font-weight:600; }
+        input[type="text"], input[type="email"], input[type="password"] { width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:6px; box-sizing: border-box; }
+        .row { display:flex; gap:12px; }
+        .col { flex:1; }
+        button { margin-top:14px; padding:10px 16px; border: none; background:#007bff; color:white; border-radius:6px; cursor:pointer; }
+        button[disabled] { opacity:0.6; cursor:default; }
+        .message { margin-top:14px; padding:10px; border-radius:6px; }
+        .success { background:#e6ffe6; border:1px solid #7ddc7d; color:#1b6e1b; }
+        .error { background:#ffe6e6; border:1px solid #e07d7d; color:#6e1b1b; }
+        small.hint { color:#666; display:block; margin-top:6px; }

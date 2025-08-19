@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session, redirect
 from smtplib import SMTP
 import datetime
 import database_handling
@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv('secret_key')
 
 @app.route('/', methods=['GET'])
 def home():
@@ -21,7 +22,7 @@ def admin():
             email = request.form['email']
             username = request.form['username']
             personsnummer = request.form['personsnummer']
-            pdf_path = request.form['pdf_path']
+            
             
             
             if database_handling.admin_create_user(email, username, personsnummer, pdf_path):
@@ -30,12 +31,27 @@ def admin():
                 return jsonify({'status': 'error', 'message': 'User already exists'})
     else:
         if not session.get('logged_in'):
-            
-            return render_template('admin_login.html')
+            return redirect('/login_admin')
     if request.method == 'GET':
         
         return render_template('admin.html')
 
+
+@app.route('/login_admin', methods=['POST', 'GET'])
+def login_admin():
+    if request.method == 'POST':
+        
+        admin_password = os.getenv('admin_password')
+        admin_username = os.getenv('admin_username')
+        if request.form['username'] == admin_username and request.form['password'] == admin_password:
+            session['logged_in'] = True
+            return redirect('/admin')
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid credentials'})
+    elif request.method == 'GET':
+        return render_template('admin_login.html')
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid request method', 'method': request.method})
 
 if __name__ == '__main__':
     database_handling.create_database()
