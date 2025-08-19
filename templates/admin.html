@@ -1,10 +1,5 @@
 {% extends 'base.html' %}
 {% block title %}Admin — Create User{% endblock %}
-{% block head %}
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
-{% endblock %}
 {% block content %}
     <h1>Admin — Create User</h1>
     <p>Use this form to add a pending user. Fields are required. When the POST succeeds the server will insert into <code>pending_users</code>.</p>

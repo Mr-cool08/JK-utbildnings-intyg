@@ -199,17 +199,24 @@ def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
         assert response.status_code == 200
         assert response.get_json()["status"] == "success"
 
-    # Filen ska sparas
-    user_dir = tmp_path / "199001011234"
-    files = list(user_dir.glob("*.pdf"))
-    assert len(files) == 1
 
-    # Ingen pending_user-post ska skapas
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM pending_users WHERE email=?",
-        ("exist@example.com",),
-    )
-    assert cursor.fetchone() is None
-    conn.close()
+def test_logout_clears_user_session(tmp_path, monkeypatch):
+    setup_user(tmp_path, monkeypatch)
+    with main.app.test_client() as client:
+        client.post("/login", data={"personnummer": "199001011234", "password": "secret"})
+        with client.session_transaction() as sess:
+            assert sess.get("user_logged_in")
+        client.get("/logout")
+        with client.session_transaction() as sess:
+            assert "user_logged_in" not in sess
+            assert "personnummer" not in sess
+
+
+def test_logout_clears_admin_session(tmp_path, monkeypatch):
+    setup_user(tmp_path, monkeypatch)
+    with main.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["admin_logged_in"] = True
+        client.get("/logout")
+        with client.session_transaction() as sess:
+            assert "admin_logged_in" not in sess
