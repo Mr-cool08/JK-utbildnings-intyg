@@ -140,6 +140,15 @@ def admin():
                 # spara filen i mapp per personnummer
                 pdf_path = save_pdf_for_user(personnummer, pdf_file)
 
+                # Om användaren redan finns ska endast PDF:en sparas
+                if functions.get_user_info(personnummer):
+                    return jsonify(
+                        {
+                            'status': 'success',
+                            'message': 'PDF uploaded for existing user',
+                        }
+                    )
+
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
                     return jsonify({'status': 'success', 'message': 'User created successfully'})
                 else:

@@ -168,3 +168,48 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input, exp
     assert row is not None
     assert row[0] == expected_dir
     assert row[1].endswith(files[0].name)
+
+
+def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
+    db_path = setup_db(tmp_path, monkeypatch)
+    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+
+    # Lägg till befintlig användare
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
+        ("Existing", "exist@example.com", "secret", "199001011234"),
+    )
+    conn.commit()
+    conn.close()
+
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "exist@example.com",
+        "username": "Existing",
+        "personnummer": "19900101-1234",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with main.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["admin_logged_in"] = True
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+        assert response.status_code == 200
+        assert response.get_json()["status"] == "success"
+
+    # Filen ska sparas
+    user_dir = tmp_path / "199001011234"
+    files = list(user_dir.glob("*.pdf"))
+    assert len(files) == 1
+
+    # Ingen pending_user-post ska skapas
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM pending_users WHERE email=?",
+        ("exist@example.com",),
+    )
+    assert cursor.fetchone() is None
+    conn.close()
