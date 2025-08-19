@@ -1,14 +1,66 @@
 from flask import Flask, request, jsonify, render_template, session, redirect
 from smtplib import SMTP
 import datetime
-import database_handling
+import functions
 import os
+import re
+import time
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
-load_dotenv()
 
+
+load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('secret_key')
+APP_ROOT = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
+os.makedirs(UPLOAD_ROOT, exist_ok=True)
+app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+ALLOWED_MIMES = {'application/pdf'}
+
+
+def normalize_personnummer(pnr: str) -> str:
+    """Behåll ev. bindestreck, ta bort mellanslag/ogiltiga tecken, begränsa längd."""
+    pnr = pnr.strip()
+    # tillåt siffror och ett ev. bindestreck
+    pnr = re.sub(r'[^0-9\-]', '', pnr)
+    # mycket enkel längd-begränsning (6–13 tecken, typ YYMMDDNNNN, YYYYMMDDNNNN, ev. -)
+    if not (6 <= len(pnr) <= 13 or (7 <= len(pnr) <= 14 and '-' in pnr)):
+        raise ValueError("Ogiltigt personnummerformat.")
+    return pnr
+
+
+def save_pdf_for_user(pnr: str, file_storage) -> str:
+    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/19900101-1234/12345_cv.pdf')."""
+    if file_storage.filename == '':
+        raise ValueError("Ingen fil vald.")
+
+    # Enkel MIME-kontroll + magisk signatur
+    mime = file_storage.mimetype or ''
+    if mime not in ALLOWED_MIMES:
+        raise ValueError("Endast PDF tillåts.")
+    head = file_storage.stream.read(5)
+    file_storage.stream.seek(0)
+    if head != b'%PDF-':
+        raise ValueError("Filen verkar inte vara en giltig PDF.")
+
+    pnr_norm = normalize_personnummer(pnr)
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    os.makedirs(user_dir, exist_ok=True)
+
+    base = secure_filename(file_storage.filename)
+    # lägg på timestamp för att undvika krockar
+    filename = f"{int(time.time())}_{base}"
+    abs_path = os.path.join(user_dir, filename)
+    file_storage.save(abs_path)
+
+    # relativ sökväg från projektroten
+    rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
+    return rel_path
+
+
 
 @app.route('/', methods=['GET'])
 def home():
@@ -18,23 +70,34 @@ def home():
 def admin():
     if request.method == 'POST':
         if session.get('logged_in'):
-                
-            email = request.form['email']
-            username = request.form['username']
-            personsnummer = request.form['personsnummer']
-            
-            
-            
-            if database_handling.admin_create_user(email, username, personsnummer, pdf_path):
-                return jsonify({'status': 'success', 'message': 'User created successfully'})
-            else:
-                return jsonify({'status': 'error', 'message': 'User already exists'})
-    else:
-        if not session.get('logged_in'):
+            try:
+                email = request.form['email']
+                username = request.form['username']
+                personsnummer = request.form['personsnummer']
+                pdf_file = request.files.get('pdf')
+
+                if not pdf_file:
+                    return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
+
+                # spara filen i mapp per personnummer
+                pdf_path = save_pdf_for_user(personsnummer, pdf_file)
+
+                # lagra den relativa sökvägen i DB
+                if functions.admin_create_user(email, username, personsnummer, pdf_path):
+                    return jsonify({'status': 'success', 'message': 'User created successfully', 'pdf_path': pdf_path})
+                else:
+                    return jsonify({'status': 'error', 'message': 'User already exists'}), 409
+            except ValueError as ve:
+                return jsonify({'status': 'error', 'message': str(ve)}), 400
+            except Exception as e:
+                # logga e om du vill
+                return jsonify({'status': 'error', 'message': 'Serverfel vid uppladdning'}), 500
+        else:
             return redirect('/login_admin')
-    if request.method == 'GET':
-        
-        return render_template('admin.html')
+    # GET
+    if not session.get('logged_in'):
+        return redirect('/login_admin')
+    return render_template('admin.html')
 
 
 @app.route('/login_admin', methods=['POST', 'GET'])
@@ -54,5 +117,5 @@ def login_admin():
         return jsonify({'status': 'error', 'message': 'Invalid request method', 'method': request.method})
 
 if __name__ == '__main__':
-    database_handling.create_database()
+    functions.create_database()
     app.run(debug=True, host='0.0.0.0', port=80)

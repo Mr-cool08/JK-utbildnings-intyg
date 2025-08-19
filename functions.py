@@ -1,8 +1,12 @@
 import sqlite3
 import hashlib
 
-def testing():
-    print("Testing database connection")
+
+
+
+
+
+
 def create_database():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()

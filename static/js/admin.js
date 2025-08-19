@@ -1,44 +1,136 @@
-const form = document.getElementById('adminForm');
-        const resultBox = document.getElementById('result');
-        const submitBtn = document.getElementById('submitBtn');
+// static/js/admin.js
 
-        function showMessage(text, ok=true) {
-            resultBox.style.display = 'block';
-            resultBox.className = 'message ' + (ok ? 'success' : 'error');
-            resultBox.textContent = text;
-        }
+(() => {
+  // --- Hämta DOM-element ---
+  const form = document.getElementById('adminForm');
+  const result = document.getElementById('result');
+  const submitBtn = document.getElementById('submitBtn');
 
-        form.addEventListener('submit', async (ev) => {
-            ev.preventDefault();
-            // Basic validity check
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
+  // Fält
+  const emailInput = document.getElementById('email');
+  const usernameInput = document.getElementById('username');
+  const pnrInput = document.getElementById('personsnummer');
+  const pdfInput = document.getElementById('pdf');
 
-            submitBtn.disabled = true;
-            showMessage('Sending...', true);
+  // --- Konstanter (synka gärna med servern) ---
+  const MAX_MB = 16; // matchar app.config['MAX_CONTENT_LENGTH']
+  const MAX_BYTES = MAX_MB * 1024 * 1024;
+  const ALLOWED_MIME = 'application/pdf';
 
-            const data = new FormData(form);
+  // --- Hjälpmeddelanden ---
+  function showMessage(type, text) {
+    result.style.display = 'block';
+    result.className = `message ${type}`;
+    result.textContent = text;
+  }
+  function hideMessage() {
+    result.style.display = 'none';
+    result.textContent = '';
+    result.className = 'message';
+  }
 
-            try {
-                const resp = await fetch('/admin', {
-                    method: 'POST',
-                    body: data
-                });
+  // --- Enkel validering ---
+  function isValidEmail(v) {
+    // Enkel men robust e-post-koll
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  }
 
-                // server responds with JSON per your main.py
-                const json = await resp.json();
+  function isValidPersonnummer(v) {
+    // Tillåt siffror och ett ev. bindestreck, 6–14 tecken (YYMMDDNNNN, YYYYMMDDNNNN, med/utan -)
+    return /^[0-9-]{6,14}$/.test(v);
+  }
 
-                if (resp.ok && json.status === 'success') {
-                    showMessage(json.message || 'User created successfully', true);
-                    form.reset();
-                } else {
-                    showMessage(json.message || 'Server returned an error', false);
-                }
-            } catch (err) {
-                showMessage('Network or client error: ' + err.message, false);
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
+  function validatePdf(file) {
+    if (!file) return 'PDF-fil saknas.';
+    if (file.size > MAX_BYTES) return `Filen är för stor (max ${MAX_MB} MB).`;
+    // MIME kan variera mellan browsers – vi dubbelkollar ändå
+    if (file.type && file.type !== ALLOWED_MIME) return 'Endast PDF-filer tillåts.';
+    // Grundkoll på filändelse (fallback om type saknas)
+    if (!/\.pdf$/i.test(file.name)) return 'Filen måste ha ändelsen .pdf.';
+    return null;
+  }
+
+  // --- Submit-hantering ---
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMessage();
+
+    // Klientvalidering
+    const email = emailInput.value.trim();
+    const username = usernameInput.value.trim();
+    const pnr = pnrInput.value.trim();
+    const file = pdfInput.files[0];
+
+    if (!isValidEmail(email)) {
+      showMessage('error', 'Ogiltig e-postadress.');
+      emailInput.focus();
+      return;
+    }
+    if (!username) {
+      showMessage('error', 'Ange användarnamn.');
+      usernameInput.focus();
+      return;
+    }
+    if (!isValidPersonnummer(pnr)) {
+      showMessage('error', 'Ogiltigt personnummer. Tillåtna tecken: siffror och ev. bindestreck. Ex: 19900101-1234');
+      pnrInput.focus();
+      return;
+    }
+    const pdfError = validatePdf(file);
+    if (pdfError) {
+      showMessage('error', pdfError);
+      pdfInput.focus();
+      return;
+    }
+
+    // Bygg FormData (måste matcha serverns förväntningar: email, username, personsnummer, pdf)
+    const fd = new FormData();
+    fd.append('email', email);
+    fd.append('username', username);
+    fd.append('personsnummer', pnr);
+    fd.append('pdf', file);
+
+    // Skicka
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Skapar...';
+
+    try {
+      const res = await fetch('/admin', {
+        method: 'POST',
+        body: fd,
+        // Viktigt: INTE sätta Content-Type – browsern sätter rätt boundary automatiskt
+      });
+
+      // Försök tolka svaret som JSON; om det misslyckas, gör ett snällt fallback-meddelande
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Ignorera – hanteras nedan
+      }
+
+      if (res.ok && data && data.status === 'success') {
+        showMessage('success', `Användare skapad. PDF-sökväg: ${data.pdf_path}`);
+        form.reset();
+      } else {
+        const msg =
+          (data && (data.message || data.error)) ||
+          `Kunde inte skapa användare (HTTP ${res.status}).`;
+        showMessage('error', msg);
+      }
+    } catch (err) {
+      showMessage('error', 'Nätverks- eller serverfel. Försök igen om en stund.');
+      // Du kan logga err till konsolen för felsökning
+      // console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create pending user';
+    }
+  });
+
+  // --- UX: rensa status när användaren ändrar något ---
+  [emailInput, usernameInput, pnrInput, pdfInput].forEach((el) => {
+    el.addEventListener('input', () => hideMessage());
+    el.addEventListener('change', () => hideMessage());
+  });
+})();
