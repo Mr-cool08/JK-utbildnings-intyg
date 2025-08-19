@@ -8,17 +8,19 @@ from werkzeug.datastructures import FileStorage
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import main
+import functions
 
 
 # Tests for normalize_personnummer
 
 def test_normalize_personnummer_valid():
-    assert main.normalize_personnummer(" 19900101-1234 ") == "19900101-1234"
+    assert functions.normalize_personnummer(" 19900101-1234 ") == "199001011234"
+    assert functions.normalize_personnummer("900101-1234") == "199001011234"
 
 
 def test_normalize_personnummer_invalid():
     with pytest.raises(ValueError):
-        main.normalize_personnummer("abc")
+        functions.normalize_personnummer("abc")
 
 
 # Tests for save_pdf_for_user
@@ -65,12 +67,14 @@ def setup_user(tmp_path, monkeypatch):
     conn.close()
 
 
-def test_login_success(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "pnr_input",
+    ["199001011234", "19900101-1234", "900101-1234"],
+)
+def test_login_success(tmp_path, monkeypatch, pnr_input):
     setup_user(tmp_path, monkeypatch)
     with main.app.test_client() as client:
-        response = client.post(
-            "/login", data={"personnummer": "199001011234", "password": "secret"}
-        )
+        response = client.post("/login", data={"personnummer": pnr_input, "password": "secret"})
         assert response.status_code == 302
 
 
@@ -120,7 +124,15 @@ def setup_db(tmp_path, monkeypatch):
     return db_path
 
 
-def test_admin_upload_creates_pending_user(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "pnr_input, expected_dir",
+    [
+        ("199001011234", "199001011234"),
+        ("19900101-1234", "199001011234"),
+        ("900101-1234", "199001011234"),
+    ],
+)
+def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input, expected_dir):
     db_path = setup_db(tmp_path, monkeypatch)
     monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
 
@@ -128,7 +140,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch):
     data = {
         "email": "new@example.com",
         "username": "New User",
-        "personnummer": "199001011234",
+        "personnummer": pnr_input,
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
@@ -140,17 +152,19 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch):
         assert response.get_json()["status"] == "success"
 
     # Verify file saved
-    user_dir = tmp_path / "199001011234"
+    user_dir = tmp_path / expected_dir
     files = list(user_dir.glob("*.pdf"))
     assert len(files) == 1
 
-    # Verify database entry contains pdf_path
+    # Verify database entry contains normalized personnummer and pdf_path
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT pdf_path FROM pending_users WHERE email=?", ("new@example.com",)
+        "SELECT personnummer, pdf_path FROM pending_users WHERE email=?",
+        ("new@example.com",),
     )
     row = cursor.fetchone()
     conn.close()
     assert row is not None
-    assert row[0].endswith(files[0].name)
+    assert row[0] == expected_dir
+    assert row[1].endswith(files[0].name)

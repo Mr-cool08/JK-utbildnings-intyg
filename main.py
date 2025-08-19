@@ -6,13 +6,11 @@ from flask import (
     session,
     redirect,
     send_from_directory,
-    url_for,
 )
 from smtplib import SMTP
-import datetime
 import functions
+from functions import normalize_personnummer
 import os
-import re
 import time
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -30,19 +28,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
 ALLOWED_MIMES = {'application/pdf'}
 
 
-def normalize_personnummer(pnr: str) -> str:
-    """Behåll ev. bindestreck, ta bort mellanslag/ogiltiga tecken, begränsa längd."""
-    pnr = pnr.strip()
-    # tillåt siffror och ett ev. bindestreck
-    pnr = re.sub(r'[^0-9\-]', '', pnr)
-    # mycket enkel längd-begränsning (6–13 tecken, typ YYMMDDNNNN, YYYYMMDDNNNN, ev. -)
-    if not (6 <= len(pnr) <= 13 or (7 <= len(pnr) <= 14 and '-' in pnr)):
-        raise ValueError("Ogiltigt personnummerformat.")
-    return pnr
-
-
 def save_pdf_for_user(pnr: str, file_storage) -> str:
-    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/19900101-1234/12345_cv.pdf')."""
+    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/199001011234/12345_cv.pdf')."""
     if file_storage.filename == '':
         raise ValueError("Ingen fil vald.")
 
@@ -60,11 +47,8 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     os.makedirs(user_dir, exist_ok=True)
 
     base = secure_filename(file_storage.filename)
-    # ta bort personnummer från filnamnet om det finns där (tex '19900101-1234_cv.pdf')
-    # använd en enkel replace på normalized pnr och även version med '-' för att vara robust
-    pnr_for_strip = pnr_norm
-    base = base.replace(pnr_for_strip, '')
-    base = base.replace(pnr_for_strip.replace('-', ''), '')
+    # ta bort personnummer från filnamnet om det finns där (t.ex. '199001011234_cv.pdf')
+    base = base.replace(pnr_norm, '')
     base = base.lstrip('_- ')  # ta bort eventuella kvarvarande prefix-tecken
     # lägg på timestamp för att undvika krockar
     filename = f"{int(time.time())}_{base}"
@@ -77,14 +61,15 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
 
 @app.route('/create_user/<personnummer>', methods=['POST', 'GET'])
 def create_user(personnummer):
+    pnr_norm = normalize_personnummer(personnummer)
     if request.method == 'POST':
         password = request.form['password']
-        print(f"Skapar användare med personnummer: {personnummer} och lösenord: {password}")
-        functions.user_create_user(password, personnummer)
+        print(f"Skapar användare med personnummer: {pnr_norm} och lösenord: {password}")
+        functions.user_create_user(password, pnr_norm)
         return redirect('/')
     elif request.method == 'GET':
-        if functions.check_pending_user(personnummer):
-            return render_template('create_user.html', personnummer=personnummer)
+        if functions.check_pending_user(pnr_norm):
+            return render_template('create_user.html', personnummer=pnr_norm)
         else:
             return "Error: User not found"
 
@@ -96,7 +81,7 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        personnummer = request.form['personnummer']
+        personnummer = normalize_personnummer(request.form['personnummer'])
         password = request.form['password']
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
@@ -146,7 +131,7 @@ def admin():
             try:
                 email = request.form['email']
                 username = request.form['username']
-                personnummer = request.form['personnummer']
+                personnummer = normalize_personnummer(request.form['personnummer'])
                 pdf_file = request.files.get('pdf')
 
                 if not pdf_file:
