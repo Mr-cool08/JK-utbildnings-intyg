@@ -4,15 +4,29 @@
     <meta charset="UTF-8">
     <title>{% block title %}My Site{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body>
+    <nav>
+        <a href="/">Home</a>
+        {% if session.get('user_logged_in') %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/logout">Logout</a>
+        {% elif session.get('admin_logged_in') %}
+            <a href="/admin">Admin</a>
+            <a href="/logout">Logout</a>
+        {% else %}
+            <a href="/login">User Login</a>
+            <a href="/login_admin">Admin Login</a>
+        {% endif %}
+    </nav>
     <main>
         {% block content %}{% endblock %}
     </main>
     <footer>
         {% block footer %}© 2024{% endblock %}
     </footer>
-    
+
 </body>
 </html>

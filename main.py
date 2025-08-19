@@ -182,6 +182,15 @@ def login_admin():
     else:
         return jsonify({'status': 'error', 'message': 'Invalid request method', 'method': request.method})
 
+
+@app.route('/logout')
+def logout():
+    """Logga ut både admin och användare."""
+    session.pop('user_logged_in', None)
+    session.pop('admin_logged_in', None)
+    session.pop('personnummer', None)
+    return redirect('/')
+
 if __name__ == '__main__':
     functions.create_database()
     functions.create_test_user()  # Skapa en testanvändare vid start
