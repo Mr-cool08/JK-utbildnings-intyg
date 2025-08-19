@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Admin — Create User</title>
+    <style>
+        /* Minimal inline styling so the page is usable immediately */
+        body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 32px auto; padding: 0 16px; color: #222; }
+        h1 { margin-bottom: 8px; }
+        form { background: #f9f9f9; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        label { display:block; margin: 12px 0 6px; font-weight:600; }
+        input[type="text"], input[type="email"], input[type="password"] { width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:6px; box-sizing: border-box; }
+        .row { display:flex; gap:12px; }
+        .col { flex:1; }
+        button { margin-top:14px; padding:10px 16px; border: none; background:#007bff; color:white; border-radius:6px; cursor:pointer; }
+        button[disabled] { opacity:0.6; cursor:default; }
+        .message { margin-top:14px; padding:10px; border-radius:6px; }
+        .success { background:#e6ffe6; border:1px solid #7ddc7d; color:#1b6e1b; }
+        .error { background:#ffe6e6; border:1px solid #e07d7d; color:#6e1b1b; }
+        small.hint { color:#666; display:block; margin-top:6px; }
+    </style>
+</head>
+<body>
+    <h1>Admin — Create User</h1>
+    <p>Use this form to add a pending user. Fields are required. When the POST succeeds the server will insert into <code>pending_users</code>.</p>
+
+    <form id="adminForm" autocomplete="off">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required placeholder="user@example.com" />
+
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" required placeholder="Full name or username" />
+
+        <div class="row">
+            <div class="col">
+                <label for="personsnummer">Personnummer</label>
+                <!-- Simple pattern: 6-12 digits, allows formats like YYMMDDNNNN or YYYYMMDDNNNN -->
+                <input id="personsnummer" name="personsnummer" type="text" required pattern="[\d\-]{6,14}" placeholder="YYYYMMDDNNNN or YYMMDDNNNN" />
+                <small class="hint">Allowed characters: digits and hyphen. Example: 19900101-1234</small>
+            </div>
+
+            <div class="col">
+                <label for="pdf_path">PDF Path</label>
+                <input id="pdf_path" name="pdf_path" type="text" required placeholder="static/pdfs/user123.pdf" />
+                <small class="hint">Path stored in DB (doesn't upload the file). Use an existing path under your project.</small>
+            </div>
+        </div>
+
+        <button id="submitBtn" type="submit">Create pending user</button>
+
+        <div id="result" class="message" style="display:none"></div>
+    </form>
+
+    <script>
+        const form = document.getElementById('adminForm');
+        const resultBox = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function showMessage(text, ok=true) {
+            resultBox.style.display = 'block';
+            resultBox.className = 'message ' + (ok ? 'success' : 'error');
+            resultBox.textContent = text;
+        }
+
+        form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            // Basic validity check
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            submitBtn.disabled = true;
+            showMessage('Sending...', true);
+
+            const data = new FormData(form);
+
+            try {
+                const resp = await fetch('/admin', {
+                    method: 'POST',
+                    body: data
+                });
+
+                // server responds with JSON per your main.py
+                const json = await resp.json();
+
+                if (resp.ok && json.status === 'success') {
+                    showMessage(json.message || 'User created successfully', true);
+                    form.reset();
+                } else {
+                    showMessage(json.message || 'Server returned an error', false);
+                }
+            } catch (err) {
+                showMessage('Network or client error: ' + err.message, false);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
