@@ -42,6 +42,19 @@ def check_password_user(email, password):
     conn.close()
     return user is not None
 
+
+def check_personnummer_password(personnummer: str, password: str) -> bool:
+    """Returnera True om personnummer och lösenord matchar en användare."""
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute(
+        '''SELECT * FROM users WHERE personnummer = ? AND password = ?''',
+        (personnummer, password),
+    )
+    user = cursor.fetchone()
+    conn.close()
+    return user is not None
+
 def check_user_exists(email):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
