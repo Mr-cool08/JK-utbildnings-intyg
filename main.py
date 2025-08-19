@@ -1,9 +1,16 @@
-from flask import Flask, request, jsonify, render_template, session, redirect
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    session,
+    redirect,
+    send_from_directory,
+)
 from smtplib import SMTP
-import datetime
 import functions
+from functions import normalize_personnummer
 import os
-import re
 import time
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -21,19 +28,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
 ALLOWED_MIMES = {'application/pdf'}
 
 
-def normalize_personnummer(pnr: str) -> str:
-    """Behåll ev. bindestreck, ta bort mellanslag/ogiltiga tecken, begränsa längd."""
-    pnr = pnr.strip()
-    # tillåt siffror och ett ev. bindestreck
-    pnr = re.sub(r'[^0-9\-]', '', pnr)
-    # mycket enkel längd-begränsning (6–13 tecken, typ YYMMDDNNNN, YYYYMMDDNNNN, ev. -)
-    if not (6 <= len(pnr) <= 13 or (7 <= len(pnr) <= 14 and '-' in pnr)):
-        raise ValueError("Ogiltigt personnummerformat.")
-    return pnr
-
-
 def save_pdf_for_user(pnr: str, file_storage) -> str:
-    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/19900101-1234/12345_cv.pdf')."""
+    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/199001011234/12345_cv.pdf')."""
     if file_storage.filename == '':
         raise ValueError("Ingen fil vald.")
 
@@ -51,11 +47,8 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     os.makedirs(user_dir, exist_ok=True)
 
     base = secure_filename(file_storage.filename)
-    # ta bort personnummer från filnamnet om det finns där (tex '19900101-1234_cv.pdf')
-    # använd en enkel replace på normalized pnr och även version med '-' för att vara robust
-    pnr_for_strip = pnr_norm
-    base = base.replace(pnr_for_strip, '')
-    base = base.replace(pnr_for_strip.replace('-', ''), '')
+    # ta bort personnummer från filnamnet om det finns där (t.ex. '199001011234_cv.pdf')
+    base = base.replace(pnr_norm, '')
     base = base.lstrip('_- ')  # ta bort eventuella kvarvarande prefix-tecken
     # lägg på timestamp för att undvika krockar
     filename = f"{int(time.time())}_{base}"
@@ -68,14 +61,15 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
 
 @app.route('/create_user/<personnummer>', methods=['POST', 'GET'])
 def create_user(personnummer):
+    pnr_norm = normalize_personnummer(personnummer)
     if request.method == 'POST':
         password = request.form['password']
-        print(f"Skapar användare med personnummer: {personnummer} och lösenord: {password}")
-        functions.user_create_user(password, personnummer)
+        print(f"Skapar användare med personnummer: {pnr_norm} och lösenord: {password}")
+        functions.user_create_user(password, pnr_norm)
         return redirect('/')
     elif request.method == 'GET':
-        if functions.check_pending_user(personnummer):
-            return render_template('create_user.html', personnummer=personnummer)
+        if functions.check_pending_user(pnr_norm):
+            return render_template('create_user.html', personnummer=pnr_norm)
         else:
             return "Error: User not found"
 
@@ -87,7 +81,7 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        personnummer = request.form['personnummer']
+        personnummer = normalize_personnummer(request.form['personnummer'])
         password = request.form['password']
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
@@ -100,6 +94,36 @@ def login():
             )
     return render_template('user_login.html')
 
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    """Visa alla PDF:er för den inloggade användaren."""
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    pnr = session.get('personnummer')
+    try:
+        pnr_norm = normalize_personnummer(pnr)
+    except Exception:
+        return redirect('/login')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pdfs = []
+    if os.path.isdir(user_dir):
+        pdfs = [f for f in os.listdir(user_dir) if f.lower().endswith('.pdf')]
+    return render_template('dashboard.html', pdfs=pdfs)
+
+
+@app.route('/my_pdfs/<path:filename>')
+def download_pdf(filename):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    pnr = session.get('personnummer')
+    try:
+        pnr_norm = normalize_personnummer(pnr)
+    except Exception:
+        return redirect('/login')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    return send_from_directory(user_dir, filename, as_attachment=True)
+
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
     if request.method == 'POST':
@@ -107,16 +131,25 @@ def admin():
             try:
                 email = request.form['email']
                 username = request.form['username']
-                personnummer = request.form['personnummer']
+                personnummer = normalize_personnummer(request.form['personnummer'])
                 pdf_file = request.files.get('pdf')
 
                 if not pdf_file:
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
                 # spara filen i mapp per personnummer
-                save_pdf_for_user(personnummer, pdf_file)
+                pdf_path = save_pdf_for_user(personnummer, pdf_file)
 
-                if functions.admin_create_user(email, username, personnummer):
+                # Om användaren redan finns ska endast PDF:en sparas
+                if functions.get_user_info(personnummer):
+                    return jsonify(
+                        {
+                            'status': 'success',
+                            'message': 'PDF uploaded for existing user',
+                        }
+                    )
+
+                if functions.admin_create_user(email, username, personnummer, pdf_path):
                     return jsonify({'status': 'success', 'message': 'User created successfully'})
                 else:
                     return jsonify({'status': 'error', 'message': 'User already exists'}), 409

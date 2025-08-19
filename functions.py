@@ -1,6 +1,24 @@
 import sqlite3
 import hashlib
+import re
+from datetime import datetime
 
+
+def normalize_personnummer(pnr: str) -> str:
+    """Normalize Swedish personal numbers to 12 digits.
+
+    Accepts inputs with or without separators (e.g., YYMMDD-XXXX, YYYYMMDDXXXX).
+    Returns a string with only digits (YYYYMMDDXXXX).
+    """
+    digits = re.sub(r"\D", "", pnr)
+    if len(digits) == 10:  # YYMMDDXXXX
+        year = int(digits[:2])
+        current_year = datetime.now().year % 100
+        century = datetime.now().year // 100 - (1 if year > current_year else 0)
+        digits = f"{century:02d}{digits}"
+    if len(digits) != 12:
+        raise ValueError("Ogiltigt personnummerformat.")
+    return digits
 
 
 
@@ -15,7 +33,8 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             email TEXT NOT NULL,
-            personnummer TEXT NOT NULL
+            personnummer TEXT NOT NULL,
+            pdf_path TEXT NOT NULL
         )
     ''')
     cursor.execute('''
@@ -43,6 +62,7 @@ def check_password_user(email, password):
 
 def check_personnummer_password(personnummer: str, password: str) -> bool:
     """Returnera True om personnummer och lösenord matchar en användare."""
+    personnummer = normalize_personnummer(personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -74,6 +94,7 @@ def get_username(email):
     return user[0] if user else None
 
 def check_pending_user(personnummer):
+    personnummer = normalize_personnummer(personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
@@ -83,22 +104,27 @@ def check_pending_user(personnummer):
     conn.close()
     return user is not None
 
-def admin_create_user(email, username, personnummer):
+def admin_create_user(email, username, personnummer, pdf_path):
     if check_user_exists(email):
         return False
 
+    personnummer = normalize_personnummer(personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO pending_users (email, username, personnummer)
-        VALUES (?, ?, ?)
-    ''', (email, username, personnummer))
+    cursor.execute(
+        '''
+        INSERT INTO pending_users (email, username, personnummer, pdf_path)
+        VALUES (?, ?, ?, ?)
+        ''',
+        (email, username, personnummer, pdf_path),
+    )
     conn.commit()
     conn.close()
     return True
 
 
 def user_create_user(password, personnummer):
+    personnummer = normalize_personnummer(personnummer)
     if check_user_exists(personnummer):
         print("Användare finns redan")
         return False
@@ -142,6 +168,7 @@ def user_create_user(password, personnummer):
 
 
 def get_user_info(personnummer):
+    personnummer = normalize_personnummer(personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
@@ -155,4 +182,4 @@ def create_test_user():
     email = "test@example.com"
     username = "Test User"
     personnummer = "199001011234"
-    admin_create_user(email, username, personnummer)
+    admin_create_user(email, username, personnummer, "dummy.pdf")
