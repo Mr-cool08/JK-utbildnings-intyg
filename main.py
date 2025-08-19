@@ -51,6 +51,12 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     os.makedirs(user_dir, exist_ok=True)
 
     base = secure_filename(file_storage.filename)
+    # ta bort personnummer från filnamnet om det finns där (tex '19900101-1234_cv.pdf')
+    # använd en enkel replace på normalized pnr och även version med '-' för att vara robust
+    pnr_for_strip = pnr_norm
+    base = base.replace(pnr_for_strip, '')
+    base = base.replace(pnr_for_strip.replace('-', ''), '')
+    base = base.lstrip('_- ')  # ta bort eventuella kvarvarande prefix-tecken
     # lägg på timestamp för att undvika krockar
     filename = f"{int(time.time())}_{base}"
     abs_path = os.path.join(user_dir, filename)
