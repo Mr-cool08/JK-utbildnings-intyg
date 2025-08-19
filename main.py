@@ -83,6 +83,23 @@ def create_user(personnummer):
 def home():
     return render_template('index.html')
 
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        personnummer = request.form['personnummer']
+        password = request.form['password']
+        if functions.check_personnummer_password(personnummer, password):
+            session['user_logged_in'] = True
+            session['personnummer'] = personnummer
+            return redirect('/')
+        else:
+            return (
+                render_template('user_login.html', error='Invalid credentials'),
+                401,
+            )
+    return render_template('user_login.html')
+
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
     if request.method == 'POST':

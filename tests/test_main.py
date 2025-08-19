@@ -3,6 +3,7 @@ import os
 import sys
 
 import pytest
+import sqlite3
 from werkzeug.datastructures import FileStorage
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -38,3 +39,45 @@ def test_save_pdf_for_user(tmp_path, monkeypatch):
     assert os.path.exists(abs_path)
     with open(abs_path, "rb") as f:
         assert f.read() == pdf_bytes
+
+
+def setup_user(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+
+    real_connect = sqlite3.connect
+
+    def connect_stub(_):
+        return real_connect(db_path)
+
+    monkeypatch.setattr(main.functions.sqlite3, "connect", connect_stub)
+    import functions
+    monkeypatch.setattr(functions.sqlite3, "connect", connect_stub)
+    main.app.secret_key = "test-secret"
+
+    functions.create_database()
+    conn = real_connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, email, password, personnummer, pdf_path) VALUES (?, ?, ?, ?, ?)",
+        ("Test", "test@example.com", "secret", "199001011234", "path.pdf"),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_login_success(tmp_path, monkeypatch):
+    setup_user(tmp_path, monkeypatch)
+    with main.app.test_client() as client:
+        response = client.post(
+            "/login", data={"personnummer": "199001011234", "password": "secret"}
+        )
+        assert response.status_code == 302
+
+
+def test_login_failure(tmp_path, monkeypatch):
+    setup_user(tmp_path, monkeypatch)
+    with main.app.test_client() as client:
+        response = client.post(
+            "/login", data={"personnummer": "199001011234", "password": "wrong"}
+        )
+        assert response.status_code == 401
