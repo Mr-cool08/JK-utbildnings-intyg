@@ -66,7 +66,7 @@ def create_user(personnummer):
         password = request.form['password']
         print(f"Skapar användare med personnummer: {pnr_norm} och lösenord: {password}")
         functions.user_create_user(password, pnr_norm)
-        return redirect('/')
+        return redirect('/login')
     elif request.method == 'GET':
         if functions.check_pending_user(pnr_norm):
             return render_template('create_user.html', personnummer=pnr_norm)
@@ -86,7 +86,7 @@ def login():
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
             session['personnummer'] = personnummer
-            return redirect('/')
+            return redirect('/dashboard')
         else:
             return (
                 render_template('user_login.html', error='Invalid credentials'),
