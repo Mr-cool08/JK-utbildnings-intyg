@@ -1,4 +1,13 @@
-from flask import Flask, request, jsonify, render_template, session, redirect
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    session,
+    redirect,
+    send_from_directory,
+    url_for,
+)
 from smtplib import SMTP
 import datetime
 import functions
@@ -99,6 +108,36 @@ def login():
                 401,
             )
     return render_template('user_login.html')
+
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    """Visa alla PDF:er för den inloggade användaren."""
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    pnr = session.get('personnummer')
+    try:
+        pnr_norm = normalize_personnummer(pnr)
+    except Exception:
+        return redirect('/login')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pdfs = []
+    if os.path.isdir(user_dir):
+        pdfs = [f for f in os.listdir(user_dir) if f.lower().endswith('.pdf')]
+    return render_template('dashboard.html', pdfs=pdfs)
+
+
+@app.route('/my_pdfs/<path:filename>')
+def download_pdf(filename):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    pnr = session.get('personnummer')
+    try:
+        pnr_norm = normalize_personnummer(pnr)
+    except Exception:
+        return redirect('/login')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    return send_from_directory(user_dir, filename, as_attachment=True)
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():

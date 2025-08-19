@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Your PDFs</h1>
+{% if pdfs %}
+<ul>
+    {% for pdf in pdfs %}
+    <li><a href="{{ url_for('download_pdf', filename=pdf) }}">{{ pdf }}</a></li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>No PDFs uploaded.</p>
+{% endif %}
+{% endblock %}
