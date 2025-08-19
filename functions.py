@@ -15,7 +15,8 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             email TEXT NOT NULL,
-            personnummer TEXT NOT NULL
+            personnummer TEXT NOT NULL,
+            pdf_path TEXT NOT NULL
         )
     ''')
     cursor.execute('''
@@ -83,16 +84,19 @@ def check_pending_user(personnummer):
     conn.close()
     return user is not None
 
-def admin_create_user(email, username, personnummer):
+def admin_create_user(email, username, personnummer, pdf_path):
     if check_user_exists(email):
         return False
 
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO pending_users (email, username, personnummer)
-        VALUES (?, ?, ?)
-    ''', (email, username, personnummer))
+    cursor.execute(
+        '''
+        INSERT INTO pending_users (email, username, personnummer, pdf_path)
+        VALUES (?, ?, ?, ?)
+        ''',
+        (email, username, personnummer, pdf_path),
+    )
     conn.commit()
     conn.close()
     return True
@@ -155,4 +159,4 @@ def create_test_user():
     email = "test@example.com"
     username = "Test User"
     personnummer = "199001011234"
-    admin_create_user(email, username, personnummer)
+    admin_create_user(email, username, personnummer, "dummy.pdf")

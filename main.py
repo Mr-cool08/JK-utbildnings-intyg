@@ -153,9 +153,9 @@ def admin():
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
                 # spara filen i mapp per personnummer
-                save_pdf_for_user(personnummer, pdf_file)
+                pdf_path = save_pdf_for_user(personnummer, pdf_file)
 
-                if functions.admin_create_user(email, username, personnummer):
+                if functions.admin_create_user(email, username, personnummer, pdf_path):
                     return jsonify({'status': 'success', 'message': 'User created successfully'})
                 else:
                     return jsonify({'status': 'error', 'message': 'User already exists'}), 409

@@ -102,3 +102,55 @@ def test_dashboard_shows_only_user_pdfs(tmp_path, monkeypatch):
         response = client.get("/dashboard")
         assert b"own.pdf" in response.data
         assert b"other.pdf" not in response.data
+
+
+def setup_db(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    real_connect = sqlite3.connect
+
+    def connect_stub(_):
+        return real_connect(db_path)
+
+    monkeypatch.setattr(main.functions.sqlite3, "connect", connect_stub)
+    import functions
+    monkeypatch.setattr(functions.sqlite3, "connect", connect_stub)
+    main.app.secret_key = "test-secret"
+
+    functions.create_database()
+    return db_path
+
+
+def test_admin_upload_creates_pending_user(tmp_path, monkeypatch):
+    db_path = setup_db(tmp_path, monkeypatch)
+    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "new@example.com",
+        "username": "New User",
+        "personnummer": "199001011234",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with main.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["admin_logged_in"] = True
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+        assert response.status_code == 200
+        assert response.get_json()["status"] == "success"
+
+    # Verify file saved
+    user_dir = tmp_path / "199001011234"
+    files = list(user_dir.glob("*.pdf"))
+    assert len(files) == 1
+
+    # Verify database entry contains pdf_path
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT pdf_path FROM pending_users WHERE email=?", ("new@example.com",)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    assert row[0].endswith(files[0].name)
