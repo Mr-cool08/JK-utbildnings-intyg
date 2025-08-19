@@ -60,7 +60,18 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
     return rel_path
 
-
+@app.route('/create_user/<personnummer>', methods=['POST', 'GET'])
+def create_user(personnummer):
+    if request.method == 'POST':
+        password = request.form['password']
+        print(f"Skapar användare med personnummer: {personnummer} och lösenord: {password}")
+        functions.user_create_user(password, personnummer)
+        return redirect('/')
+    elif request.method == 'GET':
+        if functions.check_pending_user(personnummer):
+            return render_template('create_user.html', personnummer=personnummer)
+        else:
+            return "Error: User not found"
 
 @app.route('/', methods=['GET'])
 def home():
@@ -69,21 +80,21 @@ def home():
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
     if request.method == 'POST':
-        if session.get('logged_in'):
+        if session.get('admin_logged_in'):
             try:
                 email = request.form['email']
                 username = request.form['username']
-                personsnummer = request.form['personsnummer']
+                personnummer = request.form['personnummer']
                 pdf_file = request.files.get('pdf')
 
                 if not pdf_file:
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
                 # spara filen i mapp per personnummer
-                pdf_path = save_pdf_for_user(personsnummer, pdf_file)
+                pdf_path = save_pdf_for_user(personnummer, pdf_file)
 
                 # lagra den relativa sökvägen i DB
-                if functions.admin_create_user(email, username, personsnummer, pdf_path):
+                if functions.admin_create_user(email, username, personnummer, pdf_path):
                     return jsonify({'status': 'success', 'message': 'User created successfully', 'pdf_path': pdf_path})
                 else:
                     return jsonify({'status': 'error', 'message': 'User already exists'}), 409
@@ -95,7 +106,7 @@ def admin():
         else:
             return redirect('/login_admin')
     # GET
-    if not session.get('logged_in'):
+    if not session.get('admin_logged_in'):
         return redirect('/login_admin')
     return render_template('admin.html')
 
@@ -107,7 +118,7 @@ def login_admin():
         admin_password = os.getenv('admin_password')
         admin_username = os.getenv('admin_username')
         if request.form['username'] == admin_username and request.form['password'] == admin_password:
-            session['logged_in'] = True
+            session['admin_logged_in'] = True
             return redirect('/admin')
         else:
             return jsonify({'status': 'error', 'message': 'Invalid credentials'})
@@ -118,4 +129,5 @@ def login_admin():
 
 if __name__ == '__main__':
     functions.create_database()
+    functions.create_test_user()  # Skapa en testanvändare vid start
     app.run(debug=True, host='0.0.0.0', port=80)

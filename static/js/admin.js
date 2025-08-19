@@ -9,7 +9,7 @@
   // Fält
   const emailInput = document.getElementById('email');
   const usernameInput = document.getElementById('username');
-  const pnrInput = document.getElementById('personsnummer');
+  const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
 
   // --- Konstanter (synka gärna med servern) ---
@@ -83,11 +83,11 @@
       return;
     }
 
-    // Bygg FormData (måste matcha serverns förväntningar: email, username, personsnummer, pdf)
+    // Bygg FormData (måste matcha serverns förväntningar: email, username, personnummer, pdf)
     const fd = new FormData();
     fd.append('email', email);
     fd.append('username', username);
-    fd.append('personsnummer', pnr);
+    fd.append('personnummer', pnr);
     fd.append('pdf', file);
 
     // Skicka
