@@ -110,7 +110,7 @@
       }
 
       if (res.ok && data && data.status === 'success') {
-        showMessage('success', `Användare skapad. PDF-sökväg: ${data.pdf_path}`);
+        showMessage('success', 'Användare skapad.');
         form.reset();
       } else {
         const msg =

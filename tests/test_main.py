@@ -58,8 +58,8 @@ def setup_user(tmp_path, monkeypatch):
     conn = real_connect(db_path)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer, pdf_path) VALUES (?, ?, ?, ?, ?)",
-        ("Test", "test@example.com", "secret", "199001011234", "path.pdf"),
+        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
+        ("Test", "test@example.com", "secret", "199001011234"),
     )
     conn.commit()
     conn.close()

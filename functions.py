@@ -15,8 +15,7 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             email TEXT NOT NULL,
-            personnummer TEXT NOT NULL,
-            pdf_path TEXT NOT NULL
+            personnummer TEXT NOT NULL
         )
     ''')
     cursor.execute('''
@@ -25,8 +24,7 @@ def create_database():
             username TEXT NOT NULL,
             email TEXT NOT NULL,
             password TEXT NOT NULL,
-            personnummer TEXT NOT NULL,
-            pdf_path TEXT NOT NULL
+            personnummer TEXT NOT NULL
         )
     ''')
     conn.commit()
@@ -85,16 +83,16 @@ def check_pending_user(personnummer):
     conn.close()
     return user is not None
 
-def admin_create_user(email, username, personnummer, pdf_path):
+def admin_create_user(email, username, personnummer):
     if check_user_exists(email):
         return False
 
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO pending_users (email, username, personnummer, pdf_path)
-        VALUES (?, ?, ?, ?)
-    ''', (email, username, personnummer, pdf_path))
+        INSERT INTO pending_users (email, username, personnummer)
+        VALUES (?, ?, ?)
+    ''', (email, username, personnummer))
     conn.commit()
     conn.close()
     return True
@@ -108,29 +106,29 @@ def user_create_user(password, personnummer):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     try:
-        
+
         # Hämta användaren från pending_users
         cursor.execute('''
-            SELECT email, username, personnummer, pdf_path 
-            FROM pending_users 
+            SELECT email, username, personnummer
+            FROM pending_users
             WHERE personnummer = ?
         ''', (personnummer,))
         row = cursor.fetchone()
         if not row:
             return False
-        
 
-        email, username, personnummer, pdf_path = row
-        print(f"Skapar användare: {email}, {username}, {personnummer}, {pdf_path}")
+
+        email, username, personnummer = row
+        print(f"Skapar användare: {email}, {username}, {personnummer}")
 
         # Ta bort från pending_users
         cursor.execute('DELETE FROM pending_users WHERE personnummer = ?', (personnummer,))
         print("Användare borttagen från pending_users")
         # Lägg in i users
         cursor.execute('''
-            INSERT INTO users (email, password, username, personnummer, pdf_path)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (email, password, username, personnummer, pdf_path))
+            INSERT INTO users (email, password, username, personnummer)
+            VALUES (?, ?, ?, ?)
+        ''', (email, password, username, personnummer))
         print("Användare skapad i users")
 
         conn.commit()
@@ -157,5 +155,4 @@ def create_test_user():
     email = "test@example.com"
     username = "Test User"
     personnummer = "199001011234"
-    pdf_path = "static/uploads/test.pdf"
-    admin_create_user(email, username, personnummer, pdf_path)
+    admin_create_user(email, username, personnummer)

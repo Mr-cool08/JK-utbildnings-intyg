@@ -114,11 +114,10 @@ def admin():
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
                 # spara filen i mapp per personnummer
-                pdf_path = save_pdf_for_user(personnummer, pdf_file)
+                save_pdf_for_user(personnummer, pdf_file)
 
-                # lagra den relativa sökvägen i DB
-                if functions.admin_create_user(email, username, personnummer, pdf_path):
-                    return jsonify({'status': 'success', 'message': 'User created successfully', 'pdf_path': pdf_path})
+                if functions.admin_create_user(email, username, personnummer):
+                    return jsonify({'status': 'success', 'message': 'User created successfully'})
                 else:
                     return jsonify({'status': 'error', 'message': 'User already exists'}), 409
             except ValueError as ve:
