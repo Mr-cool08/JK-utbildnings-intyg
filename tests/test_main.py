@@ -61,7 +61,12 @@ def setup_user(tmp_path, monkeypatch):
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        ("Test", "test@example.com", "secret", "199001011234"),
+        (
+            "Test",
+            functions.hash_value("test@example.com"),
+            functions.hash_value("secret"),
+            functions.hash_value("199001011234"),
+        ),
     )
     conn.commit()
     conn.close()
@@ -91,11 +96,11 @@ def test_dashboard_shows_only_user_pdfs(tmp_path, monkeypatch):
     setup_user(tmp_path, monkeypatch)
     monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
 
-    user_dir = tmp_path / "199001011234"
+    user_dir = tmp_path / functions.hash_value("199001011234")
     user_dir.mkdir()
     (user_dir / "own.pdf").write_text("test")
 
-    other_dir = tmp_path / "200001011234"
+    other_dir = tmp_path / functions.hash_value("200001011234")
     other_dir.mkdir()
     (other_dir / "other.pdf").write_text("test")
 
@@ -125,14 +130,10 @@ def setup_db(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "pnr_input, expected_dir",
-    [
-        ("199001011234", "199001011234"),
-        ("19900101-1234", "199001011234"),
-        ("900101-1234", "199001011234"),
-    ],
+    "pnr_input",
+    ["199001011234", "19900101-1234", "900101-1234"],
 )
-def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input, expected_dir):
+def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     db_path = setup_db(tmp_path, monkeypatch)
     monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
 
@@ -151,17 +152,20 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input, exp
         assert response.status_code == 200
         assert response.get_json()["status"] == "success"
 
+    pnr_norm = functions.normalize_personnummer(pnr_input)
+    expected_dir = functions.hash_value(pnr_norm)
+
     # Verify file saved
     user_dir = tmp_path / expected_dir
     files = list(user_dir.glob("*.pdf"))
     assert len(files) == 1
 
-    # Verify database entry contains normalized personnummer and pdf_path
+    # Verify database entry contains hashed personnummer and pdf_path
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute(
         "SELECT personnummer, pdf_path FROM pending_users WHERE email=?",
-        ("new@example.com",),
+        (functions.hash_value("new@example.com"),),
     )
     row = cursor.fetchone()
     conn.close()
@@ -179,7 +183,12 @@ def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        ("Existing", "exist@example.com", "secret", "199001011234"),
+        (
+            "Existing",
+            functions.hash_value("exist@example.com"),
+            functions.hash_value("secret"),
+            functions.hash_value("199001011234"),
+        ),
     )
     conn.commit()
     conn.close()

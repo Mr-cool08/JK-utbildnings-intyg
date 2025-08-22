@@ -9,7 +9,7 @@ from flask import (
 )
 from smtplib import SMTP
 import functions
-from functions import normalize_personnummer
+from functions import normalize_personnummer, hash_value
 import os
 import time
 from werkzeug.utils import secure_filename
@@ -29,7 +29,7 @@ ALLOWED_MIMES = {'application/pdf'}
 
 
 def save_pdf_for_user(pnr: str, file_storage) -> str:
-    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/199001011234/12345_cv.pdf')."""
+    """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
     if file_storage.filename == '':
         raise ValueError("Ingen fil vald.")
 
@@ -43,7 +43,8 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
     pnr_norm = normalize_personnummer(pnr)
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = hash_value(pnr_norm)
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     os.makedirs(user_dir, exist_ok=True)
 
     base = secure_filename(file_storage.filename)
@@ -85,7 +86,7 @@ def login():
         password = request.form['password']
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            session['personnummer'] = personnummer
+            session['personnummer'] = hash_value(personnummer)
             return redirect('/dashboard')
         else:
             return (
@@ -100,12 +101,8 @@ def dashboard():
     """Visa alla PDF:er för den inloggade användaren."""
     if not session.get('user_logged_in'):
         return redirect('/login')
-    pnr = session.get('personnummer')
-    try:
-        pnr_norm = normalize_personnummer(pnr)
-    except Exception:
-        return redirect('/login')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = session.get('personnummer')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     pdfs = []
     if os.path.isdir(user_dir):
         pdfs = [f for f in os.listdir(user_dir) if f.lower().endswith('.pdf')]
@@ -116,12 +113,8 @@ def dashboard():
 def download_pdf(filename):
     if not session.get('user_logged_in'):
         return redirect('/login')
-    pnr = session.get('personnummer')
-    try:
-        pnr_norm = normalize_personnummer(pnr)
-    except Exception:
-        return redirect('/login')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = session.get('personnummer')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     return send_from_directory(user_dir, filename, as_attachment=True)
 
 @app.route('/admin', methods=['POST', 'GET'])
