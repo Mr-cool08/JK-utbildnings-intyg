@@ -18,10 +18,14 @@
   const ALLOWED_MIME = 'application/pdf';
 
   // --- Hjälpmeddelanden ---
-  function showMessage(type, text) {
+  function showMessage(type, text, isHtml = false) {
     result.style.display = 'block';
     result.className = `message ${type}`;
-    result.textContent = text;
+    if (isHtml) {
+      result.innerHTML = text;
+    } else {
+      result.textContent = text;
+    }
   }
   function hideMessage() {
     result.style.display = 'none';
@@ -110,7 +114,10 @@
       }
 
       if (res.ok && data && data.status === 'success') {
-        showMessage('success', 'Användare skapad.');
+        const msg = data.link
+          ? `Användare skapad. Länk: <a href="${data.link}">${data.link}</a>`
+          : 'Användare skapad.';
+        showMessage('success', msg, !!data.link);
         form.reset();
       } else {
         const msg =
