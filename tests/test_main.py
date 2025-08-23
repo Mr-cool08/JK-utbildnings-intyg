@@ -268,3 +268,11 @@ def test_logout_clears_admin_session(tmp_path, monkeypatch):
         client.get("/logout")
         with client.session_transaction() as sess:
             assert "admin_logged_in" not in sess
+
+
+def test_custom_404_page():
+    """Ensure unknown routes return the custom 404 page."""
+    with main.app.test_client() as client:
+        response = client.get("/this-page-does-not-exist")
+        assert response.status_code == 404
+        assert b"Sidan du letade efter" in response.data

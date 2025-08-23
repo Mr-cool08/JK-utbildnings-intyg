@@ -115,3 +115,23 @@ a.license-link:hover {
     background: #007bff;
     color: #fff;
 }
+
+.not-found {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.not-found h1 {
+    font-size: 96px;
+    margin: 0 0 20px;
+}
+
+.not-found a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.not-found a:hover {
+    text-decoration: underline;
+}
