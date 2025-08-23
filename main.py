@@ -78,6 +78,11 @@ def home():
     return render_template('index.html')
 
 
+@app.route('/license', methods=['GET'])
+def license():
+    return render_template('license.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
