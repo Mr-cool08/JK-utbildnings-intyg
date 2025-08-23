@@ -195,6 +195,12 @@ def logout():
     session.pop('personnummer', None)
     return redirect('/')
 
+
+@app.errorhandler(404)
+def page_not_found(_):
+    """Visa en användarvänlig 404-sida när en sida saknas."""
+    return render_template('404.html'), 404
+
 if __name__ == '__main__':
     functions.create_database()
     functions.create_test_user()  # Skapa en testanvändare vid start
