@@ -23,3 +23,25 @@ This web application manages the issuance and storage of course certificates. It
 
 This description focuses on the internal workflow and division of responsibilities. Operational details such as installation or deployment are intentionally omitted.
 
+## Production
+
+1. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run with Gunicorn:
+
+   ```bash
+   gunicorn -c gunicorn.conf.py "wsgi:app"
+   ```
+
+3. Docker:
+
+   ```bash
+   docker build -t jk-utbildningsintyg .
+   docker run -p 8000:8000 jk-utbildningsintyg
+   ```
+
+Place a reverse proxy such as Nginx in front of the application and terminate TLS there.
