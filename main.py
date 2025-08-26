@@ -6,14 +6,31 @@ from flask import (
     session,
     redirect,
     send_from_directory,
+    g,
 )
 from smtplib import SMTP
+import logging
+import sys
+import uuid
+import sqlite3
 import functions
 from functions import normalize_personnummer, hash_value
 import os
 import time
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+try:
+    from flask_cors import CORS
+except Exception:  # pragma: no cover - optional dependency
+    def CORS(*args, **kwargs):
+        return None
+
+try:
+    from flask_talisman import Talisman
+except Exception:  # pragma: no cover - optional dependency
+    class Talisman:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -21,15 +38,75 @@ UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
 
 
+class RequestIDFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = getattr(g, 'request_id', '-')
+        return True
+
+
+def configure_logging(app: Flask, level: str) -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s [%(request_id)s] %(message)s'
+    )
+    handler.setFormatter(formatter)
+    handler.addFilter(RequestIDFilter())
+    app.logger.handlers = [handler]
+    app.logger.setLevel(level)
+
+
 def create_app() -> Flask:
     """Create and configure the Flask application."""
     load_dotenv()
     functions.create_database()
     app = Flask(__name__)
-    app.secret_key = os.getenv('secret_key')
+    app.secret_key = os.getenv('SECRET_KEY') or os.getenv('secret_key')
+
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.config['DEBUG'] = debug
+    if not debug:
+        app.config.update(
+            SESSION_COOKIE_SECURE=True,
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE='Lax',
+        )
+
     os.makedirs(UPLOAD_ROOT, exist_ok=True)
     app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+
+    configure_logging(app, os.getenv('LOG_LEVEL', 'INFO').upper())
+
+    allowed_origins = os.getenv('ALLOWED_ORIGINS')
+    cors_origins = None
+    if allowed_origins:
+        cors_origins = [o.strip() for o in allowed_origins.split(',') if o.strip()]
+        try:
+            CORS(app, origins=cors_origins)
+        except Exception:
+            pass
+
+    Talisman(app, force_https=False, content_security_policy={"default-src": "'self'"})
+
+    @app.before_request
+    def set_request_id():
+        g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+
+    @app.after_request
+    def add_headers(response):
+        response.headers['X-Request-ID'] = g.get('request_id', '')
+        response.headers.setdefault(
+            'Strict-Transport-Security', 'max-age=31536000; includeSubDomains'
+        )
+        response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('Content-Security-Policy', "default-src 'self'")
+        if cors_origins:
+            origin = request.headers.get('Origin')
+            if origin in cors_origins:
+                response.headers['Access-Control-Allow-Origin'] = origin
+        return response
+
     return app
 
 
@@ -205,21 +282,81 @@ def logout():
     session.pop('personnummer', None)
     return redirect('/')
 
+@app.route('/healthz')
+def healthz():
+    return jsonify({'status': 'ok'})
 
+
+@app.route('/readiness')
+def readiness():
+    details = {}
+    storage = app.config['UPLOAD_ROOT']
+    if os.path.isdir(storage) and os.access(storage, os.W_OK):
+        details['storage'] = 'ok'
+    else:
+        details['storage'] = 'unwritable'
+
+    try:
+        conn = sqlite3.connect('database.db')
+        conn.execute('SELECT 1')
+        conn.close()
+        details['database'] = 'ok'
+    except Exception as e:
+        details['database'] = str(e)
+
+    status = 'ok'
+    status_code = 200
+    if any(v != 'ok' for v in details.values()):
+        status = 'fail'
+        status_code = 503
+    return jsonify({'status': status, 'details': details}), status_code
+
+
+def wants_json_response() -> bool:
+    return (
+        request.path.startswith('/api/')
+        or request.accept_mimetypes.best == 'application/json'
+    )
+
+
+def json_error_response(error, status_code):
+    return (
+        jsonify(
+            {
+                'type': error.__class__.__name__,
+                'message': getattr(error, 'description', str(error)),
+                'status': status_code,
+                'request_id': g.get('request_id'),
+            }
+        ),
+        status_code,
+    )
+
+
+@app.errorhandler(400)
 @app.errorhandler(404)
-def page_not_found(_):
-    """Visa en användarvänlig 404-sida när en sida saknas."""
-    return render_template('404.html'), 404
+@app.errorhandler(405)
+def handle_4xx(error):
+    code = getattr(error, 'code', 400)
+    if wants_json_response():
+        return json_error_response(error, code)
+    if code == 404:
+        return render_template('404.html'), 404
+    return str(getattr(error, 'description', error)), code
+
+
+@app.errorhandler(500)
+def handle_500(error):
+    app.logger.exception('Unhandled exception: %s', error)
+    if wants_json_response():
+        return json_error_response(error, 500)
+    return 'Internal Server Error', 500
+
 
 if __name__ == '__main__':
-    if os.getenv('FLASK_ENV') == 'development':
-        functions.create_database()
+    if app.debug:
         functions.create_test_user()  # Skapa en testanvändare vid start
         print("Running in development mode")
     else:
         print("Running in production mode")
-    app.run(
-        debug=os.getenv('FLASK_ENV') == 'development',
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 80)),
-    )
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 80)))
