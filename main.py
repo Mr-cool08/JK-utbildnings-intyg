@@ -9,27 +9,35 @@ from flask import (
 )
 from smtplib import SMTP
 import functions
-from functions import normalize_personnummer
+from functions import normalize_personnummer, hash_value
 import os
 import time
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 
-
-load_dotenv()
-app = Flask(__name__)
-app.secret_key = os.getenv('secret_key')
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
-os.makedirs(UPLOAD_ROOT, exist_ok=True)
-app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
 ALLOWED_MIMES = {'application/pdf'}
 
 
+def create_app() -> Flask:
+    """Create and configure the Flask application."""
+    load_dotenv()
+    functions.create_database()
+    app = Flask(__name__)
+    app.secret_key = os.getenv('secret_key')
+    os.makedirs(UPLOAD_ROOT, exist_ok=True)
+    app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+    return app
+
+
+app = create_app()
+
+
 def save_pdf_for_user(pnr: str, file_storage) -> str:
-    """Spara PDF i uploads/<pnr>/ och returnera relativ sökväg (t.ex. 'uploads/199001011234/12345_cv.pdf')."""
+    """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
     if file_storage.filename == '':
         raise ValueError("Ingen fil vald.")
 
@@ -43,7 +51,8 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
     pnr_norm = normalize_personnummer(pnr)
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = hash_value(pnr_norm)
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     os.makedirs(user_dir, exist_ok=True)
 
     base = secure_filename(file_storage.filename)
@@ -59,23 +68,27 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
     return rel_path
 
-@app.route('/create_user/<personnummer>', methods=['POST', 'GET'])
-def create_user(personnummer):
-    pnr_norm = normalize_personnummer(personnummer)
+@app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
+def create_user(pnr_hash):
     if request.method == 'POST':
         password = request.form['password']
-        print(f"Skapar användare med personnummer: {pnr_norm} och lösenord: {password}")
-        functions.user_create_user(password, pnr_norm)
+        print(f"Skapar användare med hash: {pnr_hash} och lösenord: {password}")
+        functions.user_create_user(password, pnr_hash)
         return redirect('/login')
     elif request.method == 'GET':
-        if functions.check_pending_user(pnr_norm):
-            return render_template('create_user.html', personnummer=pnr_norm)
+        if functions.check_pending_user_hash(pnr_hash):
+            return render_template('create_user.html')
         else:
             return "Error: User not found"
 
 @app.route('/', methods=['GET'])
 def home():
     return render_template('index.html')
+
+
+@app.route('/license', methods=['GET'])
+def license():
+    return render_template('license.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -85,7 +98,7 @@ def login():
         password = request.form['password']
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            session['personnummer'] = personnummer
+            session['personnummer'] = hash_value(personnummer)
             return redirect('/dashboard')
         else:
             return (
@@ -100,12 +113,8 @@ def dashboard():
     """Visa alla PDF:er för den inloggade användaren."""
     if not session.get('user_logged_in'):
         return redirect('/login')
-    pnr = session.get('personnummer')
-    try:
-        pnr_norm = normalize_personnummer(pnr)
-    except Exception:
-        return redirect('/login')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = session.get('personnummer')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     pdfs = []
     if os.path.isdir(user_dir):
         pdfs = [f for f in os.listdir(user_dir) if f.lower().endswith('.pdf')]
@@ -116,12 +125,8 @@ def dashboard():
 def download_pdf(filename):
     if not session.get('user_logged_in'):
         return redirect('/login')
-    pnr = session.get('personnummer')
-    try:
-        pnr_norm = normalize_personnummer(pnr)
-    except Exception:
-        return redirect('/login')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_norm)
+    pnr_hash = session.get('personnummer')
+    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     return send_from_directory(user_dir, filename, as_attachment=True)
 
 @app.route('/admin', methods=['POST', 'GET'])
@@ -150,7 +155,14 @@ def admin():
                     )
 
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
-                    return jsonify({'status': 'success', 'message': 'User created successfully'})
+                    link = f"/create_user/{hash_value(personnummer)}"
+                    return jsonify(
+                        {
+                            'status': 'success',
+                            'message': 'User created successfully',
+                            'link': link,
+                        }
+                    )
                 else:
                     return jsonify({'status': 'error', 'message': 'User already exists'}), 409
             except ValueError as ve:
@@ -191,7 +203,17 @@ def logout():
     session.pop('personnummer', None)
     return redirect('/')
 
+
+@app.errorhandler(404)
+def page_not_found(_):
+    """Visa en användarvänlig 404-sida när en sida saknas."""
+    return render_template('404.html'), 404
+
 if __name__ == '__main__':
-    functions.create_database()
-    functions.create_test_user()  # Skapa en testanvändare vid start
-    app.run(debug=True, host='0.0.0.0', port=80)
+    if os.getenv('FLASK_ENV') == 'development':
+        functions.create_test_user()  # Skapa en testanvändare vid start
+    app.run(
+        debug=os.getenv('FLASK_ENV') == 'development',
+        host='0.0.0.0',
+        port=int(os.getenv('PORT', 80)),
+    )

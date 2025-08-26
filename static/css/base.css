@@ -99,3 +99,39 @@ small.hint {
     display: block;
     margin-top: 6px;
 }
+
+a.license-link {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    color: #007bff;
+    text-decoration: none;
+}
+
+a.license-link:hover {
+    background: #007bff;
+    color: #fff;
+}
+
+.not-found {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.not-found h1 {
+    font-size: 96px;
+    margin: 0 0 20px;
+}
+
+.not-found a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.not-found a:hover {
+    text-decoration: underline;
+}
