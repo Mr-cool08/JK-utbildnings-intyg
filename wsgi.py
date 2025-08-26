@@ -1,5 +1,7 @@
-from main import app as application
+from werkzeug.middleware.proxy_fix import ProxyFix
+from main import app
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 if __name__ == "__main__":
-    # This allows running the app with `python wsgi.py`
-    application.run()
+    app.run()
