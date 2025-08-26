@@ -211,7 +211,11 @@ def page_not_found(_):
 
 if __name__ == '__main__':
     if os.getenv('FLASK_ENV') == 'development':
+        functions.create_database()
         functions.create_test_user()  # Skapa en testanvändare vid start
+        print("Running in development mode")
+    else:
+        print("Running in production mode")
     app.run(
         debug=os.getenv('FLASK_ENV') == 'development',
         host='0.0.0.0',
