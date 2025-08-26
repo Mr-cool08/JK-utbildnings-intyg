@@ -35,7 +35,9 @@ def create_app() -> Flask:
 
 app = create_app()
 
-
+@app.context_processor
+def inject_flags():
+    return {"IS_DEV": app.debug}
 def save_pdf_for_user(pnr: str, file_storage) -> str:
     """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
     if file_storage.filename == '':
