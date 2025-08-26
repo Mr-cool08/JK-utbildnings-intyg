@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+venv/
+.env
+pytest.ini
+.pytest_cache/
+.git
+.gitignore

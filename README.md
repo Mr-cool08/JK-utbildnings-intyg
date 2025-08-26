@@ -23,3 +23,19 @@ This web application manages the issuance and storage of course certificates. It
 
 This description focuses on the internal workflow and division of responsibilities. Operational details such as installation or deployment are intentionally omitted.
 
+## Production
+
+```bash
+pip install -r requirements.txt
+gunicorn -c gunicorn.conf.py "wsgi:app"
+```
+
+### Docker
+
+```bash
+docker build -t jk-utbildning .
+docker run -p 8000:8000 jk-utbildning
+```
+
+Place the application behind a reverse proxy that terminates TLS and forwards the appropriate headers.
+

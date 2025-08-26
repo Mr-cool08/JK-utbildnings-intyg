@@ -6,14 +6,30 @@ from flask import (
     session,
     redirect,
     send_from_directory,
+    g,
 )
 from smtplib import SMTP
 import functions
 from functions import normalize_personnummer, hash_value
 import os
 import time
+import logging
+import uuid
+import sqlite3
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+
+try:
+    from flask_cors import CORS
+except Exception:  # pragma: no cover - fallback when package missing
+    CORS = None
+
+try:
+    from flask_talisman import Talisman
+except Exception:  # pragma: no cover - fallback when package missing
+    class Talisman:  # type: ignore
+        def __init__(self, app, *args, **kwargs):
+            pass
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -26,10 +42,65 @@ def create_app() -> Flask:
     load_dotenv()
     functions.create_database()
     app = Flask(__name__)
-    app.secret_key = os.getenv('secret_key')
+
+    # Debug configuration
+    debug_flag = os.getenv('FLASK_DEBUG')
+    app.debug = debug_flag.lower() in {'1', 'true', 'yes'} if debug_flag else False
+
+    # Secret key and uploads
+    app.secret_key = os.getenv('SECRET_KEY', 'change-me')
     os.makedirs(UPLOAD_ROOT, exist_ok=True)
     app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+
+    # Secure cookies in production
+    app.config.update(
+        SESSION_COOKIE_SECURE=not app.debug,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+    )
+
+    # Logging configuration
+    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s [%(request_id)s] %(message)s'
+    )
+    handler.setFormatter(formatter)
+
+    class RequestIDFilter(logging.Filter):
+        def filter(self, record):
+            record.request_id = getattr(g, 'request_id', '-')
+            return True
+
+    handler.addFilter(RequestIDFilter())
+    app.logger.addHandler(handler)
+    app.logger.setLevel(log_level)
+    app.logger.propagate = False
+
+    # Security headers (Talisman if available)
+    Talisman(
+        app,
+        content_security_policy={'default-src': "'self'"},
+        force_https=False,
+    )
+
+    # CORS
+    origins = os.getenv('ALLOWED_ORIGINS')
+    if origins:
+        origin_list = [o.strip() for o in origins.split(',') if o.strip()]
+        if CORS:
+            CORS(app, origins=origin_list)
+        else:
+            @app.after_request
+            def _cors_headers(resp):  # pragma: no cover - simple fallback
+                origin = request.headers.get('Origin')
+                if origin in origin_list:
+                    resp.headers['Access-Control-Allow-Origin'] = origin
+                return resp
+    elif app.debug and CORS:
+        CORS(app)
+
     return app
 
 
@@ -38,6 +109,30 @@ app = create_app()
 @app.context_processor
 def inject_flags():
     return {"IS_DEV": app.debug}
+
+
+def wants_json_response() -> bool:
+    if request.path.startswith("/api/"):
+        return True
+    return request.accept_mimetypes.best == "application/json"
+
+
+@app.before_request
+def assign_request_id():
+    g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+
+
+@app.after_request
+def add_request_id(response):
+    response.headers["X-Request-ID"] = g.request_id
+    # Security headers
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+    )
+    response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    return response
 def save_pdf_for_user(pnr: str, file_storage) -> str:
     """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
     if file_storage.filename == '':
@@ -69,6 +164,41 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     # relativ sökväg från projektroten
     rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
     return rel_path
+
+
+@app.get('/healthz')
+def healthz():
+    return jsonify({'status': 'ok'})
+
+
+@app.get('/readiness')
+def readiness():
+    checks = {}
+    ok = True
+    # storage path
+    path = app.config.get('UPLOAD_ROOT')
+    try:
+        os.makedirs(path, exist_ok=True)
+        if os.access(path, os.W_OK):
+            checks['storage'] = 'ok'
+        else:
+            checks['storage'] = 'not_writable'
+            ok = False
+    except Exception as e:
+        checks['storage'] = str(e)
+        ok = False
+    # database
+    try:
+        conn = sqlite3.connect('database.db')
+        conn.execute('SELECT 1')
+        conn.close()
+        checks['database'] = 'ok'
+    except Exception as e:
+        checks['database'] = str(e)
+        ok = False
+    status = 'ok' if ok else 'error'
+    code = 200 if ok else 503
+    return jsonify({'status': status, 'checks': checks}), code
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
@@ -206,20 +336,83 @@ def logout():
     return redirect('/')
 
 
+@app.errorhandler(400)
+def handle_400(e):
+    if wants_json_response():
+        return (
+            jsonify(
+                {
+                    'type': 'bad_request',
+                    'message': 'Bad Request',
+                    'status': 400,
+                    'request_id': g.request_id,
+                }
+            ),
+            400,
+        )
+    return "Bad Request", 400
+
+
 @app.errorhandler(404)
-def page_not_found(_):
-    """Visa en användarvänlig 404-sida när en sida saknas."""
+def handle_404(e):
+    if wants_json_response():
+        return (
+            jsonify(
+                {
+                    'type': 'not_found',
+                    'message': 'Not Found',
+                    'status': 404,
+                    'request_id': g.request_id,
+                }
+            ),
+            404,
+        )
     return render_template('404.html'), 404
 
+
+@app.errorhandler(405)
+def handle_405(e):
+    if wants_json_response():
+        return (
+            jsonify(
+                {
+                    'type': 'method_not_allowed',
+                    'message': 'Method Not Allowed',
+                    'status': 405,
+                    'request_id': g.request_id,
+                }
+            ),
+            405,
+        )
+    return "Method Not Allowed", 405
+
+
+@app.errorhandler(Exception)
+def handle_500(e):
+    app.logger.exception("Unhandled exception")
+    if wants_json_response():
+        return (
+            jsonify(
+                {
+                    'type': 'internal_error',
+                    'message': 'Internal Server Error',
+                    'status': 500,
+                    'request_id': g.request_id,
+                }
+            ),
+            500,
+        )
+    return "Internal Server Error", 500
+
 if __name__ == '__main__':
-    if os.getenv('FLASK_ENV') == 'development':
+    if app.debug:
         functions.create_database()
         functions.create_test_user()  # Skapa en testanvändare vid start
         print("Running in development mode")
     else:
         print("Running in production mode")
     app.run(
-        debug=os.getenv('FLASK_ENV') == 'development',
+        debug=app.debug,
         host='0.0.0.0',
-        port=int(os.getenv('PORT', 80)),
+        port=int(os.getenv('PORT', 8000)),
     )
