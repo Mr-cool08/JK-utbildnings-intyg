@@ -16,16 +16,24 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 
-
-load_dotenv()
-app = Flask(__name__)
-app.secret_key = os.getenv('secret_key')
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
-os.makedirs(UPLOAD_ROOT, exist_ok=True)
-app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
 ALLOWED_MIMES = {'application/pdf'}
+
+
+def create_app() -> Flask:
+    """Create and configure the Flask application."""
+    load_dotenv()
+    functions.create_database()
+    app = Flask(__name__)
+    app.secret_key = os.getenv('secret_key')
+    os.makedirs(UPLOAD_ROOT, exist_ok=True)
+    app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+    return app
+
+
+app = create_app()
 
 
 def save_pdf_for_user(pnr: str, file_storage) -> str:
@@ -202,6 +210,10 @@ def page_not_found(_):
     return render_template('404.html'), 404
 
 if __name__ == '__main__':
-    functions.create_database()
-    functions.create_test_user()  # Skapa en testanvändare vid start
-    app.run(debug=True, host='0.0.0.0', port=80)
+    if os.getenv('FLASK_ENV') == 'development':
+        functions.create_test_user()  # Skapa en testanvändare vid start
+    app.run(
+        debug=os.getenv('FLASK_ENV') == 'development',
+        host='0.0.0.0',
+        port=int(os.getenv('PORT', 80)),
+    )
