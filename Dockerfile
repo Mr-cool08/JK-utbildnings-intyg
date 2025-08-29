@@ -16,9 +16,9 @@ RUN mkdir -p /data /app/uploads
 VOLUME ["/data", "/app/uploads"]
 
 # Configure port and default database location
-ENV PORT=8000 \
+ENV PORT=80 \
     DB_PATH=/data/database.db
-EXPOSE 8000
+EXPOSE 80
 
 # Run the application with Gunicorn
 CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT} wsgi:application"]
