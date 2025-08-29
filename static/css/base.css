@@ -4,6 +4,9 @@ body {
     padding: 0;
     background: #f4f4f4;
     color: #222;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 nav {
@@ -37,9 +40,11 @@ nav .brand:hover {
 }
 
 main {
+    flex: 1;
     max-width: 900px;
     margin: 32px auto;
     padding: 0 16px;
+    width: 100%;
 }
 
 form {
