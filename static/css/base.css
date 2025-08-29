@@ -4,28 +4,47 @@ body {
     padding: 0;
     background: #f4f4f4;
     color: #222;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 nav {
     background: #333;
     color: #fff;
-    padding: 10px;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-nav a {
+nav .brand {
+    font-weight: 600;
     color: #fff;
-    margin-right: 10px;
     text-decoration: none;
 }
 
-nav a:hover {
+nav .nav-links {
+    display: flex;
+    gap: 15px;
+}
+
+nav .nav-links a {
+    color: #fff;
+    text-decoration: none;
+}
+
+nav .nav-links a:hover,
+nav .brand:hover {
     text-decoration: underline;
 }
 
 main {
+    flex: 1;
     max-width: 900px;
     margin: 32px auto;
     padding: 0 16px;
+    width: 100%;
 }
 
 form {
@@ -74,6 +93,20 @@ button {
 button[disabled] {
     opacity: 0.6;
     cursor: default;
+}
+
+a.btn {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 10px 16px;
+    background: #007bff;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+a.btn:hover {
+    background: #0056b3;
 }
 
 .message {
@@ -134,4 +167,16 @@ a.license-link:hover {
 
 .not-found a:hover {
     text-decoration: underline;
+}
+
+.hero {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #333;
+    color: #fff;
 }
