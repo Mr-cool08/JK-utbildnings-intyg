@@ -35,6 +35,34 @@ def create_app() -> Flask:
 
 app = create_app()
 
+
+def send_creation_email(to_email: str, link: str) -> None:
+    """Send a password creation link to ``to_email`` using SMTP settings.
+
+    The SMTP configuration (server, port, user and password) is read from
+    environment variables. The email is sent from the address specified by
+    ``smtp_user``.
+    """
+    smtp_server = os.getenv("smtp_server")
+    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_user = os.getenv("smtp_user")
+    smtp_password = os.getenv("smtp_password")
+
+    if not (smtp_server and smtp_user):
+        # If configuration is missing we simply skip sending the email.
+        return
+
+    message = (
+        "Subject: Create your account\n\n"
+        f"Please create your password using the link below:\n{link}\n"
+    )
+
+    with SMTP(smtp_server, smtp_port) as smtp:
+        smtp.starttls()
+        if smtp_password:
+            smtp.login(smtp_user, smtp_password)
+        smtp.sendmail(smtp_user, to_email, message)
+
 @app.context_processor
 def inject_flags():
     return {"IS_DEV": app.debug}
@@ -158,6 +186,8 @@ def admin():
 
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
                     link = f"/create_user/{hash_value(personnummer)}"
+                    # Skicka e-post med länken för att skapa lösenord
+                    send_creation_email(email, link)
                     return jsonify(
                         {
                             'status': 'success',

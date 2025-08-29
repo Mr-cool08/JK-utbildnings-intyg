@@ -137,6 +137,35 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     db_path = setup_db(tmp_path, monkeypatch)
     monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
 
+    # Configure a dummy SMTP implementation to capture emails
+    sent_emails = []
+
+    class DummySMTP:
+        def __init__(self, server, port):
+            self.server = server
+            self.port = port
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            self.login = (user, password)
+
+        def sendmail(self, from_addr, to_addr, msg):
+            sent_emails.append((from_addr, to_addr, msg))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(main, "SMTP", DummySMTP)
+    monkeypatch.setenv("smtp_server", "smtp.test")
+    monkeypatch.setenv("smtp_port", "587")
+    monkeypatch.setenv("smtp_user", "no-reply@example.com")
+    monkeypatch.setenv("smtp_password", "secret")
+
     pdf_bytes = b"%PDF-1.4 test"
     data = {
         "email": "new@example.com",
@@ -152,10 +181,15 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         assert response.status_code == 200
         resp_json = response.get_json()
         assert resp_json["status"] == "success"
-        assert (
-            resp_json["link"]
-            == f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
-        )
+        expected_link = f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        assert resp_json["link"] == expected_link
+
+    # Ensure an email was sent with the correct link
+    assert sent_emails, "No email was sent"
+    from_addr, to_addr, msg = sent_emails[0]
+    assert from_addr == "no-reply@example.com"
+    assert to_addr == "new@example.com"
+    assert expected_link in msg
 
     pnr_norm = functions.normalize_personnummer(pnr_input)
     expected_dir = functions.hash_value(pnr_norm)
