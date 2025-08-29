@@ -1,6 +1,6 @@
 # Deployment
 
-This project ships with a Docker setup and a GitHub Actions workflow that automatically builds a container image and publishes it to the GitHub Container Registry (GHCR).
+This project ships with a Docker setup and a GitHub Actions workflow that automatically builds a container image and publishes it to the GitHub Container Registry (GHCR) and Docker Hub.
 
 ## Prerequisites
 
@@ -19,24 +19,32 @@ The app will be available on http://localhost:8000.
 
 ## Production deployment
 
-Images are built and pushed to GHCR on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation in lowercase):
+Images are built and pushed to GHCR and Docker Hub on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation in lowercase and `DOCKERHUB_USER` with your Docker Hub username):
 
 ```bash
+
 docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 
 docker run -d --env-file .env -p 8000:8000 ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
+
 ```
 
 This exposes the application on port 8000 and loads environment variables from your local `.env` file. Mount volumes for persistent uploads and the SQLite database if needed:
 
-```bash
+
+
+## Kör med GitHub Container Registry
 docker run -d --env-file .env -p 8000:8000 \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/data:/data \
   ghcr.io/OWNER/jk-utbildnings-intyg:latest
-```
 
-Alternatively, edit `docker-compose.yml` to reference `ghcr.io/OWNER/jk-utbildnings-intyg:latest` as the image and run:
+## Eller kör med Docker Hub
+docker run -d --env-file .env -p 8000:8000 \
+  -v $(pwd)/uploads:/app/uploads \
+  DOCKERHUB_USER/jk-utbildnings-intyg:latest
+
+Alternatively, edit `docker-compose.yml` to reference `ghcr.io/OWNER/jk-utbildnings-intyg:latest` or `DOCKERHUB_USER/jk-utbildnings-intyg:latest` as the image and run:
 
 ```bash
 docker compose up -d
