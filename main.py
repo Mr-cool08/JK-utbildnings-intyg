@@ -1,4 +1,6 @@
 import logging
+import os
+import time
 from flask import (
     Flask,
     request,
@@ -9,15 +11,20 @@ from flask import (
     send_from_directory,
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
-import functions
-from functions import normalize_personnummer, hash_value
-import os
-import time
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 
-logname = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.log')
+APP_ROOT = os.path.abspath(os.path.dirname(__file__))
+CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
+load_dotenv(CONFIG_PATH)
+
+import functions
+from functions import normalize_personnummer, hash_value
+
+LOG_ROOT = os.getenv("LOG_ROOT", os.path.join(APP_ROOT, "logs"))
+os.makedirs(LOG_ROOT, exist_ok=True)
+logname = os.path.join(LOG_ROOT, "app.log")
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -26,7 +33,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
 
@@ -34,7 +40,6 @@ ALLOWED_MIMES = {'application/pdf'}
 def create_app() -> Flask:
     """Create and configure the Flask application."""
     logger.debug("Loading environment variables and initializing database")
-    load_dotenv()
     functions.create_database()
     app = Flask(__name__)
     app.secret_key = os.getenv('secret_key')
