@@ -9,5 +9,12 @@ services:
     environment:
       DB_PATH: /data/database.db
     volumes:
-      - ./uploads:/app/uploads
-      - ./data:/data
+      - env_data:/config
+      - uploads_data:/app/uploads
+      - db_data:/data
+      - logs_data:/app/logs
+volumes:
+  env_data:
+  uploads_data:
+  db_data:
+  logs_data:

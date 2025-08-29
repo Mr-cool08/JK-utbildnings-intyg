@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist and declare them as volumes for persistence
-RUN mkdir -p /data /app/uploads
-VOLUME ["/data", "/app/uploads"]
+RUN mkdir -p /data /app/uploads /app/logs /config
+VOLUME ["/data", "/app/uploads", "/app/logs", "/config"]
 
 # Configure port and default database location
 ENV PORT=80 \

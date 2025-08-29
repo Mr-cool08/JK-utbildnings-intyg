@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Ensure environment variables from a .env file are loaded before accessing
 # configuration such as ``HASH_SALT``. Without this, a missing ``HASH_SALT``
 # would silently fall back to the insecure default below.
-load_dotenv()
+load_dotenv(os.getenv("CONFIG_PATH", "/config/.env"))
 
 # Base directory to store the SQLite database so data persists across restarts.
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
