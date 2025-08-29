@@ -1,0 +1,77 @@
+{
+  "version": "0.2",
+  "language": "sv",
+  "dictionaries": ["sv", "softwareTerms", "node", "html", "css", "fonts", "docker", "git", "filetypes"],
+  "dictionaryDefinitions": [
+    {
+      "name": "sv",
+      "path": "~/.config/cspell/dictionaries/sv.dic",
+      "addWords": false
+    }
+  ],
+  "useGitignore": true,
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    ".git",
+    ".husky",
+    "*.lock",
+    "*.min.*",
+    "**/vendor/**",
+    "**/.next/**",
+    "**/.vite/**"
+  ],
+  "enableFiletypes": [
+    "markdown",
+    "json",
+    "yaml",
+    "yml",
+    "html",
+    "css",
+    "scss",
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "python",
+    "go",
+    "java",
+    "c",
+    "cpp",
+    "csharp",
+    "kotlin",
+    "swift",
+    "php",
+    "ruby",
+    "rust"
+  ],
+  "words": [
+    // Lägg till återkommande projekttermer här
+    "TODO",
+    "README",
+    "Changelog",
+    "devops",
+    "backend",
+    "frontend"
+  ],
+  "ignoreWords": [
+    // Ord du vill ignorera globalt (tillfälliga)
+  ],
+  "flagWords": [
+    // Ord att flagga extra hårt (t.ex. vanliga skrivfel i ert team)
+  ],
+  "overrides": [
+    {
+      "filename": "**/*.md",
+      "language": "sv"
+    },
+    {
+      "filename": "**/*.json",
+      "ignoreRegExpList": ["\"version\":\\s*\"[^\"]+\""]
+    }
+  ],
+  "globRoot": ".",
+  "caseSensitive": false
+}
