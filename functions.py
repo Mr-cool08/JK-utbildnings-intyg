@@ -1,17 +1,45 @@
 import sqlite3
 import hashlib
+import hmac
 import os
 import re
 from datetime import datetime
 
-# Simple helper for hashing with a global salt. In a real application this
-# should be replaced with a per-user salt and a stronger hashing algorithm.
-SALT = os.getenv("HASH_SALT", "static_salt")
+# Global salt for deterministic hashing of identifiers like email and
+# personnummer. Passwords get their own per-user salts.
+SALT = os.getenv("HASH_SALT", "static_salt").encode()
+# Number of iterations for PBKDF2. Can be overridden via env for tuning.
+ITERATIONS = int(os.getenv("HASH_ITERATIONS", "100000"))
+# Path to the SQLite database file. Using a file ensures persistence across
+# restarts as long as the path points to a persistent volume.
+DB_PATH = os.getenv("DATABASE_PATH", "database.db")
 
 
 def hash_value(value: str) -> str:
-    """Return a SHA-256 hash of ``value`` combined with a salt."""
-    return hashlib.sha256((value + SALT).encode()).hexdigest()
+    """Return a salted PBKDF2-HMAC hash of ``value``.
+
+    The result is deterministic for a given ``value`` and global ``SALT`` so
+    it can be used as a key in the database for lookup purposes.
+    """
+    return hashlib.pbkdf2_hmac("sha256", value.encode(), SALT, ITERATIONS).hex()
+
+
+def hash_password(password: str) -> str:
+    """Return a securely hashed password with a per-user random salt."""
+    salt = os.urandom(16)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, ITERATIONS)
+    return f"{salt.hex()}:{pwd_hash.hex()}"
+
+
+def verify_password(stored: str, password: str) -> bool:
+    """Verify a password against the stored ``salt:hash`` string."""
+    try:
+        salt_hex, hash_hex = stored.split(":")
+    except ValueError:
+        return False
+    salt = bytes.fromhex(salt_hex)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, ITERATIONS).hex()
+    return hmac.compare_digest(pwd_hash, hash_hex)
 
 
 def normalize_personnummer(pnr: str) -> str:
@@ -36,7 +64,7 @@ def normalize_personnummer(pnr: str) -> str:
 
 
 def create_database():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pending_users (
@@ -60,32 +88,32 @@ def create_database():
     conn.close()
 
 def check_password_user(email, password):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        '''SELECT * FROM users WHERE email = ? AND password = ?''',
-        (hash_value(email), hash_value(password)),
+        '''SELECT password FROM users WHERE email = ?''',
+        (hash_value(email),),
     )
-    user = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    return user is not None
+    return bool(row) and verify_password(row[0], password)
 
 
 def check_personnummer_password(personnummer: str, password: str) -> bool:
     """Return True if the hashed personnummer and password match a user."""
     personnummer = normalize_personnummer(personnummer)
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        '''SELECT * FROM users WHERE personnummer = ? AND password = ?''',
-        (hash_value(personnummer), hash_value(password)),
+        '''SELECT password FROM users WHERE personnummer = ?''',
+        (hash_value(personnummer),),
     )
-    user = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    return user is not None
+    return bool(row) and verify_password(row[0], password)
 
 def check_user_exists(email):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''SELECT * FROM users WHERE email = ?''',
@@ -96,7 +124,7 @@ def check_user_exists(email):
     return user is not None
 
 def get_username(email):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''SELECT username FROM users WHERE email = ?''',
@@ -108,7 +136,7 @@ def get_username(email):
 
 def check_pending_user(personnummer):
     personnummer = normalize_personnummer(personnummer)
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''SELECT * FROM pending_users WHERE personnummer = ?''',
@@ -121,7 +149,7 @@ def check_pending_user(personnummer):
 
 def check_pending_user_hash(personnummer_hash: str) -> bool:
     """Return True if a pending user with ``personnummer_hash`` exists."""
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''SELECT 1 FROM pending_users WHERE personnummer = ?''',
@@ -136,7 +164,7 @@ def admin_create_user(email, username, personnummer, pdf_path):
         return False
 
     personnummer = normalize_personnummer(personnummer)
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''
@@ -152,7 +180,7 @@ def admin_create_user(email, username, personnummer, pdf_path):
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     """Move a pending user identified by ``personnummer_hash`` into users."""
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
         # Kontrollera om användaren redan finns
@@ -193,7 +221,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             INSERT INTO users (email, password, username, personnummer)
             VALUES (?, ?, ?, ?)
             ''',
-            (email_hashed, hash_value(password), username, pnr_hash),
+            (email_hashed, hash_password(password), username, pnr_hash),
         )
         print("Användare skapad i users")
 
@@ -209,7 +237,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
 
 def get_user_info(personnummer):
     personnummer = normalize_personnummer(personnummer)
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         '''SELECT * FROM users WHERE personnummer = ?''',
