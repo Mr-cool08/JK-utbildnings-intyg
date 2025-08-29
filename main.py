@@ -243,6 +243,10 @@ def logout():
     session.pop('personnummer', None)
     return redirect('/')
 
+@app.errorhandler(500)
+def internal_server_error(_):
+    """Visa en användarvänlig 500-sida när ett serverfel inträffar."""
+    return render_template('500.html', time=time.time()), 500
 
 @app.errorhandler(404)
 def page_not_found(_):

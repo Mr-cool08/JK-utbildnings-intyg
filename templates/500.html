@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Serverfel (500){% endblock %}
+{% block content %}
+	<div class="error-container">
+		<h1>500 - Serverfel</h1>
+		<p>Ett oväntat fel har inträffat på servern.</p>
+		<p>Tidpunkt för felet: <strong>{{ time | datetimeformat('%Y-%m-%d %H:%M:%S') }}</strong></p>
+		<p>Vänligen kontakta webbplatsens administratörer på <a href="mailto:support@example.com?subject=Serverfel 500&body=Fel inträffade vid tidpunkt: {{ time }}">support@example.com</a> och inkludera tiden ovan.</p>
+		<p>Vi arbetar på att lösa problemet så snart som möjligt.</p>
+	</div>
+{% endblock %}

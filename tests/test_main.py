@@ -168,7 +168,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
 
     pdf_bytes = b"%PDF-1.4 test"
     data = {
-        "email": "new@example.com",
+        "email": "liam@suorsa.se",
         "username": "New User",
         "personnummer": pnr_input,
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
