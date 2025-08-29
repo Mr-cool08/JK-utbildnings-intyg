@@ -22,13 +22,11 @@ The app will be available on http://localhost:8000.
 Images are built and pushed to GHCR and Docker Hub on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation in lowercase and `DOCKERHUB_USER` with your Docker Hub username):
 
 ```bash
-docker pull ghcr.io/OWNER/jk-utbildnings-intyg:latest
-# or
-docker pull DOCKERHUB_USER/jk-utbildnings-intyg:latest
 
-docker run -d --env-file .env -p 8000:8000 ghcr.io/OWNER/jk-utbildnings-intyg:latest
-# or
-docker run -d --env-file .env -p 8000:8000 DOCKERHUB_USER/jk-utbildnings-intyg:latest
+docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
+
+docker run -d --env-file .env -p 8000:8000 ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
+
 ```
 
 This exposes the application on port 8000 and loads environment variables from your local `.env` file. Mount a volume for persistent uploads if needed:
