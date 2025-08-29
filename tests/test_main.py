@@ -137,6 +137,35 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     db_path = setup_db(tmp_path, monkeypatch)
     monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
 
+    # Configure a dummy SMTP implementation to capture emails
+    sent_emails = []
+
+    class DummySMTP:
+        def __init__(self, server, port):
+            self.server = server
+            self.port = port
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            self.login = (user, password)
+
+        def sendmail(self, from_addr, to_addr, msg):
+            sent_emails.append((from_addr, to_addr, msg))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(main, "SMTP", DummySMTP)
+    monkeypatch.setenv("smtp_server", "smtp.test")
+    monkeypatch.setenv("smtp_port", "587")
+    monkeypatch.setenv("smtp_user", "no-reply@example.com")
+    monkeypatch.setenv("smtp_password", "secret")
+
     pdf_bytes = b"%PDF-1.4 test"
     data = {
         "email": "new@example.com",
@@ -152,10 +181,15 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         assert response.status_code == 200
         resp_json = response.get_json()
         assert resp_json["status"] == "success"
-        assert (
-            resp_json["link"]
-            == f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
-        )
+        expected_link = f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        assert resp_json["link"] == expected_link
+
+    # Ensure an email was sent with the correct link
+    assert sent_emails, "No email was sent"
+    from_addr, to_addr, msg = sent_emails[0]
+    assert from_addr == "no-reply@example.com"
+    assert to_addr == "new@example.com"
+    assert expected_link in msg
 
     pnr_norm = functions.normalize_personnummer(pnr_input)
     expected_dir = functions.hash_value(pnr_norm)
@@ -177,6 +211,55 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     assert row is not None
     assert row[0] == expected_dir
     assert row[1].endswith(files[0].name)
+
+
+def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
+    db_path = setup_db(tmp_path, monkeypatch)
+    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+
+    class FailingSMTP:
+        def __init__(self, server, port):
+            pass
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            from smtplib import SMTPAuthenticationError
+
+            raise SMTPAuthenticationError(535, b"auth failed")
+
+        def sendmail(self, from_addr, to_addr, msg):
+            raise AssertionError("sendmail should not be called")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(main, "SMTP", FailingSMTP)
+    monkeypatch.setenv("smtp_server", "smtp.test")
+    monkeypatch.setenv("smtp_port", "587")
+    monkeypatch.setenv("smtp_user", "no-reply@example.com")
+    monkeypatch.setenv("smtp_password", "wrong")
+
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "new@example.com",
+        "username": "New User",
+        "personnummer": "19900101-1234",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with main.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["admin_logged_in"] = True
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+        assert response.status_code == 500
+        resp_json = response.get_json()
+        assert resp_json["status"] == "error"
+        assert "SMTP login failed" in resp_json["message"]
 
 
 def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
