@@ -6,10 +6,30 @@ body {
     color: #222;
 }
 
-nav {
+header {
     background: #333;
     color: #fff;
-    padding: 10px;
+}
+
+header .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.site-title {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.site-title a {
+    color: #fff;
+    text-decoration: none;
+}
+
+nav {
+    background: none;
 }
 
 nav a {
@@ -22,10 +42,14 @@ nav a:hover {
     text-decoration: underline;
 }
 
-main {
+.container {
     max-width: 900px;
-    margin: 32px auto;
+    margin: 0 auto;
     padding: 0 16px;
+}
+
+main.container {
+    margin-top: 32px;
 }
 
 form {
@@ -74,6 +98,19 @@ button {
 button[disabled] {
     opacity: 0.6;
     cursor: default;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 16px;
+    background: #007bff;
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background: #0056b3;
 }
 
 .message {
@@ -134,4 +171,17 @@ a.license-link:hover {
 
 .not-found a:hover {
     text-decoration: underline;
+}
+
+.hero {
+    text-align: center;
+    padding: 60px 0;
+}
+
+.hero h1 {
+    margin-bottom: 20px;
+}
+
+.hero p {
+    margin-bottom: 20px;
 }

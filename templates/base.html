@@ -8,25 +8,30 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% if IS_DEV %}
-        <nav>
-            <a href="/">Home</a>
-            {% if session.get('user_logged_in') %}
-                <a href="/dashboard">Dashboard</a>
-                <a href="/logout">Logout</a>
-            {% elif session.get('admin_logged_in') %}
-                <a href="/admin">Admin</a>
-                <a href="/logout">Logout</a>
-            {% else %}
-                <a href="/login">User Login</a>
-                <a href="/login_admin">Admin Login</a>
+    <header>
+        <div class="container">
+            <h1 class="site-title"><a href="/">My Site</a></h1>
+            {% if IS_DEV %}
+                <nav>
+                    <a href="/">Home</a>
+                    {% if session.get('user_logged_in') %}
+                        <a href="/dashboard">Dashboard</a>
+                        <a href="/logout">Logout</a>
+                    {% elif session.get('admin_logged_in') %}
+                        <a href="/admin">Admin</a>
+                        <a href="/logout">Logout</a>
+                    {% else %}
+                        <a href="/login">User Login</a>
+                        <a href="/login_admin">Admin Login</a>
+                    {% endif %}
+                </nav>
             {% endif %}
-        </nav>
-    {% endif %}
-    <main>
+        </div>
+    </header>
+    <main class="container">
         {% block content %}{% endblock %}
     </main>
-    <footer>
+    <footer class="container">
         {% block footer %}© 2025{% endblock %}
     </footer>
 
