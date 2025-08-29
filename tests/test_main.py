@@ -64,7 +64,7 @@ def setup_user(tmp_path, monkeypatch):
         (
             "Test",
             functions.hash_value("test@example.com"),
-            functions.hash_value("secret"),
+            functions.hash_password("secret"),
             functions.hash_value("199001011234"),
         ),
     )
@@ -168,7 +168,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
 
     pdf_bytes = b"%PDF-1.4 test"
     data = {
-        "email": "liam@suorsa.se",
+        "email": "new@example.com",
         "username": "New User",
         "personnummer": pnr_input,
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
@@ -274,7 +274,7 @@ def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
         (
             "Existing",
             functions.hash_value("exist@example.com"),
-            functions.hash_value("secret"),
+            functions.hash_password("secret"),
             functions.hash_value("199001011234"),
         ),
     )
@@ -328,7 +328,7 @@ def test_user_create_hashes_password(tmp_path, monkeypatch):
     row = cursor.fetchone()
     conn.close()
     assert row is not None
-    assert row[0] == functions.hash_value("mypassword")
+    assert functions.verify_password(row[0], "mypassword")
 
 
 def test_logout_clears_user_session(tmp_path, monkeypatch):

@@ -20,6 +20,7 @@ This web application manages the issuance and storage of course certificates. It
 
 * **SQLite database** – User metadata and pending registrations are stored in a local SQLite database file.
 * **File system** – Certificates reside in an `uploads/<personnummer>/` directory structure. The application only accepts PDF files to prevent accidental uploads of other formats.
+* **Hashed credentials** – Passwords are hashed with a per-user salt using PBKDF2 via Werkzeug, while personal numbers and emails are deterministically hashed with a global salt so sensitive data isn't stored in plain text.
 
 This description focuses on the internal workflow and division of responsibilities. Operational details such as installation or deployment are intentionally omitted.
 
