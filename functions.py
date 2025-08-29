@@ -16,7 +16,9 @@ load_dotenv()
 
 # Base directory to store the SQLite database so data persists across restarts.
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
-DB_PATH = os.path.join(APP_ROOT, "database.db")
+# Allow overriding the database location via the ``DB_PATH`` environment variable
+# so it can be mounted on a host volume for persistence when running in Docker.
+DB_PATH = os.getenv("DB_PATH", os.path.join(APP_ROOT, "database.db"))
 
 # Global salt used for deterministic hashing of personal data like email and
 # personnummer. Must remain constant or stored data cannot be retrieved.
@@ -71,6 +73,11 @@ def normalize_personnummer(pnr: str) -> str:
 
 def create_database():
     logger.debug("Creating database and ensuring tables exist")
+    # Ensure the directory for the database exists, especially when using a
+    # volume-mounted path inside Docker containers.
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''

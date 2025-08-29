@@ -11,8 +11,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Configure port
-ENV PORT=8000
+# Ensure runtime directories exist and declare them as volumes for persistence
+RUN mkdir -p /data /app/uploads
+VOLUME ["/data", "/app/uploads"]
+
+# Configure port and default database location
+ENV PORT=8000 \
+    DB_PATH=/data/database.db
 EXPOSE 8000
 
 # Run the application with Gunicorn
