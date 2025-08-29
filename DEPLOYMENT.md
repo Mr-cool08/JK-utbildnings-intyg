@@ -27,10 +27,13 @@ docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 docker run -d --env-file .env -p 8000:8000 ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 ```
 
-This exposes the application on port 8000 and loads environment variables from your local `.env` file. Mount a volume for persistent uploads if needed:
+This exposes the application on port 8000 and loads environment variables from your local `.env` file. Mount volumes for persistent uploads and the SQLite database if needed:
 
 ```bash
-docker run -d --env-file .env -p 8000:8000 -v $(pwd)/uploads:/app/uploads ghcr.io/OWNER/jk-utbildnings-intyg:latest
+docker run -d --env-file .env -p 8000:8000 \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/data:/data \
+  ghcr.io/OWNER/jk-utbildnings-intyg:latest
 ```
 
 Alternatively, edit `docker-compose.yml` to reference `ghcr.io/OWNER/jk-utbildnings-intyg:latest` as the image and run:
