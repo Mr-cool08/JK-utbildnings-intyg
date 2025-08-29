@@ -17,9 +17,12 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 
+logname = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.log')
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    filename=logname,
+    filemode='a',
 )
 logger = logging.getLogger(__name__)
 
@@ -258,7 +261,10 @@ def admin():
         return redirect('/login_admin')
     logger.debug("Rendering admin page")
     return render_template('admin.html')
-
+@app.route("/error")
+def error():
+    # This will cause a 500 Internal Server Error
+    raise Exception("Testing 500 error page")
 
 @app.route('/login_admin', methods=['POST', 'GET'])
 def login_admin():
@@ -300,6 +306,11 @@ def page_not_found(_):
     """Visa en användarvänlig 404-sida när en sida saknas."""
     logger.warning("Page not found: %s", request.path)
     return render_template('404.html'), 404
+
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
+    import datetime
+    return datetime.datetime.fromtimestamp(value).strftime(format)
 
 if __name__ == '__main__':
     if os.getenv('FLASK_ENV') == 'development':
