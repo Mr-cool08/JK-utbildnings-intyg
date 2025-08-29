@@ -19,7 +19,7 @@ The app will be available on http://localhost:8000.
 
 ## Production deployment
 
-Images are built and pushed to GHCR on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation):
+Images are built and pushed to GHCR on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation in lowercase):
 
 ```bash
 docker pull ghcr.io/OWNER/jk-utbildnings-intyg:latest

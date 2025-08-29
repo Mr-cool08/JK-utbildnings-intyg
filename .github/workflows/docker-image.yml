@@ -19,8 +19,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set lower-case repository owner
+        run: echo "REPOSITORY_OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
       - uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/jk-utbildnings-intyg:latest
+          tags: ghcr.io/${{ env.REPOSITORY_OWNER_LC }}/jk-utbildnings-intyg:latest
