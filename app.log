@@ -95,3 +95,29 @@ Traceback (most recent call last):
     <p>Tidpunkt för felet: <strong>{{ time | datetimeformat('%Y-%m-%d %H:%M:%S') }}</strong></p>
     ^^^^^^^^^^^^^^^^^^^^^^^^
 jinja2.exceptions.TemplateAssertionError: No filter named 'datetimeformat'.
+2025-08-29 21:44:13,471 [DEBUG] main: Loading environment variables and initializing database
+2025-08-29 21:44:13,471 [DEBUG] functions: Creating database and ensuring tables exist
+2025-08-29 21:44:13,478 [INFO] functions: Database initialized
+2025-08-29 21:44:13,478 [DEBUG] main: Application created with upload root C:\Users\Liam\programmings filer\python\JK utbildnings intyg\uploads
+2025-08-29 21:44:13,478 [INFO] waitress: Serving on http://0.0.0.0:8080
+2025-08-29 21:44:14,218 [ERROR] main: Exception on /error [GET]
+Traceback (most recent call last):
+  File "C:\Users\Liam\Python\py3.11.3\Lib\site-packages\flask\app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Liam\Python\py3.11.3\Lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Liam\Python\py3.11.3\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Liam\Python\py3.11.3\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Liam\programmings filer\python\JK utbildnings intyg\main.py", line 267, in error
+    raise Exception("Testing 500 error page")
+Exception: Testing 500 error page
+2025-08-29 21:44:55,429 [DEBUG] main: Rendering home page
+2025-08-29 21:45:03,764 [WARNING] main: Page not found: /sdgfiobnwepgf
+2025-08-29 21:45:03,798 [WARNING] main: Page not found: /favicon.ico
+2025-08-29 21:45:05,564 [DEBUG] main: Rendering home page
