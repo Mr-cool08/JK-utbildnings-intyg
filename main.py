@@ -7,7 +7,7 @@ from flask import (
     redirect,
     send_from_directory,
 )
-from smtplib import SMTP
+from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 import functions
 from functions import normalize_personnummer, hash_value
 import os
@@ -57,11 +57,16 @@ def send_creation_email(to_email: str, link: str) -> None:
         f"Please create your password using the link below:\n{link}\n"
     )
 
-    with SMTP(smtp_server, smtp_port) as smtp:
-        smtp.starttls()
-        if smtp_password:
-            smtp.login(smtp_user, smtp_password)
-        smtp.sendmail(smtp_user, to_email, message)
+    try:
+        with SMTP(smtp_server, smtp_port) as smtp:
+            smtp.starttls()
+            if smtp_password:
+                smtp.login(smtp_user, smtp_password)
+            smtp.sendmail(smtp_user, to_email, message)
+    except SMTPAuthenticationError as exc:
+        raise RuntimeError("SMTP login failed") from exc
+    except SMTPException as exc:
+        raise RuntimeError("Failed to send email") from exc
 
 @app.context_processor
 def inject_flags():
@@ -187,7 +192,10 @@ def admin():
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
                     link = f"/create_user/{hash_value(personnummer)}"
                     # Skicka e-post med länken för att skapa lösenord
-                    send_creation_email(email, link)
+                    try:
+                        send_creation_email(email, link)
+                    except RuntimeError as e:
+                        return jsonify({'status': 'error', 'message': str(e)}), 500
                     return jsonify(
                         {
                             'status': 'success',
