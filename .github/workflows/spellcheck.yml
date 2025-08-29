@@ -1,0 +1,12 @@
+name: Spellcheck
+on: [push, pull_request]
+
+jobs:
+  codespell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: codespell-project/actions-codespell@v2
+        with:
+          check_hidden: true
+          skip: "*.lock,*.svg, *.png,*.jpg,*.jpeg,*.gif,*.ico,*.pdf,*.mp4,*.mp3,*.zip,*.tar.gz,*.exe,*.dll,*.bin,*.class,*.jar,*.war,*.ear, *.db,*.sqlite,*.sqlite3,*.db3,*.mpkg,*.pkg,*.msi,*.iso,*.img,*.vmdk,*.vdi,*.qcow2,*.raw,*.ova,*.ovf,*.box,*.vagrantfile,*.tfstate,*.tfstate.backup"
