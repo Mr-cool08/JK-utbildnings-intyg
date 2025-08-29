@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 import hashlib
 import os
@@ -6,11 +7,13 @@ from datetime import datetime
 
 # Simple helper for hashing with a global salt. In a real application this
 # should be replaced with a per-user salt and a stronger hashing algorithm.
+logger = logging.getLogger(__name__)
 SALT = os.getenv("HASH_SALT", "static_salt")
 
 
 def hash_value(value: str) -> str:
     """Return a SHA-256 hash of ``value`` combined with a salt."""
+    logger.debug("Hashing value")
     return hashlib.sha256((value + SALT).encode()).hexdigest()
 
 
@@ -20,6 +23,7 @@ def normalize_personnummer(pnr: str) -> str:
     Accepts inputs with or without separators (e.g., YYMMDD-XXXX, YYYYMMDDXXXX).
     Returns a string with only digits (YYYYMMDDXXXX).
     """
+    logger.debug("Normalizing personnummer %s", pnr)
     digits = re.sub(r"\D", "", pnr)
     if len(digits) == 10:  # YYMMDDXXXX
         year = int(digits[:2])
@@ -27,7 +31,9 @@ def normalize_personnummer(pnr: str) -> str:
         century = datetime.now().year // 100 - (1 if year > current_year else 0)
         digits = f"{century:02d}{digits}"
     if len(digits) != 12:
+        logger.error("Invalid personnummer format: %s", pnr)
         raise ValueError("Ogiltigt personnummerformat.")
+    logger.debug("Normalized personnummer to %s", digits)
     return digits
 
 
@@ -36,6 +42,7 @@ def normalize_personnummer(pnr: str) -> str:
 
 
 def create_database():
+    logger.debug("Creating database and ensuring tables exist")
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
@@ -58,8 +65,10 @@ def create_database():
     ''')
     conn.commit()
     conn.close()
+    logger.info("Database initialized")
 
 def check_password_user(email, password):
+    logger.debug("Checking password for email %s", email)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -74,6 +83,7 @@ def check_password_user(email, password):
 def check_personnummer_password(personnummer: str, password: str) -> bool:
     """Return True if the hashed personnummer and password match a user."""
     personnummer = normalize_personnummer(personnummer)
+    logger.debug("Checking login for %s", personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -85,6 +95,7 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
     return user is not None
 
 def check_user_exists(email):
+    logger.debug("Checking if user exists for email %s", email)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -96,6 +107,7 @@ def check_user_exists(email):
     return user is not None
 
 def get_username(email):
+    logger.debug("Fetching username for email %s", email)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -108,6 +120,7 @@ def get_username(email):
 
 def check_pending_user(personnummer):
     personnummer = normalize_personnummer(personnummer)
+    logger.debug("Checking pending user for %s", personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -121,6 +134,7 @@ def check_pending_user(personnummer):
 
 def check_pending_user_hash(personnummer_hash: str) -> bool:
     """Return True if a pending user with ``personnummer_hash`` exists."""
+    logger.debug("Checking pending user by hash %s", personnummer_hash)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -132,7 +146,9 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
     return user is not None
 
 def admin_create_user(email, username, personnummer, pdf_path):
+    logger.debug("Admin creating user %s", personnummer)
     if check_user_exists(email):
+        logger.warning("Attempt to recreate existing user %s", email)
         return False
 
     personnummer = normalize_personnummer(personnummer)
@@ -147,11 +163,13 @@ def admin_create_user(email, username, personnummer, pdf_path):
     )
     conn.commit()
     conn.close()
+    logger.info("Pending user created for %s", personnummer)
     return True
 
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     """Move a pending user identified by ``personnummer_hash`` into users."""
+    logger.debug("Moving pending user %s to users", personnummer_hash)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     try:
@@ -161,7 +179,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             (personnummer_hash,),
         )
         if cursor.fetchone():
-            print("Användare finns redan")
+            logger.warning("User %s already exists", personnummer_hash)
             return False
 
         # Hämta användaren från pending_users
@@ -175,17 +193,18 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
         )
         row = cursor.fetchone()
         if not row:
+            logger.warning("Pending user %s not found", personnummer_hash)
             return False
 
         email_hashed, username, pnr_hash = row
-        print(f"Skapar användare: {email_hashed}, {username}, {pnr_hash}")
+        logger.debug("Creating user %s", username)
 
         # Ta bort från pending_users
         cursor.execute(
             'DELETE FROM pending_users WHERE personnummer = ?',
             (personnummer_hash,),
         )
-        print("Användare borttagen från pending_users")
+        logger.debug("Removed pending user %s", personnummer_hash)
 
         # Lägg in i users
         cursor.execute(
@@ -195,13 +214,13 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             ''',
             (email_hashed, hash_value(password), username, pnr_hash),
         )
-        print("Användare skapad i users")
+        logger.info("User %s created", username)
 
         conn.commit()
         return True
     except Exception as e:
         conn.rollback()
-        print("Fel vid flytt av användare:", e)
+        logger.exception("Error moving pending user")
         return False
     finally:
         conn.close()
@@ -209,6 +228,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
 
 def get_user_info(personnummer):
     personnummer = normalize_personnummer(personnummer)
+    logger.debug("Fetching user info for %s", personnummer)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute(
@@ -220,6 +240,7 @@ def get_user_info(personnummer):
     return user
 
 def create_test_user():
+    logger.debug("Creating test user")
     email = "test@example.com"
     username = "Test User"
     personnummer = "199001011234"
