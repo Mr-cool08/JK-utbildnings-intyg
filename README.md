@@ -24,3 +24,13 @@ This web application manages the issuance and storage of course certificates. It
 
 This description focuses on the internal workflow and division of responsibilities. Operational details such as installation or deployment are intentionally omitted.
 
+## Persistent data with Docker
+
+Running the application with Docker Compose stores mutable data in named volumes so that updates to the container image do not remove important files:
+
+* `env_data` – contains the `.env` configuration file mounted at `/config/.env` inside the container.
+* `uploads_data` – keeps user uploads available at `/app/uploads`.
+* `db_data` – persists the SQLite database in `/data/database.db`.
+* `logs_data` – retains application logs under `/app/logs/`.
+
+Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.

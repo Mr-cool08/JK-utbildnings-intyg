@@ -22,27 +22,38 @@ The app will be available on http://localhost:8000.
 Images are built and pushed to GHCR and Docker Hub on every push to the `main` branch. The latest image can be pulled and started as follows (replace `OWNER` with your GitHub username or organisation in lowercase and `DOCKERHUB_USER` with your Docker Hub username):
 
 ```bash
-
 docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 
-docker run -d --env-file .env -p 8000:8000 ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
-
+# start the container with persistent named volumes
+docker run -d -p 8000:8000 \
+  -v env_data:/config \
+  -v uploads_data:/app/uploads \
+  -v db_data:/data \
+  -v logs_data:/app/logs \
+  ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 ```
 
-This exposes the application on port 8000 and loads environment variables from your local `.env` file. Mount volumes for persistent uploads and the SQLite database if needed:
+The `docker run` command above creates the four volumes automatically if they do not already exist. Populate the configuration volume with your `.env` file before the first run:
 
+```bash
+docker run --rm -v env_data:/config -v $(pwd)/.env:/tmp/.env busybox cp /tmp/.env /config/.env
+```
 
+After this, the application is available on port 8000.
 
 ## Kör med GitHub Container Registry
-docker run -d --env-file .env -p 8000:8000 \
-  -v $(pwd)/uploads:/app/uploads \
-  -v $(pwd)/data:/data \
-  ghcr.io/OWNER/jk-utbildnings-intyg:latest
+Replace the image name with `ghcr.io/OWNER/jk-utbildnings-intyg:latest` in the command above to run your own published image.
 
 ## Eller kör med Docker Hub
-docker run -d --env-file .env -p 8000:8000 \
-  -v $(pwd)/uploads:/app/uploads \
+```bash
+docker pull DOCKERHUB_USER/jk-utbildnings-intyg:latest
+docker run -d -p 8000:8000 \
+  -v env_data:/config \
+  -v uploads_data:/app/uploads \
+  -v db_data:/data \
+  -v logs_data:/app/logs \
   DOCKERHUB_USER/jk-utbildnings-intyg:latest
+```
 
 Alternatively, edit `docker-compose.yml` to reference `ghcr.io/OWNER/jk-utbildnings-intyg:latest` or `DOCKERHUB_USER/jk-utbildnings-intyg:latest` as the image and run:
 
