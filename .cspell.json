@@ -1,12 +1,12 @@
 {
   "version": "0.2",
   "language": "sv",
-  "dictionaries": ["sv", "softwareTerms", "node", "html", "css", "fonts", "docker", "git", "filetypes"],
+  "dictionaries": ["sv"],
   "dictionaryDefinitions": [
     {
       "name": "sv",
-      "path": "~/.config/cspell/dictionaries/sv.dic",
-      "addWords": false
+      "path": "cspell-dict-sv/sv/dictionary.txt",
+      "addWords": true
     }
   ],
   "useGitignore": true,
