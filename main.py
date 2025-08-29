@@ -245,19 +245,19 @@ def admin():
                     )
                 else:
                     logger.warning("Attempt to create existing user %s", personnummer)
-                    return jsonify({'status': 'error', 'message': 'User already exists'}), 409
+                    return redirect('/error')
             except ValueError as ve:
-                logger.warning("Value error during admin upload: %s", ve)
-                return jsonify({'status': 'error', 'message': str(ve)}), 400
+                logger.error("Value error during admin upload: %s", ve)
+                return redirect('/error')
             except Exception as e:
-                logger.exception("Server error during admin upload")
-                return jsonify({'status': 'error', 'message': 'Serverfel vid uppladdning'}), 500
+                logger.error("Server error during admin upload, %s", e)
+                return redirect('/error')
         else:
-            logger.debug("Unauthorized admin POST")
+            logger.warning("Unauthorized admin POST")
             return redirect('/login_admin')
     # GET
     if not session.get('admin_logged_in'):
-        logger.debug("Unauthorized admin GET")
+        logger.warning("Unauthorized admin GET")
         return redirect('/login_admin')
     logger.debug("Rendering admin page")
     return render_template('admin.html')
@@ -300,6 +300,13 @@ def logout():
 def internal_server_error(_):
     """Visa en användarvänlig 500-sida när ett serverfel inträffar."""
     return render_template('500.html', time=time.time()), 500
+
+
+@app.errorhandler(409)
+def conflict_error(_):
+    """Visa en användarvänlig 409-sida vid konflikt."""
+    logger.warning("409 Conflict: %s", request.path)
+    return render_template('409.html'), 409
 
 @app.errorhandler(404)
 def page_not_found(_):
