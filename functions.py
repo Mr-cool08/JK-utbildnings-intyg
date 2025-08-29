@@ -5,8 +5,15 @@ import os
 import re
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+# Ensure environment variables from a .env file are loaded before accessing
+# configuration such as ``HASH_SALT``. Without this, a missing ``HASH_SALT``
+# would silently fall back to the insecure default below.
+load_dotenv()
+
 # Base directory to store the SQLite database so data persists across restarts.
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(APP_ROOT, "database.db")
@@ -14,6 +21,10 @@ DB_PATH = os.path.join(APP_ROOT, "database.db")
 # Global salt used for deterministic hashing of personal data like email and
 # personnummer. Must remain constant or stored data cannot be retrieved.
 SALT = os.getenv("HASH_SALT", "static_salt")
+if SALT == "static_salt":
+    logger.warning(
+        "Using default HASH_SALT; set HASH_SALT in environment for stronger security"
+    )
 
 
 def hash_value(value: str) -> str:
