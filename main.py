@@ -233,8 +233,8 @@ def admin():
                     try:
                         send_creation_email(email, link)
                     except RuntimeError as e:
-                        logger.exception("Failed to send creation email to %s", email)
-                        return jsonify({'status': 'error', 'message': str(e)}), 500
+                        logger.error("Failed to send creation email to %s", email)
+                        return redirect('/error')
                     logger.info("Admin created user %s", personnummer)
                     return jsonify(
                         {
