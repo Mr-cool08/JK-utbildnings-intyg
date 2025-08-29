@@ -8,9 +8,9 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% if IS_DEV %}
-        <nav>
-            <a href="/">Home</a>
+    <nav>
+        <a class="brand" href="/">Home</a>
+        <div class="nav-links">
             {% if session.get('user_logged_in') %}
                 <a href="/dashboard">Dashboard</a>
                 <a href="/logout">Logout</a>
@@ -21,8 +21,8 @@
                 <a href="/login">User Login</a>
                 <a href="/login_admin">Admin Login</a>
             {% endif %}
-        </nav>
-    {% endif %}
+        </div>
+    </nav>
     <main>
         {% block content %}{% endblock %}
     </main>
