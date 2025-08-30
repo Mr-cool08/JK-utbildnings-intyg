@@ -322,6 +322,27 @@ def admin():
         return redirect('/login_admin')
     logger.debug("Rendering admin page")
     return render_template('admin.html')
+
+
+@app.route('/verify_certificate/<personnummer>', methods=['GET'])
+def verify_certificate_route(personnummer):
+    """Allow an admin to verify whether a user's certificate is confirmed.
+
+    Uses a cached lookup to avoid repeated database queries for the same
+    ``personnummer``. Returns a JSON response indicating the verification
+    status. If the certificate isn't verified, an informative message is sent
+    back to the administrator.
+    """
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized certificate verification attempt")
+        return redirect('/login_admin')
+
+    if functions.verify_certificate(personnummer):
+        return jsonify({'status': 'success', 'verified': True})
+    return jsonify({
+        'status': 'error',
+        'message': "User's certificate is not verified",
+    }), 404
 @app.route("/error")
 def error():
     """Intentionally raise an error to test the 500 page."""
