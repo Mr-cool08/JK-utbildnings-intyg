@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import os
 import time
@@ -13,18 +14,20 @@ from flask import (
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import functions
+
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
 load_dotenv(CONFIG_PATH)
 
-import functions
-from functions import normalize_personnummer, hash_value
+
 
 LOG_ROOT = os.getenv("LOG_ROOT", os.path.join(APP_ROOT, "logs"))
 os.makedirs(LOG_ROOT, exist_ok=True)
-logname = os.path.join(LOG_ROOT, "app.log")
+logname = os.path.join(LOG_ROOT, f"{datetime.now().strftime('%Y-%m-%d')}_app.log")
+print(f"Logging to {logname}")
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -112,8 +115,8 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
-    pnr_norm = normalize_personnummer(pnr)
-    pnr_hash = hash_value(pnr_norm)
+    pnr_norm = functions.normalize_personnummer(pnr)
+    pnr_hash = functions.hash_value(pnr_norm)
     user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     os.makedirs(user_dir, exist_ok=True)
     logger.debug("User directory for %s is %s", pnr, user_dir)
@@ -162,12 +165,12 @@ def license():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        personnummer = normalize_personnummer(request.form['personnummer'])
+        personnummer = functions.normalize_personnummer(request.form['personnummer'])
         password = request.form['password']
         logger.debug("Login attempt for %s", personnummer)
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            session['personnummer'] = hash_value(personnummer)
+            session['personnummer'] = functions.hash_value(personnummer)
             logger.info("User %s logged in", personnummer)
             return redirect('/dashboard')
         else:
@@ -212,7 +215,7 @@ def admin():
             try:
                 email = request.form['email']
                 username = request.form['username']
-                personnummer = normalize_personnummer(request.form['personnummer'])
+                personnummer = functions.normalize_personnummer(request.form['personnummer'])
                 pdf_file = request.files.get('pdf')
 
                 if not pdf_file:
@@ -233,7 +236,7 @@ def admin():
                     )
 
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
-                    link = f"/create_user/{hash_value(personnummer)}"
+                    link = f"/create_user/{functions.hash_value(personnummer)}"
                     # Skicka e-post med länken för att skapa lösenord
                     try:
                         send_creation_email(email, link)

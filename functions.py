@@ -16,9 +16,11 @@ load_dotenv(os.getenv("CONFIG_PATH", "/config/.env"))
 
 # Base directory to store the SQLite database so data persists across restarts.
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
+logging.debug("Application root directory: %s", APP_ROOT)
 # Allow overriding the database location via the ``DB_PATH`` environment variable
 # so it can be mounted on a host volume for persistence when running in Docker.
 DB_PATH = os.getenv("DB_PATH", os.path.join(APP_ROOT, "database.db"))
+logging.debug("Using database path: %s", DB_PATH)
 
 # Global salt used for deterministic hashing of personal data like email and
 # personnummer. Must remain constant or stored data cannot be retrieved.
