@@ -17,11 +17,11 @@ RUN mkdir -p /data /app/uploads /config \
 VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port and default database location
-ENV PORT=80 \
+ENV PORT=8000 \
     DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1
 
-EXPOSE 80
+EXPOSE 8000
 
 # Run the application with Gunicorn
 CMD ["gunicorn", "app:app", "--workers=3", "--bind=0.0.0.0:${PORT}", \
