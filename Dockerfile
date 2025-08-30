@@ -24,5 +24,5 @@ ENV PORT=8080 \
 EXPOSE 8080
 
 # Run the application with Gunicorn
-CMD ["sh", "-c", "gunicorn app:app --workers=3 --bind=0.0.0.0:$PORT --access-logfile=- --error-logfile=- --log-level=info --capture-output"]
+CMD ["sh", "-c", "gunicorn app:app --workers=3 --bind=0.0.0.0:$PORT --access-logfile=- --error-logfile=- --log-level=debug --capture-output"]
 
