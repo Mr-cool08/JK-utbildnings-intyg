@@ -1,3 +1,5 @@
+"""Flask application for issuing and serving course certificates."""
+
 from datetime import datetime
 import logging
 import os
@@ -11,7 +13,7 @@ from flask import (
     redirect,
     send_from_directory,
     current_app,
-    
+
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 from werkzeug.utils import secure_filename
@@ -123,6 +125,7 @@ def send_creation_email(to_email: str, link: str) -> None:
 
 @app.context_processor
 def inject_flags():
+    """Expose flags indicating debug mode to Jinja templates."""
     # return {"IS_DEV": current_app.debug}  # funkar också
     return {"IS_DEV": app.debug}
 
@@ -168,6 +171,7 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
+    """Allow a pending user to set a password and activate the account."""
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == 'POST':
         password = request.form['password']
@@ -183,6 +187,7 @@ def create_user(pnr_hash):
 
 @app.route('/', methods=['GET'])
 def home():
+    """Render the landing page."""
     print("Rendering home page")
     logger.debug("Rendering home page")
     return render_template('index.html')
@@ -190,12 +195,14 @@ def home():
 
 @app.route('/license', methods=['GET'])
 def license():
+    """Render the license information page."""
     logger.debug("Rendering license page")
     return render_template('license.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Authenticate users using personnummer and password."""
     if request.method == 'POST':
         personnummer = functions.normalize_personnummer(request.form['personnummer'])
         password = request.form['password']
@@ -232,6 +239,7 @@ def dashboard():
 
 @app.route('/my_pdfs/<path:filename>')
 def download_pdf(filename):
+    """Serve a stored PDF for the logged-in user."""
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated download attempt for %s", filename)
         return redirect('/login')
@@ -242,6 +250,7 @@ def download_pdf(filename):
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
+    """Admin dashboard for uploading certificates and creating users."""
     if request.method == 'POST':
         if session.get('admin_logged_in'):
             try:
@@ -315,11 +324,13 @@ def admin():
     return render_template('admin.html')
 @app.route("/error")
 def error():
+    """Intentionally raise an error to test the 500 page."""
     # This will cause a 500 Internal Server Error
     raise Exception("Testing 500 error page")
 
 @app.route('/login_admin', methods=['POST', 'GET'])
 def login_admin():
+    """Authenticate an administrator for access to the admin panel."""
     if request.method == 'POST':
 
         admin_password = os.getenv('admin_password')
@@ -369,6 +380,7 @@ def page_not_found(_):
 
 @app.template_filter('datetimeformat')
 def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
+    """Format a POSIX timestamp for display in templates."""
     import datetime
     return datetime.datetime.fromtimestamp(value).strftime(format)
 

@@ -14,7 +14,7 @@ You can build and run the container locally with Docker Compose:
 docker compose up --build
 ```
 
-The app will be available on http://localhost:80.
+The app will be available on <http://localhost:80>.
 
 ## Production deployment
 
@@ -32,3 +32,6 @@ docker run -d -p 80:80 \
 ```
 
 The volumes are created automatically if they do not exist. On first start the container copies `.example.env` into the `env_data` volume as `.env`. Edit this file and restart the container to update environment variables.
+
+If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
+

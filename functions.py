@@ -1,3 +1,5 @@
+"""Database helpers and utility functions for the Flask application."""
+
 import logging
 import sqlite3
 import hashlib
@@ -75,6 +77,7 @@ def normalize_personnummer(pnr: str) -> str:
 
 
 def create_database():
+    """Create required SQLite tables if they do not exist."""
     logger.debug("Creating database and ensuring tables exist")
     # Ensure the directory for the database exists, especially when using a
     # volume-mounted path inside Docker containers.
@@ -106,6 +109,7 @@ def create_database():
     logger.info("Database initialized")
 
 def check_password_user(email, password):
+    """Return True if ``email`` and ``password`` match a user."""
     logger.debug("Checking password for email %s", email)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -133,6 +137,7 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
     return bool(row and verify_password(row[0], password))
 
 def check_user_exists(email):
+    """Return True if a user with ``email`` exists."""
     logger.debug("Checking if user exists for email %s", email)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -145,6 +150,7 @@ def check_user_exists(email):
     return user is not None
 
 def get_username(email):
+    """Return the username associated with ``email`` or ``None``."""
     logger.debug("Fetching username for email %s", email)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -157,6 +163,7 @@ def get_username(email):
     return user[0] if user else None
 
 def check_pending_user(personnummer):
+    """Return True if a pending user with ``personnummer`` exists."""
     personnummer = normalize_personnummer(personnummer)
     logger.debug("Checking pending user for %s", personnummer)
     conn = sqlite3.connect(DB_PATH)
@@ -184,6 +191,7 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
     return user is not None
 
 def admin_create_user(email, username, personnummer, pdf_path):
+    """Insert a new pending user row and store the uploaded PDF."""
     logger.debug("Admin creating user %s", personnummer)
     if check_user_exists(email):
         logger.warning("Attempt to recreate existing user %s", email)
@@ -265,6 +273,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
 
 
 def get_user_info(personnummer):
+    """Return database row for user identified by ``personnummer``."""
     personnummer = normalize_personnummer(personnummer)
     logger.debug("Fetching user info for %s", personnummer)
     conn = sqlite3.connect(DB_PATH)
@@ -278,6 +287,7 @@ def get_user_info(personnummer):
     return user
 
 def create_test_user():
+    """Populate the database with a simple test user."""
     logger.debug("Creating test user")
     email = "test@example.com"
     username = "Test User"
