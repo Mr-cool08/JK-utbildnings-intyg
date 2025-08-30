@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 from datetime import datetime
+from functools import lru_cache
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -182,6 +183,27 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
     user = cursor.fetchone()
     conn.close()
     return user is not None
+
+
+@lru_cache(maxsize=256)
+def verify_certificate(personnummer: str) -> bool:
+    """Return True if a certificate for ``personnummer`` is verified.
+
+    A certificate is considered verified if the corresponding user exists in
+    the ``users`` table. Results are cached to avoid repeated database
+    lookups for the same ``personnummer``.
+    """
+    personnummer = normalize_personnummer(personnummer)
+    logger.debug("Verifying certificate for %s", personnummer)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        '''SELECT 1 FROM users WHERE personnummer = ?''',
+        (hash_value(personnummer),),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
 
 def admin_create_user(email, username, personnummer, pdf_path):
     logger.debug("Admin creating user %s", personnummer)
