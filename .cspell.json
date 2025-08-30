@@ -1,14 +1,8 @@
 {
   "version": "0.2",
   "language": "sv",
+  "import": ["cspell-dict-sv"],
   "dictionaries": ["sv"],
-  "dictionaryDefinitions": [
-    {
-      "name": "sv",
-      "path": "cspell-dict-sv/sv/dictionary.txt",
-      "addWords": true
-    }
-  ],
   "useGitignore": true,
   "ignorePaths": [
     "node_modules",
