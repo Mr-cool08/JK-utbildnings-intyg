@@ -10,6 +10,8 @@ from flask import (
     session,
     redirect,
     send_from_directory,
+    current_app,
+    
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 from werkzeug.utils import secure_filename
@@ -21,23 +23,36 @@ import functions
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
 load_dotenv(CONFIG_PATH)
-
-
-
-LOG_ROOT = os.getenv("LOG_ROOT", os.path.join(APP_ROOT, "logs"))
-os.makedirs(LOG_ROOT, exist_ok=True)
-logname = os.path.join(LOG_ROOT, f"{datetime.now().strftime('%Y-%m-%d')}_app.log")
-print(f"Logging to {logname}")
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    filename=logname,
-    filemode='a',
-)
-logger = logging.getLogger(__name__)
-
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  
+logger.propagate = True  
+# functions.create_test_user()  # Skapa en testanvändare vid start
+def _enable_debug_mode(app: Flask) -> None:
+    """Aktivera extra loggning och ev. testdata i debug-läge."""
+    stream = logging.StreamHandler()
+    root = logging.getLogger()
+    if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+        root.addHandler(stream)
+    root.setLevel(logging.DEBUG)
+
+    if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
+        app.logger.addHandler(stream)
+    app.logger.setLevel(logging.DEBUG)
+
+    functions.logger.setLevel(logging.DEBUG)
+    if not any(isinstance(h, logging.StreamHandler) for h in functions.logger.handlers):
+        functions.logger.addHandler(stream)
+
+    functions.logger.debug("Debug mode is on")
+    logger.debug("Debug mode is on")
+    # Skapa testanvändare endast i debug-läge
+    functions.create_test_user()
+    print("Debug mode is on, test user created")
+    
+    
 
 
 def create_app() -> Flask:
@@ -49,6 +64,11 @@ def create_app() -> Flask:
     os.makedirs(UPLOAD_ROOT, exist_ok=True)
     app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+    
+    with app.app_context():
+        if app.debug:
+            _enable_debug_mode(app)
+            
     logger.debug("Application created with upload root %s", UPLOAD_ROOT)
     return app
 
@@ -93,10 +113,16 @@ def send_creation_email(to_email: str, link: str) -> None:
     except SMTPException as exc:
         logger.exception("SMTP error sending mail to %s", to_email)
         raise RuntimeError("Failed to send email") from exc
+    
+    
 
 @app.context_processor
 def inject_flags():
+    # return {"IS_DEV": current_app.debug}  # funkar också
     return {"IS_DEV": app.debug}
+
+
+
 def save_pdf_for_user(pnr: str, file_storage) -> str:
     """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
     logger.debug("Saving PDF for personnummer %s", pnr)
@@ -152,6 +178,7 @@ def create_user(pnr_hash):
 
 @app.route('/', methods=['GET'])
 def home():
+    print("Rendering home page")
     logger.debug("Rendering home page")
     return render_template('index.html')
 
@@ -312,6 +339,7 @@ def logout():
 
 @app.errorhandler(500)
 def internal_server_error(_):
+    logger.error("500 Internal Server Error: %s", request.path)
     """Visa en användarvänlig 500-sida när ett serverfel inträffar."""
     return render_template('500.html', time=time.time()), 500
 
@@ -319,7 +347,7 @@ def internal_server_error(_):
 @app.errorhandler(409)
 def conflict_error(_):
     """Visa en användarvänlig 409-sida vid konflikt."""
-    logger.warning("409 Conflict: %s", request.path)
+    logger.error("409 Conflict: %s", request.path)
     return render_template('409.html'), 409
 
 @app.errorhandler(404)
@@ -334,14 +362,9 @@ def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
     return datetime.datetime.fromtimestamp(value).strftime(format)
 
 if __name__ == '__main__':
-    if os.getenv('FLASK_ENV') == 'development':
-        functions.create_database()
-        functions.create_test_user()  # Skapa en testanvändare vid start
-        logger.info("Running in development mode")
-    else:
-        logger.info("Running in production mode")
+    logger.critical("Starting app from app.py, Debug is enabled")
     app.run(
-        debug=os.getenv('FLASK_ENV') == 'development',
+        debug=True,
         host='0.0.0.0',
         port=int(os.getenv('PORT', 80)),
     )

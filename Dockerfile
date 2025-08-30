@@ -11,15 +11,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Ensure runtime directories exist, seed configuration volume, and declare them as volumes for persistence
-RUN mkdir -p /data /app/uploads /app/logs /config \
+# Ensure runtime directories exist, seed configuration volume
+RUN mkdir -p /data /app/uploads /config \
     && cp .example.env /config/.env
-VOLUME ["/data", "/app/uploads", "/app/logs", "/config"]
+VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port and default database location
 ENV PORT=80 \
-    DB_PATH=/data/database.db
+    DB_PATH=/data/database.db \
+    PYTHONUNBUFFERED=1
+
 EXPOSE 80
 
 # Run the application with Gunicorn
-CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT} wsgi:application"]
+CMD ["gunicorn", "app:app", "--workers=3", "--bind=0.0.0.0:${PORT}", \
+     "--access-logfile=-", "--error-logfile=-", "--log-level=info", "--capture-output"]
