@@ -2,6 +2,21 @@
 
 This web application manages the issuance and storage of course certificates. It separates responsibilities between administrators and end users so each party can focus on their own tasks.
 
+## Getting started
+
+1. **Install dependencies**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup.
+3. **Run the application**
+   ```bash
+   python app.py
+   ```
+   The app will be available on <http://localhost:80>. For container-based deployment see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## How it works for administrators
 
 * **Login** – Administrators sign in with credentials configured by the owner. A valid session grants access to the admin panel.
@@ -22,8 +37,6 @@ This web application manages the issuance and storage of course certificates. It
 * **File system** – Certificates reside in an `uploads/<personnummer>/` directory structure. The application only accepts PDF files to prevent accidental uploads of other formats.
 * **Hashed credentials** – Passwords are hashed with a per-user salt using PBKDF2 via Werkzeug, while personal numbers and emails are deterministically hashed with a global salt so sensitive data isn't stored in plain text.
 
-This description focuses on the internal workflow and division of responsibilities. Operational details such as installation or deployment are intentionally omitted.
-
 ## Persistent data with Docker
 
 Running the application with Docker Compose stores mutable data in named volumes so that updates to the container image do not remove important files:
@@ -34,3 +47,10 @@ Running the application with Docker Compose stores mutable data in named volumes
 * `logs_data` – retains application logs under `/app/logs/`.
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
+
+## Running tests
+
+```bash
+pytest
+```
+
