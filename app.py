@@ -113,6 +113,11 @@ def send_creation_email(to_email: str, link: str) -> None:
     except SMTPException as exc:
         logger.exception("SMTP error sending mail to %s", to_email)
         raise RuntimeError("Failed to send email") from exc
+    except OSError as exc:
+        logger.exception(
+            "SMTP connection error sending mail to %s", to_email
+        )
+        raise RuntimeError("Failed to connect to email server") from exc
     
     
 
@@ -292,7 +297,13 @@ def admin():
                 return redirect('/error')
             except Exception as e:
                 logger.error("Server error during admin upload, %s", e)
-                return redirect('/error')
+                return (
+                    jsonify({
+                        'status': 'error',
+                        'message': 'Server error',
+                    }),
+                    500,
+                )
         else:
             logger.warning("Unauthorized admin POST")
             return redirect('/login_admin')

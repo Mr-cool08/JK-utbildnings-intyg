@@ -265,6 +265,38 @@ def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
         assert "SMTP login failed" in resp_json["message"]
 
 
+def test_admin_upload_email_connection_failure(tmp_path, monkeypatch):
+    db_path = setup_db(tmp_path, monkeypatch)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
+
+    class FailingSMTP:
+        def __init__(self, server, port):
+            raise OSError("Name or service not known")
+
+    monkeypatch.setattr(app, "SMTP", FailingSMTP)
+    monkeypatch.setenv("smtp_server", "smtp.invalid")
+    monkeypatch.setenv("smtp_port", "587")
+    monkeypatch.setenv("smtp_user", "no-reply@example.com")
+    monkeypatch.setenv("smtp_password", "secret")
+
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "new@example.com",
+        "username": "New User",
+        "personnummer": "19900101-1234",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with app.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["admin_logged_in"] = True
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+        assert response.status_code == 500
+        resp_json = response.get_json()
+        assert resp_json["status"] == "error"
+        assert "Failed to connect to email server" in resp_json["message"]
+
+
 def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
     db_path = setup_db(tmp_path, monkeypatch)
     monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
