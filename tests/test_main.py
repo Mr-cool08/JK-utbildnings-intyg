@@ -10,6 +10,9 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import app
 import functions
 
+import werkzeug
+if not hasattr(werkzeug, "__version__"):
+    werkzeug.__version__ = "3.0.0"
 
 # Tests for normalize_personnummer
 

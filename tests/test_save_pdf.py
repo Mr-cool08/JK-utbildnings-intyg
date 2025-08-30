@@ -1,6 +1,11 @@
 import io
 import os
 import sys
+
+
+import werkzeug
+if not hasattr(werkzeug, "__version__"):
+    werkzeug.__version__ = "3.0.0"
 # ensure project root is on sys.path so we import the local main.py
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
