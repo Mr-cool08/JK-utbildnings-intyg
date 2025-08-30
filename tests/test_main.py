@@ -7,7 +7,7 @@ import sqlite3
 from werkzeug.datastructures import FileStorage
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import main
+import app
 import functions
 
 
@@ -26,7 +26,7 @@ def test_normalize_personnummer_invalid():
 # Tests for save_pdf_for_user
 
 def test_save_pdf_for_user(tmp_path, monkeypatch):
-    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
 
     pdf_bytes = b"%PDF-1.4 test"
     file_storage = FileStorage(
@@ -35,9 +35,9 @@ def test_save_pdf_for_user(tmp_path, monkeypatch):
         content_type="application/pdf",
     )
 
-    rel_path = main.save_pdf_for_user("19900101-1234", file_storage)
+    rel_path = app.save_pdf_for_user("19900101-1234", file_storage)
 
-    abs_path = os.path.abspath(os.path.join(main.APP_ROOT, rel_path))
+    abs_path = os.path.abspath(os.path.join(app.APP_ROOT, rel_path))
     assert os.path.exists(abs_path)
     with open(abs_path, "rb") as f:
         assert f.read() == pdf_bytes
@@ -51,10 +51,10 @@ def setup_user(tmp_path, monkeypatch):
     def connect_stub(_):
         return real_connect(db_path)
 
-    monkeypatch.setattr(main.functions.sqlite3, "connect", connect_stub)
+    monkeypatch.setattr(app.functions.sqlite3, "connect", connect_stub)
     import functions
     monkeypatch.setattr(functions.sqlite3, "connect", connect_stub)
-    main.app.secret_key = "test-secret"
+    app.app.secret_key = "test-secret"
 
     functions.create_database()
     conn = real_connect(db_path)
@@ -78,14 +78,14 @@ def setup_user(tmp_path, monkeypatch):
 )
 def test_login_success(tmp_path, monkeypatch, pnr_input):
     setup_user(tmp_path, monkeypatch)
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         response = client.post("/login", data={"personnummer": pnr_input, "password": "secret"})
         assert response.status_code == 302
 
 
 def test_login_failure(tmp_path, monkeypatch):
     setup_user(tmp_path, monkeypatch)
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         response = client.post(
             "/login", data={"personnummer": "199001011234", "password": "wrong"}
         )
@@ -94,7 +94,7 @@ def test_login_failure(tmp_path, monkeypatch):
 
 def test_dashboard_shows_only_user_pdfs(tmp_path, monkeypatch):
     setup_user(tmp_path, monkeypatch)
-    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
 
     user_dir = tmp_path / functions.hash_value("199001011234")
     user_dir.mkdir()
@@ -104,7 +104,7 @@ def test_dashboard_shows_only_user_pdfs(tmp_path, monkeypatch):
     other_dir.mkdir()
     (other_dir / "other.pdf").write_text("test")
 
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         client.post(
             "/login", data={"personnummer": "199001011234", "password": "secret"}
         )
@@ -120,10 +120,10 @@ def setup_db(tmp_path, monkeypatch):
     def connect_stub(_):
         return real_connect(db_path)
 
-    monkeypatch.setattr(main.functions.sqlite3, "connect", connect_stub)
+    monkeypatch.setattr(app.functions.sqlite3, "connect", connect_stub)
     import functions
     monkeypatch.setattr(functions.sqlite3, "connect", connect_stub)
-    main.app.secret_key = "test-secret"
+    app.app.secret_key = "test-secret"
 
     functions.create_database()
     return db_path
@@ -135,7 +135,7 @@ def setup_db(tmp_path, monkeypatch):
 )
 def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     db_path = setup_db(tmp_path, monkeypatch)
-    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
 
     # Configure a dummy SMTP implementation to capture emails
     sent_emails = []
@@ -160,7 +160,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(main, "SMTP", DummySMTP)
+    monkeypatch.setattr(app, "SMTP", DummySMTP)
     monkeypatch.setenv("smtp_server", "smtp.test")
     monkeypatch.setenv("smtp_port", "587")
     monkeypatch.setenv("smtp_user", "no-reply@example.com")
@@ -174,7 +174,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         with client.session_transaction() as sess:
             sess["admin_logged_in"] = True
         response = client.post("/admin", data=data, content_type="multipart/form-data")
@@ -215,7 +215,7 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
 
 def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
     db_path = setup_db(tmp_path, monkeypatch)
-    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
 
     class FailingSMTP:
         def __init__(self, server, port):
@@ -238,7 +238,7 @@ def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(main, "SMTP", FailingSMTP)
+    monkeypatch.setattr(app, "SMTP", FailingSMTP)
     monkeypatch.setenv("smtp_server", "smtp.test")
     monkeypatch.setenv("smtp_port", "587")
     monkeypatch.setenv("smtp_user", "no-reply@example.com")
@@ -252,7 +252,7 @@ def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         with client.session_transaction() as sess:
             sess["admin_logged_in"] = True
         response = client.post("/admin", data=data, content_type="multipart/form-data")
@@ -264,7 +264,7 @@ def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
 
 def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
     db_path = setup_db(tmp_path, monkeypatch)
-    monkeypatch.setitem(main.app.config, "UPLOAD_ROOT", tmp_path)
+    monkeypatch.setitem(app.app.config, "UPLOAD_ROOT", tmp_path)
 
     # Lägg till befintlig användare
     conn = sqlite3.connect(db_path)
@@ -289,7 +289,7 @@ def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         with client.session_transaction() as sess:
             sess["admin_logged_in"] = True
         response = client.post("/admin", data=data, content_type="multipart/form-data")
@@ -333,7 +333,7 @@ def test_user_create_hashes_password(tmp_path, monkeypatch):
 
 def test_logout_clears_user_session(tmp_path, monkeypatch):
     setup_user(tmp_path, monkeypatch)
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         client.post("/login", data={"personnummer": "199001011234", "password": "secret"})
         with client.session_transaction() as sess:
             assert sess.get("user_logged_in")
@@ -345,7 +345,7 @@ def test_logout_clears_user_session(tmp_path, monkeypatch):
 
 def test_logout_clears_admin_session(tmp_path, monkeypatch):
     setup_user(tmp_path, monkeypatch)
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         with client.session_transaction() as sess:
             sess["admin_logged_in"] = True
         client.get("/logout")
@@ -355,7 +355,7 @@ def test_logout_clears_admin_session(tmp_path, monkeypatch):
 
 def test_custom_404_page():
     """Ensure unknown routes return the custom 404 page."""
-    with main.app.test_client() as client:
+    with app.app.test_client() as client:
         response = client.get("/this-page-does-not-exist")
         assert response.status_code == 404
         assert b"Sidan du letade efter" in response.data
