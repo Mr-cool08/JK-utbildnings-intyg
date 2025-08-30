@@ -394,3 +394,28 @@ def test_custom_404_page():
         response = client.get("/this-page-does-not-exist")
         assert response.status_code == 404
         assert b"Sidan du letade efter" in response.data
+
+
+def test_create_user_route_moves_pending_user(tmp_path, monkeypatch):
+    db_path = setup_db(tmp_path, monkeypatch)
+    # Skapa en pending user som sedan ska aktiveras
+    functions.admin_create_user(
+        "user@example.com", "User", "19900101-1234", "doc.pdf"
+    )
+    pnr_hash = functions.hash_value("199001011234")
+
+    with app.app.test_client() as client:
+        resp = client.get(f"/create_user/{pnr_hash}")
+        assert resp.status_code == 200
+        assert b"Create User" in resp.data
+
+        resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
+        assert resp.status_code == 302
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM users WHERE personnummer = ?", (pnr_hash,))
+    assert cursor.fetchone() is not None
+    cursor.execute("SELECT 1 FROM pending_users WHERE personnummer = ?", (pnr_hash,))
+    assert cursor.fetchone() is None
+    conn.close()

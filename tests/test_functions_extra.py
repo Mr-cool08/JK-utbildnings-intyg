@@ -107,3 +107,27 @@ def test_user_create_user_fails_if_exists(tmp_db):
 def test_hash_value_uniqueness_stress():
     values = {functions.hash_value(f"value{i}") for i in range(20)}
     assert len(values) == 20
+
+
+def test_check_password_user_and_get_username(tmp_db):
+    email = "tester@example.com"
+    username = "Tester"
+    password = "s3cret"
+
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
+        (
+            username,
+            functions.hash_value(email),
+            functions.hash_password(password),
+            functions.hash_value("199001011234"),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    assert functions.check_password_user(email, password)
+    assert not functions.check_password_user(email, "wrong")
+    assert functions.get_username(email) == username
