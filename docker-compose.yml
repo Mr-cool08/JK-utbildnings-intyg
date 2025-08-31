@@ -15,10 +15,9 @@ services:
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-      - certs_data:/certs
+      - /home/client_52_3/certs:/certs
 volumes:
   env_data:
   uploads_data:
   db_data:
   logs_data:
-  certs_data:

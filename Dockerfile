@@ -14,7 +14,7 @@ COPY . .
 # Ensure runtime directories exist, seed configuration volume
 RUN mkdir -p /data /app/uploads /config /certs \
     && cp .example.env /config/.env
-VOLUME ["/data", "/app/uploads", "/config", "/certs"]
+VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port and default database location
 ENV PORT=8080 \
