@@ -5,6 +5,8 @@
   const form = document.getElementById('adminForm');
   const result = document.getElementById('result');
   const submitBtn = document.getElementById('submitBtn');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
 
   // Fält
   const emailInput = document.getElementById('email');
@@ -31,6 +33,23 @@
     result.style.display = 'none';
     result.textContent = '';
     result.className = 'message';
+  }
+
+  // --- Progress bar handling ---
+  let progressInterval;
+  function startProgress() {
+    progressContainer.style.display = 'block';
+    let width = 0;
+    progressBar.style.width = '0%';
+    progressInterval = setInterval(() => {
+      width = (width + 10) % 100;
+      progressBar.style.width = `${width}%`;
+    }, 500);
+  }
+
+  function stopProgress() {
+    progressContainer.style.display = 'none';
+    clearInterval(progressInterval);
   }
 
   // --- Enkel validering ---
@@ -96,7 +115,8 @@
 
     // Skicka
     submitBtn.disabled = true;
-        submitBtn.textContent = 'Skapar...';
+    submitBtn.textContent = 'Skapar...';
+    startProgress();
 
     try {
       const res = await fetch('/admin', {
@@ -131,7 +151,8 @@
       // console.error(err);
     } finally {
       submitBtn.disabled = false;
-        submitBtn.textContent = 'Skapa användare';
+      submitBtn.textContent = 'Skapa användare';
+      stopProgress();
     }
   });
 

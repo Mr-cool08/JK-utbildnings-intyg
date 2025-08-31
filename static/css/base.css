@@ -235,3 +235,21 @@ footer {
 .create-account .license-note {
     margin-top: 16px;
 }
+
+/* --- Progress indicator for admin user creation --- */
+.progress-container {
+    margin-top: 14px;
+}
+
+.progress-bar {
+    height: 4px;
+    width: 0;
+    background: #007bff;
+    transition: width 0.5s linear;
+}
+
+.progress-text {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #555;
+}
