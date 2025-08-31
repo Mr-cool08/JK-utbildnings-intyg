@@ -181,7 +181,37 @@ footer {
     color: #fff;
 }
 
-/* Account creation page */
+/* --- Startsida/hero & features --- */
+.hero .actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.features {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px 20px;
+}
+
+.feature {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    max-width: 260px;
+    flex: 1 1 250px;
+    text-align: center;
+}
+
+.feature h2 {
+    margin-top: 0;
+}
+
+/* --- Konto­skapande-sida --- */
 .create-account {
     max-width: 400px;
     margin: 0 auto;

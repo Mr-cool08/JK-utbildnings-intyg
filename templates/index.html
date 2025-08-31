@@ -1,9 +1,26 @@
 {% extends 'base.html' %}
-{% block title %}Home{% endblock %}
+{% block title %}Welcome{% endblock %}
 {% block content %}
 <div class="hero">
-    <h1>Welcome</h1>
-    <p>Use the site to manage your certificates.</p>
-    <a class="btn" href="/login">Login</a>
+    <h1>Manage Training Certificates Easily</h1>
+    <p>JK Utbildnings Intyg helps you store and access certificates wherever you are.</p>
+    <div class="actions">
+        <a class="btn" href="/login">User Login</a>
+    </div>
 </div>
+
+<section class="features">
+    <div class="feature">
+        <h2>Organize</h2>
+        <p>Keep all your training records in one secure place.</p>
+    </div>
+    <div class="feature">
+        <h2>Verify</h2>
+        <p>Share and verify certificates with ease.</p>
+    </div>
+    <div class="feature">
+        <h2>Access</h2>
+        <p>Log in from any device to view your credentials.</p>
+    </div>
+</section>
 {% endblock %}
