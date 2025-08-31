@@ -13,6 +13,7 @@ from flask import (
     redirect,
     send_from_directory,
     current_app,
+    url_for,
 
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
@@ -105,12 +106,11 @@ def send_creation_email(to_email: str, link: str) -> None:
     msg.set_content(
         f"""
         <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.4;'>
-                <h2>Create your account</h2>
-                <p>Please create your password using the link below:</p>
-                <p><a href='{link}' style='background:#007bff;color:#fff;padding:10px 15px;text-decoration:none;border-radius:4px;'>Create account</a></p>
-                <p style='margin-top:20px;'>If the button above does not work, copy and paste this link into your browser:</p>
-                <p>{link}</p>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hello,</p>
+                <p>Please create your account by visiting this link:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>If you did not request this email, you can ignore it.</p>
             </body>
         </html>
         """,
@@ -320,7 +320,8 @@ def admin():
                     )
 
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
-                    link = f"/create_user/{functions.hash_value(personnummer)}"
+                    pnr_hash = functions.hash_value(personnummer)
+                    link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
                     # Skicka e-post med länken för att skapa lösenord
                     try:
                         send_creation_email(email, link)

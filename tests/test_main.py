@@ -184,7 +184,9 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         assert response.status_code == 200
         resp_json = response.get_json()
         assert resp_json["status"] == "success"
-        expected_link = f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        expected_link = (
+            f"http://localhost/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        )
         assert resp_json["link"] == expected_link
 
     # Ensure an email was sent with the correct link
