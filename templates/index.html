@@ -1,5 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Välkommen{% endblock %}
+{% block title %}JK Utbildnings Intyg – Hantera utbildningsintyg enkelt{% endblock %}
+{% block head %}
+    <meta name="description" content="JK Utbildnings Intyg hjälper dig att lagra, verifiera och komma åt utbildningsintyg var du än är.">
+    <meta name="keywords" content="utbildningsintyg, lagring, verifiering, åtkomst, JK Utbildnings Intyg">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="JK Utbildnings Intyg – Hantera utbildningsintyg enkelt">
+    <meta property="og:description" content="JK Utbildnings Intyg hjälper dig att lagra och komma åt intyg var du än är.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ url_for('static', filename='pictures/logo.jpg', _external=True) }}">
+{% endblock %}
 {% block content %}
 <div class="hero">
     <h1>Hantera utbildningsintyg enkelt</h1>
