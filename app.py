@@ -13,6 +13,7 @@ from flask import (
     redirect,
     send_from_directory,
     current_app,
+    url_for,
 
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
@@ -268,14 +269,33 @@ def dashboard():
 
 @app.route('/my_pdfs/<path:filename>')
 def download_pdf(filename):
-    """Serve a stored PDF for the logged-in user."""
+    """Serve a stored PDF for the logged-in user.
+
+    If the query parameter ``download`` is set to ``0`` the PDF will be
+    displayed inline in the browser instead of being downloaded.
+    """
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated download attempt for %s", filename)
         return redirect('/login')
     pnr_hash = session.get('personnummer')
     user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
-    logger.info("User %s downloading %s", pnr_hash, filename)
-    return send_from_directory(user_dir, filename, as_attachment=True)
+    as_attachment = request.args.get('download', '1') != '0'
+    logger.info(
+        "User %s retrieving %s (as_attachment=%s)", pnr_hash, filename, as_attachment
+    )
+    return send_from_directory(user_dir, filename, as_attachment=as_attachment)
+
+
+@app.route('/view_pdf/<path:filename>')
+def view_pdf(filename):
+    """Render a page displaying the specified PDF inline."""
+    if not session.get('user_logged_in'):
+        logger.debug("Unauthenticated view attempt for %s", filename)
+        return redirect('/login')
+    pnr_hash = session.get('personnummer')
+    logger.info("User %s viewing %s", pnr_hash, filename)
+    pdf_url = url_for('download_pdf', filename=filename, download=0)
+    return render_template('view_pdf.html', filename=filename, pdf_url=pdf_url)
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
