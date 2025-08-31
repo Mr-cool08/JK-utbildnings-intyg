@@ -1,9 +1,72 @@
+# ----------------------------------------
+# Environment & configuration
+# ----------------------------------------
 .env
-/uploads
-/__pycache__
-*.db
-.vscode
-*.log
-.pytest_cache
-__pycache__
+*.env
+*.ini
+*.cfg
+
+# ----------------------------------------
+# Python cache & compiled files
+# ----------------------------------------
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.pyc.*
+
+# Bytecode cache (exempelvis Jupyter)
+.ipynb_checkpoints/
+
+# ----------------------------------------
+# Flask / Database files
+# ----------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+instance/
+uploads/
+
+# ----------------------------------------
+# Virtual environments
+# ----------------------------------------
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+pip-log.txt
+
+# ----------------------------------------
+# Testing & coverage
+# ----------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+htmlcov/
+
+# ----------------------------------------
+# Logs
+# ----------------------------------------
+*.log
+logs/
+*.out
+*.err
+
+# ----------------------------------------
+# Editors & IDEs
+# ----------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----------------------------------------
+# OS-specific files
+# ----------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
