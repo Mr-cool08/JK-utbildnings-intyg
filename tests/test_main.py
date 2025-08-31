@@ -174,7 +174,10 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         "email": "new@example.com",
         "username": "New User",
         "personnummer": pnr_input,
-        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "pdf": [
+            (io.BytesIO(pdf_bytes), "doc.pdf"),
+            (io.BytesIO(pdf_bytes), "doc2.pdf"),
+        ],
     }
 
     with app.app.test_client() as client:
@@ -202,12 +205,12 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     pnr_norm = functions.normalize_personnummer(pnr_input)
     expected_dir = functions.hash_value(pnr_norm)
 
-    # Verify file saved
+    # Verify files saved
     user_dir = tmp_path / expected_dir
-    files = list(user_dir.glob("*.pdf"))
-    assert len(files) == 1
+    files = sorted(f.name for f in user_dir.glob("*.pdf"))
+    assert len(files) == 2
 
-    # Verify database entry contains hashed personnummer and pdf_path
+    # Verify database entry contains hashed personnummer and pdf paths
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute(
@@ -218,7 +221,8 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     conn.close()
     assert row is not None
     assert row[0] == expected_dir
-    assert row[1].endswith(files[0].name)
+    stored = sorted(os.path.basename(p) for p in row[1].split(';'))
+    assert stored == files
 
 
 def test_admin_upload_email_login_failure(tmp_path, monkeypatch):

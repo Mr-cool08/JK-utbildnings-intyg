@@ -213,7 +213,12 @@ def verify_certificate(personnummer: str) -> bool:
     return row is not None
 
 def admin_create_user(email, username, personnummer, pdf_path):
-    """Insert a new pending user row and store the uploaded PDF."""
+    """Insert a new pending user row and store the uploaded PDF(s).
+
+    ``pdf_path`` may be a single path string or an iterable of paths. Multiple
+    paths are stored as a semicolon-separated string to keep the schema
+    unchanged.
+    """
     logger.debug("Admin creating user %s", personnummer)
     if check_user_exists(email):
         logger.warning("Attempt to recreate existing user %s", email)
@@ -222,12 +227,16 @@ def admin_create_user(email, username, personnummer, pdf_path):
     personnummer = normalize_personnummer(personnummer)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    if isinstance(pdf_path, (list, tuple)):
+        pdf_path_str = ';'.join(pdf_path)
+    else:
+        pdf_path_str = pdf_path
     cursor.execute(
         '''
         INSERT INTO pending_users (email, username, personnummer, pdf_path)
         VALUES (?, ?, ?, ?)
         ''',
-        (hash_value(email), username, hash_value(personnummer), pdf_path),
+        (hash_value(email), username, hash_value(personnummer), pdf_path_str),
     )
     conn.commit()
     conn.close()

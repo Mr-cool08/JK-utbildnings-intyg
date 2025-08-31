@@ -71,7 +71,7 @@ def create_app() -> Flask:
     app.secret_key = os.getenv('secret_key')
     os.makedirs(UPLOAD_ROOT, exist_ok=True)
     app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB, justera vid behov
+    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
     
     with app.app_context():
         if app.debug:
@@ -327,26 +327,26 @@ def admin():
                 email = request.form['email']
                 username = request.form['username']
                 personnummer = functions.normalize_personnummer(request.form['personnummer'])
-                pdf_file = request.files.get('pdf')
+                pdf_files = request.files.getlist('pdf')
 
-                if not pdf_file:
+                if not pdf_files:
                     logger.warning("Admin upload without PDF")
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
-                # spara filen i mapp per personnummer
-                pdf_path = save_pdf_for_user(personnummer, pdf_file)
+                # spara filerna i mapp per personnummer
+                pdf_paths = [save_pdf_for_user(personnummer, f) for f in pdf_files]
 
-                # Om användaren redan finns ska endast PDF:en sparas
+                # Om användaren redan finns ska endast PDF:erna sparas
                 if functions.get_user_info(personnummer):
-                    logger.info("PDF uploaded for existing user %s", personnummer)
+                    logger.info("PDFs uploaded for existing user %s", personnummer)
                     return jsonify(
                         {
                             'status': 'success',
-                            'message': 'PDF uppladdad för befintlig användare',
+                            'message': 'PDF:er uppladdade för befintlig användare',
                         }
                     )
 
-                if functions.admin_create_user(email, username, personnummer, pdf_path):
+                if functions.admin_create_user(email, username, personnummer, ';'.join(pdf_paths)):
                     pnr_hash = functions.hash_value(personnummer)
                     link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
                     # Skicka e-post med länken för att skapa lösenord
