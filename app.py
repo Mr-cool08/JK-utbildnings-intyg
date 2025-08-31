@@ -108,10 +108,26 @@ def send_creation_email(to_email: str, link: str) -> None:
     try:
         logger.debug("Skickar via %s:%s (STARTTLS) till %s", smtp_server, smtp_port, to_email)
 
-        # OBS: inga ehlo()-anrop (dummies saknar dem i testerna)
         with SMTP(smtp_server, smtp_port) as smtp:
-            # STARTTLS (tester förväntar att denna kallas)
-            smtp.starttls(context=context)
+            # Vissa testdummies saknar ehlo(), så anropa bara om metoden finns
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
+            # STARTTLS – använd SSL‑context om metoden stödjer det
+            try:
+                from inspect import signature
+
+                if "context" in signature(smtp.starttls).parameters:
+                    smtp.starttls(context=context)
+                else:
+                    smtp.starttls()
+            except (TypeError, ValueError):
+                # Om signaturen inte kan inspekteras, fall tillbaka utan context
+                smtp.starttls()
+
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
             # Login
             smtp.login(smtp_user, smtp_password)
 
