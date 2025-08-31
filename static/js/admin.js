@@ -96,7 +96,7 @@
 
     // Skicka
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Skapar...';
+        submitBtn.textContent = 'Skapar...';
 
     try {
       const res = await fetch('/admin', {
@@ -131,7 +131,7 @@
       // console.error(err);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Create pending user';
+        submitBtn.textContent = 'Skapa användare';
     }
   });
 

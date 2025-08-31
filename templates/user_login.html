@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}User Login{% endblock %}
+{% block title %}Användarinloggning{% endblock %}
 {% block content %}
-    <h1>User Login</h1>
+    <h1>Användarinloggning</h1>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
     <form action="/login" method="POST">
         <label for="personnummer">Personnummer:</label>
         <input type="text" id="personnummer" name="personnummer" required>
-        <label for="password">Password:</label>
+        <label for="password">Lösenord:</label>
         <input type="password" id="password" name="password" required>
-        <button type="submit">Login</button>
+        <button type="submit">Logga in</button>
     </form>
 {% endblock %}

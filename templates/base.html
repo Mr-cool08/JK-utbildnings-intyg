@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}My Site{% endblock %}</title>
+    <title>{% block title %}Min webbplats{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body>
     <nav>
-        <a class="brand" href="/">Home</a>
+        <a class="brand" href="/">Hem</a>
         <div class="nav-links">
             {% if session.get('user_logged_in') %}
-                <a href="/dashboard">Dashboard</a>
-                <a href="/logout">Logout</a>
+                <a href="/dashboard">Översikt</a>
+                <a href="/logout">Logga ut</a>
             {% elif session.get('admin_logged_in') %}
                 <a href="/admin">Admin</a>
-                <a href="/logout">Logout</a>
+                <a href="/logout">Logga ut</a>
             {% else %}
-                <a href="/login">User Login</a>
+                <a href="/login">Användarinloggning</a>
             {% endif %}
         </div>
     </nav>

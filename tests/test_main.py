@@ -194,7 +194,10 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
     from_addr, to_addr, msg = sent_emails[0]
     assert from_addr == "no-reply@example.com"
     assert to_addr == "new@example.com"
-    assert expected_link in msg
+    from email import message_from_string
+    email_msg = message_from_string(msg)
+    body = email_msg.get_payload(decode=True).decode()
+    assert expected_link in body
 
     pnr_norm = functions.normalize_personnummer(pnr_input)
     expected_dir = functions.hash_value(pnr_norm)
@@ -264,7 +267,7 @@ def test_admin_upload_email_login_failure(tmp_path, monkeypatch):
         assert response.status_code == 500
         resp_json = response.get_json()
         assert resp_json["status"] == "error"
-        assert "SMTP login failed" in resp_json["message"]
+        assert "SMTP-inloggning misslyckades" in resp_json["message"]
 
 
 def test_admin_upload_email_connection_failure(tmp_path, monkeypatch):
@@ -296,7 +299,7 @@ def test_admin_upload_email_connection_failure(tmp_path, monkeypatch):
         assert response.status_code == 500
         resp_json = response.get_json()
         assert resp_json["status"] == "error"
-        assert "Failed to connect to email server" in resp_json["message"]
+        assert "Det gick inte att ansluta till e-postservern" in resp_json["message"]
 
 
 def test_admin_upload_existing_user_only_saves_pdf(tmp_path, monkeypatch):
@@ -409,7 +412,7 @@ def test_create_user_route_moves_pending_user(tmp_path, monkeypatch):
     with app.app.test_client() as client:
         resp = client.get(f"/create_user/{pnr_hash}")
         assert resp.status_code == 200
-        assert b"Create Account" in resp.data
+        assert "Skapa konto" in resp.get_data(as_text=True)
 
         resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
         assert resp.status_code == 302
