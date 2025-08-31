@@ -18,6 +18,10 @@ services:
       - /home/client_52_3/certs:/certs
 volumes:
   env_data:
+    name: env_data
   uploads_data:
+    name: uploads_data
   db_data:
+    name: db_data
   logs_data:
+    name: logs_data
