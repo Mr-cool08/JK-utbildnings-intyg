@@ -407,7 +407,7 @@ def test_create_user_route_moves_pending_user(tmp_path, monkeypatch):
     with app.app.test_client() as client:
         resp = client.get(f"/create_user/{pnr_hash}")
         assert resp.status_code == 200
-        assert b"Create User" in resp.data
+        assert b"Create Account" in resp.data
 
         resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
         assert resp.status_code == 302

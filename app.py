@@ -22,6 +22,7 @@ import functions
 import os, ssl, logging
 from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
 from email.message import EmailMessage
+from email import policy
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -97,11 +98,24 @@ def send_creation_email(to_email: str, link: str) -> None:
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
-    msg = EmailMessage()
+    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = "Create your account"
     msg["From"] = smtp_user
     msg["To"] = to_email
-    msg.set_content(f"Please create your password using the link below:\n{link}\n")
+    msg.set_content(
+        f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.4;'>
+                <h2>Create your account</h2>
+                <p>Please create your password using the link below:</p>
+                <p><a href='{link}' style='background:#007bff;color:#fff;padding:10px 15px;text-decoration:none;border-radius:4px;'>Create account</a></p>
+                <p style='margin-top:20px;'>If the button above does not work, copy and paste this link into your browser:</p>
+                <p>{link}</p>
+            </body>
+        </html>
+        """,
+        subtype="html",
+    )
 
     context = ssl.create_default_context()
 
