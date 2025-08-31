@@ -28,6 +28,11 @@
 
         <button id="submitBtn" type="submit">Skapa användare</button>
 
+        <div id="progressContainer" class="progress-container" style="display:none">
+            <div id="progressBar" class="progress-bar"></div>
+            <p class="progress-text">Skapar användare… Detta kan ta upp till 30 sekunder.</p>
+        </div>
+
         <div id="result" class="message" style="display:none"></div>
     </form>
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
