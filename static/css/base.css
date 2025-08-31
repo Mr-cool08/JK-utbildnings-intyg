@@ -188,14 +188,6 @@ footer {
     gap: 16px;
 }
 
-a.btn.secondary {
-    background: #6c757d;
-}
-
-a.btn.secondary:hover {
-    background: #545b62;
-}
-
 .features {
     display: flex;
     flex-wrap: wrap;
