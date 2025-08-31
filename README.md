@@ -21,10 +21,14 @@ This web application manages the issuance and storage of course certificates. It
 
 If you are using [Cloudflare Origin Certificates](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/),
 provide the certificate and key paths via the ``CLOUDFLARE_CERT_PATH`` and
-``CLOUDFLARE_KEY_PATH`` environment variables. When both are set the
-application will start with TLS enabled using those files. When running the
-Docker setup, store the certificate and key in the `/certs` volume and point
-the variables to those paths (e.g. `/certs/cert.pem` and `/certs/key.pem`).
+``CLOUDFLARE_KEY_PATH`` environment variables. When both are set and the app is
+started with ``python wsgi.py`` the server will enable TLS using those files.
+
+The default Docker image runs Gunicorn without TLS, so these variables have no
+effect unless you customise the command to pass ``--certfile`` and
+``--keyfile`` (pointing to files in the container). Store the certificate and
+key in the ``/certs`` volume and reference them in the command, for example
+``--certfile /certs/cert.pem --keyfile /certs/key.pem``.
 
 ## How it works for administrators
 
