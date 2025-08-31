@@ -180,3 +180,28 @@ footer {
     background: #333;
     color: #fff;
 }
+
+/* Account creation page */
+.create-account {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.create-account h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.create-account form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.create-account button {
+    width: 100%;
+}
+
+.create-account .license-note {
+    margin-top: 16px;
+}
