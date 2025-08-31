@@ -12,9 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config \
+RUN mkdir -p /data /app/uploads /config /certs \
     && cp .example.env /config/.env
-VOLUME ["/data", "/app/uploads", "/config"]
+VOLUME ["/data", "/app/uploads", "/config", "/certs"]
 
 # Configure port and default database location
 ENV PORT=8080 \
