@@ -14,6 +14,8 @@ from flask import (
     send_from_directory,
     current_app,
     url_for,
+    send_from_directory,
+
 
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
@@ -234,6 +236,7 @@ def home():
     print("Rendering home page")
     logger.debug("Rendering home page")
     return render_template('index.html')
+
 
 
 @app.route('/license', methods=['GET'])
