@@ -17,6 +17,15 @@ This web application manages the issuance and storage of course certificates. It
    ```
    The app will be available on <http://localhost:80>. For container-based deployment see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+### Optional: Cloudflare TLS support
+
+If you are using [Cloudflare Origin Certificates](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/),
+provide the certificate and key paths via the ``CLOUDFLARE_CERT_PATH`` and
+``CLOUDFLARE_KEY_PATH`` environment variables. When both are set the
+application will start with TLS enabled using those files. When running the
+Docker setup, store the certificate and key in the `/certs` volume and point
+the variables to those paths (e.g. `/certs/cert.pem` and `/certs/key.pem`).
+
 ## How it works for administrators
 
 * **Login** – Administrators sign in with credentials configured by the owner. A valid session grants access to the admin panel.
@@ -45,6 +54,7 @@ Running the application with Docker Compose stores mutable data in named volumes
 * `uploads_data` – keeps user uploads available at `/app/uploads`.
 * `db_data` – persists the SQLite database in `/data/database.db`.
 * `logs_data` – retains application logs under `/app/logs/`.
+* `certs_data` – holds TLS certificates mounted at `/certs`.
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
 
