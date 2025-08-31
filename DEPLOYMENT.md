@@ -32,7 +32,7 @@ docker run -d -p 80:80 \
   ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 ```
 
-The named volumes are created automatically if they do not exist. On first
+The named volumes are created automatically if they do not exist and reused if present. On first
 start the container copies `.example.env` into the `env_data` volume as `.env`.
 Edit this file and restart the container to update environment variables.
 

@@ -56,6 +56,7 @@ Running the application with Docker Compose stores mutable data in named volumes
 * `uploads_data` – keeps user uploads available at `/app/uploads`.
 * `db_data` – persists the SQLite database in `/data/database.db`.
 * `logs_data` – retains application logs under `/app/logs/`.
+These volumes have fixed names so existing data is reused across container rebuilds.
 
 Cloudflare certificates are stored outside of Docker volumes in
 `/home/client_52_3/certs` and mounted to `/certs` in the container.
