@@ -8,14 +8,16 @@ services:
       - .env
     environment:
       DB_PATH: /data/database.db
-      # CLOUDFLARE_CERT_PATH: /certs/cert.pem
-      # CLOUDFLARE_KEY_PATH: /certs/key.pem
+      # Uncomment the lines below to enable TLS with certificates stored at
+      # /home/client_52_3/certs inside the container.
+      # CLOUDFLARE_CERT_PATH: /home/client_52_3/certs/cert.pem
+      # CLOUDFLARE_KEY_PATH: /home/client_52_3/certs/key.pem
     volumes:
       - env_data:/config
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-      - /home/client_52_3/certs:/certs
+      - /home/client_52_3/certs:/home/client_52_3/certs
 volumes:
   env_data:
     name: env_data
