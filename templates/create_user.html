@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-    <h2>Create User</h2>
-    <form method="POST">
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-        <br>
-        <input type="submit" value="Create User">
-    </form>
-    <p>Please review the license agreement before creating your account:</p>
-    <a href="{{ url_for('license') }}" class="license-link" target="_blank">View License Agreement</a>
+    <div class="create-account">
+        <h2>Create Account</h2>
+        <form method="POST">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Create Account</button>
+        </form>
+        <p class="license-note">Please review the license agreement before creating your account:</p>
+        <a href="{{ url_for('license') }}" class="license-link" target="_blank">View License Agreement</a>
+    </div>
 {% endblock %}

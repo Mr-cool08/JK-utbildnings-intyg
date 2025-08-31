@@ -184,7 +184,9 @@ def test_admin_upload_creates_pending_user(tmp_path, monkeypatch, pnr_input):
         assert response.status_code == 200
         resp_json = response.get_json()
         assert resp_json["status"] == "success"
-        expected_link = f"/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        expected_link = (
+            f"http://localhost/create_user/{functions.hash_value(functions.normalize_personnummer(pnr_input))}"
+        )
         assert resp_json["link"] == expected_link
 
     # Ensure an email was sent with the correct link
@@ -407,7 +409,7 @@ def test_create_user_route_moves_pending_user(tmp_path, monkeypatch):
     with app.app.test_client() as client:
         resp = client.get(f"/create_user/{pnr_hash}")
         assert resp.status_code == 200
-        assert b"Create User" in resp.data
+        assert b"Create Account" in resp.data
 
         resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
         assert resp.status_code == 302

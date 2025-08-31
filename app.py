@@ -13,6 +13,7 @@ from flask import (
     redirect,
     send_from_directory,
     current_app,
+    url_for,
 
 )
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
@@ -22,6 +23,7 @@ import functions
 import os, ssl, logging
 from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
 from email.message import EmailMessage
+from email import policy
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -97,11 +99,23 @@ def send_creation_email(to_email: str, link: str) -> None:
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
-    msg = EmailMessage()
+    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = "Create your account"
     msg["From"] = smtp_user
     msg["To"] = to_email
-    msg.set_content(f"Please create your password using the link below:\n{link}\n")
+    msg.set_content(
+        f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hello,</p>
+                <p>Please create your account by visiting this link:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>If you did not request this email, you can ignore it.</p>
+            </body>
+        </html>
+        """,
+        subtype="html",
+    )
 
     context = ssl.create_default_context()
 
@@ -306,7 +320,8 @@ def admin():
                     )
 
                 if functions.admin_create_user(email, username, personnummer, pdf_path):
-                    link = f"/create_user/{functions.hash_value(personnummer)}"
+                    pnr_hash = functions.hash_value(personnummer)
+                    link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
                     # Skicka e-post med länken för att skapa lösenord
                     try:
                         send_creation_email(email, link)
