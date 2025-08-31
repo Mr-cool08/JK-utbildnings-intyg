@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 import os
 import time
+import uuid
 from flask import (
     Flask,
     request,
@@ -204,8 +205,9 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     # ta bort personnummer från filnamnet om det finns där (t.ex. '199001011234_cv.pdf')
     base = base.replace(pnr_norm, '')
     base = base.lstrip('_- ')  # ta bort eventuella kvarvarande prefix-tecken
-    # lägg på timestamp för att undvika krockar
-    filename = f"{int(time.time())}_{base}"
+    # lägg på timestamp och unikt suffix för att undvika krockar
+    unique_suffix = uuid.uuid4().hex
+    filename = f"{int(time.time())}_{unique_suffix}_{base}"
     abs_path = os.path.join(user_dir, filename)
     file_storage.save(abs_path)
     logger.info("Saved PDF for %s to %s", pnr, abs_path)
