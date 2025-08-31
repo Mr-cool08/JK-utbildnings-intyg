@@ -15,7 +15,7 @@
   const pdfInput = document.getElementById('pdf');
 
   // --- Konstanter (synka gärna med servern) ---
-  const MAX_MB = 16; // matchar app.config['MAX_CONTENT_LENGTH']
+  const MAX_MB = 100; // matchar app.config['MAX_CONTENT_LENGTH']
   const MAX_BYTES = MAX_MB * 1024 * 1024;
   const ALLOWED_MIME = 'application/pdf';
 
@@ -82,7 +82,7 @@
     const email = emailInput.value.trim();
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
-    const file = pdfInput.files[0];
+    const files = Array.from(pdfInput.files);
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -99,11 +99,24 @@
       pnrInput.focus();
       return;
     }
-    const pdfError = validatePdf(file);
-    if (pdfError) {
-      showMessage('error', pdfError);
+    if (!files.length) {
+      showMessage('error', 'PDF-fil saknas.');
       pdfInput.focus();
       return;
+    }
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > MAX_BYTES) {
+      showMessage('error', `Filerna är för stora (max ${MAX_MB} MB totalt).`);
+      pdfInput.focus();
+      return;
+    }
+    for (const file of files) {
+      const pdfError = validatePdf(file);
+      if (pdfError) {
+        showMessage('error', pdfError);
+        pdfInput.focus();
+        return;
+      }
     }
 
     // Bygg FormData (måste matcha serverns förväntningar: email, username, personnummer, pdf)
@@ -111,7 +124,9 @@
     fd.append('email', email);
     fd.append('username', username);
     fd.append('personnummer', pnr);
-    fd.append('pdf', file);
+    for (const file of files) {
+      fd.append('pdf', file);
+    }
 
     // Skicka
     submitBtn.disabled = true;
