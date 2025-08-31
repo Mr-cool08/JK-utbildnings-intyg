@@ -1,14 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
 {% block content %}
-<h1>Your PDFs</h1>
-{% if pdfs %}
-<ul>
-    {% for pdf in pdfs %}
-    <li><a href="{{ url_for('view_pdf', filename=pdf) }}">{{ pdf }}</a></li>
-    {% endfor %}
-</ul>
-{% else %}
-<p>No PDFs uploaded.</p>
-{% endif %}
+<section class="dashboard">
+    <h1>Your PDFs</h1>
+    {% if pdfs %}
+    <ul class="pdf-list">
+        {% for pdf in pdfs %}
+        <li><a href="{{ url_for('view_pdf', filename=pdf) }}">{{ pdf }}</a></li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No PDFs uploaded.</p>
+    {% endif %}
+</section>
 {% endblock %}
