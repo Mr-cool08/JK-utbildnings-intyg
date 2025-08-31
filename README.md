@@ -24,9 +24,9 @@ provide the certificate and key paths via the ``CLOUDFLARE_CERT_PATH`` and
 ``CLOUDFLARE_KEY_PATH`` environment variables. When both are set the
 application will start with TLS enabled using those files. For the Docker
 setup, place the certificate and key in the `client_52_3` home directory (for
-example `/home/client_52_3/certs/`) and mount that directory to `/certs`
-inside the container. Point the variables to those paths (e.g.
-`/certs/cert.pem` and `/certs/key.pem`).
+example `/home/client_52_3/certs/`) and mount that directory at the same path
+inside the container. Point the variables to those files (e.g.
+`/home/client_52_3/certs/cert.pem` and `/home/client_52_3/certs/key.pem`).
 
 ## How it works for administrators
 
@@ -59,7 +59,8 @@ Running the application with Docker Compose stores mutable data in named volumes
 These volumes have fixed names so existing data is reused across container rebuilds.
 
 Cloudflare certificates are stored outside of Docker volumes in
-`/home/client_52_3/certs` and mounted to `/certs` in the container.
+`/home/client_52_3/certs` and mounted to `/home/client_52_3/certs` in the
+container.
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
 
