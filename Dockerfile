@@ -13,7 +13,8 @@ COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
 RUN mkdir -p /data /app/uploads /config /certs \
-    && cp .example.env /config/.env
+    && cp .example.env /config/.env \
+    && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port and default database location
@@ -23,6 +24,6 @@ ENV PORT=8080 \
 
 EXPOSE 8080
 
-# Run the application with Gunicorn
-CMD ["sh", "-c", "gunicorn app:app --workers=3 --bind=0.0.0.0:$PORT --access-logfile=- --error-logfile=- --log-level=debug --capture-output"]
+# Run the application with optional Cloudflare certificates
+CMD ["./entrypoint.sh"]
 
