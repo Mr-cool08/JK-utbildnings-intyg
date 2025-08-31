@@ -92,7 +92,7 @@ logger = logging.getLogger(__name__)
 
 def send_creation_email(to_email: str, link: str) -> None:
     """Send a password creation link via SMTP (STARTTLS on port 587)."""
-
+    to_email = to_email.lower()
     smtp_server = os.getenv("smtp_server")
     smtp_port = int(os.getenv("smtp_port", "587"))
     smtp_user = os.getenv("smtp_user")
