@@ -214,6 +214,11 @@ def save_pdf_for_user(pnr: str, file_storage) -> str:
     rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
     return rel_path
 
+@app.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt to disallow all crawlers."""
+    return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
+
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
     """Allow a pending user to set a password and activate the account."""
