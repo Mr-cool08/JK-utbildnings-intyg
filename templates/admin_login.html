@@ -1,13 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Admin Login{% endblock %}
+{% block title %}Administratörsinloggning{% endblock %}
 {% block content %}
-    <h1>Admin Login</h1>
+    <h1>Administratörsinloggning</h1>
     <form action="/login_admin" method="POST">
-        <label for="username">Username:</label>
+        <label for="username">Användarnamn:</label>
         <input type="text" id="username" name="username" required>
-        <label for="password">Password:</label>
+        <label for="password">Lösenord:</label>
         <input type="password" id="password" name="password" required>
-        <button type="submit">Login</button>
+        <button type="submit">Logga in</button>
     </form>
 {% endblock %}
-    

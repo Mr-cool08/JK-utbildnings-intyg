@@ -91,7 +91,7 @@ from email.message import EmailMessage
 logger = logging.getLogger(__name__)
 
 def send_creation_email(to_email: str, link: str) -> None:
-    """Skicka länk för att skapa lösenord via SMTP (STARTTLS på port 587)."""
+    """Send a password creation link via SMTP (STARTTLS on port 587)."""
 
     smtp_server = os.getenv("smtp_server")
     smtp_port = int(os.getenv("smtp_port", "587"))
@@ -102,17 +102,17 @@ def send_creation_email(to_email: str, link: str) -> None:
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = "Create your account"
+    msg["Subject"] = "Skapa ditt konto"
     msg["From"] = smtp_user
     msg["To"] = to_email
     msg.set_content(
         f"""
         <html>
             <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hello,</p>
-                <p>Please create your account by visiting this link:</p>
+                <p>Hej,</p>
+                <p>Skapa ditt konto genom att besöka denna länk:</p>
                 <p><a href="{link}">{link}</a></p>
-                <p>If you did not request this email, you can ignore it.</p>
+                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
             </body>
         </html>
         """,
@@ -122,7 +122,7 @@ def send_creation_email(to_email: str, link: str) -> None:
     context = ssl.create_default_context()
 
     try:
-        logger.debug("Skickar via %s:%s (STARTTLS) till %s", smtp_server, smtp_port, to_email)
+        logger.debug("Sending via %s:%s (STARTTLS) to %s", smtp_server, smtp_port, to_email)
 
         with SMTP(smtp_server, smtp_port) as smtp:
             # Vissa testdummies saknar ehlo(), så anropa bara om metoden finns
@@ -153,20 +153,20 @@ def send_creation_email(to_email: str, link: str) -> None:
             else:
                 smtp.sendmail(smtp_user, to_email, msg.as_string())
 
-        logger.info("Creation email skickat till %s", to_email)
+        logger.info("Creation email sent to %s", to_email)
 
     except SMTPAuthenticationError as exc:
-        logger.exception("SMTP-inloggning misslyckades för %s", smtp_user)
-        raise RuntimeError("SMTP login failed") from exc
+        logger.exception("SMTP login failed for %s", smtp_user)
+        raise RuntimeError("SMTP-inloggning misslyckades") from exc
     except SMTPServerDisconnected as exc:
-        logger.exception("Servern stängde anslutningen under SMTP-sessionen")
-        raise RuntimeError("Failed to send email") from exc
+        logger.exception("Server closed the connection during SMTP session")
+        raise RuntimeError("Det gick inte att skicka e-post") from exc
     except SMTPException as exc:
-        logger.exception("SMTP-fel vid sändning till %s", to_email)
-        raise RuntimeError("Failed to send email") from exc
+        logger.exception("SMTP error when sending to %s", to_email)
+        raise RuntimeError("Det gick inte att skicka e-post") from exc
     except OSError as exc:
-        logger.exception("Anslutningsfel mot e-postservern")
-        raise RuntimeError("Failed to connect to email server") from exc
+        logger.exception("Connection error to email server")
+        raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
 @app.context_processor
 def inject_flags():
@@ -228,7 +228,7 @@ def create_user(pnr_hash):
             return render_template('create_user.html')
         else:
             logger.warning("User hash %s not found during create_user", pnr_hash)
-            return "Error: User not found"
+            return "Fel: Användaren hittades inte"
 
 @app.route('/', methods=['GET'])
 def home():
@@ -261,7 +261,7 @@ def login():
         else:
             logger.warning("Invalid login for %s", personnummer)
             return (
-                render_template('user_login.html', error='Invalid credentials'),
+                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
             )
     logger.debug("Rendering login page")
@@ -337,7 +337,7 @@ def admin():
                     return jsonify(
                         {
                             'status': 'success',
-                            'message': 'PDF uploaded for existing user',
+                            'message': 'PDF uppladdad för befintlig användare',
                         }
                     )
 
@@ -360,7 +360,7 @@ def admin():
                     return jsonify(
                         {
                             'status': 'success',
-                            'message': 'User created successfully',
+                            'message': 'Användare skapad',
                             'link': link,
                         }
                     )
@@ -375,7 +375,7 @@ def admin():
                 return (
                     jsonify({
                         'status': 'error',
-                        'message': 'Server error',
+                        'message': 'Serverfel',
                     }),
                     500,
                 )
@@ -407,7 +407,7 @@ def verify_certificate_route(personnummer):
         return jsonify({'status': 'success', 'verified': True})
     return jsonify({
         'status': 'error',
-        'message': "User's certificate is not verified",
+        'message': "Användarens certifikat är inte verifierat",
     }), 404
 @app.route("/error")
 def error():
@@ -428,13 +428,13 @@ def login_admin():
             return redirect('/admin')
         else:
             logger.warning("Invalid admin login attempt for %s", request.form['username'])
-            return jsonify({'status': 'error', 'message': 'Invalid credentials'})
+            return jsonify({'status': 'error', 'message': 'Ogiltiga inloggningsuppgifter'})
     elif request.method == 'GET':
         logger.debug("Rendering admin login page")
         return render_template('admin_login.html')
     else:
         logger.warning("Invalid request method %s to login_admin", request.method)
-        return jsonify({'status': 'error', 'message': 'Invalid request method', 'method': request.method})
+        return jsonify({'status': 'error', 'message': 'Ogiltig HTTP-metod', 'method': request.method})
 
 
 @app.route('/logout')

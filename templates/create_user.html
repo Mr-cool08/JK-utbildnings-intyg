@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="create-account">
-        <h2>Create Account</h2>
+        <h2>Skapa konto</h2>
         <form method="POST">
-            <label for="password">Password:</label>
+            <label for="password">Lösenord:</label>
             <input type="password" id="password" name="password" required>
-            <button type="submit">Create Account</button>
+            <button type="submit">Skapa konto</button>
         </form>
-        <p class="license-note">Please review the license agreement before creating your account:</p>
-        <a href="{{ url_for('license') }}" class="license-link" target="_blank">View License Agreement</a>
+        <p class="license-note">Vänligen läs licensavtalet innan du skapar ditt konto:</p>
+        <a href="{{ url_for('license') }}" class="license-link" target="_blank">Visa licensavtal</a>
     </div>
 {% endblock %}

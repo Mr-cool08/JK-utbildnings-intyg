@@ -38,6 +38,6 @@ def test_verify_certificate_caching_and_message(tmp_path, monkeypatch):
             sess["admin_logged_in"] = True
         response = client.get("/verify_certificate/19900101-1234")
         assert response.status_code == 404
-        assert b"not verified" in response.data.lower()
+        assert "inte verifierat" in response.get_data(as_text=True).lower()
         # No additional DB call due to caching
         assert calls["count"] == 1

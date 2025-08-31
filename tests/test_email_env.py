@@ -60,6 +60,6 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
     msg = sent["message"]
     assert msg["From"] == env_values["smtp_user"]
     assert msg["To"] == "liamsuorsa08@gmail.com"
-    assert msg["Subject"] == "Create your account"
+    assert msg["Subject"] == "Skapa ditt konto"
     # Innehållet ska innehålla länken
     assert link in msg.get_content()

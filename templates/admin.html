@@ -1,32 +1,32 @@
 {% extends 'base.html' %}
-{% block title %}Admin — Create User{% endblock %}
+{% block title %}Admin — Skapa användare{% endblock %}
 {% block content %}
-    <h1>Admin — Create User</h1>
-    <p>Use this form to add a pending user. Fields are required. When the POST succeeds the server will insert into <code>pending_users</code>.</p>
+    <h1>Admin — Skapa användare</h1>
+    <p>Använd detta formulär för att lägga till en väntande användare. Fälten är obligatoriska. När POST lyckas lägger servern in posten i <code>pending_users</code>.</p>
 
     <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
-        <label for="email">Email</label>
+        <label for="email">E-post</label>
         <input id="email" name="email" type="email" required placeholder="user@example.com" />
 
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" required placeholder="Full name or username" />
+        <label for="username">Användarnamn</label>
+        <input id="username" name="username" type="text" required placeholder="Fullständigt namn eller användarnamn" />
 
         <div class="row">
             <div class="col">
                 <label for="personnummer">Personnummer</label>
-                <!-- Simple pattern: 6-12 digits, allows formats like YYMMDDNNNN or YYYYMMDDNNNN -->
-                <input id="personnummer" name="personnummer" type="text" required pattern="[\d\-]{6,14}" placeholder="YYYYMMDDNNNN or YYMMDDNNNN" />
-                <small class="hint">Allowed characters: digits and hyphen. Example: 19900101-1234</small>
+                <!-- Enkelt mönster: 6-12 siffror, tillåter format som YYMMDDNNNN eller YYYYMMDDNNNN -->
+                <input id="personnummer" name="personnummer" type="text" required pattern="[\\d\\-]{6,14}" placeholder="ÅÅÅÅMMDDNNNN eller ÅÅMMDDNNNN" />
+                <small class="hint">Tillåtna tecken: siffror och bindestreck. Exempel: 19900101-1234</small>
             </div>
 
             <div class="col">
-                <label for="pdf">Upload PDF</label>
+                <label for="pdf">Ladda upp PDF</label>
                 <input id="pdf" name="pdf" type="file" accept="application/pdf" required />
-                <small class="hint">Only PDF files are allowed.</small>
+                <small class="hint">Endast PDF-filer är tillåtna.</small>
             </div>
         </div>
 
-        <button id="submitBtn" type="submit">Create pending user</button>
+        <button id="submitBtn" type="submit">Skapa användare</button>
 
         <div id="result" class="message" style="display:none"></div>
     </form>

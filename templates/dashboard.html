@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Översikt{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% endblock %}
 {% block content %}
 <section class="dashboard">
-    <h1>Your PDFs</h1>
+    <h1>Dina PDF:er</h1>
     {% if pdfs %}
     <ul class="pdf-list">
         {% for pdf in pdfs %}
@@ -13,7 +13,7 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p>No PDFs uploaded.</p>
+    <p>Inga PDF:er uppladdade.</p>
     {% endif %}
 </section>
 {% endblock %}
