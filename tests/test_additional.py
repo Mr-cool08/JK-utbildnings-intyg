@@ -1,5 +1,19 @@
+"""Additional tests for hashing and personal number utilities."""
+
+import os
+import sys
 import pytest
-from functions import hash_value, hash_password, verify_password, normalize_personnummer
+
+# Ensure the project root is on ``sys.path`` so ``functions`` can be imported
+# when tests are executed directly.
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from functions import (
+    hash_value,
+    hash_password,
+    verify_password,
+    normalize_personnummer,
+)
 
 
 @pytest.mark.parametrize("value", [f"input{i}" for i in range(10)])
