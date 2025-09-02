@@ -18,6 +18,7 @@ def test_get_ssl_context_with_paths(monkeypatch, tmp_path):
     key.write_text("key")
     monkeypatch.setenv("CLOUDFLARE_CERT_PATH", str(cert))
     monkeypatch.setenv("CLOUDFLARE_KEY_PATH", str(key))
+
     importlib.reload(wsgi)
     assert wsgi.get_ssl_context() == (str(cert), str(key))
 
@@ -39,4 +40,5 @@ def test_default_paths_constants():
     importlib.reload(wsgi)
     assert wsgi.DEFAULT_CERT_PATH == "/home/client_52_3/cert.pem"
     assert wsgi.DEFAULT_KEY_PATH == "/home/client_52_3/key.pem"
+
 
