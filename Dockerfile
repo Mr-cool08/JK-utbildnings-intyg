@@ -12,18 +12,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config /home/client_52_3/certs \
+RUN mkdir -p /data /app/uploads /config /home/client_52_3 \
     && cp .example.env /config/.env \
     && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port, database, and default certificate locations
-# Configure port, database, and default certificate locations
 ENV PORT=8080 \
     DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1 \
-    CLOUDFLARE_CERT_PATH=/certs/cert.pem \
-    CLOUDFLARE_KEY_PATH=/certs/key.pem
+    CLOUDFLARE_CERT_PATH=/home/client_52_3/cert.pem \
+    CLOUDFLARE_KEY_PATH=/home/client_52_3/key.pem
 
 EXPOSE 8080
 
