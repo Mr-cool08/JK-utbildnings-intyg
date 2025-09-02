@@ -28,4 +28,3 @@ EXPOSE 8080
 
 # Run the application with optional Cloudflare certificates
 CMD ["./entrypoint.sh"]
-

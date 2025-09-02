@@ -3,13 +3,13 @@ services:
   app:
     build: .
     ports:
-      - "80:80"
+      # App lyssnar på 8080 i containern -> mappa värdens port 80 till 8080
+      - "80:8080"
     env_file:
       - .env
     environment:
       DB_PATH: /data/database.db
-      # Uncomment the lines below to enable TLS with certificates stored at
-      # /home/client_52_3/certs inside the container.
+      # Uncomment nedan om du vill aktivera TLS via miljövariabler (appens stöd)
       # CLOUDFLARE_CERT_PATH: /home/client_52_3/certs/cert.pem
       # CLOUDFLARE_KEY_PATH: /home/client_52_3/certs/key.pem
     volumes:
@@ -17,7 +17,13 @@ services:
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-      - /home/client_52_3/certs:/home/client_52_3/certs
+
+      # Behåll original mount till hemkatalogens certs (read-only rekommenderas)
+      - /home/client_52_3/certs:/home/client_52_3/certs:ro
+
+      # EXTRA mount till /certs så Gunicorn hittar /certs/cert.pem (read-only)
+      - /home/client_52_3/certs:/certs:ro
+
 volumes:
   env_data:
     name: env_data
