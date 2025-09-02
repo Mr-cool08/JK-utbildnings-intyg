@@ -18,11 +18,12 @@ RUN mkdir -p /data /app/uploads /config /home/client_52_3/certs \
 VOLUME ["/data", "/app/uploads", "/config"]
 
 # Configure port, database, and default certificate locations
+# Configure port, database, and default certificate locations
 ENV PORT=8080 \
     DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1 \
-    CLOUDFLARE_CERT_PATH=/home/client_52_3/certs/cert.pem \
-    CLOUDFLARE_KEY_PATH=/home/client_52_3/certs/key.pem
+    CLOUDFLARE_CERT_PATH=/certs/cert.pem \
+    CLOUDFLARE_KEY_PATH=/certs/key.pem
 
 EXPOSE 8080
 

@@ -17,12 +17,7 @@ services:
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-
-      # Behåll original mount till hemkatalogens certs (read-only rekommenderas)
-      - /home/client_52_3/certs:/home/client_52_3/certs:ro
-
-      # EXTRA mount till /certs så Gunicorn hittar /certs/cert.pem (read-only)
-      - /home/client_52_3/certs:/certs:ro
+      - /home/client_52_3/certs:/certs:ro   # bara denna behövs
 
 volumes:
   env_data:
