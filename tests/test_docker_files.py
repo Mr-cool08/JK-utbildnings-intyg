@@ -24,3 +24,9 @@ def test_compose_maps_port_and_sets_db_path():
 def test_compose_mounts_config_volume():
     compose = (ROOT / "docker-compose.yml").read_text()
     assert "- env_data:/config" in compose
+
+
+def test_entrypoint_uses_nginx():
+    entrypoint = (ROOT / "entrypoint.sh").read_text()
+    assert "nginx -g 'daemon off;'" in entrypoint
+    assert "gunicorn" not in entrypoint

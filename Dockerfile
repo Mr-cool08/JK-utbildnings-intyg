@@ -4,7 +4,8 @@ FROM python:3.14.0rc2-alpine3.22
 # Set work directory
 WORKDIR /app
 
-# Install dependencies
+# Install system packages and Python dependencies
+RUN apk add --no-cache nginx
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -12,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config /home/client_52_3 \
+RUN mkdir -p /data /app/uploads /config /home/client_52_3 /run/nginx \
     && cp .example.env /config/.env \
     && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
