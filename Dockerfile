@@ -1,5 +1,5 @@
-# Use official Python runtime as a parent image
-FROM python:3.14.0rc2-alpine3.22
+# Use a stable Python runtime as the base image
+FROM python:3.12-alpine
 
 # Set work directory
 WORKDIR /app
@@ -12,12 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config /home/client_52_3/certs \
+RUN mkdir -p /data /app/uploads /config /certs \
     && cp .example.env /config/.env \
     && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
 
-# Configure port, database, and default certificate locations
 # Configure port, database, and default certificate locations
 ENV PORT=8080 \
     DB_PATH=/data/database.db \
