@@ -70,3 +70,5 @@ logs/
 .DS_Store
 Thumbs.db
 ehthumbs.db
+__pycache__/functions.cpython-311.pyc
+*.pyc
