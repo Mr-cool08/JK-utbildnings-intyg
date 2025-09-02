@@ -5,22 +5,24 @@ set -e
 PORT=${PORT:-8080}
 FLASK_PORT=${FLASK_PORT:-5000}
 
-# Default certificate paths for optional TLS
-CERT_PATH=${CLOUDFLARE_CERT_PATH:-/home/client_52_3/cert.pem}
-KEY_PATH=${CLOUDFLARE_KEY_PATH:-/home/client_52_3/key.pem}
+# Default certificate paths
+CERT_PATH=${TLS_CERT_PATH:-/etc/nginx/certs/server.crt}
+KEY_PATH=${TLS_KEY_PATH:-/etc/nginx/certs/server.key}
 
-# Ensure runtime directory for nginx exists
-mkdir -p /run/nginx
+# Ensure runtime directories exist
+mkdir -p /run/nginx /etc/nginx/certs
 
-if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
-    echo "Starting Nginx with TLS using $CERT_PATH and $KEY_PATH"
-    SSL_LISTEN="listen ${PORT} ssl;"
-    TLS_CONFIG="ssl_certificate ${CERT_PATH};\n        ssl_certificate_key ${KEY_PATH};"
-else
-    echo "TLS certs not found, starting Nginx without TLS"
-    SSL_LISTEN="listen ${PORT};"
-    TLS_CONFIG=""
+if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+    echo "Generating self-signed TLS certificate"
+    CERT_PATH=/etc/nginx/certs/selfsigned.crt
+    KEY_PATH=/etc/nginx/certs/selfsigned.key
+    openssl req -x509 -nodes -days 365 \
+        -subj "/CN=localhost" \
+        -newkey rsa:2048 -keyout "$KEY_PATH" -out "$CERT_PATH"
 fi
+
+SSL_LISTEN="listen ${PORT} ssl;"
+TLS_CONFIG="ssl_certificate ${CERT_PATH};\n        ssl_certificate_key ${KEY_PATH};"
 
 # Generate nginx configuration
 cat > /etc/nginx/nginx.conf <<EOF

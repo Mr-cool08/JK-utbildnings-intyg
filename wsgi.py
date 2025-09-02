@@ -3,28 +3,26 @@ from app import app as application
 
 
 
-# Default locations for TLS certificate and key files. The files are placed
-# directly in the ubuntu user's home directory rather than a nested
-# "certs" folder so the application can pick them up automatically when no
-# explicit environment variables are provided.
-DEFAULT_CERT_PATH = "/home/client_52_3/cert.pem"
-DEFAULT_KEY_PATH = "/home/client_52_3/key.pem"
+# Default locations for TLS certificate and key files used by the Flask
+# development server. They mirror the paths consumed by the nginx
+# entrypoint so a single set of certificates can be shared if desired.
+DEFAULT_CERT_PATH = "/etc/nginx/certs/server.crt"
+DEFAULT_KEY_PATH = "/etc/nginx/certs/server.key"
 
 
 
 def get_ssl_context():
-    """Return an SSL context tuple if Cloudflare cert paths are set.
+    """Return an SSL context tuple if TLS cert paths are set.
 
-    The application can run with a Cloudflare Origin Certificate by
-    specifying ``CLOUDFLARE_CERT_PATH`` and ``CLOUDFLARE_KEY_PATH``
-    environment variables. When both values are present the paths are
+    The application can run with TLS by specifying ``TLS_CERT_PATH`` and
+    ``TLS_KEY_PATH`` environment variables. When both values are present the paths are
     returned as a tuple suitable for ``Flask.run``'s ``ssl_context``
     parameter. Otherwise ``None`` is returned so the app starts without
     TLS.
     """
 
-    cert_path = os.getenv("CLOUDFLARE_CERT_PATH", DEFAULT_CERT_PATH)
-    key_path = os.getenv("CLOUDFLARE_KEY_PATH", DEFAULT_KEY_PATH)
+    cert_path = os.getenv("TLS_CERT_PATH", DEFAULT_CERT_PATH)
+    key_path = os.getenv("TLS_KEY_PATH", DEFAULT_KEY_PATH)
     if os.path.isfile(cert_path) and os.path.isfile(key_path):
         return cert_path, key_path
     return None

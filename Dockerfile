@@ -5,7 +5,7 @@ FROM python:3.14.0rc2-alpine3.22
 WORKDIR /app
 
 # Install system packages and Python dependencies
-RUN apk add --no-cache nginx
+RUN apk add --no-cache nginx openssl
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -13,19 +13,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config /home/client_52_3 /run/nginx \
+RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs \
     && cp .example.env /config/.env \
     && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
 
-# Configure port, database, and default certificate locations
+# Configure port and database
 ENV PORT=8080 \
     DB_PATH=/data/database.db \
-    PYTHONUNBUFFERED=1 \
-    CLOUDFLARE_CERT_PATH=/home/client_52_3/cert.pem \
-    CLOUDFLARE_KEY_PATH=/home/client_52_3/key.pem
+    PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 
-# Run the application with optional Cloudflare certificates
+# Run the application with optional TLS certificates
 CMD ["./entrypoint.sh"]

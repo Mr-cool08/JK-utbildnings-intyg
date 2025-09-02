@@ -17,7 +17,7 @@ def test_dockerfile_exposes_port_and_runs_entrypoint():
 
 def test_compose_maps_port_and_sets_db_path():
     compose = (ROOT / "docker-compose.yml").read_text()
-    assert re.search(r"-\s*\"80:8080\"", compose)
+    assert re.search(r"-\s*\"443:8080\"", compose)
     assert "DB_PATH: /data/database.db" in compose
 
 
@@ -30,3 +30,13 @@ def test_entrypoint_uses_nginx():
     entrypoint = (ROOT / "entrypoint.sh").read_text()
     assert "nginx -g 'daemon off;'" in entrypoint
     assert "gunicorn" not in entrypoint
+
+
+def test_dockerfile_installs_openssl():
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    assert "apk add --no-cache nginx openssl" in dockerfile
+
+
+def test_entrypoint_generates_cert_if_missing():
+    entrypoint = (ROOT / "entrypoint.sh").read_text()
+    assert "openssl req -x509" in entrypoint
