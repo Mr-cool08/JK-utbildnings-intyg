@@ -28,7 +28,7 @@ docker run -d -p 80:80 \
   -v uploads_data:/app/uploads \
   -v db_data:/data \
   -v logs_data:/app/logs \
-  -v /home/client_52_3/certs:/home/client_52_3/certs \
+  -v /home/client_52_3:/home/client_52_3 \
   ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 ```
 
@@ -36,9 +36,9 @@ The named volumes are created automatically if they do not exist and reused if p
 start the container copies `.example.env` into the `env_data` volume as `.env`.
 Edit this file and restart the container to update environment variables.
 
-Place your Cloudflare certificate and key in `/home/client_52_3/certs` and
-reference them in `.env` via `CLOUDFLARE_CERT_PATH=/home/client_52_3/certs/cert.pem`
-and `CLOUDFLARE_KEY_PATH=/home/client_52_3/certs/key.pem`.
+Place your Cloudflare certificate and key in `/home/client_52_3` and
+reference them in `.env` via `CLOUDFLARE_CERT_PATH=/home/client_52_3/cert.pem`
+and `CLOUDFLARE_KEY_PATH=/home/client_52_3/key.pem`.
 
 If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
 
