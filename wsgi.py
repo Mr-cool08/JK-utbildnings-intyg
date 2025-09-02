@@ -2,6 +2,10 @@ import os
 from app import app as application
 
 
+DEFAULT_CERT_PATH = "/home/client_52_3/certs/cert.pem"
+DEFAULT_KEY_PATH = "/home/client_52_3/certs/key.pem"
+
+
 def get_ssl_context():
     """Return an SSL context tuple if Cloudflare cert paths are set.
 
@@ -13,9 +17,9 @@ def get_ssl_context():
     TLS.
     """
 
-    cert_path = os.getenv("CLOUDFLARE_CERT_PATH")
-    key_path = os.getenv("CLOUDFLARE_KEY_PATH")
-    if cert_path and key_path:
+    cert_path = os.getenv("CLOUDFLARE_CERT_PATH", DEFAULT_CERT_PATH)
+    key_path = os.getenv("CLOUDFLARE_KEY_PATH", DEFAULT_KEY_PATH)
+    if os.path.isfile(cert_path) and os.path.isfile(key_path):
         return cert_path, key_path
     return None
 
