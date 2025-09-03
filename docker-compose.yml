@@ -3,8 +3,8 @@ services:
   app:
     build: .
     ports:
-      # App lyssnar på 8080 i containern -> mappa värdens port 443 till 8080
-      - "443:8080"
+      - "80:80"
+      - "443:443"
     env_file:
       - .env
     environment:

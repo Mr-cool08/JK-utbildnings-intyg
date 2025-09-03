@@ -2,7 +2,8 @@
 set -e
 
 # Default ports
-PORT=${PORT:-8080}
+HTTPS_PORT=${HTTPS_PORT:-443}
+HTTP_PORT=${HTTP_PORT:-80}
 FLASK_PORT=${FLASK_PORT:-5000}
 
 # Default certificate paths
@@ -24,8 +25,10 @@ elif [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
         -newkey rsa:2048 -keyout "$KEY_PATH" -out "$CERT_PATH"
 fi
 
-SSL_LISTEN="listen ${PORT} ssl;"
-TLS_CONFIG="ssl_certificate ${CERT_PATH};\n        ssl_certificate_key ${KEY_PATH};"
+HTTP_LISTEN="listen ${HTTP_PORT};"
+SSL_LISTEN="listen ${HTTPS_PORT} ssl;"
+TLS_CONFIG="ssl_certificate ${CERT_PATH};
+        ssl_certificate_key ${KEY_PATH};"
 
 # Generate nginx configuration
 cat > /etc/nginx/nginx.conf <<EOF
@@ -39,6 +42,7 @@ http {
     keepalive_timeout  65;
 
     server {
+        ${HTTP_LISTEN}
         ${SSL_LISTEN}
         server_name  _;
 

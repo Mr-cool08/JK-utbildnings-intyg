@@ -11,13 +11,14 @@ def test_dockerfile_uses_python_base_image():
 
 def test_dockerfile_exposes_port_and_runs_entrypoint():
     dockerfile = (ROOT / "Dockerfile").read_text()
-    assert "EXPOSE 8080" in dockerfile
+    assert "EXPOSE 80 443" in dockerfile
     assert 'CMD ["./entrypoint.sh"]' in dockerfile
 
 
 def test_compose_maps_port_and_sets_db_path():
     compose = (ROOT / "docker-compose.yml").read_text()
-    assert re.search(r"-\s*\"443:8080\"", compose)
+    assert re.search(r"-\s*\"80:80\"", compose)
+    assert re.search(r"-\s*\"443:443\"", compose)
     assert "DB_PATH: /data/database.db" in compose
 
 

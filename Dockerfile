@@ -18,12 +18,13 @@ RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs \
     && chmod +x entrypoint.sh
 VOLUME ["/data", "/app/uploads", "/config"]
 
-# Configure port and database
-ENV PORT=8080 \
+# Configure ports and database
+ENV HTTPS_PORT=443 \
+    HTTP_PORT=80 \
     DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1
 
-EXPOSE 8080
+EXPOSE 80 443
 
 # Run the application with optional TLS certificates
 CMD ["./entrypoint.sh"]
