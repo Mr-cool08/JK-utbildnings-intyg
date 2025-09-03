@@ -1,36 +1,67 @@
 #!/bin/sh
 set -e
 
-# Default workers om inget annat anges
-WORKERS=${WORKERS:-3}
+# Default ports
+PORT=${PORT:-8080}
+FLASK_PORT=${FLASK_PORT:-5000}
 
+# Default certificate paths
+CERT_PATH=/etc/nginx/certs/server.crt
+KEY_PATH=/etc/nginx/certs/server.key
 
-# Look for TLS assets in the ubuntu user's home directory by default. This
-# matches the location provided in the deployment environment where
-# ``cert.pem`` and ``key.pem`` are copied directly under
-# ``/home/client_52_3``.
-CERT_PATH=${CLOUDFLARE_CERT_PATH:-/home/client_52_3/cert.pem}
-KEY_PATH=${CLOUDFLARE_KEY_PATH:-/home/client_52_3/key.pem}
+# Ensure runtime directories exist
+mkdir -p /run/nginx /etc/nginx/certs
 
-
-if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
-    echo "Starting Gunicorn with TLS using $CERT_PATH and $KEY_PATH"
-    exec gunicorn app:app \
-        --workers="$WORKERS" \
-        --bind=0.0.0.0:$PORT \
-        --access-logfile=- \
-        --error-logfile=- \
-        --log-level=debug \
-        --capture-output \
-        --certfile="$CERT_PATH" \
-        --keyfile="$KEY_PATH"
-else
-    echo "TLS certs not found, starting Gunicorn without TLS"
-    exec gunicorn app:app \
-        --workers="$WORKERS" \
-        --bind=0.0.0.0:$PORT \
-        --access-logfile=- \
-        --error-logfile=- \
-        --log-level=debug \
-        --capture-output
+if [ -n "$TLS_CERT" ] && [ -n "$TLS_KEY" ]; then
+    printf '%b' "$TLS_CERT" > "$CERT_PATH"
+    printf '%b' "$TLS_KEY" > "$KEY_PATH"
+elif [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+    echo "Generating self-signed TLS certificate"
+    CERT_PATH=/etc/nginx/certs/selfsigned.crt
+    KEY_PATH=/etc/nginx/certs/selfsigned.key
+    openssl req -x509 -nodes -days 365 \
+        -subj "/CN=localhost" \
+        -newkey rsa:2048 -keyout "$KEY_PATH" -out "$CERT_PATH"
 fi
+
+SSL_LISTEN="listen ${PORT} ssl;"
+TLS_CONFIG="ssl_certificate ${CERT_PATH};\n        ssl_certificate_key ${KEY_PATH};"
+
+# Generate nginx configuration
+cat > /etc/nginx/nginx.conf <<EOF
+worker_processes  1;
+events { worker_connections 1024; }
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+
+    server {
+        ${SSL_LISTEN}
+        server_name  _;
+
+        ${TLS_CONFIG}
+
+        location /static {
+            alias /app/static;
+        }
+
+        location / {
+            proxy_pass http://127.0.0.1:${FLASK_PORT};
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+    }
+}
+EOF
+
+# Start Flask application on the internal port
+PORT=$FLASK_PORT python wsgi.py &
+
+# Start nginx in the foreground
+exec nginx -g 'daemon off;'
+

@@ -7,4 +7,3 @@ click==8.1.7
 
 # Optional (for PDF validation if you later add more advanced checks)
 # PyPDF2==3.0.0
-gunicorn==23.0.0

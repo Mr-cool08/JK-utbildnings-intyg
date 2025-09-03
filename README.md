@@ -17,16 +17,15 @@ This web application manages the issuance and storage of course certificates. It
    ```
    The app will be available on <http://localhost:80>. For container-based deployment see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-### Optional: Cloudflare TLS support
+### Optional: custom TLS certificates
 
-If you are using [Cloudflare Origin Certificates](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/),
-provide the certificate and key paths via the ``CLOUDFLARE_CERT_PATH`` and
-``CLOUDFLARE_KEY_PATH`` environment variables. When both are set the
-application will start with TLS enabled using those files. For the Docker
-setup, place the certificate and key directly in the `client_52_3` home
-directory (for example `/home/client_52_3/`) and mount that directory at the
-same path inside the container. Point the variables to those files (e.g.
-`/home/client_52_3/cert.pem` and `/home/client_52_3/key.pem`).
+The container generates a self-signed certificate automatically so HTTPS works
+out of the box. To use your own certificate, provide the PEM-encoded
+certificate and key via the ``TLS_CERT`` and ``TLS_KEY`` environment
+variables in your `.env` file. When both are present their contents are written
+to `/etc/nginx/certs/server.crt` and `/etc/nginx/certs/server.key` inside the
+container.
+
 
 ## How it works for administrators
 
@@ -57,9 +56,6 @@ Running the application with Docker Compose stores mutable data in named volumes
 * `db_data` – persists the SQLite database in `/data/database.db`.
 * `logs_data` – retains application logs under `/app/logs/`.
 These volumes have fixed names so existing data is reused across container rebuilds.
-
-Cloudflare certificates are stored outside of Docker volumes in
-`/home/client_52_3` and mounted to `/home/client_52_3` in the container.
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
 

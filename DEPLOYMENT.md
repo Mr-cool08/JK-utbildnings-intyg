@@ -14,7 +14,7 @@ You can build and run the container locally with Docker Compose:
 docker compose up --build
 ```
 
-The app will be available on <http://localhost:80>.
+The app will be available on <https://localhost>.
 
 ## Production deployment
 
@@ -23,12 +23,11 @@ Images are built and pushed to GHCR and Docker Hub on every push to the `main` b
 ```bash
 docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 
-docker run -d -p 80:80 \
+docker run -d -p 443:8080 \
   -v env_data:/config \
   -v uploads_data:/app/uploads \
   -v db_data:/data \
   -v logs_data:/app/logs \
-  -v /home/client_52_3:/home/client_52_3 \
   ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 ```
 
@@ -36,9 +35,9 @@ The named volumes are created automatically if they do not exist and reused if p
 start the container copies `.example.env` into the `env_data` volume as `.env`.
 Edit this file and restart the container to update environment variables.
 
-Place your Cloudflare certificate and key in `/home/client_52_3` and
-reference them in `.env` via `CLOUDFLARE_CERT_PATH=/home/client_52_3/cert.pem`
-and `CLOUDFLARE_KEY_PATH=/home/client_52_3/key.pem`.
+To use your own TLS certificate, provide the PEM-encoded certificate and key via
+`TLS_CERT` and `TLS_KEY` in `.env`. If no certificate is supplied a self-signed
+one is generated automatically.
 
 If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
 

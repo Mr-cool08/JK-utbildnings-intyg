@@ -3,21 +3,17 @@ services:
   app:
     build: .
     ports:
-      # App lyssnar på 8080 i containern -> mappa värdens port 80 till 8080
-      - "80:8080"
+      # App lyssnar på 8080 i containern -> mappa värdens port 443 till 8080
+      - "443:8080"
     env_file:
       - .env
     environment:
       DB_PATH: /data/database.db
-      # Uncomment nedan om du vill aktivera TLS via miljövariabler (appens stöd)
-      # CLOUDFLARE_CERT_PATH: /home/client_52_3/cert.pem
-      # CLOUDFLARE_KEY_PATH: /home/client_52_3/key.pem
     volumes:
       - env_data:/config
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-      - /home/client_52_3:/home/client_52_3:ro   # Mount TLS cert directory
 
 volumes:
   env_data:
