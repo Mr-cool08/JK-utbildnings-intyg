@@ -25,7 +25,8 @@ elif [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
 fi
 
 SSL_LISTEN="listen ${PORT} ssl;"
-TLS_CONFIG="ssl_certificate ${CERT_PATH};\n        ssl_certificate_key ${KEY_PATH};"
+TLS_CONFIG="ssl_certificate ${CERT_PATH};
+        ssl_certificate_key ${KEY_PATH};"
 
 # Generate nginx configuration
 cat > /etc/nginx/nginx.conf <<EOF
