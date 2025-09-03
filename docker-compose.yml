@@ -9,15 +9,11 @@ services:
       - .env
     environment:
       DB_PATH: /data/database.db
-      # Uncomment below to supply your own TLS certificates
-      # TLS_CERT_PATH: /etc/nginx/certs/server.crt
-      # TLS_KEY_PATH: /etc/nginx/certs/server.key
     volumes:
       - env_data:/config
       - uploads_data:/app/uploads
       - db_data:/data
       - logs_data:/app/logs
-      - ./certs:/etc/nginx/certs:ro   # Optional TLS certs
 
 volumes:
   env_data:

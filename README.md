@@ -20,10 +20,11 @@ This web application manages the issuance and storage of course certificates. It
 ### Optional: custom TLS certificates
 
 The container generates a self-signed certificate automatically so HTTPS works
-out of the box. To use your own certificate, provide the paths via the
-``TLS_CERT_PATH`` and ``TLS_KEY_PATH`` environment variables and mount the
-certificate files inside the container, for example by mapping a host directory
-to ``/etc/nginx/certs``.
+out of the box. To use your own certificate, provide the PEM-encoded
+certificate and key via the ``TLS_CERT`` and ``TLS_KEY`` environment
+variables in your `.env` file. When both are present their contents are written
+to `/etc/nginx/certs/server.crt` and `/etc/nginx/certs/server.key` inside the
+container.
 
 
 ## How it works for administrators

@@ -35,9 +35,9 @@ The named volumes are created automatically if they do not exist and reused if p
 start the container copies `.example.env` into the `env_data` volume as `.env`.
 Edit this file and restart the container to update environment variables.
 
-To use your own TLS certificate, mount it into the container and set
-`TLS_CERT_PATH` and `TLS_KEY_PATH` in `.env`. If no certificate is supplied a
-self-signed one is generated automatically.
+To use your own TLS certificate, provide the PEM-encoded certificate and key via
+`TLS_CERT` and `TLS_KEY` in `.env`. If no certificate is supplied a self-signed
+one is generated automatically.
 
 If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
 

@@ -6,13 +6,16 @@ PORT=${PORT:-8080}
 FLASK_PORT=${FLASK_PORT:-5000}
 
 # Default certificate paths
-CERT_PATH=${TLS_CERT_PATH:-/etc/nginx/certs/server.crt}
-KEY_PATH=${TLS_KEY_PATH:-/etc/nginx/certs/server.key}
+CERT_PATH=/etc/nginx/certs/server.crt
+KEY_PATH=/etc/nginx/certs/server.key
 
 # Ensure runtime directories exist
 mkdir -p /run/nginx /etc/nginx/certs
 
-if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+if [ -n "$TLS_CERT" ] && [ -n "$TLS_KEY" ]; then
+    printf '%b' "$TLS_CERT" > "$CERT_PATH"
+    printf '%b' "$TLS_KEY" > "$KEY_PATH"
+elif [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
     echo "Generating self-signed TLS certificate"
     CERT_PATH=/etc/nginx/certs/selfsigned.crt
     KEY_PATH=/etc/nginx/certs/selfsigned.key
