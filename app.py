@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import functions
 import os, ssl, logging
-from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
+from smtplib import SMTP, SMTP_SSL, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
 from email.message import EmailMessage
 from email import policy
 
@@ -91,12 +91,16 @@ from email.message import EmailMessage
 logger = logging.getLogger(__name__)
 
 def send_creation_email(to_email: str, link: str) -> None:
-    """Send a password creation link via SMTP (STARTTLS on port 587)."""
+    """Send a password creation link via SMTP.
+
+    Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
+    """
     to_email = to_email.lower()
     smtp_server = os.getenv("smtp_server")
     smtp_port = int(os.getenv("smtp_port", "587"))
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
+    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
 
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
@@ -122,27 +126,41 @@ def send_creation_email(to_email: str, link: str) -> None:
     context = ssl.create_default_context()
 
     try:
-        logger.debug("Sending via %s:%s (STARTTLS) to %s", smtp_server, smtp_port, to_email)
+        use_ssl = smtp_port == 465
+        logger.debug(
+            "Sending via %s:%s (%s, timeout %ss) to %s",
+            smtp_server,
+            smtp_port,
+            "SSL" if use_ssl else "STARTTLS",
+            smtp_timeout,
+            to_email,
+        )
 
-        with SMTP(smtp_server, smtp_port) as smtp:
+        smtp_cls = SMTP_SSL if use_ssl else SMTP
+        smtp_kwargs = {"timeout": smtp_timeout}
+        if use_ssl:
+            smtp_kwargs["context"] = context
+
+        with smtp_cls(smtp_server, smtp_port, **smtp_kwargs) as smtp:
             # Vissa testdummies saknar ehlo(), så anropa bara om metoden finns
             if hasattr(smtp, "ehlo"):
                 smtp.ehlo()
 
-            # STARTTLS – använd SSL‑context om metoden stödjer det
-            try:
-                from inspect import signature
+            if not use_ssl:
+                # STARTTLS – använd SSL‑context om metoden stödjer det
+                try:
+                    from inspect import signature
 
-                if "context" in signature(smtp.starttls).parameters:
-                    smtp.starttls(context=context)
-                else:
+                    if "context" in signature(smtp.starttls).parameters:
+                        smtp.starttls(context=context)
+                    else:
+                        smtp.starttls()
+                except (TypeError, ValueError):
+                    # Om signaturen inte kan inspekteras, fall tillbaka utan context
                     smtp.starttls()
-            except (TypeError, ValueError):
-                # Om signaturen inte kan inspekteras, fall tillbaka utan context
-                smtp.starttls()
 
-            if hasattr(smtp, "ehlo"):
-                smtp.ehlo()
+                if hasattr(smtp, "ehlo"):
+                    smtp.ehlo()
 
             # Login
             smtp.login(smtp_user, smtp_password)
