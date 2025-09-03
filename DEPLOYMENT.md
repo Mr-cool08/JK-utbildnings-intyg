@@ -14,7 +14,7 @@ You can build and run the container locally with Docker Compose:
 docker compose up --build
 ```
 
-The app will be available on <https://localhost>.
+The app will be available on <https://localhost> and <http://localhost>.
 
 ## Production deployment
 
@@ -23,7 +23,7 @@ Images are built and pushed to GHCR and Docker Hub on every push to the `main` b
 ```bash
 docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
 
-docker run -d -p 443:8080 \
+docker run -d -p 80:80 -p 443:443 \
   -v env_data:/config \
   -v uploads_data:/app/uploads \
   -v db_data:/data \
