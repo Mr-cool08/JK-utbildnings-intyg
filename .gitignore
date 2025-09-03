@@ -72,3 +72,4 @@ Thumbs.db
 ehthumbs.db
 __pycache__/functions.cpython-311.pyc
 *.pyc
+test_mail.py
