@@ -84,6 +84,12 @@ def create_app() -> Flask:
 app = create_app()
 
 
+@app.route("/health")
+def health() -> tuple[dict, int]:
+    """Basic health check endpoint."""
+    return {"status": "ok"}, 200
+
+
 import os, ssl, logging
 from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
 from email.message import EmailMessage
