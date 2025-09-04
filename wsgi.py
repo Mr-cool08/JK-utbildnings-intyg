@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 from app import app as application
 
+# Expose ``app`` for servers expecting this name (e.g., gunicorn's ``wsgi:app``)
+app = application
+
 
 # Default locations for TLS certificate and key files used by the Flask
 # development server. They mirror the paths consumed by the nginx
