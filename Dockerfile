@@ -1,30 +1,39 @@
-# Use official Python runtime as a parent image
-FROM python:3.14.0rc2-alpine3.22
+# 🐍 Stabil Python (byt version om du vill)
+FROM python:3.12-alpine3.20
 
-# Set work directory
+# Installera systempaket
+RUN apk add --no-cache nginx openssl tini bash curl \
+    && addgroup -S app && adduser -S -G app app
+
 WORKDIR /app
 
-# Install system packages and Python dependencies
-RUN apk add --no-cache nginx openssl
+# Kopiera beroenden först (bättre cache)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir gunicorn
 
-# Copy project
+# Kopiera projektet
 COPY . .
 
-# Ensure runtime directories exist, seed configuration volume
-RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs \
-    && cp .example.env /config/.env \
-    && chmod +x entrypoint.sh
-VOLUME ["/data", "/app/uploads", "/config"]
+# Skapa och äg kataloger
+RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx \
+    && cp .example.env /config/.env || true \
+    && chown -R app:app /app /data /config /app/uploads /var/cache/nginx
 
-# Configure ports and database
-ENV HTTPS_PORT=443 \
-    HTTP_PORT=80 \
+# Miljö
+ENV HTTP_PORT=8080 \
+    HTTPS_PORT=8443 \
+    FLASK_PORT=5000 \
     DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1
 
-EXPOSE 80 443
+# Hälsokontroll (antag /health i din app – annars ändra)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:${HTTP_PORT}/health || exit 1
 
-# Run the application with optional TLS certificates
+# Exponera höga portar (mappa 80:8080, 443:8443 vid körning)
+EXPOSE 8080 8443
+
+# Entrypoint med korrekt signalhantering
+ENTRYPOINT ["/sbin/tini","--"]
 CMD ["./entrypoint.sh"]
