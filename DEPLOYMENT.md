@@ -35,6 +35,41 @@ The named volumes are created automatically if they do not exist and reused if p
 start the container copies `.example.env` into the `env_data` volume as `.env`.
 Edit this file and restart the container to update environment variables.
 
+### Manual volume creation
+
+If you prefer to create the named volumes yourself before starting the container, run:
+
+```bash
+docker volume create env_data
+docker volume create uploads_data
+docker volume create db_data
+docker volume create logs_data
+```
+
+Then run the container and attach the volumes:
+
+```bash
+docker run -d --name jk_utbildnings_intyg \
+  -p 80:80 -p 443:443 \
+  -v env_data:/config \
+  -v uploads_data:/app/uploads \
+  -v db_data:/data \
+  -v logs_data:/app/logs \
+  -e DB_PATH=/data/database.db \
+  ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
+```
+
+### Portainer
+
+To deploy the container with [Portainer](https://www.portainer.io/):
+
+1. In Portainer, navigate to **Volumes** and create volumes named `env_data`, `uploads_data`, `db_data`, and `logs_data`.
+2. Add a new container (or stack) using the `ghcr.io/mr-cool08/jk-utbildnings-intyg:latest` image.
+   - Map the volumes to `/config`, `/app/uploads`, `/data`, and `/app/logs` respectively.
+   - Set the environment variable `DB_PATH` to `/data/database.db`.
+   - Publish ports `80` and `443`.
+3. Start the container. Portainer will reuse the existing volumes on subsequent runs.
+
 To use your own TLS certificate, provide the PEM-encoded certificate and key via
 `TLS_CERT` and `TLS_KEY` in `.env`. If no certificate is supplied a self-signed
 one is generated automatically.
