@@ -1,4 +1,4 @@
-# 🐍 Stabil Python (byt version om du vill)
+#  Stabil Python (byt version om du vill)
 FROM python:3.12-alpine3.20
 
 # Installera systempaket
