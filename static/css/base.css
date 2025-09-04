@@ -253,3 +253,39 @@ footer {
     font-size: 0.9rem;
     color: #555;
 }
+
+/* --- Responsive adjustments for smaller screens --- */
+@media (max-width: 600px) {
+    nav {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    nav .brand {
+        margin-bottom: 10px;
+    }
+
+    nav .nav-links {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .row {
+        flex-direction: column;
+    }
+
+    .hero .actions {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .features {
+        flex-direction: column;
+    }
+
+    .feature {
+        max-width: 100%;
+    }
+}
