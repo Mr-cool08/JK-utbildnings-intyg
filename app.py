@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 import os
 import time
+import sqlite3
 from flask import (
     Flask,
     request,
@@ -88,6 +89,59 @@ app = create_app()
 def health() -> tuple[dict, int]:
     """Basic health check endpoint."""
     return {"status": "ok"}, 200
+
+
+@app.route("/debug")
+def debug() -> tuple[dict, int]:
+    """Return basic debug information when running in debug mode.
+
+    Provides the current server time and a flag indicating debug status.
+    The endpoint returns a 404 response if the application is not in
+    debug mode to avoid leaking internal information.
+    """
+    if not current_app.debug:
+        return jsonify({"status": "error", "message": "Debug mode is off"}), 404
+    return jsonify({"status": "ok", "debug": True, "time": time.time()}), 200
+
+
+@app.route("/db", methods=["GET", "POST"])
+def db_admin():
+    """Inspect and modify the SQLite database in a password-protected way."""
+    password = request.headers.get("X-DB-PASSWORD")
+    admin_password = os.getenv("DB_ADMIN_PASSWORD")
+    if not admin_password or password != admin_password:
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
+
+    conn = sqlite3.connect(functions.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    if request.method == "GET":
+        data = {}
+        for table in ["users", "pending_users"]:
+            cursor.execute(f"SELECT * FROM {table}")
+            data[table] = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify(data), 200
+
+    payload = request.get_json(silent=True) or {}
+    sql = payload.get("sql")
+    if not sql:
+        conn.close()
+        return jsonify({"status": "error", "message": "sql required"}), 400
+    try:
+        cursor.execute(sql)
+        if sql.strip().lower().startswith("select"):
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return jsonify({"status": "ok", "rows": rows}), 200
+        conn.commit()
+        affected = cursor.rowcount
+        conn.close()
+        return jsonify({"status": "ok", "rowcount": affected}), 200
+    except sqlite3.Error as exc:
+        conn.close()
+        return jsonify({"status": "error", "message": str(exc)}), 400
 
 
 import os, ssl, logging
