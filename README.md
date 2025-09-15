@@ -60,6 +60,11 @@ These volumes have fixed names so existing data is reused across container rebui
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
 
+To run the pre-built containers without Docker Compose, execute
+`./scripts/start_postgres_stack.sh`. The script reads `POSTGRES_*` values from
+your `.env` file, spins up a matching PostgreSQL container, and launches the
+application container with `DATABASE_URL` pointing at that database.
+
 ## Running tests
 
 ```bash

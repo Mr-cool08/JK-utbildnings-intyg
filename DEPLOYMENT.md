@@ -76,3 +76,23 @@ one is generated automatically.
 
 If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
 
+### Start the app together with PostgreSQL automatically
+
+For hosts that prefer running the pre-built containers without Docker Compose,
+the repository includes `scripts/start_postgres_stack.sh`. The helper script
+expects a populated `.env` file (copied from `.example.env`) and launches both
+containers with matching PostgreSQL credentials in one command:
+
+```bash
+./scripts/start_postgres_stack.sh
+```
+
+On its first run the script creates a Docker network plus volumes for uploads,
+logs, SQLite fallbacks, and the PostgreSQL data directory. Afterwards it
+provisions a `jk_utbildningsintyg_db` container using the official
+`postgres:15-alpine` image and starts the application container with
+`DATABASE_URL` pointed at that database. Subsequent executions reuse the same
+resources, so the database contents survive restarts or upgrades. You can
+override names and images by exporting variables such as `APP_IMAGE`,
+`APP_CONTAINER`, or `POSTGRES_VOLUME` before invoking the script.
+
