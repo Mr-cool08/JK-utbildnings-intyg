@@ -44,3 +44,4 @@ def test_verify_certificate_not_found(empty_db):
 def test_user_create_user_no_pending(empty_db):
     pnr_hash = functions.hash_value("199001011234")
     assert not functions.user_create_user("pass", pnr_hash)
+

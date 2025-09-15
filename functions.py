@@ -93,14 +93,13 @@ def _build_engine() -> Engine:
         db_path = os.getenv("DB_PATH", os.path.join(APP_ROOT, "database.db"))
         db_url = f"sqlite:///{db_path}"
     url = make_url(db_url)
-    logger.debug("Creating engine for %s", db_url)
+    logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 
     if url.get_backend_name() == "postgresql":
         driver = url.get_driver_name() or ""
         if driver in ("", "psycopg2"):
             if importlib.util.find_spec("psycopg") is not None:
                 url = url.set(drivername="postgresql+psycopg")
-                db_url = url.render_as_string(hide_password=False)
                 logger.debug(
                     "Using psycopg driver for PostgreSQL connections"
                 )
@@ -120,7 +119,7 @@ def _build_engine() -> Engine:
         connect_args["check_same_thread"] = False
         if database in ("", ":memory:"):
             engine_kwargs["poolclass"] = StaticPool
-    return create_engine(db_url, **engine_kwargs)
+    return create_engine(url, **engine_kwargs)
 
 
 def reset_engine() -> None:
