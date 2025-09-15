@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import logging
 import os
 import re
@@ -93,6 +94,22 @@ def _build_engine() -> Engine:
         db_url = f"sqlite:///{db_path}"
     url = make_url(db_url)
     logger.debug("Creating engine for %s", db_url)
+
+    if url.get_backend_name() == "postgresql":
+        driver = url.get_driver_name() or ""
+        if driver in ("", "psycopg2"):
+            if importlib.util.find_spec("psycopg") is not None:
+                url = url.set(drivername="postgresql+psycopg")
+                db_url = url.render_as_string(hide_password=False)
+                logger.debug(
+                    "Using psycopg driver for PostgreSQL connections"
+                )
+            else:
+                logger.warning(
+                    "psycopg driver not available; falling back to %s",
+                    driver or "default driver",
+                )
+
     engine_kwargs: Dict[str, Any] = {"future": True}
 
     if url.get_backend_name() == "sqlite":
