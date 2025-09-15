@@ -10,7 +10,7 @@ This web application manages the issuance and storage of course certificates. It
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup.
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Set `DATABASE_URL` to the connection string for your Postgres instance (for example `postgresql+psycopg://user:password@hostname:5432/database`). The Docker Compose configuration simply forwards this value to the application container so you can point at an existing database. If you omit `DATABASE_URL` the application falls back to the SQLite database referenced by `DB_PATH`.
 3. **Run the application**
    ```bash
    python app.py
