@@ -51,22 +51,10 @@ TABLE_DEFINITIONS = {
     ),
 }
 ALLOWED_DB_TABLES = tuple(TABLE_DEFINITIONS)
-_SELECT_TEMPLATES = {
-    name: f"SELECT {{columns}} FROM {name}{{where}}{{order}}{{limit}}"
-    for name in TABLE_DEFINITIONS
-}
-_INSERT_TEMPLATES = {
-    name: f"INSERT INTO {name} ({{columns}}) VALUES ({{placeholders}})"
-    for name in TABLE_DEFINITIONS
-}
-_UPDATE_TEMPLATES = {
-    name: f"UPDATE {name} SET {{assignments}}{{where}}"
-    for name in TABLE_DEFINITIONS
-}
-_DELETE_TEMPLATES = {
-    name: f"DELETE FROM {name}{{where}}"
-    for name in TABLE_DEFINITIONS
-}
+_SELECT_FROM_SQL = {name: f" FROM {name}" for name in TABLE_DEFINITIONS}
+_INSERT_PREFIX_SQL = {name: f"INSERT INTO {name} (" for name in TABLE_DEFINITIONS}
+_UPDATE_PREFIX_SQL = {name: f"UPDATE {name} SET " for name in TABLE_DEFINITIONS}
+_DELETE_PREFIX_SQL = {name: f"DELETE FROM {name}" for name in TABLE_DEFINITIONS}
 _SELECT_ALL_SQL = {name: f"SELECT * FROM {name}" for name in TABLE_DEFINITIONS}
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -249,12 +237,13 @@ def _execute_select(
     limit_clause, limit_params = _parse_limit(payload.get("limit"))
     params.extend(limit_params)
 
-    template = _SELECT_TEMPLATES[table]
-    query = template.format(
-        columns=column_clause,
-        where=where_clause,
-        order=order_clause,
-        limit=limit_clause,
+    query = (
+        "SELECT "
+        + column_clause
+        + _SELECT_FROM_SQL[table]
+        + where_clause
+        + order_clause
+        + limit_clause
     )
     cursor.execute(query, params)
     return [dict(row) for row in cursor.fetchall()]
@@ -279,10 +268,14 @@ def _execute_insert(
 
     placeholders = ", ".join(["?"] * len(columns))
     column_clause = ", ".join(columns)
-    template = _INSERT_TEMPLATES[table]
-    cursor.execute(
-        template.format(columns=column_clause, placeholders=placeholders), params
+    query = (
+        _INSERT_PREFIX_SQL[table]
+        + column_clause
+        + ") VALUES ("
+        + placeholders
+        + ")"
     )
+    cursor.execute(query, params)
     return {
         "status": "ok",
         "rowcount": cursor.rowcount,
@@ -315,11 +308,8 @@ def _execute_update(
         raise ValueError("filters must include at least one condition")
     params.extend(where_params)
 
-    template = _UPDATE_TEMPLATES[table]
-    cursor.execute(
-        template.format(assignments=", ".join(assignments), where=where_clause),
-        params,
-    )
+    query = _UPDATE_PREFIX_SQL[table] + ", ".join(assignments) + where_clause
+    cursor.execute(query, params)
     return {"status": "ok", "rowcount": cursor.rowcount}
 
 
@@ -337,8 +327,8 @@ def _execute_delete(
     if not where_clause:
         raise ValueError("filters must include at least one condition")
 
-    template = _DELETE_TEMPLATES[table]
-    cursor.execute(template.format(where=where_clause), params)
+    query = _DELETE_PREFIX_SQL[table] + where_clause
+    cursor.execute(query, params)
     return {"status": "ok", "rowcount": cursor.rowcount}
 
 
