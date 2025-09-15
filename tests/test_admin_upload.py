@@ -85,3 +85,43 @@ def test_admin_upload_existing_email(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+
+
+def test_admin_upload_pending_user(empty_db):
+    engine = empty_db
+    email = "pending@example.com"
+    username = "Pending"
+    personnummer = "19900101-1234"
+
+    assert functions.admin_create_user(email, username, personnummer)
+
+    pdf_bytes = b"%PDF-1.4 pending"
+    data = {
+        "email": email,
+        "username": username,
+        "personnummer": personnummer,
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with _admin_client() as client:
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert (
+        payload["message"]
+        == "Användaren väntar redan på aktivering. PDF:er uppladdade."
+    )
+
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    with engine.connect() as conn:
+        rows = list(
+            conn.execute(
+                functions.user_pdfs_table.select().where(
+                    functions.user_pdfs_table.c.personnummer == pnr_hash
+                )
+            )
+        )
+    assert len(rows) == 1
+    assert rows[0].content == pdf_bytes
