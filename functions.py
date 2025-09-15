@@ -7,6 +7,7 @@ import os
 import re
 from datetime import datetime
 from functools import lru_cache
+from typing import Any
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -242,6 +243,101 @@ def admin_create_user(email, username, personnummer, pdf_path):
     conn.close()
     logger.info("Pending user created for %s", personnummer)
     return True
+
+
+def _collect_user_pdf_paths(personnummer_hash: str, upload_root: str) -> list[str]:
+    """Return relative PDF paths for a user based on stored uploads."""
+
+    user_dir = os.path.join(upload_root, personnummer_hash)
+    if not os.path.isdir(user_dir):
+        return []
+
+    pdf_paths: list[str] = []
+    for filename in sorted(os.listdir(user_dir)):
+        if not filename.lower().endswith('.pdf'):
+            continue
+        abs_path = os.path.join(user_dir, filename)
+        rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
+        pdf_paths.append(rel_path)
+
+    return pdf_paths
+
+
+def reset_user_to_pending(
+    email: str,
+    personnummer: str,
+    upload_root: str | None = None,
+) -> dict[str, Any]:
+    """Move an existing user back to the pending table to allow password reset."""
+
+    email_clean = email.strip()
+    if not email_clean:
+        raise ValueError("E-postadress krävs.")
+
+    personnummer_normalized = normalize_personnummer(personnummer)
+    email_hash = hash_value(email_clean)
+    personnummer_hash = hash_value(personnummer_normalized)
+
+    if upload_root is None:
+        upload_root = os.path.join(APP_ROOT, 'uploads')
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            '''SELECT username, email FROM users WHERE personnummer = ?''',
+            (personnummer_hash,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Användaren hittades inte.")
+
+        username, stored_email_hash = row
+        if stored_email_hash != email_hash:
+            raise ValueError("E-postadressen matchar inte registrerat konto.")
+
+        pdf_paths = _collect_user_pdf_paths(personnummer_hash, upload_root)
+        pdf_path_value = ';'.join(pdf_paths)
+
+        cursor.execute(
+            'DELETE FROM pending_users WHERE personnummer = ?',
+            (personnummer_hash,),
+        )
+        cursor.execute(
+            '''
+            INSERT INTO pending_users (email, username, personnummer, pdf_path)
+            VALUES (?, ?, ?, ?)
+            ''',
+            (email_hash, username, personnummer_hash, pdf_path_value),
+        )
+        cursor.execute(
+            'DELETE FROM users WHERE personnummer = ?',
+            (personnummer_hash,),
+        )
+        conn.commit()
+        logger.info(
+            "Moved user %s back to pending for password reset",
+            personnummer_normalized,
+        )
+    except ValueError as exc:
+        conn.rollback()
+        raise exc
+    except Exception as exc:
+        conn.rollback()
+        logger.exception(
+            "Failed to move user %s back to pending for reset",
+            personnummer_normalized,
+        )
+        raise RuntimeError("Kunde inte flytta användaren till väntelistan.") from exc
+    finally:
+        conn.close()
+
+    return {
+        "username": username,
+        "personnummer_hash": personnummer_hash,
+        "pdf_paths": pdf_paths,
+    }
 
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:

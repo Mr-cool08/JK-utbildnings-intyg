@@ -90,6 +90,17 @@ button {
     cursor: pointer;
 }
 
+.form-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.form-actions button {
+    margin-top: 0;
+}
+
 button[disabled] {
     opacity: 0.6;
     cursor: default;

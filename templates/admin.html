@@ -4,6 +4,8 @@
     <h1>Admin — Skapa användare</h1>
     <p>Använd detta formulär för att lägga till en väntande användare. Fälten är obligatoriska. När POST lyckas lägger servern in posten i <code>pending_users</code>.</p>
 
+    <a class="btn" href="{{ url_for('admin_reset_user') }}">Återställ användarlösenord</a>
+
     <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
         <label for="email">E-post</label>
         <input id="email" name="email" type="email" required placeholder="user@example.com" />

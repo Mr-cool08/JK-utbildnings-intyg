@@ -17,6 +17,7 @@
                 <a href="/logout">Logga ut</a>
             {% elif session.get('admin_logged_in') %}
                 <a href="/admin">Admin</a>
+                <a href="/admin/reset-user">Återställ lösenord</a>
                 <a href="/logout">Logga ut</a>
             {% else %}
                 <a href="/login">Användarinloggning</a>

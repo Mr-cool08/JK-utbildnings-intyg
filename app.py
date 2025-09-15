@@ -3,29 +3,34 @@
 from datetime import datetime
 import logging
 import os
+import ssl
 import time
+
+from email import policy
+from email.message import EmailMessage
+from smtplib import (
+    SMTP,
+    SMTPAuthenticationError,
+    SMTPException,
+    SMTPServerDisconnected,
+    SMTP_SSL,
+)
+
 from flask import (
     Flask,
-    request,
-    jsonify,
-    render_template,
-    session,
-    redirect,
-    send_from_directory,
     current_app,
-    url_for,
+    jsonify,
+    redirect,
+    render_template,
+    request,
     send_from_directory,
-
-
+    session,
+    url_for,
 )
-from smtplib import SMTP, SMTPAuthenticationError, SMTPException
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
+
 import functions
-import os, ssl, logging
-from smtplib import SMTP, SMTP_SSL, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
-from email import policy
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -90,17 +95,9 @@ def health() -> tuple[dict, int]:
     return {"status": "ok"}, 200
 
 
-import os, ssl, logging
-from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
+def _send_email(to_email: str, subject: str, html_content: str, log_context: str) -> None:
+    """Send an HTML email using the configured SMTP server."""
 
-logger = logging.getLogger(__name__)
-
-def send_creation_email(to_email: str, link: str) -> None:
-    """Send a password creation link via SMTP.
-
-    Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-    """
     to_email = to_email.lower()
     smtp_server = os.getenv("smtp_server")
     smtp_port = int(os.getenv("smtp_port", "587"))
@@ -112,29 +109,18 @@ def send_creation_email(to_email: str, link: str) -> None:
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = "Skapa ditt konto"
+    msg["Subject"] = subject
     msg["From"] = smtp_user
     msg["To"] = to_email
-    msg.set_content(
-        f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Skapa ditt konto genom att besöka denna länk:</p>
-                <p><a href="{link}">{link}</a></p>
-                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
-            </body>
-        </html>
-        """,
-        subtype="html",
-    )
+    msg.set_content(html_content, subtype="html")
 
     context = ssl.create_default_context()
 
     try:
         use_ssl = smtp_port == 465
         logger.debug(
-            "Sending via %s:%s (%s, timeout %ss) to %s",
+            "Sending %s email via %s:%s (%s, timeout %ss) to %s",
+            log_context,
             smtp_server,
             smtp_port,
             "SSL" if use_ssl else "STARTTLS",
@@ -148,12 +134,10 @@ def send_creation_email(to_email: str, link: str) -> None:
             smtp_kwargs["context"] = context
 
         with smtp_cls(smtp_server, smtp_port, **smtp_kwargs) as smtp:
-            # Vissa testdummies saknar ehlo(), så anropa bara om metoden finns
             if hasattr(smtp, "ehlo"):
                 smtp.ehlo()
 
             if not use_ssl:
-                # STARTTLS – använd SSL‑context om metoden stödjer det
                 try:
                     from inspect import signature
 
@@ -162,22 +146,19 @@ def send_creation_email(to_email: str, link: str) -> None:
                     else:
                         smtp.starttls()
                 except (TypeError, ValueError):
-                    # Om signaturen inte kan inspekteras, fall tillbaka utan context
                     smtp.starttls()
 
                 if hasattr(smtp, "ehlo"):
                     smtp.ehlo()
 
-            # Login
             smtp.login(smtp_user, smtp_password)
 
-            # Skicka – stöd både send_message (email_env-testet) och sendmail (main-testet)
             if hasattr(smtp, "send_message"):
                 smtp.send_message(msg)
             else:
                 smtp.sendmail(smtp_user, to_email, msg.as_string())
 
-        logger.info("Creation email sent to %s", to_email)
+        logger.info("%s email sent to %s", log_context, to_email)
 
     except SMTPAuthenticationError as exc:
         logger.exception("SMTP login failed for %s", smtp_user)
@@ -191,6 +172,44 @@ def send_creation_email(to_email: str, link: str) -> None:
     except OSError as exc:
         logger.exception("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
+
+
+def send_creation_email(to_email: str, link: str) -> None:
+    """Send a password creation link via SMTP."""
+
+    html_content = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Skapa ditt konto genom att besöka denna länk:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
+            </body>
+        </html>
+        """
+
+    _send_email(to_email, "Skapa ditt konto", html_content, "Creation")
+
+
+def send_support_email(personnummer: str) -> None:
+    """Notify support that a user requested a password reset."""
+
+    normalized_pnr = functions.normalize_personnummer(personnummer)
+    support_email = os.getenv("support_email", "support@utbildningsintyg.se")
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    html_content = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej support,</p>
+                <p>En användare har begärt återställning av sitt lösenord.</p>
+                <p><strong>Personnummer:</strong> {normalized_pnr}</p>
+                <p>Begäran registrerades {timestamp} (UTC).</p>
+            </body>
+        </html>
+        """
+
+    _send_email(support_email, "Återställning av lösenord begärd", html_content, "Support")
 
 @app.context_processor
 def inject_flags():
@@ -279,20 +298,44 @@ def license():
 def login():
     """Authenticate users using personnummer and password."""
     if request.method == 'POST':
-        personnummer = functions.normalize_personnummer(request.form['personnummer'])
-        password = request.form['password']
+        action = request.form.get('action', 'login')
+        personnummer_input = request.form.get('personnummer', '')
+
+        if action == 'forgot-password':
+            try:
+                send_support_email(personnummer_input)
+            except ValueError as exc:
+                logger.warning("Invalid personal identity number for password reset: %s", personnummer_input)
+                return render_template('user_login.html', error=str(exc))
+            except RuntimeError as exc:
+                logger.error("Failed to notify support about password reset request")
+                return render_template('user_login.html', error=str(exc))
+
+            logger.info("Support notified about password reset for %s", personnummer_input)
+            return render_template(
+                'user_login.html',
+                message='Supporten har informerats om din begäran om återställning.',
+            )
+
+        try:
+            personnummer = functions.normalize_personnummer(personnummer_input)
+        except ValueError as exc:
+            logger.warning("Invalid personnummer during login: %s", personnummer_input)
+            return render_template('user_login.html', error=str(exc)), 400
+
+        password = request.form.get('password', '')
         logger.debug("Login attempt for %s", personnummer)
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
             session['personnummer'] = functions.hash_value(personnummer)
             logger.info("User %s logged in", personnummer)
             return redirect('/dashboard')
-        else:
-            logger.warning("Invalid login for %s", personnummer)
-            return (
-                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
-                401,
-            )
+
+        logger.warning("Invalid login for %s", personnummer)
+        return (
+            render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+            401,
+        )
     logger.debug("Rendering login page")
     return render_template('user_login.html')
 
@@ -420,6 +463,49 @@ def admin():
         return redirect('/login_admin')
     logger.debug("Rendering admin page")
     return render_template('admin.html')
+
+
+@app.route('/admin/reset-user', methods=['GET', 'POST'])
+def admin_reset_user():
+    """Allow an admin to move a user back to pending for password reset."""
+
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin reset access")
+        return redirect('/login_admin')
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        personnummer_input = request.form.get('personnummer', '').strip()
+
+        if not email or not personnummer_input:
+            logger.warning("Missing email or personnummer in admin reset request")
+            return render_template(
+                'admin_reset_user.html',
+                error='Både e-postadress och personnummer måste anges.',
+            )
+
+        upload_root = current_app.config.get('UPLOAD_ROOT', UPLOAD_ROOT)
+
+        try:
+            reset_result = functions.reset_user_to_pending(email, personnummer_input, upload_root)
+            link = url_for('create_user', pnr_hash=reset_result['personnummer_hash'], _external=True)
+            send_creation_email(email, link)
+        except ValueError as exc:
+            logger.warning("Could not reset user %s: %s", personnummer_input, exc)
+            return render_template('admin_reset_user.html', error=str(exc))
+        except RuntimeError as exc:
+            logger.exception("Error during admin password reset for %s", personnummer_input)
+            return render_template('admin_reset_user.html', error=str(exc))
+
+        logger.info("Admin reset user %s and sent new invitation", reset_result['personnummer_hash'])
+        message = f"En återställningslänk har skickats till {email}."
+        return render_template(
+            'admin_reset_user.html',
+            message=message,
+            username=reset_result.get('username'),
+        )
+
+    return render_template('admin_reset_user.html')
 
 
 @app.route('/verify_certificate/<personnummer>', methods=['GET'])
