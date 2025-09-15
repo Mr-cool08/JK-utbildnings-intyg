@@ -18,18 +18,40 @@ def test_db_endpoint_requires_password():
 
 def test_db_endpoint_allows_view_and_modify(monkeypatch):
     monkeypatch.setenv("DB_ADMIN_PASSWORD", "secret")
+    headers = {"X-DB-PASSWORD": "secret"}
     with app.app.test_client() as client:
-        resp = client.get("/db", headers={"X-DB-PASSWORD": "secret"})
+        resp = client.get("/db", headers=headers)
         assert resp.status_code == 200
         assert resp.get_json()["users"] == []
-        sql = (
-            "INSERT INTO users (username, email, password, personnummer) "
-            "VALUES ('u', 'e', 'p', 'p')"
-        )
+
         resp = client.post(
-            "/db", json={"sql": sql}, headers={"X-DB-PASSWORD": "secret"}
+            "/db",
+            json={
+                "operation": "insert",
+                "table": "users",
+                "values": {
+                    "username": "u",
+                    "email": "e",
+                    "password": "p",
+                    "personnummer": "p",
+                },
+            },
+            headers=headers,
         )
         assert resp.status_code == 200
-        resp = client.get("/db", headers={"X-DB-PASSWORD": "secret"})
+        assert resp.get_json()["rowcount"] == 1
+
+        resp = client.post(
+            "/db",
+            json={
+                "operation": "select",
+                "table": "users",
+                "filters": {"email": "e"},
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
         data = resp.get_json()
-        assert len(data["users"]) == 1
+        assert data["status"] == "ok"
+        assert len(data["rows"]) == 1
+        assert data["rows"][0]["email"] == "e"

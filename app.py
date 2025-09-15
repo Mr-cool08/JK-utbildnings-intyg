@@ -3,30 +3,36 @@
 from datetime import datetime
 import logging
 import os
-import time
+import re
 import sqlite3
+import ssl
+import time
+from email import policy
+from email.message import EmailMessage
+from typing import Any, Iterable, Mapping, Optional
+
+from dotenv import load_dotenv
 from flask import (
     Flask,
-    request,
-    jsonify,
-    render_template,
-    session,
-    redirect,
-    send_from_directory,
     current_app,
-    url_for,
+    jsonify,
+    redirect,
+    render_template,
+    request,
     send_from_directory,
-
-
+    session,
+    url_for,
 )
-from smtplib import SMTP, SMTPAuthenticationError, SMTPException
+from smtplib import (
+    SMTP,
+    SMTPAuthenticationError,
+    SMTPException,
+    SMTPServerDisconnected,
+    SMTP_SSL,
+)
 from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
+
 import functions
-import os, ssl, logging
-from smtplib import SMTP, SMTP_SSL, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
-from email import policy
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -34,6 +40,8 @@ CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
 load_dotenv(CONFIG_PATH)
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
+ALLOWED_DB_TABLES = ("users", "pending_users")
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  
@@ -104,6 +112,231 @@ def debug() -> tuple[dict, int]:
     return jsonify({"status": "ok", "debug": True, "time": time.time()}), 200
 
 
+def _ensure_allowed_table(table: str) -> str:
+    """Validate that the requested table is part of the allow-list."""
+
+    if not isinstance(table, str) or not _IDENTIFIER_RE.match(table):
+        raise ValueError("table must be a valid identifier")
+    if table not in ALLOWED_DB_TABLES:
+        raise ValueError("table is not allowed")
+    return table
+
+
+def _get_table_columns(cursor: sqlite3.Cursor, table: str) -> tuple[str, ...]:
+    """Return the column names for the given table."""
+
+    cursor.execute(f"PRAGMA table_info({table})")
+    return tuple(row["name"] for row in cursor.fetchall())
+
+
+def _validate_column(name: Any, valid_columns: Iterable[str]) -> str:
+    """Ensure that the column name is syntactically valid and allowed."""
+
+    if not isinstance(name, str) or not _IDENTIFIER_RE.match(name):
+        raise ValueError("invalid column name")
+    if name not in valid_columns:
+        raise ValueError(f"column '{name}' is not allowed for this table")
+    return name
+
+
+def _build_where_clause(
+    filters: Optional[Mapping[str, Any]], valid_columns: set[str]
+) -> tuple[str, list[Any]]:
+    """Construct a safe WHERE clause from the provided filters."""
+
+    if not filters:
+        return "", []
+
+    clauses: list[str] = []
+    params: list[Any] = []
+    for raw_column, raw_value in filters.items():
+        column = _validate_column(raw_column, valid_columns)
+        if isinstance(raw_value, Mapping):
+            raise ValueError("nested filter objects are not supported")
+        if raw_value is None:
+            clauses.append(f"{column} IS NULL")
+        else:
+            clauses.append(f"{column} = ?")
+            params.append(raw_value)
+
+    if not clauses:
+        return "", []
+
+    return " WHERE " + " AND ".join(clauses), params
+
+
+def _parse_order_by(order_by: Any, valid_columns: set[str]) -> str:
+    """Create an ORDER BY clause if requested."""
+
+    if not order_by:
+        return ""
+
+    direction = "ASC"
+    if isinstance(order_by, str):
+        column = _validate_column(order_by, valid_columns)
+    elif isinstance(order_by, Mapping):
+        column = _validate_column(order_by.get("column"), valid_columns)
+        direction = str(order_by.get("direction", "asc")).upper()
+        if direction not in {"ASC", "DESC"}:
+            raise ValueError("order_by.direction must be 'asc' or 'desc'")
+    else:
+        raise ValueError("order_by must be a string or object")
+
+    return f" ORDER BY {column} {direction}"
+
+
+def _parse_limit(limit: Any) -> tuple[str, list[int]]:
+    """Return a LIMIT clause and its parameters if requested."""
+
+    if limit is None:
+        return "", []
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("limit must be a positive integer")
+    return " LIMIT ?", [limit]
+
+
+def _execute_select(
+    cursor: sqlite3.Cursor, table: str, payload: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Execute a SELECT query constructed from the payload."""
+
+    columns = payload.get("columns")
+    valid_columns = _get_table_columns(cursor, table)
+    valid_column_set = set(valid_columns)
+
+    if columns is None:
+        column_clause = "*"
+    else:
+        if not isinstance(columns, list) or not columns:
+            raise ValueError("columns must be a non-empty list")
+        column_clause = ", ".join(
+            _validate_column(column, valid_column_set) for column in columns
+        )
+
+    where_clause, params = _build_where_clause(
+        payload.get("filters"), valid_column_set
+    )
+    order_clause = _parse_order_by(payload.get("order_by"), valid_column_set)
+    limit_clause, limit_params = _parse_limit(payload.get("limit"))
+    params.extend(limit_params)
+
+    query = f"SELECT {column_clause} FROM {table}{where_clause}{order_clause}{limit_clause}"
+    cursor.execute(query, params)
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def _execute_insert(
+    cursor: sqlite3.Cursor, table: str, payload: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Insert rows into the given table using validated data."""
+
+    values = payload.get("values")
+    if not isinstance(values, Mapping) or not values:
+        raise ValueError("values must be a non-empty object")
+
+    valid_column_set = set(_get_table_columns(cursor, table))
+    columns: list[str] = []
+    params: list[Any] = []
+    for raw_column, raw_value in values.items():
+        column = _validate_column(raw_column, valid_column_set)
+        columns.append(column)
+        params.append(raw_value)
+
+    placeholders = ", ".join(["?"] * len(columns))
+    column_clause = ", ".join(columns)
+    cursor.execute(
+        f"INSERT INTO {table} ({column_clause}) VALUES ({placeholders})", params
+    )
+    return {
+        "status": "ok",
+        "rowcount": cursor.rowcount,
+        "last_row_id": cursor.lastrowid,
+    }
+
+
+def _execute_update(
+    cursor: sqlite3.Cursor, table: str, payload: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Update rows in the given table."""
+
+    updates = payload.get("set")
+    filters = payload.get("filters")
+    if not isinstance(updates, Mapping) or not updates:
+        raise ValueError("set must be a non-empty object")
+    if not isinstance(filters, Mapping) or not filters:
+        raise ValueError("filters must be a non-empty object")
+
+    valid_column_set = set(_get_table_columns(cursor, table))
+    assignments: list[str] = []
+    params: list[Any] = []
+    for raw_column, raw_value in updates.items():
+        column = _validate_column(raw_column, valid_column_set)
+        assignments.append(f"{column} = ?")
+        params.append(raw_value)
+
+    where_clause, where_params = _build_where_clause(filters, valid_column_set)
+    if not where_clause:
+        raise ValueError("filters must include at least one condition")
+    params.extend(where_params)
+
+    cursor.execute(
+        f"UPDATE {table} SET {', '.join(assignments)}{where_clause}", params
+    )
+    return {"status": "ok", "rowcount": cursor.rowcount}
+
+
+def _execute_delete(
+    cursor: sqlite3.Cursor, table: str, payload: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Delete rows from the given table."""
+
+    filters = payload.get("filters")
+    if not isinstance(filters, Mapping) or not filters:
+        raise ValueError("filters must be a non-empty object")
+
+    valid_column_set = set(_get_table_columns(cursor, table))
+    where_clause, params = _build_where_clause(filters, valid_column_set)
+    if not where_clause:
+        raise ValueError("filters must include at least one condition")
+
+    cursor.execute(f"DELETE FROM {table}{where_clause}", params)
+    return {"status": "ok", "rowcount": cursor.rowcount}
+
+
+def _execute_db_operation(
+    cursor: sqlite3.Cursor, payload: Mapping[str, Any]
+) -> tuple[dict[str, Any], int, bool]:
+    """Execute a validated administrative database operation."""
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("JSON body must be an object")
+
+    operation = payload.get("operation")
+    if not isinstance(operation, str):
+        raise ValueError("operation is required")
+
+    table = payload.get("table")
+    if table is None:
+        raise ValueError("table is required")
+    table_name = _ensure_allowed_table(table)
+
+    op = operation.lower()
+    if op == "select":
+        rows = _execute_select(cursor, table_name, payload)
+        return {"status": "ok", "rows": rows}, 200, False
+    if op == "insert":
+        result = _execute_insert(cursor, table_name, payload)
+        return result, 200, True
+    if op == "update":
+        result = _execute_update(cursor, table_name, payload)
+        return result, 200, True
+    if op == "delete":
+        result = _execute_delete(cursor, table_name, payload)
+        return result, 200, True
+
+    raise ValueError("unsupported operation")
+
+
 @app.route("/db", methods=["GET", "POST"])
 def db_admin():
     """Inspect and modify the SQLite database in a password-protected way."""
@@ -116,39 +349,36 @@ def db_admin():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    if request.method == "GET":
-        data = {}
-        for table in ["users", "pending_users"]:
-            cursor.execute(f"SELECT * FROM {table}")
-            data[table] = [dict(row) for row in cursor.fetchall()]
-        conn.close()
-        return jsonify(data), 200
-
-    payload = request.get_json(silent=True) or {}
-    sql = payload.get("sql")
-    if not sql:
-        conn.close()
-        return jsonify({"status": "error", "message": "sql required"}), 400
     try:
-        cursor.execute(sql)
-        if sql.strip().lower().startswith("select"):
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return jsonify({"status": "ok", "rows": rows}), 200
-        conn.commit()
-        affected = cursor.rowcount
+        if request.method == "GET":
+            data = {}
+            for table in ALLOWED_DB_TABLES:
+                cursor.execute(f"SELECT * FROM {table}")
+                data[table] = [dict(row) for row in cursor.fetchall()]
+            return jsonify(data), 200
+
+        payload = request.get_json(silent=True) or {}
+        try:
+            response, status_code, should_commit = _execute_db_operation(cursor, payload)
+        except ValueError as err:
+            if conn.in_transaction:
+                conn.rollback()
+            logger.warning("Rejected /db request: %s", err)
+            return jsonify({"status": "error", "message": str(err)}), 400
+
+        if should_commit:
+            conn.commit()
+        return jsonify(response), status_code
+    except sqlite3.Error:
+        if conn.in_transaction:
+            conn.rollback()
+        logger.exception("Database admin operation failed")
+        return (
+            jsonify({"status": "error", "message": "Database operation failed"}),
+            500,
+        )
+    finally:
         conn.close()
-        return jsonify({"status": "ok", "rowcount": affected}), 200
-    except sqlite3.Error as exc:
-        conn.close()
-        return jsonify({"status": "error", "message": str(exc)}), 400
-
-
-import os, ssl, logging
-from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
-
-logger = logging.getLogger(__name__)
 
 def send_creation_email(to_email: str, link: str) -> None:
     """Send a password creation link via SMTP.
