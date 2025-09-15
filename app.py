@@ -359,6 +359,8 @@ def admin():
 
                 # Kontrollera om användaren redan finns (via personnummer eller e-post)
                 user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
+                pnr_hash = functions.hash_value(personnummer)
+                pending_exists = functions.check_pending_user_hash(pnr_hash)
 
                 # Spara filerna i databasen per personnummer
                 pdf_records = [save_pdf_for_user(personnummer, f) for f in pdf_files]
@@ -377,8 +379,20 @@ def admin():
                         }
                     )
 
+                if pending_exists:
+                    logger.info(
+                        "PDFs uploaded for pending user %s (%d files)",
+                        personnummer,
+                        len(pdf_records),
+                    )
+                    return jsonify(
+                        {
+                            'status': 'success',
+                            'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.',
+                        }
+                    )
+
                 if functions.admin_create_user(email, username, personnummer):
-                    pnr_hash = functions.hash_value(personnummer)
                     link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
                     # Skicka e-post med länken för att skapa lösenord
                     try:
@@ -401,8 +415,16 @@ def admin():
                         }
                     )
                 else:
-                    logger.warning("Attempt to create existing user %s", personnummer)
-                    return redirect('/error')
+                    logger.error("Failed to create pending user for %s", personnummer)
+                    return (
+                        jsonify(
+                            {
+                                'status': 'error',
+                                'message': 'Kunde inte skapa användare',
+                            }
+                        ),
+                        500,
+                    )
             except ValueError as ve:
                 logger.error("Value error during admin upload: %s", ve)
                 return redirect('/error')
