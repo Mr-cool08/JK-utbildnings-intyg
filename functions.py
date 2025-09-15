@@ -8,7 +8,7 @@ import os
 import re
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from dotenv import load_dotenv
 from sqlalchemy import (
@@ -340,26 +340,83 @@ def store_pdf_blob(personnummer_hash: str, filename: str, content: bytes) -> int
     return int(pdf_id)
 
 
+def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) -> bool:
+    """Import PDFs stored on disk for ``personnummer_hash`` into the database."""
+
+    legacy_dir = os.path.join(APP_ROOT, "uploads", personnummer_hash)
+    if not os.path.isdir(legacy_dir):
+        return False
+
+    imported_count = 0
+    for entry in sorted(os.listdir(legacy_dir)):
+        if entry in existing_filenames:
+            continue
+        path = os.path.join(legacy_dir, entry)
+        if not os.path.isfile(path):
+            continue
+
+        try:
+            with open(path, "rb") as legacy_file:
+                content = legacy_file.read()
+        except OSError:
+            logger.exception(
+                "Failed to read legacy PDF %s for %s", path, personnummer_hash
+            )
+            continue
+
+        try:
+            store_pdf_blob(personnummer_hash, entry, content)
+        except Exception:  # pragma: no cover - defensive; store_pdf_blob rarely fails
+            logger.exception(
+                "Failed to import legacy PDF %s for %s", entry, personnummer_hash
+            )
+            continue
+
+        existing_filenames.add(entry)
+        imported_count += 1
+
+    if imported_count:
+        logger.info(
+            "Imported %s legacy PDF(s) for %s from %s",
+            imported_count,
+            personnummer_hash,
+            legacy_dir,
+        )
+        return True
+
+    return False
+
+
 def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
     """Return metadata for all PDFs belonging to ``personnummer_hash``."""
-    with get_engine().connect() as conn:
-        rows = conn.execute(
-            select(
-                user_pdfs_table.c.id,
-                user_pdfs_table.c.filename,
-                user_pdfs_table.c.uploaded_at,
+    def _load() -> List[Dict[str, Any]]:
+        with get_engine().connect() as conn:
+            rows = conn.execute(
+                select(
+                    user_pdfs_table.c.id,
+                    user_pdfs_table.c.filename,
+                    user_pdfs_table.c.uploaded_at,
+                )
+                .where(user_pdfs_table.c.personnummer == personnummer_hash)
+                .order_by(
+                    user_pdfs_table.c.uploaded_at.desc(),
+                    user_pdfs_table.c.id.desc(),
+                )
             )
-            .where(user_pdfs_table.c.personnummer == personnummer_hash)
-            .order_by(user_pdfs_table.c.uploaded_at.desc(), user_pdfs_table.c.id.desc())
-        )
-        return [
-            {
-                "id": row.id,
-                "filename": row.filename,
-                "uploaded_at": row.uploaded_at,
-            }
-            for row in rows
-        ]
+            return [
+                {
+                    "id": row.id,
+                    "filename": row.filename,
+                    "uploaded_at": row.uploaded_at,
+                }
+                for row in rows
+            ]
+
+    pdfs = _load()
+    existing_filenames = {pdf["filename"] for pdf in pdfs}
+    if _import_legacy_pdfs(personnummer_hash, existing_filenames):
+        pdfs = _load()
+    return pdfs
 
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
