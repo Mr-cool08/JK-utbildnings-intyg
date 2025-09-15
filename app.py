@@ -40,7 +40,34 @@ CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
 load_dotenv(CONFIG_PATH)
 UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
-ALLOWED_DB_TABLES = ("users", "pending_users")
+TABLE_DEFINITIONS = {
+    "users": ("id", "username", "email", "password", "personnummer"),
+    "pending_users": (
+        "id",
+        "username",
+        "email",
+        "personnummer",
+        "pdf_path",
+    ),
+}
+ALLOWED_DB_TABLES = tuple(TABLE_DEFINITIONS)
+_SELECT_TEMPLATES = {
+    name: f"SELECT {{columns}} FROM {name}{{where}}{{order}}{{limit}}"
+    for name in TABLE_DEFINITIONS
+}
+_INSERT_TEMPLATES = {
+    name: f"INSERT INTO {name} ({{columns}}) VALUES ({{placeholders}})"
+    for name in TABLE_DEFINITIONS
+}
+_UPDATE_TEMPLATES = {
+    name: f"UPDATE {name} SET {{assignments}}{{where}}"
+    for name in TABLE_DEFINITIONS
+}
+_DELETE_TEMPLATES = {
+    name: f"DELETE FROM {name}{{where}}"
+    for name in TABLE_DEFINITIONS
+}
+_SELECT_ALL_SQL = {name: f"SELECT * FROM {name}" for name in TABLE_DEFINITIONS}
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 logger = logging.getLogger(__name__)
@@ -117,16 +144,18 @@ def _ensure_allowed_table(table: str) -> str:
 
     if not isinstance(table, str) or not _IDENTIFIER_RE.match(table):
         raise ValueError("table must be a valid identifier")
-    if table not in ALLOWED_DB_TABLES:
+    if table not in TABLE_DEFINITIONS:
         raise ValueError("table is not allowed")
     return table
 
 
-def _get_table_columns(cursor: sqlite3.Cursor, table: str) -> tuple[str, ...]:
+def _get_table_columns(table: str) -> tuple[str, ...]:
     """Return the column names for the given table."""
 
-    cursor.execute(f"PRAGMA table_info({table})")
-    return tuple(row["name"] for row in cursor.fetchall())
+    columns = TABLE_DEFINITIONS.get(table)
+    if columns is None:
+        raise ValueError("table is not allowed")
+    return columns
 
 
 def _validate_column(name: Any, valid_columns: Iterable[str]) -> str:
@@ -201,7 +230,7 @@ def _execute_select(
     """Execute a SELECT query constructed from the payload."""
 
     columns = payload.get("columns")
-    valid_columns = _get_table_columns(cursor, table)
+    valid_columns = _get_table_columns(table)
     valid_column_set = set(valid_columns)
 
     if columns is None:
@@ -220,7 +249,13 @@ def _execute_select(
     limit_clause, limit_params = _parse_limit(payload.get("limit"))
     params.extend(limit_params)
 
-    query = f"SELECT {column_clause} FROM {table}{where_clause}{order_clause}{limit_clause}"
+    template = _SELECT_TEMPLATES[table]
+    query = template.format(
+        columns=column_clause,
+        where=where_clause,
+        order=order_clause,
+        limit=limit_clause,
+    )
     cursor.execute(query, params)
     return [dict(row) for row in cursor.fetchall()]
 
@@ -234,7 +269,7 @@ def _execute_insert(
     if not isinstance(values, Mapping) or not values:
         raise ValueError("values must be a non-empty object")
 
-    valid_column_set = set(_get_table_columns(cursor, table))
+    valid_column_set = set(_get_table_columns(table))
     columns: list[str] = []
     params: list[Any] = []
     for raw_column, raw_value in values.items():
@@ -244,8 +279,9 @@ def _execute_insert(
 
     placeholders = ", ".join(["?"] * len(columns))
     column_clause = ", ".join(columns)
+    template = _INSERT_TEMPLATES[table]
     cursor.execute(
-        f"INSERT INTO {table} ({column_clause}) VALUES ({placeholders})", params
+        template.format(columns=column_clause, placeholders=placeholders), params
     )
     return {
         "status": "ok",
@@ -266,7 +302,7 @@ def _execute_update(
     if not isinstance(filters, Mapping) or not filters:
         raise ValueError("filters must be a non-empty object")
 
-    valid_column_set = set(_get_table_columns(cursor, table))
+    valid_column_set = set(_get_table_columns(table))
     assignments: list[str] = []
     params: list[Any] = []
     for raw_column, raw_value in updates.items():
@@ -279,8 +315,10 @@ def _execute_update(
         raise ValueError("filters must include at least one condition")
     params.extend(where_params)
 
+    template = _UPDATE_TEMPLATES[table]
     cursor.execute(
-        f"UPDATE {table} SET {', '.join(assignments)}{where_clause}", params
+        template.format(assignments=", ".join(assignments), where=where_clause),
+        params,
     )
     return {"status": "ok", "rowcount": cursor.rowcount}
 
@@ -294,12 +332,13 @@ def _execute_delete(
     if not isinstance(filters, Mapping) or not filters:
         raise ValueError("filters must be a non-empty object")
 
-    valid_column_set = set(_get_table_columns(cursor, table))
+    valid_column_set = set(_get_table_columns(table))
     where_clause, params = _build_where_clause(filters, valid_column_set)
     if not where_clause:
         raise ValueError("filters must include at least one condition")
 
-    cursor.execute(f"DELETE FROM {table}{where_clause}", params)
+    template = _DELETE_TEMPLATES[table]
+    cursor.execute(template.format(where=where_clause), params)
     return {"status": "ok", "rowcount": cursor.rowcount}
 
 
@@ -353,7 +392,7 @@ def db_admin():
         if request.method == "GET":
             data = {}
             for table in ALLOWED_DB_TABLES:
-                cursor.execute(f"SELECT * FROM {table}")
+                cursor.execute(_SELECT_ALL_SQL[table])
                 data[table] = [dict(row) for row in cursor.fetchall()]
             return jsonify(data), 200
 
@@ -364,7 +403,10 @@ def db_admin():
             if conn.in_transaction:
                 conn.rollback()
             logger.warning("Rejected /db request: %s", err)
-            return jsonify({"status": "error", "message": str(err)}), 400
+            return (
+                jsonify({"status": "error", "message": "Invalid database request"}),
+                400,
+            )
 
         if should_commit:
             conn.commit()
