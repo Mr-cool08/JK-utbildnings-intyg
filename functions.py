@@ -10,7 +10,6 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from dotenv import load_dotenv
 from sqlalchemy import (
     Column,
     DateTime,
@@ -30,11 +29,13 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.pool import StaticPool
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from config_loader import load_environment
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # or INFO in production
 logger.propagate = True
 
-load_dotenv(os.getenv("CONFIG_PATH", "/config/.env"))
+load_environment()
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 logger.debug("Application root directory: %s", APP_ROOT)

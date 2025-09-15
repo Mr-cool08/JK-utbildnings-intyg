@@ -30,14 +30,14 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
+
+from config_loader import load_environment
+
+
+load_environment()
 
 import functions
 
-
-APP_ROOT = os.path.abspath(os.path.dirname(__file__))
-CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
-load_dotenv(CONFIG_PATH)
 ALLOWED_MIMES = {'application/pdf'}
 
 logger = logging.getLogger(__name__)

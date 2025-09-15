@@ -1,15 +1,7 @@
 version: '3.9'
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: appuser
-      POSTGRES_PASSWORD: apppassword
-      POSTGRES_DB: appdb
   app:
     build: .
-    depends_on:
-      - db
     ports:
       - "80:80"
       - "443:443"
@@ -17,4 +9,4 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://appuser:apppassword@db:5432/appdb
+      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL in .env to point at your Postgres instance}"
