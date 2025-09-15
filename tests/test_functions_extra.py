@@ -86,8 +86,8 @@ def test_user_create_user_fails_if_exists(empty_db):
 
 
 def test_hash_value_uniqueness_stress():
-    values = {functions.hash_value(f"value{i}") for i in range(20)}
-    assert len(values) == 20
+    values = {functions.hash_value(f"value{i}") for i in range(200)}
+    assert len(values) == 200
 
 
 def test_check_password_user_and_get_username(empty_db):
