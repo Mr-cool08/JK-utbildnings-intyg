@@ -10,7 +10,7 @@ This web application manages the issuance and storage of course certificates. It
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. When running with Docker Compose, set `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; the bundled Postgres container provisions the database automatically with these credentials and the application container builds `DATABASE_URL` from the same values. For standalone usage you can still set `DATABASE_URL` to an external Postgres instance (for example `postgresql+psycopg://user:password@hostname:5432/database`). If you omit `DATABASE_URL` entirely the application falls back to the SQLite database referenced by `DB_PATH`.
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Set `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; when the container starts it automatically launches an internal PostgreSQL server with those credentials whenever `DATABASE_URL` is empty (`BUNDLED_POSTGRES=auto`). For Docker Compose the same values are passed to the dedicated `db` service. To use an existing database instead, set `DATABASE_URL` explicitly or switch the bundled server off with `BUNDLED_POSTGRES=off`, in which case the application falls back to the SQLite database referenced by `DB_PATH`.
 3. **Run the application**
    ```bash
    python app.py
@@ -43,7 +43,8 @@ container.
 
 ## Data storage
 
-* **SQLite database** – User metadata and pending registrations are stored in a local SQLite database file.
+* **Bundled PostgreSQL (container deployments)** – When the container runs with `BUNDLED_POSTGRES=auto` (default) or `always`, the entrypoint starts an internal PostgreSQL server and stores its data under `/var/lib/postgresql/data`. Mount this path to a named or bind volume to persist the database across rebuilds.
+* **SQLite database** – For local development or when `BUNDLED_POSTGRES=off`, the application stores user metadata and pending registrations in a local SQLite database file instead.
 * **File system** – Certificates reside in an `uploads/<personnummer>/` directory structure. The application only accepts PDF files to prevent accidental uploads of other formats.
 * **Hashed credentials** – Passwords are hashed with a per-user salt using PBKDF2 via Werkzeug, while personal numbers and emails are deterministically hashed with a global salt so sensitive data isn't stored in plain text.
 
@@ -52,13 +53,20 @@ container.
 Running the application with Docker Compose stores mutable data in named volumes so that updates to the container image do not remove important files:
 
 * `postgres_data` – stores the data directory for the Docker Compose managed PostgreSQL instance.
+* `postgres_internal_data` – persists the bundled PostgreSQL server that runs inside the application container when `BUNDLED_POSTGRES` is enabled.
 * `env_data` – contains the `.env` configuration file mounted at `/config/.env` inside the container.
 * `uploads_data` – keeps user uploads available at `/app/uploads`.
-* `db_data` – persists the SQLite database in `/data/database.db`.
+* `db_data` – persists the SQLite fallback in `/data/database.db` when `BUNDLED_POSTGRES=off`.
 * `logs_data` – retains application logs under `/app/logs/`.
 These volumes have fixed names so existing data is reused across container rebuilds.
 
-Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values.
+Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values. The container now starts an internal PostgreSQL server automatically when `DATABASE_URL` is empty, so remember to mount `/var/lib/postgresql/data` (for example with the `postgres_internal_data` volume) if you want the database to persist.
+
+If you prefer running a separate PostgreSQL container without Docker Compose,
+execute `./scripts/start_postgres_stack.sh`. The script reads `POSTGRES_*`
+values from your `.env` file, spins up a matching PostgreSQL container, and
+launches the application container with `DATABASE_URL` pointing at that
+database.
 
 ## Running tests
 
