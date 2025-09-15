@@ -3,6 +3,7 @@ FROM python:3.12-alpine3.20
 
 # Installera systempaket
 RUN apk add --no-cache nginx openssl tini bash curl \
+    postgresql15 postgresql15-client su-exec \
     && addgroup -S app && adduser -S -G app app
 
 WORKDIR /app
@@ -16,9 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Skapa och äg kataloger
-RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx \
+RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx /var/lib/postgresql/data \
     && cp .example.env /config/.env || true \
-    && chown -R app:app /app /data /config /app/uploads /var/cache/nginx
+    && chown -R app:app /app /data /config /app/uploads /var/cache/nginx \
+    && chown -R postgres:postgres /var/lib/postgresql
 
 # Miljö
 ENV HTTP_PORT=8080 \
