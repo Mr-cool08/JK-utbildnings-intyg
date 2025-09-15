@@ -70,6 +70,6 @@ logs/
 .DS_Store
 Thumbs.db
 ehthumbs.db
-__pycache__/functions.cpython-311.pyc
+__pycache__/
 *.pyc
 test_mail.py
