@@ -1,33 +1,24 @@
-import sqlite3
 import functions
 
 
 def test_user_create_hashes_password(empty_db):
-    db_path = empty_db
+    pnr_hash = functions.hash_value("199001011234")
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.pending_users_table.insert().values(
+                email=functions.hash_value("user@example.com"),
+                username="User",
+                personnummer=pnr_hash,
+            )
+        )
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO pending_users (email, username, personnummer, pdf_path) VALUES (?, ?, ?, ?)",
-        (
-            functions.hash_value("user@example.com"),
-            "User",
-            functions.hash_value("199001011234"),
-            "doc.pdf",
-        ),
-    )
-    conn.commit()
-    conn.close()
+    assert functions.user_create_user("mypassword", pnr_hash)
 
-    assert functions.user_create_user("mypassword", functions.hash_value("199001011234"))
-
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT password FROM users WHERE personnummer = ?",
-        (functions.hash_value("199001011234"),),
-    )
-    row = cursor.fetchone()
-    conn.close()
+    with empty_db.connect() as conn:
+        row = conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == pnr_hash
+            )
+        ).first()
     assert row is not None
-    assert functions.verify_password(row[0], "mypassword")
+    assert functions.verify_password(row.password, "mypassword")

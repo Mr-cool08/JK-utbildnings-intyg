@@ -1,37 +1,43 @@
 """Flask application for issuing and serving course certificates."""
 
-from datetime import datetime
+from __future__ import annotations
+
 import logging
 import os
+import ssl
 import time
+from email import policy
+from email.message import EmailMessage
+from smtplib import (
+    SMTP,
+    SMTPAuthenticationError,
+    SMTPException,
+    SMTPServerDisconnected,
+    SMTP_SSL,
+)
+
 from flask import (
     Flask,
-    request,
-    jsonify,
-    render_template,
-    session,
-    redirect,
-    send_from_directory,
+    abort,
     current_app,
-    url_for,
+    jsonify,
     send_from_directory,
-
-
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
 )
-from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+
 import functions
-import os, ssl, logging
-from smtplib import SMTP, SMTP_SSL, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
-from email import policy
 
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 CONFIG_PATH = os.getenv("CONFIG_PATH", "/config/.env")
 load_dotenv(CONFIG_PATH)
-UPLOAD_ROOT = os.path.join(APP_ROOT, 'uploads')
 ALLOWED_MIMES = {'application/pdf'}
 
 logger = logging.getLogger(__name__)
@@ -69,15 +75,13 @@ def create_app() -> Flask:
     functions.create_database()
     app = Flask(__name__)
     app.secret_key = os.getenv('secret_key')
-    os.makedirs(UPLOAD_ROOT, exist_ok=True)
-    app.config['UPLOAD_ROOT'] = UPLOAD_ROOT
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
-    
+
     with app.app_context():
         if app.debug:
             _enable_debug_mode(app)
-            
-    logger.debug("Application created with upload root %s", UPLOAD_ROOT)
+
+    logger.debug("Application created and database initialized")
     return app
 
 
@@ -88,14 +92,6 @@ app = create_app()
 def health() -> tuple[dict, int]:
     """Basic health check endpoint."""
     return {"status": "ok"}, 200
-
-
-import os, ssl, logging
-from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
-from email.message import EmailMessage
-
-logger = logging.getLogger(__name__)
-
 def send_creation_email(to_email: str, link: str) -> None:
     """Send a password creation link via SMTP.
 
@@ -200,43 +196,40 @@ def inject_flags():
 
 
 
-def save_pdf_for_user(pnr: str, file_storage) -> str:
-    """Spara PDF i uploads/<hash(pnr)>/ och returnera relativ sökväg."""
+def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
+    """Validate and store a PDF in the database for the provided personnummer."""
     logger.debug("Saving PDF for personnummer %s", pnr)
-    if file_storage.filename == '':
+    if file_storage.filename == "":
         logger.error("No file selected for upload")
         raise ValueError("Ingen fil vald.")
 
-    # Enkel MIME-kontroll + magisk signatur
-    mime = file_storage.mimetype or ''
+    mime = file_storage.mimetype or ""
     if mime not in ALLOWED_MIMES:
         logger.error("Disallowed MIME type %s", mime)
         raise ValueError("Endast PDF tillåts.")
+
     head = file_storage.stream.read(5)
     file_storage.stream.seek(0)
-    if head != b'%PDF-':
+    if head != b"%PDF-":
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
     pnr_norm = functions.normalize_personnummer(pnr)
     pnr_hash = functions.hash_value(pnr_norm)
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
-    os.makedirs(user_dir, exist_ok=True)
-    logger.debug("User directory for %s is %s", pnr, user_dir)
 
     base = secure_filename(file_storage.filename)
-    # ta bort personnummer från filnamnet om det finns där (t.ex. '199001011234_cv.pdf')
-    base = base.replace(pnr_norm, '')
-    base = base.lstrip('_- ')  # ta bort eventuella kvarvarande prefix-tecken
+    base = base.replace(pnr_norm, "")
+    base = base.lstrip("_- ")
+    if not base:
+        base = "certificate.pdf"
     # lägg på timestamp för att undvika krockar
     filename = f"{int(time.time())}_{base}"
-    abs_path = os.path.join(user_dir, filename)
-    file_storage.save(abs_path)
-    logger.info("Saved PDF for %s to %s", pnr, abs_path)
 
-    # relativ sökväg från projektroten
-    rel_path = os.path.relpath(abs_path, APP_ROOT).replace('\\', '/')
-    return rel_path
+    file_storage.stream.seek(0)
+    content = file_storage.stream.read()
+    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content)
+    logger.info("Stored PDF for %s as id %s", pnr, pdf_id)
+    return {"id": pdf_id, "filename": filename}
 
 @app.route('/robots.txt')
 def robots_txt():
@@ -304,43 +297,50 @@ def dashboard():
         logger.debug("Unauthenticated access to dashboard")
         return redirect('/login')
     pnr_hash = session.get('personnummer')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
-    pdfs = []
-    if os.path.isdir(user_dir):
-        pdfs = [f for f in os.listdir(user_dir) if f.lower().endswith('.pdf')]
+    pdfs = functions.get_user_pdfs(pnr_hash)
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
     return render_template('dashboard.html', pdfs=pdfs)
 
 
-@app.route('/my_pdfs/<path:filename>')
-def download_pdf(filename):
-    """Serve a stored PDF for the logged-in user.
-
-    If the query parameter ``download`` is set to ``0`` the PDF will be
-    displayed inline in the browser instead of being downloaded.
-    """
+@app.route('/my_pdfs/<int:pdf_id>')
+def download_pdf(pdf_id: int):
+    """Serve a stored PDF for the logged-in user from the database."""
     if not session.get('user_logged_in'):
-        logger.debug("Unauthenticated download attempt for %s", filename)
+        logger.debug("Unauthenticated download attempt for %s", pdf_id)
         return redirect('/login')
     pnr_hash = session.get('personnummer')
-    user_dir = os.path.join(app.config['UPLOAD_ROOT'], pnr_hash)
     as_attachment = request.args.get('download', '1') != '0'
+    pdf = functions.get_pdf_content(pnr_hash, pdf_id)
+    if not pdf:
+        logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
+        abort(404)
+    filename, content = pdf
     logger.info(
         "User %s retrieving %s (as_attachment=%s)", pnr_hash, filename, as_attachment
     )
-    return send_from_directory(user_dir, filename, as_attachment=as_attachment)
+    response = make_response(content)
+    response.headers['Content-Type'] = 'application/pdf'
+    disposition = 'attachment' if as_attachment else 'inline'
+    response.headers['Content-Disposition'] = f"{disposition}; filename=\"{filename}\""
+    return response
 
 
-@app.route('/view_pdf/<path:filename>')
-def view_pdf(filename):
+@app.route('/view_pdf/<int:pdf_id>')
+def view_pdf(pdf_id: int):
     """Render a page displaying the specified PDF inline."""
     if not session.get('user_logged_in'):
-        logger.debug("Unauthenticated view attempt for %s", filename)
+        logger.debug("Unauthenticated view attempt for %s", pdf_id)
         return redirect('/login')
     pnr_hash = session.get('personnummer')
-    logger.info("User %s viewing %s", pnr_hash, filename)
-    pdf_url = url_for('download_pdf', filename=filename, download=0)
-    return render_template('view_pdf.html', filename=filename, pdf_url=pdf_url)
+    pdf = functions.get_pdf_metadata(pnr_hash, pdf_id)
+    if not pdf:
+        logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
+        abort(404)
+    logger.info("User %s viewing %s", pnr_hash, pdf['filename'])
+    pdf_url = url_for('download_pdf', pdf_id=pdf_id, download=0)
+    return render_template(
+        'view_pdf.html', filename=pdf['filename'], pdf_url=pdf_url, pdf_id=pdf_id
+    )
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
@@ -360,12 +360,16 @@ def admin():
                 # Kontrollera om användaren redan finns (via personnummer eller e-post)
                 user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
 
-                # spara filerna i mapp per personnummer
-                pdf_paths = [save_pdf_for_user(personnummer, f) for f in pdf_files]
+                # Spara filerna i databasen per personnummer
+                pdf_records = [save_pdf_for_user(personnummer, f) for f in pdf_files]
 
                 # Om användaren redan finns ska endast PDF:erna sparas
                 if user_exists:
-                    logger.info("PDFs uploaded for existing user %s", personnummer)
+                    logger.info(
+                        "PDFs uploaded for existing user %s (%d files)",
+                        personnummer,
+                        len(pdf_records),
+                    )
                     return jsonify(
                         {
                             'status': 'success',
@@ -373,7 +377,7 @@ def admin():
                         }
                     )
 
-                if functions.admin_create_user(email, username, personnummer, ';'.join(pdf_paths)):
+                if functions.admin_create_user(email, username, personnummer):
                     pnr_hash = functions.hash_value(personnummer)
                     link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
                     # Skicka e-post med länken för att skapa lösenord

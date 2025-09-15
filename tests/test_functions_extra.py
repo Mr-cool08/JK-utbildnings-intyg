@@ -1,21 +1,10 @@
-import sqlite3
 import os
 import sys
-import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import functions
 
-@pytest.fixture
-def tmp_db(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-    real_connect = sqlite3.connect
-    def connect_stub(_):
-        return real_connect(db_path)
-    monkeypatch.setattr(functions, "DB_PATH", str(db_path))
-    monkeypatch.setattr(functions.sqlite3, "connect", connect_stub)
-    functions.create_database()
-    return db_path
+import functions  # noqa: E402
+
 
 def test_hash_value_deterministic():
     h1 = functions.hash_value("hello")
@@ -24,109 +13,97 @@ def test_hash_value_deterministic():
     assert h1 == h2
     assert h1 != h3
 
+
 def test_hash_password_verify():
     hashed = functions.hash_password("s3cret")
     assert functions.verify_password(hashed, "s3cret")
     assert not functions.verify_password(hashed, "wrong")
 
-def test_check_pending_user_and_hash(tmp_db):
-    functions.admin_create_user("e@example.com", "User", "19900101-1234", "doc.pdf")
+
+def test_check_pending_user_and_hash(empty_db):
+    functions.admin_create_user("e@example.com", "User", "19900101-1234")
     assert functions.check_pending_user("19900101-1234")
     pnr_hash = functions.hash_value("199001011234")
     assert functions.check_pending_user_hash(pnr_hash)
     assert not functions.check_pending_user("20000101-1234")
 
-def test_admin_create_user_duplicate(tmp_db):
-    conn = sqlite3.connect(tmp_db)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        (
-            "Existing",
-            functions.hash_value("exist@example.com"),
-            functions.hash_password("secret"),
-            functions.hash_value("199001011234"),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    assert not functions.admin_create_user("exist@example.com", "Existing", "19900101-1234", "doc.pdf")
 
-def test_check_personnummer_password(tmp_db):
-    conn = sqlite3.connect(tmp_db)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        (
-            "Test",
-            functions.hash_value("test@example.com"),
-            functions.hash_password("secret"),
-            functions.hash_value("199001011234"),
-        ),
-    )
-    conn.commit()
-    conn.close()
+def test_admin_create_user_duplicate(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Existing",
+                email=functions.hash_value("exist@example.com"),
+                password=functions.hash_password("secret"),
+                personnummer=functions.hash_value("199001011234"),
+            )
+        )
+    assert not functions.admin_create_user("exist@example.com", "Existing", "19900101-1234")
+
+
+def test_check_personnummer_password(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Test",
+                email=functions.hash_value("test@example.com"),
+                password=functions.hash_password("secret"),
+                personnummer=functions.hash_value("199001011234"),
+            )
+        )
     assert functions.check_personnummer_password("19900101-1234", "secret")
     assert not functions.check_personnummer_password("19900101-1234", "wrong")
 
-def test_get_user_info(tmp_db):
-    conn = sqlite3.connect(tmp_db)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        (
-            "Info",
-            functions.hash_value("info@example.com"),
-            functions.hash_password("pass"),
-            functions.hash_value("199001011234"),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    user = functions.get_user_info("19900101-1234")
-    assert user[1] == "Info"
-    assert user[2] == functions.hash_value("info@example.com")
 
-def test_user_create_user_fails_if_exists(tmp_db):
+def test_get_user_info(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Info",
+                email=functions.hash_value("info@example.com"),
+                password=functions.hash_password("pass"),
+                personnummer=functions.hash_value("199001011234"),
+            )
+        )
+    user = functions.get_user_info("19900101-1234")
+    assert user is not None
+    assert user.username == "Info"
+    assert user.email == functions.hash_value("info@example.com")
+
+
+def test_user_create_user_fails_if_exists(empty_db):
     pnr_hash = functions.hash_value("199001011234")
-    conn = sqlite3.connect(tmp_db)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        (
-            "Existing",
-            functions.hash_value("exist@example.com"),
-            functions.hash_password("secret"),
-            pnr_hash,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Existing",
+                email=functions.hash_value("exist@example.com"),
+                password=functions.hash_password("secret"),
+                personnummer=pnr_hash,
+            )
+        )
     assert not functions.user_create_user("newpass", pnr_hash)
+
 
 def test_hash_value_uniqueness_stress():
     values = {functions.hash_value(f"value{i}") for i in range(20)}
     assert len(values) == 20
 
 
-def test_check_password_user_and_get_username(tmp_db):
+def test_check_password_user_and_get_username(empty_db):
     email = "tester@example.com"
     username = "Tester"
     password = "s3cret"
 
-    conn = sqlite3.connect(tmp_db)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, email, password, personnummer) VALUES (?, ?, ?, ?)",
-        (
-            username,
-            functions.hash_value(email),
-            functions.hash_password(password),
-            functions.hash_value("199001011234"),
-        ),
-    )
-    conn.commit()
-    conn.close()
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username=username,
+                email=functions.hash_value(email),
+                password=functions.hash_password(password),
+                personnummer=functions.hash_value("199001011234"),
+            )
+        )
 
     assert functions.check_password_user(email, password)
     assert not functions.check_password_user(email, "wrong")

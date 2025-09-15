@@ -25,17 +25,18 @@ def test_dockerfile_exposes_port_and_runs_entrypoint():
     assert 'CMD ["./entrypoint.sh"]' in dockerfile
 
 
-def test_compose_maps_port_and_sets_db_path():
+def test_compose_maps_ports_and_sets_database_url():
     compose = _read(ROOT / "docker-compose.yml")
     # Acceptera klassiskt 1:1 eller mappning till högre portar i containern
     assert re.search(r"-\s*\"80:(80|8080)\"", compose)
     assert re.search(r"-\s*\"443:(443|8443)\"", compose)
-    assert "DB_PATH: /data/database.db" in compose
+    assert "DATABASE_URL: postgresql+psycopg://" in compose
+    assert "image: postgres" in compose
 
 
-def test_compose_mounts_config_volume():
+def test_compose_avoids_host_volumes():
     compose = _read(ROOT / "docker-compose.yml")
-    assert "- env_data:/config" in compose
+    assert "volumes:" not in compose or "- env_data:/config" not in compose
 
 
 def test_entrypoint_uses_nginx():

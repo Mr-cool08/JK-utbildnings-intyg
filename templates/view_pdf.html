@@ -8,5 +8,5 @@
 <div class="pdf-container">
     <iframe src="{{ pdf_url }}" title="{{ filename }}" frameborder="0"></iframe>
 </div>
-<p><a href="{{ url_for('download_pdf', filename=filename) }}">Ladda ner PDF</a></p>
+<p><a href="{{ url_for('download_pdf', pdf_id=pdf_id) }}">Ladda ner PDF</a></p>
 {% endblock %}
