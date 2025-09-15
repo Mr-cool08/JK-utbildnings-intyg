@@ -1,8 +1,6 @@
 import os
 import sys
 
-from sqlalchemy.exc import OperationalError
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import functions  # noqa: E402
@@ -47,77 +45,3 @@ def test_user_create_user_no_pending(empty_db):
     pnr_hash = functions.hash_value("199001011234")
     assert not functions.user_create_user("pass", pnr_hash)
 
-
-def test_create_database_auto_creates_postgres(monkeypatch):
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://appuser:secret@localhost/appdb"
-    )
-    functions.reset_engine()
-
-    events = []
-
-    class FakeOrig:
-        pgcode = "3D000"
-        sqlstate = "3D000"
-
-        def __str__(self):
-            return "database \"appdb\" does not exist"
-
-    class DummyConnection:
-        def __init__(self, label):
-            self.label = label
-
-        def __enter__(self):
-            events.append(("enter", self.label))
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            events.append(("exit", self.label))
-
-        def execute(self, statement):
-            events.append(("execute", self.label, str(statement)))
-            return None
-
-    class DummyEngine:
-        def __init__(self, label, fail=False):
-            self.label = label
-            self._fail = fail
-
-        def connect(self):
-            events.append(("connect", self.label))
-            if self._fail:
-                raise OperationalError("CONNECT", {}, FakeOrig())
-            return DummyConnection(self.label)
-
-        def dispose(self):
-            events.append(("dispose", self.label))
-
-    primary_calls = {"count": 0}
-
-    def fake_create_engine(url_obj, **kwargs):
-        assert kwargs.get("future") is True
-        db_name = url_obj.database
-        if db_name == "appdb":
-            primary_calls["count"] += 1
-            fail = primary_calls["count"] == 1
-            return DummyEngine("primary", fail=fail)
-        if db_name == "postgres":
-            assert kwargs.get("isolation_level") == "AUTOCOMMIT"
-            return DummyEngine("admin")
-        raise AssertionError(f"Unexpected database {db_name}")
-
-    monkeypatch.setattr(functions, "create_engine", fake_create_engine)
-
-    created_with = {}
-
-    def fake_create_all(engine):
-        created_with["engine"] = engine
-
-    monkeypatch.setattr(functions.metadata, "create_all", fake_create_all)
-
-    functions.create_database()
-    functions.reset_engine()
-
-    assert created_with["engine"].label == "primary"
-    assert ("execute", "admin", 'CREATE DATABASE "appdb"') in events
-    assert primary_calls["count"] == 2

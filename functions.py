@@ -24,12 +24,10 @@ from sqlalchemy import (
     func,
     insert,
     select,
-    text,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.exc import OperationalError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_loader import load_environment
@@ -50,71 +48,6 @@ if SALT == "static_salt":
     )
 
 metadata = MetaData()
-
-
-def _quote_postgres_identifier(identifier: str) -> str:
-    """Return ``identifier`` safely quoted for PostgreSQL statements."""
-
-    return '"' + identifier.replace('"', '""') + '"'
-
-
-def _is_missing_database_error(exc: OperationalError) -> bool:
-    """Return ``True`` if ``exc`` represents a missing Postgres database."""
-
-    code = getattr(exc.orig, "pgcode", None) or getattr(exc.orig, "sqlstate", None)
-    if code == "3D000":  # invalid_catalog_name
-        return True
-    message = str(exc.orig).lower()
-    return "does not exist" in message and "database" in message
-
-
-def _is_duplicate_database_error(exc: OperationalError) -> bool:
-    """Return ``True`` if ``exc`` indicates the database already exists."""
-
-    code = getattr(exc.orig, "pgcode", None) or getattr(exc.orig, "sqlstate", None)
-    return code == "42P04"  # duplicate_database
-
-
-def _create_postgres_database(url, engine_kwargs: Dict[str, Any]) -> None:
-    """Create the PostgreSQL database described by ``url`` if missing."""
-
-    database = url.database
-    if not database:
-        raise RuntimeError(
-            "DATABASE_URL must include a database name to create it automatically."
-        )
-
-    admin_kwargs = dict(engine_kwargs)
-    admin_kwargs.pop("poolclass", None)
-    admin_kwargs.pop("connect_args", None)
-
-    last_error: OperationalError | None = None
-    for default_db in ("postgres", "template1"):
-        admin_engine = None
-        try:
-            admin_url = url.set(database=default_db)
-            admin_engine = create_engine(
-                admin_url, isolation_level="AUTOCOMMIT", **admin_kwargs
-            )
-            with admin_engine.connect() as conn:
-                conn.execute(
-                    text(
-                        f"CREATE DATABASE {_quote_postgres_identifier(database)}"
-                    )
-                )
-            logger.info("Created PostgreSQL database '%s'", database)
-            return
-        except OperationalError as exc:
-            if _is_duplicate_database_error(exc):
-                logger.info("PostgreSQL database '%s' already exists", database)
-                return
-            last_error = exc
-        finally:
-            if admin_engine is not None:
-                admin_engine.dispose()
-
-    if last_error is not None:
-        raise last_error
 
 pending_users_table = Table(
     "pending_users",
@@ -186,26 +119,7 @@ def _build_engine() -> Engine:
         connect_args["check_same_thread"] = False
         if database in ("", ":memory:"):
             engine_kwargs["poolclass"] = StaticPool
-    engine = create_engine(url, **engine_kwargs)
-
-    if url.get_backend_name() == "postgresql":
-        try:
-            with engine.connect():
-                pass
-        except OperationalError as exc:
-            if _is_missing_database_error(exc):
-                database = url.database or ""
-                logger.info(
-                    "Database '%s' missing – creating it automatically", database
-                )
-                engine.dispose()
-                _create_postgres_database(url, engine_kwargs)
-                engine = create_engine(url, **engine_kwargs)
-                with engine.connect():
-                    pass
-            else:
-                raise
-    return engine
+    return create_engine(url, **engine_kwargs)
 
 
 def reset_engine() -> None:

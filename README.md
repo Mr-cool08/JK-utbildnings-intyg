@@ -10,7 +10,7 @@ This web application manages the issuance and storage of course certificates. It
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Set `DATABASE_URL` to the connection string for your Postgres instance (for example `postgresql+psycopg://user:password@hostname:5432/database`). The Docker Compose configuration simply forwards this value to the application container so you can point at an existing database. If the referenced Postgres database is missing, the application will create it automatically using the credentials embedded in `DATABASE_URL`. If you omit `DATABASE_URL` the application falls back to the SQLite database referenced by `DB_PATH`.
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. When running with Docker Compose, set `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; the bundled Postgres container provisions the database automatically with these credentials and the application container builds `DATABASE_URL` from the same values. For standalone usage you can still set `DATABASE_URL` to an external Postgres instance (for example `postgresql+psycopg://user:password@hostname:5432/database`). If you omit `DATABASE_URL` entirely the application falls back to the SQLite database referenced by `DB_PATH`.
 3. **Run the application**
    ```bash
    python app.py
@@ -51,6 +51,7 @@ container.
 
 Running the application with Docker Compose stores mutable data in named volumes so that updates to the container image do not remove important files:
 
+* `postgres_data` – stores the data directory for the Docker Compose managed PostgreSQL instance.
 * `env_data` – contains the `.env` configuration file mounted at `/config/.env` inside the container.
 * `uploads_data` – keeps user uploads available at `/app/uploads`.
 * `db_data` – persists the SQLite database in `/data/database.db`.
