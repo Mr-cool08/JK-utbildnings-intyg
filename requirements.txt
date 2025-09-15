@@ -4,8 +4,8 @@ Werkzeug==3.0.6
 Jinja2==3.1.6
 itsdangerous==2.1.2
 click==8.1.7
-SQLAlchemy==2.0.29
-psycopg[binary]==3.1.18
+SQLAlchemy==2.0.43
+psycopg[binary]==3.2.10
 
 # Optional (for PDF validation if you later add more advanced checks)
 # PyPDF2==3.0.0
