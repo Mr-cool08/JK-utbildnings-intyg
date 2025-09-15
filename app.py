@@ -84,6 +84,12 @@ def create_app() -> Flask:
 app = create_app()
 
 
+@app.route("/health")
+def health() -> tuple[dict, int]:
+    """Basic health check endpoint."""
+    return {"status": "ok"}, 200
+
+
 import os, ssl, logging
 from smtplib import SMTP, SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
 from email.message import EmailMessage
@@ -351,11 +357,14 @@ def admin():
                     logger.warning("Admin upload without PDF")
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
 
+                # Kontrollera om användaren redan finns (via personnummer eller e-post)
+                user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
+
                 # spara filerna i mapp per personnummer
                 pdf_paths = [save_pdf_for_user(personnummer, f) for f in pdf_files]
 
                 # Om användaren redan finns ska endast PDF:erna sparas
-                if functions.get_user_info(personnummer):
+                if user_exists:
                     logger.info("PDFs uploaded for existing user %s", personnummer)
                     return jsonify(
                         {
