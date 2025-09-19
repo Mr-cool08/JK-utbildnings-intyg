@@ -11,7 +11,6 @@ ENV_FILE="${ENV_FILE:-.env}"
 POSTGRES_VOLUME="${POSTGRES_VOLUME:-jk_utbildningsintyg_postgres_data}"
 UPLOADS_VOLUME="${UPLOADS_VOLUME:-jk_utbildningsintyg_uploads}"
 LOGS_VOLUME="${LOGS_VOLUME:-jk_utbildningsintyg_logs}"
-DATA_VOLUME="${DATA_VOLUME:-jk_utbildningsintyg_data}"
 
 command -v docker >/dev/null 2>&1 || {
   echo "Docker is required to run this script." >&2
@@ -90,7 +89,6 @@ start_app() {
     -p 443:443 \
     -v "$UPLOADS_VOLUME:/app/uploads" \
     -v "$LOGS_VOLUME:/app/logs" \
-    -v "$DATA_VOLUME:/data" \
     "$APP_IMAGE" >/dev/null
 }
 
@@ -99,7 +97,6 @@ ensure_network "$NETWORK_NAME"
 ensure_volume "$POSTGRES_VOLUME"
 ensure_volume "$UPLOADS_VOLUME"
 ensure_volume "$LOGS_VOLUME"
-ensure_volume "$DATA_VOLUME"
 
 start_database
 start_app

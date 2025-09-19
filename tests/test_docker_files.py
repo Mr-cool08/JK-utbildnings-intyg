@@ -25,16 +25,17 @@ def test_dockerfile_exposes_port_and_runs_entrypoint():
     assert 'CMD ["./entrypoint.sh"]' in dockerfile
 
 
-def test_compose_maps_ports_and_provisions_postgres():
+def test_compose_maps_ports_and_requires_external_postgres():
     compose = _read(ROOT / "docker-compose.yml")
     # Acceptera klassiskt 1:1 eller mappning till högre portar i containern
     assert re.search(r"-\s*\"80:(80|8080)\"", compose)
     assert re.search(r"-\s*\"443:(443|8443)\"", compose)
-    assert "DATABASE_URL" in compose
-    assert re.search(r"^\s{2}db:\s*$", compose, re.MULTILINE)
-    assert "image: postgres" in compose
+    assert "POSTGRES_HOST" in compose
+    assert "POSTGRES_DB" in compose
+    assert "POSTGRES_USER" in compose
     assert "POSTGRES_PASSWORD" in compose
-    assert "@db:5432" in compose
+    assert "@db:5432" not in compose
+    assert re.search(r"^\s{2}db:\s*$", compose, re.MULTILINE) is None
 
 
 def test_compose_avoids_host_volumes():

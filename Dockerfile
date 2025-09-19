@@ -3,7 +3,6 @@ FROM python:3.12-alpine3.20
 
 # Installera systempaket
 RUN apk add --no-cache nginx openssl tini bash curl \
-    postgresql15 postgresql15-client su-exec \
     && addgroup -S app && adduser -S -G app app
 
 WORKDIR /app
@@ -17,16 +16,14 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Skapa och äg kataloger
-RUN mkdir -p /data /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx /var/lib/postgresql/data \
+RUN mkdir -p /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx \
     && cp .example.env /config/.env || true \
-    && chown -R app:app /app /data /config /app/uploads /var/cache/nginx \
-    && chown -R postgres:postgres /var/lib/postgresql
+    && chown -R app:app /app /config /app/uploads /var/cache/nginx
 
 # Miljö
 ENV HTTP_PORT=8080 \
     HTTPS_PORT=8443 \
     FLASK_PORT=5000 \
-    DB_PATH=/data/database.db \
     PYTHONUNBUFFERED=1
 
 # Hälsokontroll (antag /health i din app – annars ändra)
