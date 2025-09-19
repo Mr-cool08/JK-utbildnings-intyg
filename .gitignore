@@ -7,9 +7,6 @@
 !.example.env
 *.ini
 *.cfg
-*.toml
-*.yaml
-*.yml
 *.secret
 *.local
 *.pem
