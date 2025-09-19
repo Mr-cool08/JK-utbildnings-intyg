@@ -165,10 +165,14 @@ if [ -z "${DATABASE_URL:-}" ]; then
 
   POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
+  encoded_user="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_USER']))")"
+  encoded_password="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', ''))) if 'POSTGRES_PASSWORD' in os.environ else print('')")"
+  encoded_db="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_DB']))")"
+
   if [ -n "${POSTGRES_PASSWORD:-}" ]; then
-    credentials="${POSTGRES_USER}:${POSTGRES_PASSWORD}"
+    credentials="${encoded_user}:${encoded_password}"
   else
-    credentials="${POSTGRES_USER}"
+    credentials="${encoded_user}"
   fi
 
   if [ -n "${POSTGRES_PORT}" ]; then
@@ -177,7 +181,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
     port_segment=""
   fi
 
-  export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${POSTGRES_DB}"
+  export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${encoded_db}"
   echo "Using external PostgreSQL server at ${POSTGRES_HOST}${port_segment}"
 fi
 

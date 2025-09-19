@@ -7,6 +7,7 @@ import importlib.util
 import logging
 import os
 import re
+from urllib.parse import quote_plus
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -116,9 +117,14 @@ def _build_engine() -> Engine:
                 "POSTGRES_DB must be set when POSTGRES_HOST is configured"
             )
 
-        credentials = user if password == "" else f"{user}:{password}"
+        encoded_user = quote_plus(user)
+        encoded_password = quote_plus(password)
+        encoded_db = quote_plus(database)
+        credentials = (
+            encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
+        )
         port_segment = f":{port}" if port else ""
-        db_url = f"postgresql://{credentials}@{host}{port_segment}/{database}"
+        db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
     url = make_url(db_url)
     logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 
