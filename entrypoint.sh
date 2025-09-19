@@ -22,8 +22,8 @@ shutdown() {
 trap 'shutdown' INT TERM EXIT
 
 # Standardportar i containern (mappa utanför)
-HTTPS_PORT="${HTTPS_PORT:-8443}"
-HTTP_PORT="${HTTP_PORT:-8080}"
+HTTPS_PORT="${HTTPS_PORT:-443}"
+HTTP_PORT="${HTTP_PORT:-80}"
 FLASK_PORT="${FLASK_PORT:-5000}"
 
 # TLS källor:
