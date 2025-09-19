@@ -21,9 +21,8 @@ RUN mkdir -p /app/uploads /config /run/nginx /etc/nginx/certs /var/cache/nginx \
     && chown -R app:app /app /config /app/uploads /var/cache/nginx
 
 # Miljö
-ENV HTTP_PORT=8080 \
-    HTTPS_PORT=8443 \
-    FLASK_PORT=5000 \
+ENV HTTP_PORT=80 \
+    HTTPS_PORT=443 \
     PYTHONUNBUFFERED=1
 
 # Hälsokontroll (antag /health i din app – annars ändra)
@@ -31,7 +30,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=5 \
   CMD curl -fsS http://127.0.0.1:${HTTP_PORT}/health || exit 1
 
 # Exponera höga portar (mappa 80:8080, 443:8443 vid körning)
-EXPOSE 8080 8443
+EXPOSE 80 443
 
 # Entrypoint med korrekt signalhantering
 ENTRYPOINT ["/sbin/tini","--"]
