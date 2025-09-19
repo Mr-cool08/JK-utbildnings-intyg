@@ -2,7 +2,6 @@
 set -euo pipefail
 
 STOPPING=0
-POSTGRES_PID=""
 GUNICORN_PID=""
 NGINX_PID=""
 
@@ -18,74 +17,9 @@ shutdown() {
   if [ -n "${GUNICORN_PID}" ]; then
     kill "${GUNICORN_PID}" 2>/dev/null || true
   fi
-  if [ -n "${POSTGRES_PID}" ]; then
-    kill "${POSTGRES_PID}" 2>/dev/null || true
-  fi
 }
 
 trap 'shutdown' INT TERM EXIT
-
-BUNDLED_POSTGRES="${BUNDLED_POSTGRES:-auto}"
-
-start_bundled_postgres() {
-  POSTGRES_DATA_DIR="${POSTGRES_DATA_DIR:-/var/lib/postgresql/data}"
-  POSTGRES_USER="${POSTGRES_USER:-appuser}"
-  POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-change_me}"
-  POSTGRES_DB="${POSTGRES_DB:-appdb}"
-  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
-
-  mkdir -p "${POSTGRES_DATA_DIR}"
-  chown -R postgres:postgres "${POSTGRES_DATA_DIR}"
-
-  if [ ! -s "${POSTGRES_DATA_DIR}/PG_VERSION" ]; then
-    echo "Initializing bundled PostgreSQL data directory at ${POSTGRES_DATA_DIR}"
-    PASSFILE=$(mktemp)
-    printf '%s\n' "${POSTGRES_PASSWORD}" > "${PASSFILE}"
-    # Make the password file readable by the postgres user (mktemp creates it for root).
-    chown postgres:postgres "${PASSFILE}"
-    chmod 600 "${PASSFILE}"
-    su-exec postgres:postgres sh -c "initdb -D \"${POSTGRES_DATA_DIR}\" -U \"${POSTGRES_USER}\" --auth=scram-sha-256 --pwfile=\"${PASSFILE}\""
-    rm -f "${PASSFILE}"
-  else
-    echo "Reusing existing bundled PostgreSQL data directory"
-  fi
-
-  echo "Starting bundled PostgreSQL"
-  su-exec postgres:postgres postgres \
-    -D "${POSTGRES_DATA_DIR}" \
-    -c listen_addresses=127.0.0.1 \
-    -c "port=${POSTGRES_PORT}" &
-  POSTGRES_PID=$!
-
-  export DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/${POSTGRES_DB}"
-
-  echo "Waiting for PostgreSQL to accept connections"
-  ready=0
-  attempt=0
-  while [ "${attempt}" -lt 30 ]; do
-    if PGPASSWORD="${POSTGRES_PASSWORD}" su-exec postgres:postgres pg_isready \
-      -h 127.0.0.1 -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" >/dev/null 2>&1; then
-      ready=1
-      break
-    fi
-    attempt=$((attempt + 1))
-    sleep 1
-  done
-
-  if [ "${ready}" -ne 1 ]; then
-    echo "PostgreSQL did not become ready in time" >&2
-    return 1
-  fi
-
-  if ! PGPASSWORD="${POSTGRES_PASSWORD}" su-exec postgres:postgres psql \
-    -h 127.0.0.1 -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" \
-    -tAc "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'" \
-    | grep -q 1; then
-    echo "Creating database ${POSTGRES_DB}"
-    PGPASSWORD="${POSTGRES_PASSWORD}" su-exec postgres:postgres createdb \
-      -h 127.0.0.1 -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}"
-  fi
-}
 
 # Standardportar i containern (mappa utanför)
 HTTPS_PORT="${HTTPS_PORT:-8443}"
@@ -212,10 +146,12 @@ sed -i \
   -e "s#__KEY__#${KEY_PATH}#g" \
   /etc/nginx/nginx.conf
 
-# Use an external PostgreSQL server when POSTGRES_HOST is provided and
-# DATABASE_URL has not been specified explicitly.
-if [ -z "${DATABASE_URL:-}" ] && [ -n "${POSTGRES_HOST:-}" ]; then
-  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+# Validate external PostgreSQL configuration.
+if [ -z "${DATABASE_URL:-}" ]; then
+  if [ -z "${POSTGRES_HOST:-}" ]; then
+    echo "Set DATABASE_URL or configure POSTGRES_HOST with credentials" >&2
+    exit 1
+  fi
 
   if [ -z "${POSTGRES_USER:-}" ]; then
     echo "POSTGRES_USER must be set when POSTGRES_HOST is configured" >&2
@@ -226,6 +162,8 @@ if [ -z "${DATABASE_URL:-}" ] && [ -n "${POSTGRES_HOST:-}" ]; then
     echo "POSTGRES_DB must be set when POSTGRES_HOST is configured" >&2
     exit 1
   fi
+
+  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
   if [ -n "${POSTGRES_PASSWORD:-}" ]; then
     credentials="${POSTGRES_USER}:${POSTGRES_PASSWORD}"
@@ -241,21 +179,6 @@ if [ -z "${DATABASE_URL:-}" ] && [ -n "${POSTGRES_HOST:-}" ]; then
 
   export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${POSTGRES_DB}"
   echo "Using external PostgreSQL server at ${POSTGRES_HOST}${port_segment}"
-fi
-
-# Starta Postgres om vi inte har en extern anslutning
-if [ "${BUNDLED_POSTGRES}" != "off" ]; then
-  if [ "${BUNDLED_POSTGRES}" = "always" ] || [ -z "${DATABASE_URL:-}" ]; then
-    echo "Bundled PostgreSQL startup enabled (mode=${BUNDLED_POSTGRES})"
-    if ! start_bundled_postgres; then
-      echo "Failed to start bundled PostgreSQL" >&2
-      exit 1
-    fi
-  else
-    echo "DATABASE_URL provided; skipping bundled PostgreSQL startup"
-  fi
-else
-  echo "Bundled PostgreSQL disabled via BUNDLED_POSTGRES=off"
 fi
 
 # Starta Gunicorn (kör som app:app)
@@ -289,8 +212,4 @@ shutdown
 if [ -n "${GUNICORN_PID}" ]; then
   wait "${GUNICORN_PID}" 2>/dev/null || true
 fi
-if [ -n "${POSTGRES_PID}" ]; then
-  wait "${POSTGRES_PID}" 2>/dev/null || true
-fi
-
 exit "${NGINX_STATUS}"

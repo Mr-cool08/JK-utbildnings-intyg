@@ -2,8 +2,6 @@ version: '3.9'
 services:
   app:
     build: .
-    depends_on:
-      - db
     ports:
       - "80:80"
       - "443:443"
@@ -11,16 +9,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
-  db:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
+      POSTGRES_HOST: "${POSTGRES_HOST:?Set POSTGRES_HOST in .env}"
       POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER in .env}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
