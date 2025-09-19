@@ -6,3 +6,4 @@
 - Follow PEP8 coding conventions.
 - Ensure commit messages are descriptive.
 - Do not commit sensitive information.
+- Everything displayed to end users must be written in Swedish.
