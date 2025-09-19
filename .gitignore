@@ -2,21 +2,77 @@
 # Environment & configuration
 # ----------------------------------------
 .env
+.env.*
 *.env
+!.example.env
 *.ini
 *.cfg
+*.toml
+*.yaml
+*.yml
+*.secret
+*.local
+*.pem
+*.key
+.python-version
 
 # ----------------------------------------
 # Python cache & compiled files
 # ----------------------------------------
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pyc.*
-
-# Bytecode cache (exempelvis Jupyter)
+*.py[cod]
+*$py.class
+*.so
 .ipynb_checkpoints/
+
+# ----------------------------------------
+# Distribution / packaging
+# ----------------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+share/python-wheels/
+sdist/
+*.egg
+MANIFEST
+
+# ----------------------------------------
+# Virtual environments & dependency caches
+# ----------------------------------------
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+pip-wheel-metadata/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ----------------------------------------
+# Testing, quality tools & coverage
+# ----------------------------------------
+.tox/
+.nox/
+.pytest_cache/
+.coverage
+.coverage.*
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+cover/
+htmlcov/
+.hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+.ruff_cache/
 
 # ----------------------------------------
 # Flask / Database files
@@ -24,45 +80,34 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
 instance/
 uploads/
 
 # ----------------------------------------
-# Virtual environments
-# ----------------------------------------
-.venv/
-venv/
-ENV/
-env/
-pip-wheel-metadata/
-pip-log.txt
-
-# ----------------------------------------
-# Testing & coverage
-# ----------------------------------------
-.pytest_cache/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-htmlcov/
-
-# ----------------------------------------
-# Logs
+# Logs & runtime artifacts
 # ----------------------------------------
 *.log
 logs/
 *.out
 *.err
+celerybeat-schedule
+celerybeat.pid
 
 # ----------------------------------------
 # Editors & IDEs
 # ----------------------------------------
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 *.swp
 *.swo
+*.code-workspace
 
 # ----------------------------------------
 # OS-specific files
@@ -70,6 +115,19 @@ logs/
 .DS_Store
 Thumbs.db
 ehthumbs.db
-__pycache__/
-*.pyc
+Icon?
+desktop.ini
+$RECYCLE.BIN/
+
+# ----------------------------------------
+# Backups & misc
+# ----------------------------------------
+*.bak
+*.tmp
+*.orig
+*.rej
+
+# ----------------------------------------
+# Project specific ignores
+# ----------------------------------------
 test_mail.py
