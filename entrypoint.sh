@@ -41,6 +41,9 @@ start_bundled_postgres() {
     echo "Initializing bundled PostgreSQL data directory at ${POSTGRES_DATA_DIR}"
     PASSFILE=$(mktemp)
     printf '%s\n' "${POSTGRES_PASSWORD}" > "${PASSFILE}"
+    # Make the password file readable by the postgres user (mktemp creates it for root).
+    chown postgres:postgres "${PASSFILE}"
+    chmod 600 "${PASSFILE}"
     su-exec postgres:postgres sh -c "initdb -D \"${POSTGRES_DATA_DIR}\" -U \"${POSTGRES_USER}\" --auth=scram-sha-256 --pwfile=\"${PASSFILE}\""
     rm -f "${PASSFILE}"
   else
