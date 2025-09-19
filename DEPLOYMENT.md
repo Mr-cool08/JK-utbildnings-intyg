@@ -39,6 +39,11 @@ internal database and fall back to SQLite (the `db_data` volume) or to provide y
 `DATABASE_URL`. On first start the container copies `.example.env` into the `env_data` volume as
 `.env`. Edit this file and restart the container to update environment variables.
 
+When you maintain PostgreSQL on another server, set `POSTGRES_HOST` (and, if necessary,
+`POSTGRES_PORT`) in `.env` and leave `DATABASE_URL` empty. The entrypoint combines these values with
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` to build the connection string, skipping the
+bundled database entirely.
+
 ### Manual volume creation
 
 If you prefer to create the named volumes yourself before starting the container, run:

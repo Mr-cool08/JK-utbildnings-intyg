@@ -10,7 +10,7 @@ This web application manages the issuance and storage of course certificates. It
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Set `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; when the container starts it automatically launches an internal PostgreSQL server with those credentials whenever `DATABASE_URL` is empty (`BUNDLED_POSTGRES=auto`). For Docker Compose the same values are passed to the dedicated `db` service. To use an existing database instead, set `DATABASE_URL` explicitly or switch the bundled server off with `BUNDLED_POSTGRES=off`, in which case the application falls back to the SQLite database referenced by `DB_PATH`.
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Set `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; when the container starts it automatically launches an internal PostgreSQL server with those credentials whenever `DATABASE_URL` is empty (`BUNDLED_POSTGRES=auto`). For Docker Compose the same values are passed to the dedicated `db` service. If you already operate a PostgreSQL server elsewhere, set `POSTGRES_HOST` (and optionally override `POSTGRES_PORT`) while leaving `DATABASE_URL` empty—the application constructs the connection string from those values and skips the bundled instance. Alternatively set `DATABASE_URL` explicitly. Switch the bundled server off with `BUNDLED_POSTGRES=off` when relying on an external database; without any PostgreSQL configuration the application falls back to the SQLite database referenced by `DB_PATH`.
 3. **Run the application**
    ```bash
    python app.py

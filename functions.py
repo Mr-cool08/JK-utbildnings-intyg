@@ -90,8 +90,34 @@ def _build_engine() -> Engine:
     """Create a SQLAlchemy engine based on configuration."""
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        db_path = os.getenv("DB_PATH", os.path.join(APP_ROOT, "database.db"))
-        db_url = f"sqlite:///{db_path}"
+        host = os.getenv("POSTGRES_HOST")
+        if host:
+            user = os.getenv("POSTGRES_USER")
+            password = os.getenv("POSTGRES_PASSWORD", "")
+            database = os.getenv("POSTGRES_DB")
+            port = os.getenv("POSTGRES_PORT", "5432")
+
+            if not user:
+                logger.error(
+                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+                )
+                raise RuntimeError(
+                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+                )
+            if not database:
+                logger.error(
+                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+                )
+                raise RuntimeError(
+                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+                )
+
+            credentials = user if password == "" else f"{user}:{password}"
+            port_segment = f":{port}" if port else ""
+            db_url = f"postgresql://{credentials}@{host}{port_segment}/{database}"
+        else:
+            db_path = os.getenv("DB_PATH", os.path.join(APP_ROOT, "database.db"))
+            db_url = f"sqlite:///{db_path}"
     url = make_url(db_url)
     logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 

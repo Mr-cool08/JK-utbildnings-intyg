@@ -212,6 +212,37 @@ sed -i \
   -e "s#__KEY__#${KEY_PATH}#g" \
   /etc/nginx/nginx.conf
 
+# Use an external PostgreSQL server when POSTGRES_HOST is provided and
+# DATABASE_URL has not been specified explicitly.
+if [ -z "${DATABASE_URL:-}" ] && [ -n "${POSTGRES_HOST:-}" ]; then
+  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+
+  if [ -z "${POSTGRES_USER:-}" ]; then
+    echo "POSTGRES_USER must be set when POSTGRES_HOST is configured" >&2
+    exit 1
+  fi
+
+  if [ -z "${POSTGRES_DB:-}" ]; then
+    echo "POSTGRES_DB must be set when POSTGRES_HOST is configured" >&2
+    exit 1
+  fi
+
+  if [ -n "${POSTGRES_PASSWORD:-}" ]; then
+    credentials="${POSTGRES_USER}:${POSTGRES_PASSWORD}"
+  else
+    credentials="${POSTGRES_USER}"
+  fi
+
+  if [ -n "${POSTGRES_PORT}" ]; then
+    port_segment=":${POSTGRES_PORT}"
+  else
+    port_segment=""
+  fi
+
+  export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${POSTGRES_DB}"
+  echo "Using external PostgreSQL server at ${POSTGRES_HOST}${port_segment}"
+fi
+
 # Starta Postgres om vi inte har en extern anslutning
 if [ "${BUNDLED_POSTGRES}" != "off" ]; then
   if [ "${BUNDLED_POSTGRES}" = "always" ] || [ -z "${DATABASE_URL:-}" ]; then
