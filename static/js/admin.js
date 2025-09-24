@@ -86,9 +86,9 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
-    const selectedCategories = categoryInputs
-      .filter((input) => input.checked)
-      .map((input) => input.value);
+    const selectedCategories = Array.from(
+      form.querySelectorAll('input[name="categories"]:checked')
+    ).map((input) => input.value);
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -113,10 +113,13 @@
       pdfInput.focus();
       return;
     }
-    if (!selectedCategories.length) {
-      showMessage('error', 'Välj minst en kurskategori.');
-      if (categoryInputs.length) {
-        categoryInputs[0].focus();
+    if (selectedCategories.length !== 1) {
+      showMessage('error', 'Välj en kurskategori.');
+      const target =
+        form.querySelector('input[name="categories"]:checked') ||
+        categoryInputs[0];
+      if (target) {
+        target.focus();
       }
       return;
     }

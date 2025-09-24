@@ -58,3 +58,11 @@ def test_save_pdf_requires_category(empty_db):
     pdf = _file_storage(b"%PDF-1.4 test", "certificate.pdf")
     with pytest.raises(ValueError):
         save_pdf_for_user("9001011234", pdf, [])
+
+
+def test_save_pdf_rejects_multiple_categories(empty_db):
+    pdf = _file_storage(b"%PDF-1.4 test", "certificate.pdf")
+    category_one = COURSE_CATEGORIES[0][0]
+    category_two = COURSE_CATEGORIES[1][0]
+    with pytest.raises(ValueError):
+        save_pdf_for_user("9001011234", pdf, [category_one, category_two])
