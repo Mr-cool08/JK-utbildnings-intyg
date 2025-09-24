@@ -39,12 +39,13 @@ write_tls_from_env() {
   # Skriv från TLS_CERT/TLS_KEY (PEM eller base64)
   if [ -n "${TLS_CERT:-}" ] && [ -n "${TLS_KEY:-}" ]; then
     if echo "$TLS_CERT" | grep -q "BEGIN CERTIFICATE"; then
-      printf '%s' "$TLS_CERT" > "$CERT_PATH"
+      # Tillåt både faktiska radbrytningar och \n-escape-sekvenser i .env-filen
+      printf '%b' "$TLS_CERT" > "$CERT_PATH"
     else
       echo "$TLS_CERT" | base64 -d > "$CERT_PATH"
     fi
     if echo "$TLS_KEY" | grep -q "BEGIN "; then
-      printf '%s' "$TLS_KEY" > "$KEY_PATH"
+      printf '%b' "$TLS_KEY" > "$KEY_PATH"
     else
       echo "$TLS_KEY" | base64 -d > "$KEY_PATH"
     fi
