@@ -34,6 +34,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from config_loader import load_environment
+from logging_utils import configure_module_logger
 
 
 load_environment()
@@ -42,9 +43,8 @@ import functions
 
 ALLOWED_MIMES = {'application/pdf'}
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)  
-logger.propagate = True  
+logger = configure_module_logger(__name__)
+logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
 def _enable_debug_mode(app: Flask) -> None:
     """Aktivera extra loggning och ev. testdata i debug-läge."""

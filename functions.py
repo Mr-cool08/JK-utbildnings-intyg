@@ -33,10 +33,10 @@ from sqlalchemy.pool import StaticPool
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_loader import load_environment
+from logging_utils import configure_module_logger
 
-logger = logging.getLogger(__name__)
+logger = configure_module_logger(__name__)
 logger.setLevel(logging.DEBUG)  # or INFO in production
-logger.propagate = True
 
 load_environment()
 
