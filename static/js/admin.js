@@ -86,9 +86,9 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
-    const selectedCategories = categoryInputs
-      .filter((input) => input.checked)
-      .map((input) => input.value);
+    const selectedCategories = Array.from(
+      form.querySelectorAll('input[name="categories"]:checked')
+    ).map((input) => input.value);
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
