@@ -41,9 +41,9 @@ valid_numbers = [f"199001{day:02d}-0000" for day in range(1, 11)]
 
 @pytest.mark.parametrize("pnr", valid_numbers)
 def test_normalize_personnummer_valid(pnr):
-    """Valid personal numbers should normalize to 12 digits."""
+    """Valid personal numbers should normalize to 10 digits."""
     normalized = normalize_personnummer(pnr)
-    assert len(normalized) == 12
+    assert len(normalized) == 10
     assert normalized.isdigit()
 
 

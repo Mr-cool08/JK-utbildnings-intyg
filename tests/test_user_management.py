@@ -14,7 +14,7 @@ def test_check_user_exists(empty_db):
                 username="Exists",
                 email=functions.hash_value(email),
                 password=functions.hash_password("pass"),
-                personnummer=functions.hash_value("199001011234"),
+                personnummer=functions.hash_value("9001011234"),
             )
         )
 

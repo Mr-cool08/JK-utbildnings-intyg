@@ -41,7 +41,7 @@ def user_db(tmp_path, monkeypatch):
                 username="Test",
                 email=functions.hash_value("test@example.com"),
                 password=functions.hash_password("secret"),
-                personnummer=functions.hash_value("199001011234"),
+                personnummer=functions.hash_value("9001011234"),
             )
         )
     return engine

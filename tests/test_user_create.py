@@ -2,7 +2,7 @@ import functions
 
 
 def test_user_create_hashes_password(empty_db):
-    pnr_hash = functions.hash_value("199001011234")
+    pnr_hash = functions.hash_value("9001011234")
     with empty_db.begin() as conn:
         conn.execute(
             functions.pending_users_table.insert().values(

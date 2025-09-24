@@ -19,7 +19,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
                 password=functions.hash_password("secret"),
-                personnummer=functions.hash_value("199001011234"),
+                personnummer=functions.hash_value("9001011234"),
             )
         )
 
@@ -36,7 +36,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
     assert response.status_code == 200
     assert response.get_json()["status"] == "success"
 
-    pnr_hash = functions.hash_value("199001011234")
+    pnr_hash = functions.hash_value("9001011234")
     with engine.connect() as conn:
         rows = list(
             conn.execute(
@@ -57,7 +57,7 @@ def test_admin_upload_existing_email(empty_db):
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
                 password=functions.hash_password("secret"),
-                personnummer=functions.hash_value("199001011234"),
+                personnummer=functions.hash_value("9001011234"),
             )
         )
 
