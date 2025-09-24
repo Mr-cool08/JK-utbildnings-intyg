@@ -188,8 +188,9 @@ def send_creation_email(to_email: str, link: str) -> None:
                 logger.error("SMTP server refused recipients: %s", refused)
                 raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
-        logger.info(
-            "Skickade aktiveringslänk till %s (Message-ID %s)",
+        logger.info("Skickade aktiveringslänk till %s", normalized_email)
+        logger.debug(
+            "Meddelande-ID för utskick till %s: %s",
             normalized_email,
             msg["Message-ID"],
         )
