@@ -113,10 +113,13 @@
       pdfInput.focus();
       return;
     }
-    if (!selectedCategories.length) {
-      showMessage('error', 'Välj minst en kurskategori.');
-      if (categoryInputs.length) {
-        categoryInputs[0].focus();
+    if (selectedCategories.length !== 1) {
+      showMessage('error', 'Välj en kurskategori.');
+      const target =
+        form.querySelector('input[name="categories"]:checked') ||
+        categoryInputs[0];
+      if (target) {
+        target.focus();
       }
       return;
     }

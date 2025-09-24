@@ -149,4 +149,23 @@ def test_admin_upload_requires_category(empty_db):
     assert response.status_code == 400
     payload = response.get_json()
     assert payload["status"] == "error"
-    assert payload["message"] == "Välj minst en kurskategori."
+    assert payload["message"] == "Välj en kurskategori."
+
+
+def test_admin_upload_rejects_multiple_categories(empty_db):
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "multi@example.com",
+        "username": "Multi",
+        "personnummer": "19900101-5678",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "categories": [COURSE_CATEGORIES[0][0], COURSE_CATEGORIES[1][0]],
+    }
+
+    with _admin_client() as client:
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert payload["message"] == "Välj en kurskategori."

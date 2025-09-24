@@ -244,9 +244,13 @@ def save_pdf_for_user(
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
     selected_categories = normalize_category_slugs(categories)
-    if not selected_categories:
-        logger.error("No categories selected for %s", pnr)
-        raise ValueError("Minst en kurskategori måste väljas.")
+    if len(selected_categories) != 1:
+        logger.error(
+            "Invalid number of categories (%d) for %s",
+            len(selected_categories),
+            pnr,
+        )
+        raise ValueError("Exakt en kurskategori måste väljas.")
 
     pnr_norm = functions.normalize_personnummer(pnr)
     pnr_hash = functions.hash_value(pnr_norm)
@@ -393,17 +397,22 @@ def admin():
                 if not pdf_files:
                     logger.warning("Admin upload without PDF")
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
-                if not selected_categories:
-                    logger.warning("Admin upload without categories")
+                if len(selected_categories) != 1:
+                    logger.warning(
+                        "Admin upload with invalid category count: %s",
+                        raw_categories,
+                    )
                     return (
                         jsonify(
                             {
                                 'status': 'error',
-                                'message': 'Välj minst en kurskategori.',
+                                'message': 'Välj en kurskategori.',
                             }
                         ),
                         400,
                     )
+
+                selected_categories = [selected_categories[0]]
 
                 # Kontrollera om användaren redan finns (via personnummer eller e-post)
                 user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
