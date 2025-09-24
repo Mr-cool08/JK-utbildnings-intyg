@@ -10,7 +10,7 @@
     <ul class="pdf-list">
         {% for pdf in pdfs %}
         <li>
-            <a href="{{ url_for('view_pdf', pdf_id=pdf.id) }}">
+            <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
                 {{ pdf.filename }}
             </a>
         </li>

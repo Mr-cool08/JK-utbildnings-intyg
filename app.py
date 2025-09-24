@@ -347,7 +347,7 @@ def download_pdf(pdf_id: int):
 
 @app.route('/view_pdf/<int:pdf_id>')
 def view_pdf(pdf_id: int):
-    """Render a page displaying the specified PDF inline."""
+    """Redirect to a direct download of the specified PDF."""
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated view attempt for %s", pdf_id)
         return redirect('/login')
@@ -356,11 +356,8 @@ def view_pdf(pdf_id: int):
     if not pdf:
         logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
         abort(404)
-    logger.info("User %s viewing %s", pnr_hash, pdf['filename'])
-    pdf_url = url_for('download_pdf', pdf_id=pdf_id, download=0)
-    return render_template(
-        'view_pdf.html', filename=pdf['filename'], pdf_url=pdf_url, pdf_id=pdf_id
-    )
+    logger.info("User %s laddar ned %s via direktlänk", pnr_hash, pdf['filename'])
+    return redirect(url_for('download_pdf', pdf_id=pdf_id))
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
