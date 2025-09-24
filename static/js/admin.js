@@ -59,8 +59,8 @@
   }
 
   function isValidPersonnummer(v) {
-    // Tillåt sex siffror, valfritt bindestreck och fyra siffror (YYMMDD-XXXX eller YYMMDDXXXX)
-    return /^\d{6}-?\d{4}$/.test(v);
+    // Tillåt sex eller åtta siffror, valfritt bindestreck och fyra siffror (ÅÅMMDDXXXX eller ÅÅÅÅMMDDXXXX)
+    return /^(?:\d{6}|\d{8})-?\d{4}$/.test(v);
   }
 
   function validatePdf(file) {
@@ -95,7 +95,10 @@
       return;
     }
     if (!isValidPersonnummer(pnr)) {
-      showMessage('error', 'Ogiltigt personnummer. Ange formatet ÅÅMMDDXXXX, t.ex. 900101-1234.');
+      showMessage(
+        'error',
+        'Ogiltigt personnummer. Ange ÅÅMMDDXXXX eller ÅÅÅÅMMDDXXXX, t.ex. 900101-1234 eller 19900101-1234.'
+      );
       pnrInput.focus();
       return;
     }
