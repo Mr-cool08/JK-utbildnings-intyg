@@ -9,7 +9,7 @@ import os
 import re
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 
 from sqlalchemy import (
@@ -25,6 +25,8 @@ from sqlalchemy import (
     func,
     insert,
     select,
+    inspect,
+    text,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
@@ -80,6 +82,7 @@ user_pdfs_table = Table(
     Column("personnummer", String, nullable=False, index=True),
     Column("filename", String, nullable=False),
     Column("content", LargeBinary, nullable=False),
+    Column("categories", String, nullable=False, server_default=""),
     Column(
         "uploaded_at",
         DateTime(timezone=True),
@@ -177,6 +180,15 @@ def create_database() -> None:
     """Create required tables if they do not exist."""
     engine = get_engine()
     metadata.create_all(engine)
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
+        if "categories" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL"
+                )
+            )
     logger.info("Database initialized")
 
 
@@ -426,7 +438,31 @@ def get_user_info(personnummer: str):
     return row
 
 
-def store_pdf_blob(personnummer_hash: str, filename: str, content: bytes) -> int:
+def _serialize_categories(categories: Sequence[str] | None) -> str:
+    if not categories:
+        return ""
+    cleaned: List[str] = []
+    seen: set[str] = set()
+    for category in categories:
+        value = category.strip()
+        if value and value not in seen:
+            cleaned.append(value)
+            seen.add(value)
+    return ",".join(cleaned)
+
+
+def _deserialize_categories(raw: Optional[str]) -> List[str]:
+    if not raw:
+        return []
+    return [part for part in raw.split(",") if part]
+
+
+def store_pdf_blob(
+    personnummer_hash: str,
+    filename: str,
+    content: bytes,
+    categories: Sequence[str] | None = None,
+) -> int:
     """Store a PDF for the hashed personnummer and return its database id."""
     with get_engine().begin() as conn:
         result = conn.execute(
@@ -434,6 +470,7 @@ def store_pdf_blob(personnummer_hash: str, filename: str, content: bytes) -> int
                 personnummer=personnummer_hash,
                 filename=filename,
                 content=content,
+                categories=_serialize_categories(categories),
             )
         )
         pdf_id = result.inserted_primary_key[0]
@@ -496,6 +533,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                 select(
                     user_pdfs_table.c.id,
                     user_pdfs_table.c.filename,
+                    user_pdfs_table.c.categories,
                     user_pdfs_table.c.uploaded_at,
                 )
                 .where(user_pdfs_table.c.personnummer == personnummer_hash)
@@ -508,6 +546,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                 {
                     "id": row.id,
                     "filename": row.filename,
+                    "categories": _deserialize_categories(row.categories),
                     "uploaded_at": row.uploaded_at,
                 }
                 for row in rows
@@ -527,6 +566,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
             select(
                 user_pdfs_table.c.id,
                 user_pdfs_table.c.filename,
+                user_pdfs_table.c.categories,
                 user_pdfs_table.c.uploaded_at,
             ).where(
                 user_pdfs_table.c.personnummer == personnummer_hash,
@@ -538,6 +578,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
     return {
         "id": row.id,
         "filename": row.filename,
+        "categories": _deserialize_categories(row.categories),
         "uploaded_at": row.uploaded_at,
     }
 

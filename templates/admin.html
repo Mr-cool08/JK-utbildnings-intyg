@@ -26,6 +26,19 @@
             </div>
         </div>
 
+        <fieldset class="category-group">
+            <legend>Välj kurskategori</legend>
+            <div class="category-options">
+                {% for slug, label in categories %}
+                <label class="checkbox-option">
+                    <input type="checkbox" name="categories" value="{{ slug }}" />
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <small class="hint">Välj minst en kategori som matchar PDF:erna.</small>
+        </fieldset>
+
         <button id="submitBtn" type="submit">Skapa användare</button>
 
         <div id="progressContainer" class="progress-container" style="display:none">

@@ -6,18 +6,44 @@
 {% block content %}
 <section class="dashboard">
     <h1>Dina PDF:er</h1>
+    {% if course_categories %}
+    <form class="category-filter" id="categoryFilter">
+        <fieldset>
+            <legend>Filtrera efter kurskategori</legend>
+            <div class="category-options">
+                {% for slug, label in course_categories %}
+                <label class="checkbox-option">
+                    <input type="checkbox" value="{{ slug }}" data-category-filter />
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+    </form>
+    {% endif %}
+
     {% if pdfs %}
     <ul class="pdf-list">
         {% for pdf in pdfs %}
-        <li>
+        <li data-pdf-categories="{{ pdf.categories | join(',') }}">
             <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
                 {{ pdf.filename }}
             </a>
+            <span class="pdf-meta">
+                <strong>Kategori:</strong>
+                {% if pdf.category_labels %}
+                    {{ pdf.category_labels | join(', ') }}
+                {% else %}
+                    Inte angiven
+                {% endif %}
+            </span>
         </li>
         {% endfor %}
     </ul>
+    <p id="noFilteredResults" class="no-results">Inga PDF:er matchar de valda kategorierna.</p>
     {% else %}
     <p>Inga PDF:er uppladdade.</p>
     {% endif %}
 </section>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

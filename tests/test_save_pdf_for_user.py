@@ -4,6 +4,7 @@ from werkzeug.datastructures import FileStorage
 
 import app
 import functions
+from course_categories import COURSE_CATEGORIES
 
 
 def test_save_pdf_for_user(empty_db):
@@ -14,8 +15,10 @@ def test_save_pdf_for_user(empty_db):
         content_type="application/pdf",
     )
 
-    result = app.save_pdf_for_user("19900101-1234", file_storage)
+    category = COURSE_CATEGORIES[0][0]
+    result = app.save_pdf_for_user("19900101-1234", file_storage, [category])
     assert result["id"] > 0
+    assert result["categories"] == [category]
 
     with functions.get_engine().connect() as conn:
         row = conn.execute(
@@ -26,3 +29,4 @@ def test_save_pdf_for_user(empty_db):
     assert row is not None
     assert row.content == pdf_bytes
     assert row.filename == result["filename"]
+    assert row.categories == category
