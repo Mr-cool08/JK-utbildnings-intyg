@@ -169,9 +169,13 @@ def send_creation_email(to_email: str, link: str) -> None:
 
             # Skicka – stöd både send_message (email_env-testet) och sendmail (main-testet)
             if hasattr(smtp, "send_message"):
-                smtp.send_message(msg)
+                refused = smtp.send_message(msg)
             else:
-                smtp.sendmail(smtp_user, to_email, msg.as_string())
+                refused = smtp.sendmail(smtp_user, to_email, msg.as_string())
+
+            if refused:
+                logger.error("SMTP server refused recipients: %s", refused)
+                raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
         logger.info("Creation email sent to %s", to_email)
 
