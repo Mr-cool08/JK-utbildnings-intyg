@@ -13,6 +13,9 @@
   const usernameInput = document.getElementById('username');
   const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
+  const categoryInputs = Array.from(
+    document.querySelectorAll('input[name="categories"]')
+  );
 
   // --- Konstanter (synka gärna med servern) ---
   const MAX_MB = 100; // matchar app.config['MAX_CONTENT_LENGTH']
@@ -83,6 +86,9 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
+    const selectedCategories = categoryInputs
+      .filter((input) => input.checked)
+      .map((input) => input.value);
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -107,6 +113,13 @@
       pdfInput.focus();
       return;
     }
+    if (!selectedCategories.length) {
+      showMessage('error', 'Välj minst en kurskategori.');
+      if (categoryInputs.length) {
+        categoryInputs[0].focus();
+      }
+      return;
+    }
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
     if (totalSize > MAX_BYTES) {
       showMessage('error', `Filerna är för stora (max ${MAX_MB} MB totalt).`);
@@ -129,6 +142,9 @@
     fd.append('personnummer', pnr);
     for (const file of files) {
       fd.append('pdf', file);
+    }
+    for (const category of selectedCategories) {
+      fd.append('categories', category);
     }
 
     // Skicka
@@ -175,7 +191,7 @@
   });
 
   // --- UX: rensa status när användaren ändrar något ---
-  [emailInput, usernameInput, pnrInput, pdfInput].forEach((el) => {
+  [emailInput, usernameInput, pnrInput, pdfInput, ...categoryInputs].forEach((el) => {
     el.addEventListener('input', () => hideMessage());
     el.addEventListener('change', () => hideMessage());
   });

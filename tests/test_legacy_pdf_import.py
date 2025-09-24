@@ -27,6 +27,7 @@ def test_get_user_pdfs_imports_legacy_files(tmp_path, monkeypatch, empty_db):
     pdfs = functions.get_user_pdfs(pnr_hash)
     assert len(pdfs) == 1
     assert pdfs[0]["filename"] == "legacy.pdf"
+    assert pdfs[0]["categories"] == []
 
     content = functions.get_pdf_content(pnr_hash, pdfs[0]["id"])
     assert content is not None
