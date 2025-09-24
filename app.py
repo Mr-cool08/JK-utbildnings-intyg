@@ -7,6 +7,7 @@ import os
 import ssl
 import time
 from datetime import datetime, timezone
+from typing import Sequence
 from email import policy
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
@@ -35,6 +36,12 @@ from werkzeug.utils import secure_filename
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger
+
+from course_categories import (
+    COURSE_CATEGORIES,
+    labels_for_slugs,
+    normalize_category_slugs,
+)
 
 
 load_environment()
@@ -216,7 +223,9 @@ def inject_flags():
 
 
 
-def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
+def save_pdf_for_user(
+    pnr: str, file_storage, categories: Sequence[str]
+) -> dict[str, str | int | Sequence[str]]:
     """Validate and store a PDF in the database for the provided personnummer."""
     logger.debug("Saving PDF for personnummer %s", pnr)
     if file_storage.filename == "":
@@ -234,6 +243,11 @@ def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
+    selected_categories = normalize_category_slugs(categories)
+    if not selected_categories:
+        logger.error("No categories selected for %s", pnr)
+        raise ValueError("Minst en kurskategori måste väljas.")
+
     pnr_norm = functions.normalize_personnummer(pnr)
     pnr_hash = functions.hash_value(pnr_norm)
 
@@ -247,9 +261,9 @@ def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
 
     file_storage.stream.seek(0)
     content = file_storage.stream.read()
-    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content)
+    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
     logger.info("Stored PDF for %s as id %s", pnr, pdf_id)
-    return {"id": pdf_id, "filename": filename}
+    return {"id": pdf_id, "filename": filename, "categories": selected_categories}
 
 @app.route('/robots.txt')
 def robots_txt():
@@ -318,8 +332,12 @@ def dashboard():
         return redirect('/login')
     pnr_hash = session.get('personnummer')
     pdfs = functions.get_user_pdfs(pnr_hash)
+    for pdf in pdfs:
+        pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
-    return render_template('dashboard.html', pdfs=pdfs)
+    return render_template(
+        'dashboard.html', pdfs=pdfs, course_categories=COURSE_CATEGORIES
+    )
 
 
 @app.route('/my_pdfs/<int:pdf_id>')
@@ -347,7 +365,7 @@ def download_pdf(pdf_id: int):
 
 @app.route('/view_pdf/<int:pdf_id>')
 def view_pdf(pdf_id: int):
-    """Render a page displaying the specified PDF inline."""
+    """Redirect to a direct download of the specified PDF."""
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated view attempt for %s", pdf_id)
         return redirect('/login')
@@ -356,11 +374,8 @@ def view_pdf(pdf_id: int):
     if not pdf:
         logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
         abort(404)
-    logger.info("User %s viewing %s", pnr_hash, pdf['filename'])
-    pdf_url = url_for('download_pdf', pdf_id=pdf_id, download=0)
-    return render_template(
-        'view_pdf.html', filename=pdf['filename'], pdf_url=pdf_url, pdf_id=pdf_id
-    )
+    logger.info("User %s laddar ned %s via direktlänk", pnr_hash, pdf['filename'])
+    return redirect(url_for('download_pdf', pdf_id=pdf_id))
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
@@ -371,11 +386,24 @@ def admin():
                 email = request.form['email']
                 username = request.form['username']
                 personnummer = functions.normalize_personnummer(request.form['personnummer'])
+                raw_categories = request.form.getlist('categories')
+                selected_categories = normalize_category_slugs(raw_categories)
                 pdf_files = request.files.getlist('pdf')
 
                 if not pdf_files:
                     logger.warning("Admin upload without PDF")
                     return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
+                if not selected_categories:
+                    logger.warning("Admin upload without categories")
+                    return (
+                        jsonify(
+                            {
+                                'status': 'error',
+                                'message': 'Välj minst en kurskategori.',
+                            }
+                        ),
+                        400,
+                    )
 
                 # Kontrollera om användaren redan finns (via personnummer eller e-post)
                 user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
@@ -383,7 +411,10 @@ def admin():
                 pending_exists = functions.check_pending_user_hash(pnr_hash)
 
                 # Spara filerna i databasen per personnummer
-                pdf_records = [save_pdf_for_user(personnummer, f) for f in pdf_files]
+                pdf_records = [
+                    save_pdf_for_user(personnummer, f, selected_categories)
+                    for f in pdf_files
+                ]
 
                 # Om användaren redan finns ska endast PDF:erna sparas
                 if user_exists:
@@ -447,7 +478,10 @@ def admin():
                     )
             except ValueError as ve:
                 logger.error("Value error during admin upload: %s", ve)
-                return redirect('/error')
+                return (
+                    jsonify({'status': 'error', 'message': 'Felaktiga användardata.'}),
+                    400,
+                )
             except Exception as e:
                 logger.error("Server error during admin upload, %s", e)
                 return (
@@ -465,7 +499,7 @@ def admin():
         logger.warning("Unauthorized admin GET")
         return redirect('/login_admin')
     logger.debug("Rendering admin page")
-    return render_template('admin.html')
+    return render_template('admin.html', categories=COURSE_CATEGORIES)
 
 
 @app.route('/verify_certificate/<personnummer>', methods=['GET'])

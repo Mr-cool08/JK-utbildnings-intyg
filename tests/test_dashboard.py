@@ -1,5 +1,6 @@
 import app
 import functions
+from course_categories import COURSE_CATEGORIES
 
 
 def test_dashboard_shows_only_user_pdfs(user_db):
@@ -15,11 +16,13 @@ def test_dashboard_shows_only_user_pdfs(user_db):
                     "personnummer": own_hash,
                     "filename": "own.pdf",
                     "content": b"%PDF-1.4 own",
+                    "categories": COURSE_CATEGORIES[0][0],
                 },
                 {
                     "personnummer": other_hash,
                     "filename": "other.pdf",
                     "content": b"%PDF-1.4 other",
+                    "categories": COURSE_CATEGORIES[1][0],
                 },
             ],
         )
@@ -29,3 +32,4 @@ def test_dashboard_shows_only_user_pdfs(user_db):
         response = client.get("/dashboard")
         assert b"own.pdf" in response.data
         assert b"other.pdf" not in response.data
+        assert COURSE_CATEGORIES[0][1].encode() in response.data

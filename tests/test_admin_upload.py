@@ -2,6 +2,7 @@ import io
 
 import app
 import functions
+from course_categories import COURSE_CATEGORIES
 
 
 def _admin_client():
@@ -29,6 +30,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
         "username": "Existing",
         "personnummer": "19900101-1234",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "categories": COURSE_CATEGORIES[0][0],
     }
 
     with _admin_client() as client:
@@ -47,6 +49,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].categories == COURSE_CATEGORIES[0][0]
 
 
 def test_admin_upload_existing_email(empty_db):
@@ -67,6 +70,7 @@ def test_admin_upload_existing_email(empty_db):
         "username": "Existing",
         "personnummer": "20000101-9999",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "categories": COURSE_CATEGORIES[1][0],
     }
 
     with _admin_client() as client:
@@ -85,6 +89,7 @@ def test_admin_upload_existing_email(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].categories == COURSE_CATEGORIES[1][0]
 
 
 def test_admin_upload_pending_user(empty_db):
@@ -101,6 +106,7 @@ def test_admin_upload_pending_user(empty_db):
         "username": username,
         "personnummer": personnummer,
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "categories": COURSE_CATEGORIES[0][0],
     }
 
     with _admin_client() as client:
@@ -125,3 +131,22 @@ def test_admin_upload_pending_user(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].categories == COURSE_CATEGORIES[0][0]
+
+
+def test_admin_upload_requires_category(empty_db):
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "new@example.com",
+        "username": "Ny",
+        "personnummer": "19900101-5678",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+    }
+
+    with _admin_client() as client:
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert payload["message"] == "Välj minst en kurskategori."
