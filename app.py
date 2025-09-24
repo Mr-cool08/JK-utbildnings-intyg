@@ -6,8 +6,10 @@ import logging
 import os
 import ssl
 import time
+from datetime import datetime, timezone
 from email import policy
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid
 from smtplib import (
     SMTP,
     SMTPAuthenticationError,
@@ -92,12 +94,18 @@ app = create_app()
 def health() -> tuple[dict, int]:
     """Basic health check endpoint."""
     return {"status": "ok"}, 200
+
 def send_creation_email(to_email: str, link: str) -> None:
     """Send a password creation link via SMTP.
 
     Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
     """
-    to_email = to_email.lower()
+    normalized_email = functions.normalize_email(to_email)
+    if normalized_email != to_email:
+        logger.debug(
+            "Normalized recipient email from %r to %s", to_email, normalized_email
+        )
+
     smtp_server = os.getenv("smtp_server")
     smtp_port = int(os.getenv("smtp_port", "587"))
     smtp_user = os.getenv("smtp_user")
@@ -110,7 +118,9 @@ def send_creation_email(to_email: str, link: str) -> None:
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = "Skapa ditt konto"
     msg["From"] = smtp_user
-    msg["To"] = to_email
+    msg["To"] = normalized_email
+    msg["Message-ID"] = make_msgid()
+    msg["Date"] = format_datetime(datetime.now(timezone.utc))
     msg.set_content(
         f"""
         <html>
@@ -129,13 +139,13 @@ def send_creation_email(to_email: str, link: str) -> None:
 
     try:
         use_ssl = smtp_port == 465
-        logger.debug(
-            "Sending via %s:%s (%s, timeout %ss) to %s",
+        logger.info(
+            "Förbereder utskick till %s via %s:%s (%s, timeout %ss)",
+            normalized_email,
             smtp_server,
             smtp_port,
             "SSL" if use_ssl else "STARTTLS",
             smtp_timeout,
-            to_email,
         )
 
         smtp_cls = SMTP_SSL if use_ssl else SMTP
@@ -144,36 +154,46 @@ def send_creation_email(to_email: str, link: str) -> None:
             smtp_kwargs["context"] = context
 
         with smtp_cls(smtp_server, smtp_port, **smtp_kwargs) as smtp:
-            # Vissa testdummies saknar ehlo(), så anropa bara om metoden finns
             if hasattr(smtp, "ehlo"):
                 smtp.ehlo()
 
             if not use_ssl:
-                # STARTTLS – använd SSL‑context om metoden stödjer det
                 try:
                     from inspect import signature
 
                     if "context" in signature(smtp.starttls).parameters:
                         smtp.starttls(context=context)
+                        logger.debug("SMTP STARTTLS initierad med kontext")
                     else:
                         smtp.starttls()
+                        logger.debug("SMTP STARTTLS initierad utan kontext")
                 except (TypeError, ValueError):
-                    # Om signaturen inte kan inspekteras, fall tillbaka utan context
                     smtp.starttls()
+                    logger.debug("SMTP STARTTLS initierad (fallback)")
 
                 if hasattr(smtp, "ehlo"):
                     smtp.ehlo()
 
-            # Login
             smtp.login(smtp_user, smtp_password)
+            logger.debug("SMTP inloggning lyckades för %s", smtp_user)
 
-            # Skicka – stöd både send_message (email_env-testet) och sendmail (main-testet)
             if hasattr(smtp, "send_message"):
-                smtp.send_message(msg)
+                refused = smtp.send_message(msg)
             else:
-                smtp.sendmail(smtp_user, to_email, msg.as_string())
+                refused = smtp.sendmail(
+                    smtp_user, [normalized_email], msg.as_string()
+                )
 
-        logger.info("Creation email sent to %s", to_email)
+            if refused:
+                logger.error("SMTP server refused recipients: %s", refused)
+                raise RuntimeError("E-postservern accepterade inte mottagaren.")
+
+        logger.info("Skickade aktiveringslänk till %s", normalized_email)
+        logger.debug(
+            "Meddelande-ID för utskick till %s: %s",
+            normalized_email,
+            msg["Message-ID"],
+        )
 
     except SMTPAuthenticationError as exc:
         logger.exception("SMTP login failed for %s", smtp_user)
@@ -182,7 +202,7 @@ def send_creation_email(to_email: str, link: str) -> None:
         logger.exception("Server closed the connection during SMTP session")
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except SMTPException as exc:
-        logger.exception("SMTP error when sending to %s", to_email)
+        logger.exception("SMTP error when sending to %s", normalized_email)
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except OSError as exc:
         logger.exception("Connection error to email server")

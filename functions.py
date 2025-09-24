@@ -7,10 +7,10 @@ import importlib.util
 import logging
 import os
 import re
-from urllib.parse import quote_plus
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import quote_plus
 
 from sqlalchemy import (
     Column,
@@ -28,6 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -47,6 +48,9 @@ if SALT == "static_salt":
     logger.warning(
         "Using default HASH_SALT; set HASH_SALT in environment for stronger security"
     )
+
+DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
+TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
 
@@ -176,12 +180,42 @@ def create_database() -> None:
     logger.info("Database initialized")
 
 
+def _pbkdf2_iterations() -> int:
+    """Return the iteration count for PBKDF2 operations."""
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return TEST_HASH_ITERATIONS
+    return DEFAULT_HASH_ITERATIONS
+
+
+@lru_cache(maxsize=2048)
+def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
+    """Cacheable helper for PBKDF2 hashing."""
+    return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
+
+
 def hash_value(value: str) -> str:
     """Return a strong deterministic hash of ``value`` using PBKDF2."""
-    logger.debug("Hashing value")
-    return hashlib.pbkdf2_hmac(
-        "sha256", value.encode(), SALT.encode(), 200_000
-    ).hex()
+    iterations = _pbkdf2_iterations()
+    logger.debug("Hashing value with %s iterations", iterations)
+    return _hash_value_cached(value, SALT, iterations)
+
+
+def normalize_email(email: str) -> str:
+    """Normalize e-mail addresses before hashing or sending messages."""
+    if email is None:
+        raise ValueError("Saknar e-postadress")
+
+    if "\n" in email or "\r" in email:
+        raise ValueError("Ogiltig e-postadress")
+
+    cleaned = email.strip()
+
+    if not cleaned:
+        raise ValueError("Ogiltig e-postadress")
+
+    normalized = cleaned.lower()
+    logger.debug("Normalizing email address for %s", normalized)
+    return normalized
 
 
 def hash_password(password: str) -> str:
@@ -195,15 +229,12 @@ def verify_password(hashed: str, password: str) -> bool:
 
 
 def normalize_personnummer(pnr: str) -> str:
-    """Normalize Swedish personal numbers to 12 digits."""
+    """Normalize Swedish personal numbers to the YYMMDDXXXX format."""
     logger.debug("Normalizing personnummer %s", pnr)
     digits = re.sub(r"\D", "", pnr)
-    if len(digits) == 10:
-        year = int(digits[:2])
-        current_year = datetime.now().year % 100
-        century = datetime.now().year // 100 - (1 if year > current_year else 0)
-        digits = f"{century:02d}{digits}"
-    if len(digits) != 12:
+    if len(digits) == 12:
+        digits = digits[2:]
+    if len(digits) != 10:
         logger.error("Invalid personnummer format: %s", pnr)
         raise ValueError("Ogiltigt personnummerformat.")
     logger.debug("Normalized personnummer to %s", digits)
@@ -218,7 +249,8 @@ def _hash_personnummer(pnr: str) -> str:
 
 def check_password_user(email: str, password: str) -> bool:
     """Return True if ``email`` and ``password`` match a user."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.password).where(users_table.c.email == hashed_email)
@@ -240,7 +272,8 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
 
 def check_user_exists(email: str) -> bool:
     """Return True if a user with ``email`` exists."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.id).where(users_table.c.email == hashed_email)
@@ -250,7 +283,8 @@ def check_user_exists(email: str) -> bool:
 
 def get_username(email: str) -> Optional[str]:
     """Return the username associated with ``email`` or ``None``."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.username).where(users_table.c.email == hashed_email)
@@ -295,65 +329,82 @@ def verify_certificate(personnummer: str) -> bool:
 def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     """Insert a new pending user row."""
     pnr_hash = _hash_personnummer(personnummer)
-    hashed_email = hash_value(email)
-    with get_engine().begin() as conn:
-        existing_user = conn.execute(
-            select(users_table.c.id).where(users_table.c.email == hashed_email)
-        ).first()
-        if existing_user:
-            logger.warning("Attempt to recreate existing user %s", email)
-            return False
-        existing_pending = conn.execute(
-            select(pending_users_table.c.id).where(
-                pending_users_table.c.personnummer == pnr_hash
+    normalized_email = normalize_email(email)
+    hashed_email = hash_value(normalized_email)
+    try:
+        with get_engine().begin() as conn:
+            existing_user = conn.execute(
+                select(users_table.c.id).where(users_table.c.email == hashed_email)
+            ).first()
+            if existing_user:
+                logger.warning("Attempt to recreate existing user %s", email)
+                return False
+            existing_pending = conn.execute(
+                select(pending_users_table.c.id).where(
+                    pending_users_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            if existing_pending:
+                logger.warning("Pending user already exists for %s", personnummer)
+                return False
+            conn.execute(
+                insert(pending_users_table).values(
+                    email=hashed_email,
+                    username=username,
+                    personnummer=pnr_hash,
+                )
             )
-        ).first()
-        if existing_pending:
-            logger.warning("Pending user already exists for %s", personnummer)
-            return False
-        conn.execute(
-            insert(pending_users_table).values(
-                email=hashed_email,
-                username=username,
-                personnummer=pnr_hash,
-            )
+    except IntegrityError:
+        logger.warning(
+            "Pending user already exists or was created concurrently for %s",
+            personnummer,
         )
+        return False
     logger.info("Pending user created for %s", personnummer)
     return True
 
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     """Move a pending user identified by ``personnummer_hash`` into users."""
-    with get_engine().begin() as conn:
-        existing = conn.execute(
-            select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
-        ).first()
-        if existing:
-            logger.warning("User %s already exists", personnummer_hash)
-            return False
-        row = conn.execute(
-            select(
-                pending_users_table.c.email,
-                pending_users_table.c.username,
-                pending_users_table.c.personnummer,
-            ).where(pending_users_table.c.personnummer == personnummer_hash)
-        ).first()
-        if not row:
-            logger.warning("Pending user %s not found", personnummer_hash)
-            return False
-        conn.execute(
-            delete(pending_users_table).where(
-                pending_users_table.c.personnummer == personnummer_hash
+    try:
+        with get_engine().begin() as conn:
+            existing = conn.execute(
+                select(users_table.c.id).where(
+                    users_table.c.personnummer == personnummer_hash
+                )
+            ).first()
+            if existing:
+                logger.warning("User %s already exists", personnummer_hash)
+                return False
+            row = conn.execute(
+                select(
+                    pending_users_table.c.email,
+                    pending_users_table.c.username,
+                    pending_users_table.c.personnummer,
+                ).where(pending_users_table.c.personnummer == personnummer_hash)
+            ).first()
+            if not row:
+                logger.warning("Pending user %s not found", personnummer_hash)
+                return False
+            conn.execute(
+                delete(pending_users_table).where(
+                    pending_users_table.c.personnummer == personnummer_hash
+                )
             )
-        )
-        conn.execute(
-            insert(users_table).values(
-                email=row.email,
-                password=hash_password(password),
-                username=row.username,
-                personnummer=row.personnummer,
+            conn.execute(
+                insert(users_table).values(
+                    email=row.email,
+                    password=hash_password(password),
+                    username=row.username,
+                    personnummer=row.personnummer,
+                )
             )
+    except IntegrityError:
+        logger.warning(
+            "User creation for %s skipped because record already exists",
+            personnummer_hash,
         )
+        return False
     verify_certificate.cache_clear()
     logger.info("User %s created", row.username)
     return True
@@ -512,7 +563,7 @@ def create_test_user() -> None:
     """Populate the database with a simple test user."""
     email = "test@example.com"
     username = "Test User"
-    personnummer = "199001011234"
+    personnummer = "9001011234"
     if not check_user_exists(email):
         admin_create_user(email, username, personnummer)
         pnr_hash = _hash_personnummer(personnummer)

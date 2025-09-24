@@ -13,13 +13,13 @@
         <a class="brand" href="/">Hem</a>
         <div class="nav-links">
             {% if session.get('user_logged_in') %}
-                <a href="/dashboard">Översikt</a>
+                <a href="/dashboard">Intyg</a>
                 <a href="/logout">Logga ut</a>
             {% elif session.get('admin_logged_in') %}
                 <a href="/admin">Admin</a>
                 <a href="/logout">Logga ut</a>
             {% else %}
-                <a href="/login">Användarinloggning</a>
+                <a href="/login">Logga in</a>
             {% endif %}
         </div>
     </nav>
