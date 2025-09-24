@@ -49,6 +49,9 @@ if SALT == "static_salt":
         "Using default HASH_SALT; set HASH_SALT in environment for stronger security"
     )
 
+DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
+TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
+
 metadata = MetaData()
 
 pending_users_table = Table(
@@ -177,12 +180,24 @@ def create_database() -> None:
     logger.info("Database initialized")
 
 
+def _pbkdf2_iterations() -> int:
+    """Return the iteration count for PBKDF2 operations."""
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return TEST_HASH_ITERATIONS
+    return DEFAULT_HASH_ITERATIONS
+
+
+@lru_cache(maxsize=2048)
+def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
+    """Cacheable helper for PBKDF2 hashing."""
+    return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
+
+
 def hash_value(value: str) -> str:
     """Return a strong deterministic hash of ``value`` using PBKDF2."""
-    logger.debug("Hashing value")
-    return hashlib.pbkdf2_hmac(
-        "sha256", value.encode(), SALT.encode(), 200_000
-    ).hex()
+    iterations = _pbkdf2_iterations()
+    logger.debug("Hashing value with %s iterations", iterations)
+    return _hash_value_cached(value, SALT, iterations)
 
 
 def hash_password(password: str) -> str:
