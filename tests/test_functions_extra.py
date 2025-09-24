@@ -3,7 +3,18 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+import pytest
+
 import functions  # noqa: E402
+
+
+def test_normalize_email_trims_and_lowercases():
+    assert functions.normalize_email("  User@Example.COM  ") == "user@example.com"
+
+
+def test_normalize_email_rejects_newlines():
+    with pytest.raises(ValueError):
+        functions.normalize_email("user@example.com\n")
 
 
 def test_hash_value_deterministic():
