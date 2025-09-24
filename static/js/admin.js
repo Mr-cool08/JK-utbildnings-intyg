@@ -86,9 +86,9 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
-    const selectedCategories = Array.from(
-      form.querySelectorAll('input[name="categories"]:checked')
-    ).map((input) => input.value);
+    const selectedCategoryInput = form.querySelector(
+      'input[name="categories"]:checked'
+    );
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -113,11 +113,9 @@
       pdfInput.focus();
       return;
     }
-    if (selectedCategories.length !== 1) {
+    if (!selectedCategoryInput) {
       showMessage('error', 'Välj en kurskategori.');
-      const target =
-        form.querySelector('input[name="categories"]:checked') ||
-        categoryInputs[0];
+      const target = selectedCategoryInput || categoryInputs[0];
       if (target) {
         target.focus();
       }
@@ -146,9 +144,7 @@
     for (const file of files) {
       fd.append('pdf', file);
     }
-    for (const category of selectedCategories) {
-      fd.append('categories', category);
-    }
+    fd.append('categories', selectedCategoryInput.value);
 
     // Skicka
     submitBtn.disabled = true;
