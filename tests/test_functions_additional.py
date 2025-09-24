@@ -9,9 +9,9 @@ import functions  # noqa: E402
 
 
 def test_normalize_personnummer():
-    assert functions.normalize_personnummer("19900101-1234") == "199001011234"
-    assert functions.normalize_personnummer("199001011234") == "199001011234"
-    assert functions.normalize_personnummer("9001011234") == "199001011234"
+    assert functions.normalize_personnummer("19900101-1234") == "9001011234"
+    assert functions.normalize_personnummer("199001011234") == "9001011234"
+    assert functions.normalize_personnummer("9001011234") == "9001011234"
     with pytest.raises(ValueError):
         functions.normalize_personnummer("123")
 

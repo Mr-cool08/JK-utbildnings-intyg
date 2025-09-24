@@ -196,15 +196,12 @@ def verify_password(hashed: str, password: str) -> bool:
 
 
 def normalize_personnummer(pnr: str) -> str:
-    """Normalize Swedish personal numbers to 12 digits."""
+    """Normalize Swedish personal numbers to the YYMMDDXXXX format."""
     logger.debug("Normalizing personnummer %s", pnr)
     digits = re.sub(r"\D", "", pnr)
-    if len(digits) == 10:
-        year = int(digits[:2])
-        current_year = datetime.now().year % 100
-        century = datetime.now().year // 100 - (1 if year > current_year else 0)
-        digits = f"{century:02d}{digits}"
-    if len(digits) != 12:
+    if len(digits) == 12:
+        digits = digits[2:]
+    if len(digits) != 10:
         logger.error("Invalid personnummer format: %s", pnr)
         raise ValueError("Ogiltigt personnummerformat.")
     logger.debug("Normalized personnummer to %s", digits)
@@ -529,7 +526,7 @@ def create_test_user() -> None:
     """Populate the database with a simple test user."""
     email = "test@example.com"
     username = "Test User"
-    personnummer = "199001011234"
+    personnummer = "9001011234"
     if not check_user_exists(email):
         admin_create_user(email, username, personnummer)
         pnr_hash = _hash_personnummer(personnummer)

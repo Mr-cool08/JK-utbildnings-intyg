@@ -19,7 +19,7 @@ def test_store_pdf_blob_returns_unique_ids(empty_db):
 
     _ = empty_db  # ensure database is initialized
 
-    pnr_hash = _personnummer_hash("199001011234")
+    pnr_hash = _personnummer_hash("9001011234")
     first_id = functions.store_pdf_blob(pnr_hash, "first.pdf", b"%PDF-1.4 first")
     second_id = functions.store_pdf_blob(pnr_hash, "second.pdf", b"%PDF-1.4 second")
 
@@ -34,7 +34,7 @@ def test_get_pdf_metadata_returns_expected_information(empty_db):
 
     _ = empty_db
 
-    pnr_hash = _personnummer_hash("199001011234")
+    pnr_hash = _personnummer_hash("9001011234")
     pdf_id = functions.store_pdf_blob(pnr_hash, "metadata.pdf", b"%PDF-1.4 metadata")
 
     metadata = functions.get_pdf_metadata(pnr_hash, pdf_id)
@@ -50,8 +50,8 @@ def test_get_pdf_metadata_handles_missing_entries(empty_db):
 
     _ = empty_db
 
-    primary_hash = _personnummer_hash("199001011234")
-    other_hash = _personnummer_hash("199002024567")
+    primary_hash = _personnummer_hash("9001011234")
+    other_hash = _personnummer_hash("9002024567")
     pdf_id = functions.store_pdf_blob(primary_hash, "missing.pdf", b"%PDF-1.4 missing")
 
     assert functions.get_pdf_metadata(other_hash, pdf_id) is None
