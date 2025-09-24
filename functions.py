@@ -28,6 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -296,64 +297,80 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     """Insert a new pending user row."""
     pnr_hash = _hash_personnummer(personnummer)
     hashed_email = hash_value(email)
-    with get_engine().begin() as conn:
-        existing_user = conn.execute(
-            select(users_table.c.id).where(users_table.c.email == hashed_email)
-        ).first()
-        if existing_user:
-            logger.warning("Attempt to recreate existing user %s", email)
-            return False
-        existing_pending = conn.execute(
-            select(pending_users_table.c.id).where(
-                pending_users_table.c.personnummer == pnr_hash
+    try:
+        with get_engine().begin() as conn:
+            existing_user = conn.execute(
+                select(users_table.c.id).where(users_table.c.email == hashed_email)
+            ).first()
+            if existing_user:
+                logger.warning("Attempt to recreate existing user %s", email)
+                return False
+            existing_pending = conn.execute(
+                select(pending_users_table.c.id).where(
+                    pending_users_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            if existing_pending:
+                logger.warning("Pending user already exists for %s", personnummer)
+                return False
+            conn.execute(
+                insert(pending_users_table).values(
+                    email=hashed_email,
+                    username=username,
+                    personnummer=pnr_hash,
+                )
             )
-        ).first()
-        if existing_pending:
-            logger.warning("Pending user already exists for %s", personnummer)
-            return False
-        conn.execute(
-            insert(pending_users_table).values(
-                email=hashed_email,
-                username=username,
-                personnummer=pnr_hash,
-            )
+    except IntegrityError:
+        logger.warning(
+            "Pending user already exists or was created concurrently for %s",
+            personnummer,
         )
+        return False
     logger.info("Pending user created for %s", personnummer)
     return True
 
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     """Move a pending user identified by ``personnummer_hash`` into users."""
-    with get_engine().begin() as conn:
-        existing = conn.execute(
-            select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
-        ).first()
-        if existing:
-            logger.warning("User %s already exists", personnummer_hash)
-            return False
-        row = conn.execute(
-            select(
-                pending_users_table.c.email,
-                pending_users_table.c.username,
-                pending_users_table.c.personnummer,
-            ).where(pending_users_table.c.personnummer == personnummer_hash)
-        ).first()
-        if not row:
-            logger.warning("Pending user %s not found", personnummer_hash)
-            return False
-        conn.execute(
-            delete(pending_users_table).where(
-                pending_users_table.c.personnummer == personnummer_hash
+    try:
+        with get_engine().begin() as conn:
+            existing = conn.execute(
+                select(users_table.c.id).where(
+                    users_table.c.personnummer == personnummer_hash
+                )
+            ).first()
+            if existing:
+                logger.warning("User %s already exists", personnummer_hash)
+                return False
+            row = conn.execute(
+                select(
+                    pending_users_table.c.email,
+                    pending_users_table.c.username,
+                    pending_users_table.c.personnummer,
+                ).where(pending_users_table.c.personnummer == personnummer_hash)
+            ).first()
+            if not row:
+                logger.warning("Pending user %s not found", personnummer_hash)
+                return False
+            conn.execute(
+                delete(pending_users_table).where(
+                    pending_users_table.c.personnummer == personnummer_hash
+                )
             )
-        )
-        conn.execute(
-            insert(users_table).values(
-                email=row.email,
-                password=hash_password(password),
-                username=row.username,
-                personnummer=row.personnummer,
+            conn.execute(
+                insert(users_table).values(
+                    email=row.email,
+                    password=hash_password(password),
+                    username=row.username,
+                    personnummer=row.personnummer,
+                )
             )
+    except IntegrityError:
+        logger.warning(
+            "User creation for %s skipped because record already exists",
+            personnummer_hash,
         )
+        return False
     verify_certificate.cache_clear()
     logger.info("User %s created", row.username)
     return True
