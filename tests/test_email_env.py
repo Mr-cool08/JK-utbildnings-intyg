@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_send_creation_email_uses_env_credentials(monkeypatch):
     """Säkerställ att send_creation_email använder uppgifterna från .env och skickar korrekt EmailMessage via STARTTLS."""
     from dotenv import dotenv_values
@@ -120,3 +123,42 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     assert msg["To"] == "liamsuorsa08@gmail.com"
     assert msg["Subject"] == "Skapa ditt konto"
     assert link in msg.get_content()
+
+
+def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
+    """Ett avvisat mottagarsvar från SMTP ska ge ett fel."""
+    from dotenv import dotenv_values
+    import app
+
+    env_values = dotenv_values(".example.env")
+    for key in ("smtp_server", "smtp_port", "smtp_user", "smtp_password"):
+        monkeypatch.setenv(key, env_values[key])
+
+    class RefusingSMTP:
+        def __init__(self, server, port, timeout=30):
+            pass
+
+        def ehlo(self):
+            pass
+
+        def starttls(self, context=None):
+            pass
+
+        def login(self, user, password):
+            pass
+
+        def send_message(self, msg):
+            return {msg["To"]: (550, b"Mailbox unavailable")}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(app, "SMTP", RefusingSMTP)
+
+    with pytest.raises(RuntimeError) as exc:
+        app.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
+
+    assert "accepterade inte mottagaren" in str(exc.value)
