@@ -479,7 +479,7 @@ def admin():
             except ValueError as ve:
                 logger.error("Value error during admin upload: %s", ve)
                 return (
-                    jsonify({'status': 'error', 'message': str(ve)}),
+                    jsonify({'status': 'error', 'message': 'Felaktiga användardata.'}),
                     400,
                 )
             except Exception as e:
