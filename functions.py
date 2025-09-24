@@ -7,10 +7,10 @@ import importlib.util
 import logging
 import os
 import re
-from urllib.parse import quote_plus
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import quote_plus
 
 from sqlalchemy import (
     Column,
@@ -185,6 +185,24 @@ def hash_value(value: str) -> str:
     ).hex()
 
 
+def normalize_email(email: str) -> str:
+    """Normalize e-mail addresses before hashing or sending messages."""
+    if email is None:
+        raise ValueError("Saknar e-postadress")
+
+    if "\n" in email or "\r" in email:
+        raise ValueError("Ogiltig e-postadress")
+
+    cleaned = email.strip()
+
+    if not cleaned:
+        raise ValueError("Ogiltig e-postadress")
+
+    normalized = cleaned.lower()
+    logger.debug("Normalizing email address for %s", normalized)
+    return normalized
+
+
 def hash_password(password: str) -> str:
     """Hash a password with Werkzeug's PBKDF2 implementation."""
     return generate_password_hash(password)
@@ -219,7 +237,8 @@ def _hash_personnummer(pnr: str) -> str:
 
 def check_password_user(email: str, password: str) -> bool:
     """Return True if ``email`` and ``password`` match a user."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.password).where(users_table.c.email == hashed_email)
@@ -241,7 +260,8 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
 
 def check_user_exists(email: str) -> bool:
     """Return True if a user with ``email`` exists."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.id).where(users_table.c.email == hashed_email)
@@ -251,7 +271,8 @@ def check_user_exists(email: str) -> bool:
 
 def get_username(email: str) -> Optional[str]:
     """Return the username associated with ``email`` or ``None``."""
-    hashed_email = hash_value(email)
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.username).where(users_table.c.email == hashed_email)
@@ -296,7 +317,8 @@ def verify_certificate(personnummer: str) -> bool:
 def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     """Insert a new pending user row."""
     pnr_hash = _hash_personnummer(personnummer)
-    hashed_email = hash_value(email)
+    normalized_email = normalize_email(email)
+    hashed_email = hash_value(normalized_email)
     try:
         with get_engine().begin() as conn:
             existing_user = conn.execute(
