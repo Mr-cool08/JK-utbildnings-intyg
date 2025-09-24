@@ -36,3 +36,44 @@
 .pdf-list li a:hover {
     text-decoration: underline;
 }
+
+.pdf-category {
+    margin: 8px 0 0;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.category-filter {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.category-filter label {
+    font-weight: 600;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.category-filter select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    min-width: 180px;
+}
+
+.reset-filter {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.reset-filter:hover {
+    text-decoration: underline;
+}

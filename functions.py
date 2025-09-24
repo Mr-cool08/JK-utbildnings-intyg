@@ -73,12 +73,16 @@ users_table = Table(
     Column("personnummer", String, nullable=False, unique=True),
 )
 
+DEFAULT_PDF_CATEGORY = "Övrigt"
+
+
 user_pdfs_table = Table(
     "user_pdfs",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("personnummer", String, nullable=False, index=True),
     Column("filename", String, nullable=False),
+    Column("category", String, nullable=False, server_default=DEFAULT_PDF_CATEGORY),
     Column("content", LargeBinary, nullable=False),
     Column(
         "uploaded_at",
@@ -426,13 +430,17 @@ def get_user_info(personnummer: str):
     return row
 
 
-def store_pdf_blob(personnummer_hash: str, filename: str, content: bytes) -> int:
+def store_pdf_blob(
+    personnummer_hash: str, filename: str, content: bytes, category: str | None = None
+) -> int:
     """Store a PDF for the hashed personnummer and return its database id."""
+    category_value = (category or "").strip() or DEFAULT_PDF_CATEGORY
     with get_engine().begin() as conn:
         result = conn.execute(
             insert(user_pdfs_table).values(
                 personnummer=personnummer_hash,
                 filename=filename,
+                category=category_value,
                 content=content,
             )
         )
@@ -466,7 +474,7 @@ def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) ->
             continue
 
         try:
-            store_pdf_blob(personnummer_hash, entry, content)
+            store_pdf_blob(personnummer_hash, entry, content, DEFAULT_PDF_CATEGORY)
         except Exception:  # pragma: no cover - defensive; store_pdf_blob rarely fails
             logger.exception(
                 "Failed to import legacy PDF %s for %s", entry, personnummer_hash
@@ -496,6 +504,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                 select(
                     user_pdfs_table.c.id,
                     user_pdfs_table.c.filename,
+                    user_pdfs_table.c.category,
                     user_pdfs_table.c.uploaded_at,
                 )
                 .where(user_pdfs_table.c.personnummer == personnummer_hash)
@@ -508,6 +517,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                 {
                     "id": row.id,
                     "filename": row.filename,
+                    "category": row.category,
                     "uploaded_at": row.uploaded_at,
                 }
                 for row in rows
@@ -527,6 +537,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
             select(
                 user_pdfs_table.c.id,
                 user_pdfs_table.c.filename,
+                user_pdfs_table.c.category,
                 user_pdfs_table.c.uploaded_at,
             ).where(
                 user_pdfs_table.c.personnummer == personnummer_hash,
@@ -538,6 +549,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
     return {
         "id": row.id,
         "filename": row.filename,
+        "category": row.category,
         "uploaded_at": row.uploaded_at,
     }
 

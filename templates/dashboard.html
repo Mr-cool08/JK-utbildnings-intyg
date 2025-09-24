@@ -6,6 +6,23 @@
 {% block content %}
 <section class="dashboard">
     <h1>Dina PDF:er</h1>
+    {% if categories %}
+    <form class="category-filter" method="get">
+        <label for="categorySelect">Filtrera på kategori</label>
+        <div class="filter-controls">
+            <select id="categorySelect" name="kategori" onchange="this.form.submit()">
+                <option value="" {% if not selected_category %}selected{% endif %}>Alla kategorier</option>
+                {% for category in categories %}
+                <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
+            {% if selected_category %}
+            <a class="reset-filter" href="{{ url_for('dashboard') }}">Rensa filter</a>
+            {% endif %}
+        </div>
+    </form>
+    {% endif %}
+
     {% if pdfs %}
     <ul class="pdf-list">
         {% for pdf in pdfs %}
@@ -13,6 +30,7 @@
             <a href="{{ url_for('view_pdf', pdf_id=pdf.id) }}">
                 {{ pdf.filename }}
             </a>
+            <p class="pdf-category">Kategori: {{ pdf.category }}</p>
         </li>
         {% endfor %}
     </ul>

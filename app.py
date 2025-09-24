@@ -216,7 +216,9 @@ def inject_flags():
 
 
 
-def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
+def save_pdf_for_user(
+    pnr: str, file_storage, category: str | None = None
+) -> dict[str, str | int]:
     """Validate and store a PDF in the database for the provided personnummer."""
     logger.debug("Saving PDF for personnummer %s", pnr)
     if file_storage.filename == "":
@@ -245,11 +247,19 @@ def save_pdf_for_user(pnr: str, file_storage) -> dict[str, str | int]:
     # lägg på timestamp för att undvika krockar
     filename = f"{int(time.time())}_{base}"
 
+    category_clean = (category or "").strip()
+    if not category_clean:
+        category_clean = functions.DEFAULT_PDF_CATEGORY
+    if len(category_clean) > 100:
+        category_clean = category_clean[:100]
+
     file_storage.stream.seek(0)
     content = file_storage.stream.read()
-    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content)
-    logger.info("Stored PDF for %s as id %s", pnr, pdf_id)
-    return {"id": pdf_id, "filename": filename}
+    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, category_clean)
+    logger.info(
+        "Stored PDF for %s as id %s in category %s", pnr, pdf_id, category_clean
+    )
+    return {"id": pdf_id, "filename": filename, "category": category_clean}
 
 @app.route('/robots.txt')
 def robots_txt():
@@ -318,8 +328,24 @@ def dashboard():
         return redirect('/login')
     pnr_hash = session.get('personnummer')
     pdfs = functions.get_user_pdfs(pnr_hash)
-    logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
-    return render_template('dashboard.html', pdfs=pdfs)
+    categories = sorted({pdf["category"] for pdf in pdfs})
+    selected_category = request.args.get('kategori', '').strip()
+    if selected_category and selected_category not in categories:
+        selected_category = ''
+    if selected_category:
+        pdfs = [pdf for pdf in pdfs if pdf["category"] == selected_category]
+    logger.debug(
+        "Dashboard for %s shows %d pdfs (category=%s)",
+        pnr_hash,
+        len(pdfs),
+        selected_category or 'Alla',
+    )
+    return render_template(
+        'dashboard.html',
+        pdfs=pdfs,
+        categories=categories,
+        selected_category=selected_category,
+    )
 
 
 @app.route('/my_pdfs/<int:pdf_id>')
@@ -359,7 +385,11 @@ def view_pdf(pdf_id: int):
     logger.info("User %s viewing %s", pnr_hash, pdf['filename'])
     pdf_url = url_for('download_pdf', pdf_id=pdf_id, download=0)
     return render_template(
-        'view_pdf.html', filename=pdf['filename'], pdf_url=pdf_url, pdf_id=pdf_id
+        'view_pdf.html',
+        filename=pdf['filename'],
+        pdf_url=pdf_url,
+        pdf_id=pdf_id,
+        category=pdf['category'],
     )
 
 @app.route('/admin', methods=['POST', 'GET'])
@@ -372,6 +402,9 @@ def admin():
                 username = request.form['username']
                 personnummer = functions.normalize_personnummer(request.form['personnummer'])
                 pdf_files = request.files.getlist('pdf')
+                category = request.form.get('category', '').strip()
+                if not category:
+                    category = functions.DEFAULT_PDF_CATEGORY
 
                 if not pdf_files:
                     logger.warning("Admin upload without PDF")
@@ -383,7 +416,9 @@ def admin():
                 pending_exists = functions.check_pending_user_hash(pnr_hash)
 
                 # Spara filerna i databasen per personnummer
-                pdf_records = [save_pdf_for_user(personnummer, f) for f in pdf_files]
+                pdf_records = [
+                    save_pdf_for_user(personnummer, f, category) for f in pdf_files
+                ]
 
                 # Om användaren redan finns ska endast PDF:erna sparas
                 if user_exists:

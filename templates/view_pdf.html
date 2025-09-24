@@ -5,6 +5,7 @@
 {% endblock %}
 {% block content %}
 <h1>{{ filename }}</h1>
+<p class="pdf-category">Kategori: {{ category }}</p>
 <div class="pdf-container">
     <iframe src="{{ pdf_url }}" title="{{ filename }}" frameborder="0"></iframe>
 </div>

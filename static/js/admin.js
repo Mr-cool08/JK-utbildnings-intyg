@@ -13,6 +13,7 @@
   const usernameInput = document.getElementById('username');
   const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
+  const categoryInput = document.getElementById('category');
 
   // --- Konstanter (synka gärna med servern) ---
   const MAX_MB = 100; // matchar app.config['MAX_CONTENT_LENGTH']
@@ -83,6 +84,7 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
+    const category = categoryInput.value.trim();
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -107,6 +109,11 @@
       pdfInput.focus();
       return;
     }
+    if (category.length > 100) {
+      showMessage('error', 'Kategorin får vara högst 100 tecken.');
+      categoryInput.focus();
+      return;
+    }
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
     if (totalSize > MAX_BYTES) {
       showMessage('error', `Filerna är för stora (max ${MAX_MB} MB totalt).`);
@@ -127,6 +134,7 @@
     fd.append('email', email);
     fd.append('username', username);
     fd.append('personnummer', pnr);
+    fd.append('category', category);
     for (const file of files) {
       fd.append('pdf', file);
     }
@@ -175,7 +183,7 @@
   });
 
   // --- UX: rensa status när användaren ändrar något ---
-  [emailInput, usernameInput, pnrInput, pdfInput].forEach((el) => {
+  [emailInput, usernameInput, pnrInput, pdfInput, categoryInput].forEach((el) => {
     el.addEventListener('input', () => hideMessage());
     el.addEventListener('change', () => hideMessage());
   });

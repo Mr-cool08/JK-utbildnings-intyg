@@ -28,6 +28,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
         "email": "exist@example.com",
         "username": "Existing",
         "personnummer": "19900101-1234",
+        "category": "Intyg",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
@@ -47,6 +48,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].category == "Intyg"
 
 
 def test_admin_upload_existing_email(empty_db):
@@ -66,6 +68,7 @@ def test_admin_upload_existing_email(empty_db):
         "email": "exist@example.com",
         "username": "Existing",
         "personnummer": "20000101-9999",
+        "category": "Kurs",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
@@ -85,6 +88,7 @@ def test_admin_upload_existing_email(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].category == "Kurs"
 
 
 def test_admin_upload_pending_user(empty_db):
@@ -100,6 +104,7 @@ def test_admin_upload_pending_user(empty_db):
         "email": email,
         "username": username,
         "personnummer": personnummer,
+        "category": "Rapport",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
     }
 
@@ -125,3 +130,4 @@ def test_admin_upload_pending_user(empty_db):
         )
     assert len(rows) == 1
     assert rows[0].content == pdf_bytes
+    assert rows[0].category == "Rapport"

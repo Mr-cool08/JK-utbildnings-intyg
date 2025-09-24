@@ -7,6 +7,12 @@
     overflow: hidden;
 }
 
+.pdf-category {
+    margin: 0 0 16px;
+    color: #555;
+    font-size: 0.95rem;
+}
+
 .pdf-container iframe {
     width: 100%;
     height: 100%;

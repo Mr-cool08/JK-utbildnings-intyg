@@ -25,10 +25,11 @@ def _file_storage(data: bytes, filename: str, mimetype: str = "application/pdf")
 
 def test_save_pdf_stores_in_database(empty_db):
     pdf = _file_storage(b"%PDF-1.4 test", "9001011234_resume.pdf")
-    result = save_pdf_for_user("9001011234", pdf)
+    result = save_pdf_for_user("9001011234", pdf, "Intyg")
 
     assert "id" in result and "filename" in result
     assert "9001011234" not in result["filename"]
+    assert result["category"] == "Intyg"
 
     with functions.get_engine().connect() as conn:
         row = conn.execute(
@@ -40,12 +41,13 @@ def test_save_pdf_stores_in_database(empty_db):
     assert row.filename == result["filename"]
     assert row.personnummer == functions.hash_value("9001011234")
     assert row.content.startswith(b"%PDF-")
+    assert row.category == "Intyg"
 
 
 def test_save_pdf_rejects_invalid_files(empty_db):
     not_pdf = _file_storage(b"not pdf", "doc.pdf")
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", not_pdf)
+        save_pdf_for_user("9001011234", not_pdf, "Intyg")
     wrong_mime = _file_storage(b"%PDF-1.4 test", "doc.pdf", mimetype="text/plain")
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", wrong_mime)
+        save_pdf_for_user("9001011234", wrong_mime, "Intyg")
