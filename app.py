@@ -391,7 +391,9 @@ def admin():
                 username = request.form['username']
                 personnummer = functions.normalize_personnummer(request.form['personnummer'])
                 raw_categories = request.form.getlist('categories')
+                logger.debug("Admin upload for %s with categories %s", personnummer, raw_categories)
                 selected_categories = normalize_category_slugs(raw_categories)
+                logger.debug("Normalized categories: %s", selected_categories)
                 pdf_files = request.files.getlist('pdf')
 
                 if not pdf_files:
