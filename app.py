@@ -385,150 +385,73 @@ def view_pdf(pdf_id: int):
 def admin():
     """Admin dashboard for uploading certificates and creating users."""
     if request.method == 'POST':
-        if session.get('admin_logged_in'):
-            try:
-                email = request.form['email']
-                username = request.form['username']
-                personnummer = functions.normalize_personnummer(request.form['personnummer'])
-                raw_category = request.form.get('categories')
-                logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
-
-                if not raw_category:
-                    logger.warning("Admin upload missing category")
-                    return (
-                        jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}),
-                        400,
-                    )
-
-                selected_categories = normalize_category_slugs([raw_category])
-                logger.debug("Normalized categories: %s", selected_categories)
-
-                if len(selected_categories) != 1:
-                    logger.warning("Admin upload with invalid category count: %s", raw_category)
-                    return (
-                        jsonify(
-                            {
-                                'status': 'error',
-                                'message': 'Välj en kurskategori.',
-                            }
-                        ),
-                        400,
-                    )
-                pdf_files = request.files.getlist('pdf')
-
-                if not pdf_files:
-                    logger.warning("Admin upload without PDF")
-                    return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
-                if len(selected_categories) != 1:
-                    logger.warning(
-                        "Admin upload with invalid category count: %s",
-                        raw_categories,
-                    )
-                    return (
-                        jsonify(
-                            {
-                                'status': 'error',
-                                'message': 'Välj en kurskategori.',
-                            }
-                        ),
-                        400,
-                    )
-
-                selected_categories = [selected_categories[0]]
-
-                # Kontrollera om användaren redan finns (via personnummer eller e-post)
-                user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
-                pnr_hash = functions.hash_value(personnummer)
-                pending_exists = functions.check_pending_user_hash(pnr_hash)
-
-                # Spara filerna i databasen per personnummer
-                pdf_records = [
-                    save_pdf_for_user(personnummer, f, selected_categories)
-                    for f in pdf_files
-                ]
-
-                # Om användaren redan finns ska endast PDF:erna sparas
-                if user_exists:
-                    logger.info(
-                        "PDFs uploaded for existing user %s (%d files)",
-                        personnummer,
-                        len(pdf_records),
-                    )
-                    return jsonify(
-                        {
-                            'status': 'success',
-                            'message': 'PDF:er uppladdade för befintlig användare',
-                        }
-                    )
-
-                if pending_exists:
-                    logger.info(
-                        "PDFs uploaded for pending user %s (%d files)",
-                        personnummer,
-                        len(pdf_records),
-                    )
-                    return jsonify(
-                        {
-                            'status': 'success',
-                            'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.',
-                        }
-                    )
-
-                if functions.admin_create_user(email, username, personnummer):
-                    link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
-                    # Skicka e-post med länken för att skapa lösenord
-                    try:
-                        send_creation_email(email, link)
-                    except RuntimeError as e:
-                        logger.error("Failed to send creation email to %s", email)
-                        return (
-                            jsonify({
-                                'status': 'error',
-                                'message': str(e),
-                            }),
-                            500,
-                        )
-                    logger.info("Admin created user %s", personnummer)
-                    return jsonify(
-                        {
-                            'status': 'success',
-                            'message': 'Användare skapad',
-                            'link': link,
-                        }
-                    )
-                else:
-                    logger.error("Failed to create pending user for %s", personnummer)
-                    return (
-                        jsonify(
-                            {
-                                'status': 'error',
-                                'message': 'Kunde inte skapa användare',
-                            }
-                        ),
-                        500,
-                    )
-            except ValueError as ve:
-                logger.error("Value error during admin upload: %s", ve)
-                return (
-                    jsonify({'status': 'error', 'message': 'Felaktiga användardata.'}),
-                    400,
-                )
-            except Exception as e:
-                logger.error("Server error during admin upload, %s", e)
-                return (
-                    jsonify({
-                        'status': 'error',
-                        'message': 'Serverfel',
-                    }),
-                    500,
-                )
-        else:
+        if not session.get('admin_logged_in'):
             logger.warning("Unauthorized admin POST")
             return redirect('/login_admin')
-    # GET
+
+        try:
+            # --- Grab form data ---
+            email = request.form.get('email', '').strip()
+            username = request.form.get('username', '').strip()
+            personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
+
+            # Always use getlist for radios to get a list, even if only one selected
+            selected_categories = normalize_category_slugs(request.form.getlist('categories'))
+            logger.debug("Admin upload for %s with categories %s", personnummer, selected_categories)
+
+            if len(selected_categories) != 1:
+                logger.warning("Admin upload missing or invalid category")
+                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
+
+            pdf_files = request.files.getlist('pdf')
+            if not pdf_files:
+                logger.warning("Admin upload without PDF")
+                return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
+
+            # --- Check if user exists ---
+            user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
+            pnr_hash = functions.hash_value(personnummer)
+            pending_exists = functions.check_pending_user_hash(pnr_hash)
+
+            # --- Save PDFs ---
+            pdf_records = [save_pdf_for_user(personnummer, f, selected_categories) for f in pdf_files]
+
+            # --- Return early for existing or pending users ---
+            if user_exists:
+                logger.info("PDFs uploaded for existing user %s (%d files)", personnummer, len(pdf_records))
+                return jsonify({'status': 'success', 'message': 'PDF:er uppladdade för befintlig användare'})
+
+            if pending_exists:
+                logger.info("PDFs uploaded for pending user %s (%d files)", personnummer, len(pdf_records))
+                return jsonify({'status': 'success', 'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.'})
+
+            # --- Create new pending user ---
+            if functions.admin_create_user(email, username, personnummer):
+                link = url_for('create_user', pnr_hash=pnr_hash, _external=True)
+                try:
+                    send_creation_email(email, link)
+                except RuntimeError as e:
+                    logger.error("Failed to send creation email to %s", email)
+                    return jsonify({'status': 'error', 'message': str(e)}), 500
+
+                logger.info("Admin created user %s", personnummer)
+                return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
+
+            logger.error("Failed to create pending user for %s", personnummer)
+            return jsonify({'status': 'error', 'message': 'Kunde inte skapa användare'}), 500
+
+        except ValueError as ve:
+            logger.error("Value error during admin upload: %s", ve)
+            return jsonify({'status': 'error', 'message': 'Felaktiga användardata.'}), 400
+        except Exception as e:
+            logger.exception("Server error during admin upload")
+            return jsonify({'status': 'error', 'message': 'Serverfel'}), 500
+
+    # --- GET request ---
     if not session.get('admin_logged_in'):
         logger.warning("Unauthorized admin GET")
         return redirect('/login_admin')
+
     logger.debug("Rendering admin page")
     return render_template('admin.html', categories=COURSE_CATEGORIES)
 
