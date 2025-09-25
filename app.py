@@ -390,10 +390,30 @@ def admin():
                 email = request.form['email']
                 username = request.form['username']
                 personnummer = functions.normalize_personnummer(request.form['personnummer'])
-                raw_categories = request.form.get('categories')
-                logger.debug("Admin upload for %s with categories %s", personnummer, raw_categories)
-                selected_categories = normalize_category_slugs(raw_categories)
+                raw_category = request.form.get('categories')
+                logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
+
+                if not raw_category:
+                    logger.warning("Admin upload missing category")
+                    return (
+                        jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}),
+                        400,
+                    )
+
+                selected_categories = normalize_category_slugs([raw_category])
                 logger.debug("Normalized categories: %s", selected_categories)
+
+                if len(selected_categories) != 1:
+                    logger.warning("Admin upload with invalid category count: %s", raw_category)
+                    return (
+                        jsonify(
+                            {
+                                'status': 'error',
+                                'message': 'Välj en kurskategori.',
+                            }
+                        ),
+                        400,
+                    )
                 pdf_files = request.files.getlist('pdf')
 
                 if not pdf_files:
