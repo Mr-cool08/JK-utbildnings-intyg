@@ -30,7 +30,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
         "username": "Existing",
         "personnummer": "19900101-1234",
         "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
-        "categories": COURSE_CATEGORIES[0][0],
+        "categories": COURSE_CATEGORIES[0],
     }
 
     with _admin_client() as client:
