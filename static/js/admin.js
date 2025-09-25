@@ -9,7 +9,6 @@
   const usernameInput = document.getElementById('username');
   const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
-  const categoryInputs = Array.from(document.querySelectorAll('input[name="categories"]'));
 
   const MAX_MB = 100;
   const MAX_BYTES = MAX_MB * 1024 * 1024;
@@ -18,39 +17,36 @@
   function showMessage(type, text, isHtml = false) {
     result.style.display = 'block';
     result.className = `message ${type}`;
-    result.innerHTML = isHtml ? text : '';
-    if (!isHtml) result.textContent = text;
+    if (isHtml) result.innerHTML = text;
+    else result.textContent = text;
   }
-
   function hideMessage() {
     result.style.display = 'none';
     result.textContent = '';
     result.className = 'message';
   }
 
+  let progressInterval;
   function startProgress() {
     progressContainer.style.display = 'block';
     let width = 0;
     progressBar.style.width = '0%';
-    window.progressInterval = setInterval(() => {
+    progressInterval = setInterval(() => {
       width = (width + 10) % 100;
       progressBar.style.width = `${width}%`;
     }, 500);
   }
-
   function stopProgress() {
     progressContainer.style.display = 'none';
-    clearInterval(window.progressInterval);
+    clearInterval(progressInterval);
   }
 
   function isValidEmail(v) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }
-
   function isValidPersonnummer(v) {
     return /^(?:\d{6}|\d{8})-?\d{4}$/.test(v);
   }
-
   function validatePdf(file) {
     if (!file) return 'PDF-fil saknas.';
     if (file.size > MAX_BYTES) return `Filen är för stor (max ${MAX_MB} MB).`;
@@ -68,27 +64,28 @@
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
 
-    if (!isValidEmail(email)) return showMessage('error', 'Ogiltig e-postadress.');
-    if (!username) return showMessage('error', 'Ange användarnamn.');
-    if (!isValidPersonnummer(pnr)) return showMessage('error', 'Ogiltigt personnummer.');
-    if (!files.length) return showMessage('error', 'PDF-fil saknas.');
+    const categoryInput = form.querySelector('input[name="categories"]:checked');
+    if (!categoryInput) {
+      showMessage('error', 'Välj en kurskategori.');
+      return;
+    }
+    const category = categoryInput.value;
 
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    if (totalSize > MAX_BYTES) return showMessage('error', `Filerna är för stora (max ${MAX_MB} MB totalt).`);
+    if (!isValidEmail(email)) { showMessage('error', 'Ogiltig e-postadress.'); emailInput.focus(); return; }
+    if (!username) { showMessage('error', 'Ange användarnamn.'); usernameInput.focus(); return; }
+    if (!isValidPersonnummer(pnr)) { showMessage('error', 'Ogiltigt personnummer.'); pnrInput.focus(); return; }
+    if (!files.length) { showMessage('error', 'PDF-fil saknas.'); pdfInput.focus(); return; }
+
     for (const file of files) {
       const pdfError = validatePdf(file);
-      if (pdfError) return showMessage('error', pdfError);
+      if (pdfError) { showMessage('error', pdfError); pdfInput.focus(); return; }
     }
-
-    // Get selected category
-    const selectedCategory = categoryInputs.find(r => r.checked)?.value;
-    if (!selectedCategory) return showMessage('error', 'Välj en kurskategori.');
 
     const fd = new FormData();
     fd.append('email', email);
     fd.append('username', username);
     fd.append('personnummer', pnr);
-    fd.append('categories', selectedCategory);  // only one category allowed
+    fd.append('categories', category);  // single value
     files.forEach(f => fd.append('pdf', f));
 
     submitBtn.disabled = true;
@@ -97,17 +94,18 @@
 
     try {
       const res = await fetch('/admin', { method: 'POST', body: fd });
-      let data = null;
-      try { data = await res.json(); } catch {}
+      const data = await res.json().catch(() => null);
+
       if (res.ok && data?.status === 'success') {
         const msg = data.link ? `Användare skapad. Länk: <a href="${data.link}">${data.link}</a>` : 'Användare skapad.';
         showMessage('success', msg, !!data.link);
         form.reset();
       } else {
-        showMessage('error', (data && data.message) || `Kunde inte skapa användare (HTTP ${res.status}).`);
+        const msg = data?.message || `Kunde inte skapa användare (HTTP ${res.status}).`;
+        showMessage('error', msg);
       }
     } catch {
-      showMessage('error', 'Nätverks- eller serverfel. Försök igen om en stund.');
+      showMessage('error', 'Nätverks- eller serverfel. Försök igen.');
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Skapa användare';
@@ -115,7 +113,7 @@
     }
   });
 
-  [emailInput, usernameInput, pnrInput, pdfInput, ...categoryInputs].forEach(el => {
+  [emailInput, usernameInput, pnrInput, pdfInput].forEach(el => {
     el.addEventListener('input', hideMessage);
     el.addEventListener('change', hideMessage);
   });

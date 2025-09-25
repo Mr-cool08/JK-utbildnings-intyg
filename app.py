@@ -395,12 +395,18 @@ def admin():
             username = request.form.get('username', '').strip()
             personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
 
-            # Always use getlist for radios to get a list, even if only one selected
-            selected_categories = normalize_category_slugs(request.form.getlist('categories'))
-            logger.debug("Admin upload for %s with categories %s", personnummer, selected_categories)
+            # Single category value (from radio button)
+            raw_category = request.form.get('categories', None)
+            logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
 
+            if not raw_category:
+                logger.warning("Admin upload missing category")
+                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
+
+            # Normalize and wrap in a list for functions that expect a list
+            selected_categories = normalize_category_slugs([raw_category])
             if len(selected_categories) != 1:
-                logger.warning("Admin upload missing or invalid category")
+                logger.warning("Admin upload with invalid category count")
                 return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
 
             pdf_files = request.files.getlist('pdf')

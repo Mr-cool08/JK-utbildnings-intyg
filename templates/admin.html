@@ -1,52 +1,52 @@
 {% extends 'base.html' %}
 {% block title %}Admin — Skapa användare{% endblock %}
 {% block content %}
-    <h1>Admin — Skapa användare</h1>
-    <p>Använd detta formulär för att lägga till en väntande användare. Fälten är obligatoriska. När POST lyckas lägger servern in posten i <code>pending_users</code>.</p>
+<h1>Admin — Skapa användare</h1>
+<p>Använd detta formulär för att lägga till en väntande användare. Fälten är obligatoriska.</p>
 
-    <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
-        <label for="email">E-post</label>
-        <input id="email" name="email" type="email" required placeholder="user@example.com" />
+<form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
+    <label for="email">E-post</label>
+    <input id="email" name="email" type="email" required placeholder="user@example.com" />
 
-        <label for="username">Användarnamn</label>
-        <input id="username" name="username" type="text" required placeholder="Fullständigt namn eller användarnamn" />
+    <label for="username">Användarnamn</label>
+    <input id="username" name="username" type="text" required placeholder="Fullständigt namn eller användarnamn" />
 
-        <div class="row">
-            <div class="col">
-                <label for="personnummer">Personnummer</label>
-                <!-- Mönster: sex eller åtta siffror, valfritt bindestreck och fyra siffror -->
-                <input id="personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
-                <small class="hint">Tillåtna format: ÅÅMMDDXXXX, ÅÅÅÅMMDDXXXX, med eller utan bindestreck.</small>
-            </div>
-
-            <div class="col">
-                <label for="pdf">Ladda upp PDF-filer</label>
-                <input id="pdf" name="pdf" type="file" accept="application/pdf" multiple required />
-                <small class="hint">Endast PDF-filer (max 100 MB totalt).</small>
-            </div>
+    <div class="row">
+        <div class="col">
+            <label for="personnummer">Personnummer</label>
+            <input id="personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+            <small class="hint">Tillåtna format: ÅÅMMDDXXXX eller ÅÅÅÅMMDDXXXX, med eller utan bindestreck.</small>
         </div>
 
-        <fieldset class="category-group">
-            <legend>Välj kurskategori</legend>
-            <div class="category-options">
-                {% for slug, label in categories %}
-                <label class="checkbox-option">
-                    <input type="radio" name="categories" value="{{ slug }}" />
-                    <span>{{ label }}</span>
-                </label>
-                {% endfor %}
-            </div>
-            <small class="hint">Välj den kategori som matchar PDF:en.</small>
-        </fieldset>
-
-        <button id="submitBtn" type="submit">Skapa användare</button>
-
-        <div id="progressContainer" class="progress-container" style="display:none">
-            <div id="progressBar" class="progress-bar"></div>
-            <p class="progress-text">Skapar användare… Detta kan ta upp till 30 sekunder.</p>
+        <div class="col">
+            <label for="pdf">Ladda upp PDF-filer</label>
+            <input id="pdf" name="pdf" type="file" accept="application/pdf" multiple required />
+            <small class="hint">Endast PDF-filer (max 100 MB totalt).</small>
         </div>
+    </div>
 
-        <div id="result" class="message" style="display:none"></div>
-    </form>
+    <fieldset class="category-group">
+        <legend>Välj kurskategori</legend>
+        <div class="category-options">
+            {% for slug, label in categories %}
+            <label class="radio-option">
+                <input type="radio" name="categories" value="{{ slug }}" required />
+                <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        <small class="hint">Välj den kategori som matchar PDF:en.</small>
+    </fieldset>
+
+    <button id="submitBtn" type="submit">Skapa användare</button>
+
+    <div id="progressContainer" class="progress-container" style="display:none">
+        <div id="progressBar" class="progress-bar"></div>
+        <p class="progress-text">Skapar användare… Detta kan ta upp till 30 sekunder.</p>
+    </div>
+
+    <div id="result" class="message" style="display:none"></div>
+</form>
+
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 {% endblock %}
