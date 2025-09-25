@@ -13,9 +13,7 @@
   const usernameInput = document.getElementById('username');
   const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
-  const categoryInputs = Array.from(
-    document.querySelectorAll('input[name="categories"]')
-  );
+
 
   // --- Konstanter (synka gärna med servern) ---
   const MAX_MB = 100; // matchar app.config['MAX_CONTENT_LENGTH']
@@ -86,9 +84,6 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
-    const selectedCategoryInput = form.querySelector(
-      'input[name="categories"]:checked'
-    );
 
     if (!isValidEmail(email)) {
       showMessage('error', 'Ogiltig e-postadress.');
@@ -111,14 +106,6 @@
     if (!files.length) {
       showMessage('error', 'PDF-fil saknas.');
       pdfInput.focus();
-      return;
-    }
-    if (!selectedCategoryInput) {
-      showMessage('error', 'Välj en kurskategori.');
-      const target = selectedCategoryInput || categoryInputs[0];
-      if (target) {
-        target.focus();
-      }
       return;
     }
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
@@ -144,7 +131,6 @@
     for (const file of files) {
       fd.append('pdf', file);
     }
-    fd.append('categories', selectedCategoryInput.value);
 
     // Skicka
     submitBtn.disabled = true;
