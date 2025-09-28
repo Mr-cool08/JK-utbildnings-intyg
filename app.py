@@ -1,4 +1,4 @@
-"""Flask application for issuing and serving course certificates."""
+ # Flask application for issuing and serving course certificates.
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ logger.setLevel(logging.INFO)
 
 
 def _enable_debug_mode(app: Flask) -> None:
-    """Aktivera extra loggning och ev. testdata i debug-läge."""
+    # Aktivera extra loggning och ev. testdata i debug-läge.
     stream = logging.StreamHandler()
     root = logging.getLogger()
     if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
@@ -221,7 +221,7 @@ def send_creation_email(to_email: str, link: str) -> None:
 
 @app.context_processor
 def inject_flags():
-    """Expose flags indicating debug mode to Jinja templates."""
+    # Expose flags indicating debug mode to Jinja templates.
     # return {"IS_DEV": current_app.debug}  # funkar också
     return {"IS_DEV": app.debug}
 
@@ -230,7 +230,7 @@ def inject_flags():
 def save_pdf_for_user(
     pnr: str, file_storage, categories: Sequence[str]
 ) -> dict[str, str | int | Sequence[str]]:
-    """Validate and store a PDF in the database for the provided personnummer."""
+    # Validate and store a PDF in the database for the provided personnummer.
     logger.debug("Saving PDF for personnummer %s", pnr)
     if file_storage.filename == "":
         logger.error("No file selected for upload")
@@ -275,12 +275,12 @@ def save_pdf_for_user(
 
 @app.route('/robots.txt')
 def robots_txt():
-    """Serve robots.txt to disallow all crawlers."""
+    # Serve robots.txt to disallow all crawlers.
     return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
-    """Allow a pending user to set a password and activate the account."""
+    # Allow a pending user to set a password and activate the account.
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == 'POST':
         password = request.form['password']
@@ -337,7 +337,7 @@ def login():
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    """Visa alla PDF:er för den inloggade användaren."""
+    # Visa alla PDF:er för den inloggade användaren.
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated access to dashboard")
         return redirect('/login')
@@ -404,7 +404,7 @@ def dashboard():
 
 @app.route('/my_pdfs/<int:pdf_id>')
 def download_pdf(pdf_id: int):
-    """Serve a stored PDF for the logged-in user from the database."""
+    # Serve a stored PDF for the logged-in user from the database.
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated download attempt for %s", pdf_id)
         return redirect('/login')
@@ -427,7 +427,7 @@ def download_pdf(pdf_id: int):
 
 @app.route('/view_pdf/<int:pdf_id>')
 def view_pdf(pdf_id: int):
-    """Redirect to a direct download of the specified PDF."""
+    # Redirect to a direct download of the specified PDF.
     if not session.get('user_logged_in'):
         logger.debug("Unauthenticated view attempt for %s", pdf_id)
         return redirect('/login')
@@ -441,7 +441,7 @@ def view_pdf(pdf_id: int):
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():
-    """Admin dashboard for uploading certificates and creating users."""
+    # Admin dashboard for uploading certificates and creating users.
     if request.method == 'POST':
         if not session.get('admin_logged_in'):
             logger.warning("Unauthorized admin POST")
@@ -526,13 +526,12 @@ def admin():
 
 @app.route('/verify_certificate/<personnummer>', methods=['GET'])
 def verify_certificate_route(personnummer):
-    """Allow an admin to verify whether a user's certificate is confirmed.
-
-    Uses a cached lookup to avoid repeated database queries for the same
-    ``personnummer``. Returns a JSON response indicating the verification
-    status. If the certificate isn't verified, an informative message is sent
-    back to the administrator.
-    """
+    # Allow an admin to verify whether a user's certificate is confirmed.
+    #
+    # Uses a cached lookup to avoid repeated database queries for the same
+    # ``personnummer``. Returns a JSON response indicating the verification
+    # status. If the certificate isn't verified, an informative message is sent
+    # back to the administrator.
     if not session.get('admin_logged_in'):
         logger.warning("Unauthorized certificate verification attempt")
         return redirect('/login_admin')

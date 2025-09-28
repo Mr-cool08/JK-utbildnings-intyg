@@ -1,4 +1,4 @@
-"""Database helpers and utility functions for the Flask application."""
+ # Database helpers and utility functions for the Flask application.
 
 from __future__ import annotations
 
@@ -95,7 +95,7 @@ _ENGINE: Optional[Engine] = None
 
 
 def _build_engine() -> Engine:
-    """Create a SQLAlchemy engine based on configuration."""
+    # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         host = os.getenv("POSTGRES_HOST")
@@ -163,13 +163,13 @@ def _build_engine() -> Engine:
 
 
 def reset_engine() -> None:
-    """Reset the cached SQLAlchemy engine."""
+    # Reset the cached SQLAlchemy engine.
     global _ENGINE
     _ENGINE = None
 
 
 def get_engine() -> Engine:
-    """Return a cached SQLAlchemy engine instance."""
+    # Return a cached SQLAlchemy engine instance.
     global _ENGINE
     if _ENGINE is None:
         _ENGINE = _build_engine()
@@ -177,7 +177,7 @@ def get_engine() -> Engine:
 
 
 def create_database() -> None:
-    """Create required tables if they do not exist."""
+    # Create required tables if they do not exist.
     engine = get_engine()
     metadata.create_all(engine)
     with engine.begin() as conn:
@@ -193,7 +193,7 @@ def create_database() -> None:
 
 
 def _pbkdf2_iterations() -> int:
-    """Return the iteration count for PBKDF2 operations."""
+    # Return the iteration count for PBKDF2 operations.
     if os.getenv("PYTEST_CURRENT_TEST"):
         return TEST_HASH_ITERATIONS
     return DEFAULT_HASH_ITERATIONS
@@ -201,19 +201,19 @@ def _pbkdf2_iterations() -> int:
 
 @lru_cache(maxsize=2048)
 def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
-    """Cacheable helper for PBKDF2 hashing."""
+    # Cacheable helper for PBKDF2 hashing.
     return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
 
 
 def hash_value(value: str) -> str:
-    """Return a strong deterministic hash of ``value`` using PBKDF2."""
+    # Return a strong deterministic hash of ``value`` using PBKDF2.
     iterations = _pbkdf2_iterations()
     logger.debug("Hashing value with %s iterations", iterations)
     return _hash_value_cached(value, SALT, iterations)
 
 
 def normalize_email(email: str) -> str:
-    """Normalize e-mail addresses before hashing or sending messages."""
+    # Normalize e-mail addresses before hashing or sending messages.
     if email is None:
         raise ValueError("Saknar e-postadress")
 
@@ -231,17 +231,17 @@ def normalize_email(email: str) -> str:
 
 
 def hash_password(password: str) -> str:
-    """Hash a password with Werkzeug's PBKDF2 implementation."""
+    # Hash a password with Werkzeug's PBKDF2 implementation.
     return generate_password_hash(password)
 
 
 def verify_password(hashed: str, password: str) -> bool:
-    """Verify a password against its hashed representation."""
+    # Verify a password against its hashed representation.
     return check_password_hash(hashed, password)
 
 
 def normalize_personnummer(pnr: str) -> str:
-    """Normalize Swedish personal numbers to the YYMMDDXXXX format."""
+    # Normalize Swedish personal numbers to the YYMMDDXXXX format.
     logger.debug("Normalizing personnummer %s", pnr)
     digits = re.sub(r"\D", "", pnr)
     if len(digits) == 12:
@@ -254,13 +254,13 @@ def normalize_personnummer(pnr: str) -> str:
 
 
 def _hash_personnummer(pnr: str) -> str:
-    """Normalize and hash a personal identity number."""
+    # Normalize and hash a personal identity number.
     normalized = normalize_personnummer(pnr)
     return hash_value(normalized)
 
 
 def check_password_user(email: str, password: str) -> bool:
-    """Return True if ``email`` and ``password`` match a user."""
+    # Return True if ``email`` and ``password`` match a user.
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
@@ -271,7 +271,7 @@ def check_password_user(email: str, password: str) -> bool:
 
 
 def check_personnummer_password(personnummer: str, password: str) -> bool:
-    """Return True if the hashed personnummer and password match a user."""
+    # Return True if the hashed personnummer and password match a user.
     personnummer_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
@@ -283,7 +283,7 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
 
 
 def check_user_exists(email: str) -> bool:
-    """Return True if a user with ``email`` exists."""
+    # Return True if a user with ``email`` exists.
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
@@ -294,7 +294,7 @@ def check_user_exists(email: str) -> bool:
 
 
 def get_username(email: str) -> Optional[str]:
-    """Return the username associated with ``email`` or ``None``."""
+    # Return the username associated with ``email`` or ``None``.
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
@@ -305,7 +305,7 @@ def get_username(email: str) -> Optional[str]:
 
 
 def check_pending_user(personnummer: str) -> bool:
-    """Return True if a pending user with ``personnummer`` exists."""
+    # Return True if a pending user with ``personnummer`` exists.
     pnr_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
@@ -317,7 +317,7 @@ def check_pending_user(personnummer: str) -> bool:
 
 
 def check_pending_user_hash(personnummer_hash: str) -> bool:
-    """Return True if a pending user with ``personnummer_hash`` exists."""
+    # Return True if a pending user with ``personnummer_hash`` exists.
     with get_engine().connect() as conn:
         row = conn.execute(
             select(pending_users_table.c.id).where(
@@ -329,7 +329,7 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
 
 @lru_cache(maxsize=256)
 def verify_certificate(personnummer: str) -> bool:
-    """Return True if a certificate for ``personnummer`` is verified."""
+    # Return True if a certificate for ``personnummer`` is verified.
     pnr_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
@@ -339,7 +339,7 @@ def verify_certificate(personnummer: str) -> bool:
 
 
 def admin_create_user(email: str, username: str, personnummer: str) -> bool:
-    """Insert a new pending user row."""
+    # Insert a new pending user row.
     pnr_hash = _hash_personnummer(personnummer)
     normalized_email = normalize_email(email)
     hashed_email = hash_value(normalized_email)
@@ -377,7 +377,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
 
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
-    """Move a pending user identified by ``personnummer_hash`` into users."""
+    # Move a pending user identified by ``personnummer_hash`` into users.
     try:
         with get_engine().begin() as conn:
             existing = conn.execute(
@@ -423,7 +423,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
 
 
 def get_user_info(personnummer: str):
-    """Return database row for user identified by ``personnummer``."""
+    # Return database row for user identified by ``personnummer``.
     pnr_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
@@ -439,7 +439,7 @@ def get_user_info(personnummer: str):
 
 
 def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
-    """Return the username tied to ``personnummer_hash`` if it exists."""
+    # Return the username tied to ``personnummer_hash`` if it exists.
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.username).where(
@@ -474,7 +474,7 @@ def store_pdf_blob(
     content: bytes,
     categories: Sequence[str] | None = None,
 ) -> int:
-    """Store a PDF for the hashed personnummer and return its database id."""
+    # Store a PDF for the hashed personnummer and return its database id.
     with get_engine().begin() as conn:
         result = conn.execute(
             insert(user_pdfs_table).values(
@@ -490,7 +490,7 @@ def store_pdf_blob(
 
 
 def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) -> bool:
-    """Import PDFs stored on disk for ``personnummer_hash`` into the database."""
+    # Import PDFs stored on disk for ``personnummer_hash`` into the database.
 
     legacy_dir = os.path.join(APP_ROOT, "uploads", personnummer_hash)
     if not os.path.isdir(legacy_dir):
@@ -537,7 +537,7 @@ def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) ->
 
 
 def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
-    """Return metadata for all PDFs belonging to ``personnummer_hash``."""
+    # Return metadata for all PDFs belonging to ``personnummer_hash``.
     def _load() -> List[Dict[str, Any]]:
         with get_engine().connect() as conn:
             rows = conn.execute(
@@ -571,7 +571,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
 
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
-    """Return metadata for a single PDF without loading its content."""
+    # Return metadata for a single PDF without loading its content.
     with get_engine().connect() as conn:
         row = conn.execute(
             select(
@@ -595,7 +595,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
 
 
 def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, bytes]]:
-    """Return the filename and binary content for ``pdf_id``."""
+    # Return the filename and binary content for ``pdf_id``.
     with get_engine().connect() as conn:
         row = conn.execute(
             select(
@@ -612,7 +612,7 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
 
 
 def create_test_user() -> None:
-    """Populate the database with a simple test user."""
+    # Populate the database with a simple test user.
     email = "test@example.com"
     username = "Test User"
     personnummer = "9001011234"
