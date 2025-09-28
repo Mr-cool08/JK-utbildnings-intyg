@@ -314,13 +314,13 @@ def login():
     # Authenticate users using personnummer and password.
     if request.method == 'POST':
         personnummer = request.form['personnummer']
+        personnummer = functions.normalize_personnummer(personnummer)
         if personnummer == "" or not personnummer.isnumeric():
             logger.error("Invalid personnummer: %s", personnummer)
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
             )
-        personnummer = functions.normalize_personnummer(personnummer)
         password = request.form['password']
         if password == "":
             logger.error("Empty password provided for %s", personnummer)
