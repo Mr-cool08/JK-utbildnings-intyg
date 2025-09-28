@@ -25,14 +25,14 @@ def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 
 @pytest.fixture
 def empty_db(tmp_path, monkeypatch):
-    """Provide a fresh empty database for a test."""
+    # Provide a fresh empty database for a test.
     _prepare_database(monkeypatch, tmp_path)
     return functions.get_engine()
 
 
 @pytest.fixture
 def user_db(tmp_path, monkeypatch):
-    """Provide a database pre-populated with a default user."""
+    # Provide a database pre-populated with a default user.
     _prepare_database(monkeypatch, tmp_path)
     engine = functions.get_engine()
     with engine.begin() as conn:

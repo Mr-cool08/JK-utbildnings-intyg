@@ -1,4 +1,4 @@
-"""Helpers for consistent logging configuration across the project."""
+ # Helpers for consistent logging configuration across the project.
 
 from __future__ import annotations
 
@@ -7,19 +7,18 @@ from typing import Iterable
 
 
 def configure_module_logger(name: str) -> logging.Logger:
-    """Return a module logger configured to avoid duplicate log output.
+    # Return a module logger configured to avoid duplicate log output.
 
-    The application runs under different WSGI servers depending on the
-    environment (development Flask server, gunicorn, tests, etc.).  Several of
-    these set up their own handlers on the root logger which can result in the
-    same log record being emitted multiple times when module loggers propagate
-    to the root.
+    # The application runs under different WSGI servers depending on the
+    # environment (development Flask server, gunicorn, tests, etc.).  Several of
+    # these set up their own handlers on the root logger which can result in the
+    # same log record being emitted multiple times when module loggers propagate
+    # to the root.
 
-    This helper reuses the root handlers but disables propagation on the module
-    logger so that each log record is handled exactly once, regardless of how
-    many handlers the root logger has.  If no root handlers exist we create a
-    simple ``StreamHandler`` so logs are still visible during local execution.
-    """
+    # This helper reuses the root handlers but disables propagation on the module
+    # logger so that each log record is handled exactly once, regardless of how
+    # many handlers the root logger has.  If no root handlers exist we create a
+    # simple ``StreamHandler`` so logs are still visible during local execution.
 
     logger = logging.getLogger(name)
     if getattr(logger, "_jk_configured", False):
