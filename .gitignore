@@ -128,3 +128,4 @@ $RECYCLE.BIN/
 # Project specific ignores
 # ----------------------------------------
 test_mail.py
+/__pycache__
