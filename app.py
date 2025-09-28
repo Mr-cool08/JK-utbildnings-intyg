@@ -34,6 +34,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import BadRequestKeyError
+
 from config_loader import load_environment
 from logging_utils import configure_module_logger
 
@@ -53,6 +54,10 @@ ALLOWED_MIMES = {'application/pdf'}
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
+
+
+
+
 def _enable_debug_mode(app: Flask) -> None:
     """Aktivera extra loggning och ev. testdata i debug-läge."""
     stream = logging.StreamHandler()
@@ -74,12 +79,11 @@ def _enable_debug_mode(app: Flask) -> None:
     # Skapa testanvändare endast i debug-läge
     functions.create_test_user()
     print("Debug mode is on, test user created")
-    
-    
+
 
 
 def create_app() -> Flask:
-    """Create and configure the Flask application."""
+    # Create and configure the Flask application.
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
     app = Flask(__name__)
@@ -99,14 +103,14 @@ app = create_app()
 
 @app.route("/health")
 def health() -> tuple[dict, int]:
-    """Basic health check endpoint."""
+    # Basic health check endpoint.
     return {"status": "ok"}, 200
 
 def send_creation_email(to_email: str, link: str) -> None:
-    """Send a password creation link via SMTP.
+    # Send a password creation link via SMTP.
 
-    Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-    """
+    # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
+    
     normalized_email = functions.normalize_email(to_email)
     if normalized_email != to_email:
         logger.debug(
@@ -292,8 +296,7 @@ def create_user(pnr_hash):
 
 @app.route('/', methods=['GET'])
 def home():
-    """Render the landing page."""
-    print("Rendering home page")
+    # Render the landing page.
     logger.debug("Rendering home page")
     return render_template('index.html')
 
@@ -301,14 +304,14 @@ def home():
 
 @app.route('/license', methods=['GET'])
 def license():
-    """Render the license information page."""
+    # Render the license information page.
     logger.debug("Rendering license page")
     return render_template('license.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Authenticate users using personnummer and password."""
+    # Authenticate users using personnummer and password.
     if request.method == 'POST':
         personnummer = functions.normalize_personnummer(request.form['personnummer'])
         password = request.form['password']
@@ -401,7 +404,6 @@ def admin():
             except BadRequestKeyError:
                 logger.warning("Admin upload missing category (no form key)")
                 return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
-            print(raw_category)
             logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
 
             if not raw_category:
@@ -488,13 +490,13 @@ def verify_certificate_route(personnummer):
     }), 404
 @app.route("/error")
 def error():
-    """Intentionally raise an error to test the 500 page."""
+    # Intentionally raise an error to test the 500 page.
     # This will cause a 500 Internal Server Error
     raise Exception("Testing 500 error page")
 
 @app.route('/login_admin', methods=['POST', 'GET'])
 def login_admin():
-    """Authenticate an administrator for access to the admin panel."""
+    # Authenticate an administrator for access to the admin panel.
     if request.method == 'POST':
 
         admin_password = os.getenv('admin_password')
@@ -516,7 +518,7 @@ def login_admin():
 
 @app.route('/logout')
 def logout():
-    """Logga ut både admin och användare."""
+    # Logga ut både admin och användare.
     logger.info("Logging out user and admin")
     session.pop('user_logged_in', None)
     session.pop('admin_logged_in', None)
@@ -526,25 +528,25 @@ def logout():
 @app.errorhandler(500)
 def internal_server_error(_):
     logger.error("500 Internal Server Error: %s", request.path)
-    """Visa en användarvänlig 500-sida när ett serverfel inträffar."""
+    # Visa en användarvänlig 500-sida när ett serverfel inträffar.
     return render_template('500.html', time=time.time()), 500
 
 
 @app.errorhandler(409)
 def conflict_error(_):
-    """Visa en användarvänlig 409-sida vid konflikt."""
+    # Visa en användarvänlig 409-sida vid konflikt.
     logger.error("409 Conflict: %s", request.path)
     return render_template('409.html'), 409
 
 @app.errorhandler(404)
 def page_not_found(_):
-    """Visa en användarvänlig 404-sida när en sida saknas."""
+    # Visa en användarvänlig 404-sida när en sida saknas.
     logger.warning("Page not found: %s", request.path)
     return render_template('404.html'), 404
 
 @app.template_filter('datetimeformat')
 def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
-    """Format a POSIX timestamp for display in templates."""
+    # Format a POSIX timestamp for display in templates.
     import datetime
     return datetime.datetime.fromtimestamp(value).strftime(format)
 
