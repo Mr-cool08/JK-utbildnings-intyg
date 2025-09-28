@@ -36,7 +36,7 @@ from werkzeug.utils import secure_filename
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger
-
+from werkzeug.exceptions import BadRequestKeyError
 from course_categories import (
     COURSE_CATEGORIES,
     labels_for_slugs,
@@ -396,7 +396,11 @@ def admin():
             personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
 
             # Single category value (from radio button)
-            raw_category = request.form('categories')
+            try:
+                    raw_category = request.form['categories'].strip()  # kan kasta BadRequestKeyError
+            except BadRequestKeyError:
+                logger.warning("Admin upload missing category (no form key)")
+                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
             print(raw_category)
             logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
 
