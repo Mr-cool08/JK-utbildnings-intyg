@@ -318,7 +318,11 @@ def login():
         logger.debug("Login attempt for %s", personnummer)
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            session['personnummer'] = functions.hash_value(personnummer)
+            personnummer_hash = functions.hash_value(personnummer)
+            session['personnummer'] = personnummer_hash
+            session['username'] = functions.get_username_by_personnummer_hash(
+                personnummer_hash
+            )
             logger.info("User %s logged in", personnummer)
             return redirect('/dashboard')
         else:
@@ -338,12 +342,62 @@ def dashboard():
         logger.debug("Unauthenticated access to dashboard")
         return redirect('/login')
     pnr_hash = session.get('personnummer')
+    user_name = session.get('username')
+    if not user_name and pnr_hash:
+        user_name = functions.get_username_by_personnummer_hash(pnr_hash)
+        if user_name:
+            session['username'] = user_name
     pdfs = functions.get_user_pdfs(pnr_hash)
     for pdf in pdfs:
         pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
+    grouped_pdfs = []
+    groups_by_slug = {}
+    for slug, label in COURSE_CATEGORIES:
+        group = {"slug": slug, "label": label, "pdfs": []}
+        grouped_pdfs.append(group)
+        groups_by_slug[slug] = group
+    uncategorized_group = {
+        "slug": "okategoriserade",
+        "label": "Okategoriserade intyg",
+        "pdfs": [],
+    }
+    for pdf in pdfs:
+        categories = pdf.get("categories") or []
+        matched = False
+        for slug in categories:
+            group = groups_by_slug.get(slug)
+            if group is not None:
+                group["pdfs"].append(pdf)
+                matched = True
+        if not matched:
+            uncategorized_group["pdfs"].append(pdf)
+    visible_groups = [group for group in grouped_pdfs if group["pdfs"]]
+    if uncategorized_group["pdfs"]:
+        visible_groups.append(uncategorized_group)
+    category_summary = [
+        {
+            "slug": slug,
+            "label": label,
+            "count": len(groups_by_slug[slug]["pdfs"]),
+        }
+        for slug, label in COURSE_CATEGORIES
+    ]
+    if uncategorized_group["pdfs"]:
+        category_summary.append(
+            {
+                "slug": uncategorized_group["slug"],
+                "label": uncategorized_group["label"],
+                "count": len(uncategorized_group["pdfs"]),
+            }
+        )
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
     return render_template(
-        'dashboard.html', pdfs=pdfs, course_categories=COURSE_CATEGORIES
+        'dashboard.html',
+        pdfs=pdfs,
+        course_categories=COURSE_CATEGORIES,
+        category_summary=category_summary,
+        grouped_pdfs=visible_groups,
+        user_name=user_name,
     )
 
 
