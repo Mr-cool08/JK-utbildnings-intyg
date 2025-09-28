@@ -6,35 +6,48 @@
 {% block content %}
 <section class="dashboard">
     <h1>Dina PDF:er</h1>
-    {% if course_categories %}
+    {% if category_summary %}
     <section class="category-list" aria-label="Tillgängliga kurskategorier">
         <h2>Kurskategorier</h2>
         <ul>
-            {% for slug, label in course_categories %}
-            <li>{{ label }}</li>
+            {% for category in category_summary %}
+            <li>
+                <span class="category-label">{{ category.label }}</span>
+                <span class="category-count-badge">{{ category.count }} intyg</span>
+            </li>
             {% endfor %}
         </ul>
     </section>
     {% endif %}
 
-    {% if pdfs %}
-    <ul class="pdf-list">
-        {% for pdf in pdfs %}
-        <li data-pdf-categories="{{ pdf.categories | join(',') }}">
-            <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
-                {{ pdf.filename }}
-            </a>
-            <span class="pdf-meta">
-                <strong>Kategori:</strong>
-                {% if pdf.category_labels %}
-                    {{ pdf.category_labels | join(', ') }}
-                {% else %}
-                    Inte angiven
-                {% endif %}
-            </span>
-        </li>
+    {% if grouped_pdfs %}
+    <section class="category-groups" aria-label="Intyg sorterade efter kategori">
+        {% for group in grouped_pdfs %}
+        <article class="category-group">
+            <header class="category-header">
+                <h3>{{ group.label }}</h3>
+                <p class="category-count">{{ group.pdfs | length }} intyg</p>
+            </header>
+            <ul class="pdf-list">
+                {% for pdf in group.pdfs %}
+                <li data-pdf-categories="{{ pdf.categories | join(',') }}">
+                    <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
+                        {{ pdf.filename }}
+                    </a>
+                    <span class="pdf-meta">
+                        <strong>Kategorier:</strong>
+                        {% if pdf.category_labels %}
+                            {{ pdf.category_labels | join(', ') }}
+                        {% else %}
+                            Inte angiven
+                        {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </article>
         {% endfor %}
-    </ul>
+    </section>
     {% else %}
     <p>Inga PDF:er uppladdade.</p>
     {% endif %}
