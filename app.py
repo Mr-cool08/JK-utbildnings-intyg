@@ -396,7 +396,8 @@ def admin():
             personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
 
             # Single category value (from radio button)
-            raw_category = request.form.get('categories', None)
+            raw_category = request.form('categories')
+            print(raw_category)
             logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
 
             if not raw_category:
