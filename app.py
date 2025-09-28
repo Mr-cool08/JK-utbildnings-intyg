@@ -33,10 +33,10 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
-
+from werkzeug.exceptions import BadRequestKeyError
 from config_loader import load_environment
 from logging_utils import configure_module_logger
-from werkzeug.exceptions import BadRequestKeyError
+
 from course_categories import (
     COURSE_CATEGORIES,
     labels_for_slugs,
