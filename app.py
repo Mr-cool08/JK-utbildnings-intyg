@@ -391,6 +391,7 @@ def dashboard():
             }
         )
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
+    user_name = user_name.capitalize()
     return render_template(
         'dashboard.html',
         pdfs=pdfs,
