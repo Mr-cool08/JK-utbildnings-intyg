@@ -119,3 +119,22 @@ def test_check_password_user_and_get_username(empty_db):
     assert functions.check_password_user(email, password)
     assert not functions.check_password_user(email, "wrong")
     assert functions.get_username(email) == username
+
+
+def test_get_username_by_personnummer_hash(empty_db):
+    pnr_hash = functions.hash_value("9001011234")
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="PersonnummerNamn",
+                email=functions.hash_value("hash@example.com"),
+                password=functions.hash_password("hemligt"),
+                personnummer=pnr_hash,
+            )
+        )
+
+    assert (
+        functions.get_username_by_personnummer_hash(pnr_hash)
+        == "PersonnummerNamn"
+    )
+    assert functions.get_username_by_personnummer_hash("saknas") is None
