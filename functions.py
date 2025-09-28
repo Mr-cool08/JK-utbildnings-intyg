@@ -438,6 +438,17 @@ def get_user_info(personnummer: str):
     return row
 
 
+def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
+    """Return the username tied to ``personnummer_hash`` if it exists."""
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(users_table.c.username).where(
+                users_table.c.personnummer == personnummer_hash
+            )
+        ).first()
+    return row.username if row else None
+
+
 def _serialize_categories(categories: Sequence[str] | None) -> str:
     if not categories:
         return ""

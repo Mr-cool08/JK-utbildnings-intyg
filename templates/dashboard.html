@@ -5,7 +5,13 @@
 {% endblock %}
 {% block content %}
 <section class="dashboard">
-    <h1>Dina PDF:er</h1>
+    <h1>
+        {% if user_name %}
+            Hej {{ user_name }}! Här är dina intyg.
+        {% else %}
+            Hej! Här är dina intyg.
+        {% endif %}
+    </h1>
     {% if category_summary %}
     <section class="category-list" aria-label="Tillgängliga kurskategorier">
         <h2>Kurskategorier</h2>

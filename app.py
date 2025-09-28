@@ -315,7 +315,11 @@ def login():
         logger.debug("Login attempt for %s", personnummer)
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            session['personnummer'] = functions.hash_value(personnummer)
+            personnummer_hash = functions.hash_value(personnummer)
+            session['personnummer'] = personnummer_hash
+            session['username'] = functions.get_username_by_personnummer_hash(
+                personnummer_hash
+            )
             logger.info("User %s logged in", personnummer)
             return redirect('/dashboard')
         else:
@@ -335,6 +339,11 @@ def dashboard():
         logger.debug("Unauthenticated access to dashboard")
         return redirect('/login')
     pnr_hash = session.get('personnummer')
+    user_name = session.get('username')
+    if not user_name and pnr_hash:
+        user_name = functions.get_username_by_personnummer_hash(pnr_hash)
+        if user_name:
+            session['username'] = user_name
     pdfs = functions.get_user_pdfs(pnr_hash)
     for pdf in pdfs:
         pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
@@ -385,6 +394,7 @@ def dashboard():
         course_categories=COURSE_CATEGORIES,
         category_summary=category_summary,
         grouped_pdfs=visible_groups,
+        user_name=user_name,
     )
 
 
