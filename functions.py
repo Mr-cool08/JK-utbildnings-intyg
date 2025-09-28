@@ -440,6 +440,7 @@ def get_user_info(personnummer: str):
 
 def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
     # Return the username tied to ``personnummer_hash`` if it exists.
+
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.username).where(
