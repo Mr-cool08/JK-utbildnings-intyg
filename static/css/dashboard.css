@@ -344,22 +344,40 @@
 }
 
 .share-modal {
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+.share-modal::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.share-modal[data-polyfill="true"] {
     position: fixed;
     inset: 0;
     display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    background: transparent;
 }
 
-.share-modal.is-visible {
-    display: flex;
-}
-
-.share-modal__backdrop {
+.share-modal[data-polyfill="true"]::before {
+    content: "";
     position: absolute;
     inset: 0;
     background: rgba(15, 23, 42, 0.45);
+}
+
+.share-modal[data-polyfill="true"].is-visible {
+    display: flex;
+}
+
+.share-modal[data-polyfill="true"] .share-modal__dialog {
+    position: relative;
+    z-index: 1;
 }
 
 .share-modal__dialog {
