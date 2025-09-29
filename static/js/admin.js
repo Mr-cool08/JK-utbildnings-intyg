@@ -9,6 +9,9 @@
   const usernameInput = document.getElementById('username');
   const pnrInput = document.getElementById('personnummer');
   const pdfInput = document.getElementById('pdf');
+  const fileCategoryGroup = document.getElementById('fileCategoryGroup');
+  const fileCategoryList = document.getElementById('fileCategoryList');
+  const fileCategoryTemplate = document.getElementById('fileCategoryTemplate');
 
   const MAX_MB = 100;
   const MAX_BYTES = MAX_MB * 1024 * 1024;
@@ -55,6 +58,27 @@
     return null;
   }
 
+  function renderCategorySelectors(files) {
+    fileCategoryList.innerHTML = '';
+    if (!files.length) {
+      fileCategoryGroup.hidden = true;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    files.forEach((file, index) => {
+      const clone = fileCategoryTemplate.content.cloneNode(true);
+      const item = clone.querySelector('.file-category-item');
+      item.dataset.index = String(index);
+      const nameEl = clone.querySelector('.file-name');
+      nameEl.textContent = file.name;
+      fragment.appendChild(clone);
+    });
+
+    fileCategoryList.appendChild(fragment);
+    fileCategoryGroup.hidden = false;
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideMessage();
@@ -63,30 +87,44 @@
     const username = usernameInput.value.trim();
     const pnr = pnrInput.value.trim();
     const files = Array.from(pdfInput.files);
-
-    const categoryInput = form.querySelector('input[name="categories"]:checked');
-    if (!categoryInput) {
-      showMessage('error', 'Välj en kurskategori.');
-      return;
-    }
-    const category = categoryInput.value;
+    const categorySelects = Array.from(
+      fileCategoryList.querySelectorAll('.file-category-select')
+    );
 
     if (!isValidEmail(email)) { showMessage('error', 'Ogiltig e-postadress.'); emailInput.focus(); return; }
     if (!username) { showMessage('error', 'Ange användarnamn.'); usernameInput.focus(); return; }
     if (!isValidPersonnummer(pnr)) { showMessage('error', 'Ogiltigt personnummer.'); pnrInput.focus(); return; }
     if (!files.length) { showMessage('error', 'PDF-fil saknas.'); pdfInput.focus(); return; }
+    if (categorySelects.length !== files.length) {
+      showMessage('error', 'Välj kategori för varje PDF.');
+      return;
+    }
 
     for (const file of files) {
       const pdfError = validatePdf(file);
       if (pdfError) { showMessage('error', pdfError); pdfInput.focus(); return; }
     }
 
+    const categories = [];
+    for (let i = 0; i < categorySelects.length; i += 1) {
+      const select = categorySelects[i];
+      const value = select.value.trim();
+      if (!value) {
+        showMessage('error', 'Välj kategori för varje PDF.');
+        select.focus();
+        return;
+      }
+      categories.push(value);
+    }
+
     const fd = new FormData();
     fd.append('email', email);
     fd.append('username', username);
     fd.append('personnummer', pnr);
-    fd.append('categories', category);  // single value
-    files.forEach(f => fd.append('pdf', f));
+    files.forEach((file, index) => {
+      fd.append('pdf', file);
+      fd.append('categories', categories[index]);
+    });
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Skapar...';
@@ -100,6 +138,7 @@
         const msg = data.link ? `Användare skapad. Länk: <a href="${data.link}">${data.link}</a>` : 'Användare skapad.';
         showMessage('success', msg, !!data.link);
         form.reset();
+        renderCategorySelectors([]);
       } else {
         const msg = data?.message || `Kunde inte skapa användare (HTTP ${res.status}).`;
         showMessage('error', msg);
@@ -116,5 +155,10 @@
   [emailInput, usernameInput, pnrInput, pdfInput].forEach(el => {
     el.addEventListener('input', hideMessage);
     el.addEventListener('change', hideMessage);
+  });
+
+  pdfInput.addEventListener('change', () => {
+    const files = Array.from(pdfInput.files);
+    renderCategorySelectors(files);
   });
 })();
