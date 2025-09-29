@@ -72,6 +72,38 @@ select {
     box-sizing: border-box;
 }
 
+input[type="file"] {
+    padding: 6px 10px;
+}
+
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
+    margin-right: 12px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover,
+input[type="file"]::-webkit-file-upload-button:hover {
+    background: linear-gradient(135deg, #0b5ed7, #094db4);
+}
+
+input[type="file"]::file-selector-button:active,
+input[type="file"]::-webkit-file-upload-button:active {
+    transform: scale(0.98);
+}
+
+input[type="file"]:focus-visible {
+    outline: 2px solid #0b5ed7;
+    outline-offset: 2px;
+}
+
 .row {
     display: flex;
     gap: 12px;
