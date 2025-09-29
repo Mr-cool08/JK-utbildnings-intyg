@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-import re
+import string
 import ssl
 import time
 from dataclasses import dataclass
@@ -70,13 +70,48 @@ class SMTPSettings:
     timeout: int
 
 
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+ALLOWED_LOCAL_CHARS = frozenset(
+    string.ascii_letters
+    + string.digits
+    + "!#$%&'*+/=?^_`{|}~.-"
+)
+
+
+def _is_ascii_printable(value: str) -> bool:
+    return all(32 <= ord(ch) <= 126 for ch in value)
 
 
 def _normalize_valid_email(address: str) -> str:
     normalized = functions.normalize_email(address)
-    if not EMAIL_PATTERN.match(normalized):
+    if not normalized or "@" not in normalized or normalized.count("@") != 1:
         raise ValueError("Ogiltig e-postadress.")
+
+    if len(normalized) > 320 or not _is_ascii_printable(normalized):
+        raise ValueError("Ogiltig e-postadress.")
+
+    local_part, domain = normalized.split("@", 1)
+    if not local_part or not domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if local_part.startswith(".") or local_part.endswith("."):
+        raise ValueError("Ogiltig e-postadress.")
+
+    if ".." in local_part or ".." in domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if any(ch not in ALLOWED_LOCAL_CHARS for ch in local_part):
+        raise ValueError("Ogiltig e-postadress.")
+
+    labels = domain.split(".")
+    if len(labels) < 2 or any(not label for label in labels):
+        raise ValueError("Ogiltig e-postadress.")
+
+    for label in labels:
+        if label.startswith("-") or label.endswith("-"):
+            raise ValueError("Ogiltig e-postadress.")
+        if not all(ch.isalnum() or ch == "-" for ch in label):
+            raise ValueError("Ogiltig e-postadress.")
+
     return normalized
 
 
@@ -691,8 +726,8 @@ def admin():
                 try:
                     send_creation_email(email, link)
                 except RuntimeError as e:
-                    logger.error("Failed to send creation email to %s", email)
-                    return jsonify({'status': 'error', 'message': str(e)}), 500
+                    logger.error("Failed to send creation email to %s", email, exc_info=True)
+                    return jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken via e-post.'}), 500
 
                 logger.info("Admin created user %s", personnummer)
                 return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
