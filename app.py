@@ -1063,7 +1063,8 @@ def admin_send_password_reset():
     try:
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 404
+        logger.exception("Misslyckades att skapa återställningstoken (ValueError)")
+        return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 404
     except Exception:
         logger.exception("Misslyckades att skapa återställningstoken")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
