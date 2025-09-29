@@ -9,6 +9,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Hoppa till huvudinnehållet</a>
     <nav>
         <a class="brand" href="/">Hem</a>
         <div class="nav-links">
@@ -36,7 +37,7 @@
             </div>
         {% endif %}
     {% endwith %}
-    <main>
+    <main id="main-content">
         {% block content %}{% endblock %}
     </main>
     <footer>
