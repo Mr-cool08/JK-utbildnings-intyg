@@ -5,6 +5,22 @@
   const pdfResultBody = document.getElementById('pdfResultBody');
   const resetForm = document.getElementById('resetForm');
   const resetMessage = document.getElementById('resetMessage');
+  const createSupervisorForm = document.getElementById('createSupervisorForm');
+  const createSupervisorMessage = document.getElementById('createSupervisorMessage');
+  const linkSupervisorForm = document.getElementById('linkSupervisorForm');
+  const linkSupervisorMessage = document.getElementById('linkSupervisorMessage');
+  const supervisorOverviewForm = document.getElementById('supervisorOverviewForm');
+  const supervisorOverviewMessage = document.getElementById('supervisorOverviewMessage');
+  const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
+  const supervisorOverviewBody = document.getElementById('supervisorOverviewBody');
+  const supervisorOverviewTitle = document.getElementById('supervisorOverviewTitle');
+
+  function setMessageElement(element, text, isError) {
+    if (!element) return;
+    element.textContent = text || '';
+    element.classList.toggle('error', Boolean(isError));
+    element.style.display = text ? '' : 'none';
+  }
 
   function normalizeCategories(list) {
     if (!Array.isArray(list)) return [];
@@ -34,9 +50,7 @@
   let lastLookup = '';
 
   function setLookupMessage(text, isError) {
-    if (!pdfLookupMessage) return;
-    pdfLookupMessage.textContent = text || '';
-    pdfLookupMessage.classList.toggle('error', Boolean(isError));
+    setMessageElement(pdfLookupMessage, text, isError);
   }
 
   function renderCategoryOptions(selected) {
@@ -199,8 +213,7 @@
     resetForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!resetMessage) return;
-      resetMessage.textContent = 'Skickar återställningslänk…';
-      resetMessage.classList.remove('error');
+      setMessageElement(resetMessage, 'Skickar återställningslänk…', false);
       const personnummer = document.getElementById('resetPersonnummer').value.trim();
       const email = document.getElementById('resetEmail').value.trim();
       try {
@@ -213,10 +226,141 @@
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte skicka återställning.');
         }
-        resetMessage.textContent = 'Återställningsmejl skickat.';
+        setMessageElement(resetMessage, 'Återställningsmejl skickat.', false);
       } catch (err) {
-        resetMessage.textContent = err.message;
-        resetMessage.classList.add('error');
+        setMessageElement(resetMessage, err.message, true);
+      }
+    });
+  }
+
+  if (createSupervisorForm) {
+    setMessageElement(createSupervisorMessage, '', false);
+    createSupervisorForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!createSupervisorMessage) return;
+      const formData = new FormData(createSupervisorForm);
+      const payload = {
+        name: formData.get('name')?.toString().trim(),
+        email: formData.get('email')?.toString().trim(),
+      };
+      setMessageElement(createSupervisorMessage, 'Skapar handledare…', false);
+      try {
+        const res = await fetch('/admin/api/handledare/skapa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte skapa handledare.');
+        }
+        setMessageElement(
+          createSupervisorMessage,
+          data.message || 'Handledare skapad.',
+          false,
+        );
+        createSupervisorForm.reset();
+      } catch (err) {
+        setMessageElement(createSupervisorMessage, err.message, true);
+      }
+    });
+  }
+
+  if (linkSupervisorForm) {
+    setMessageElement(linkSupervisorMessage, '', false);
+    linkSupervisorForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!linkSupervisorMessage) return;
+      const formData = new FormData(linkSupervisorForm);
+      const payload = {
+        email: formData.get('email')?.toString().trim(),
+        personnummer: formData.get('personnummer')?.toString().trim(),
+      };
+      setMessageElement(linkSupervisorMessage, 'Skapar koppling…', false);
+      try {
+        const res = await fetch('/admin/api/handledare/koppla', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte skapa koppling.');
+        }
+        setMessageElement(
+          linkSupervisorMessage,
+          data.message || 'Kopplingen har sparats.',
+          false,
+        );
+        linkSupervisorForm.reset();
+      } catch (err) {
+        setMessageElement(linkSupervisorMessage, err.message, true);
+      }
+    });
+  }
+
+  function renderSupervisorOverview(data) {
+    if (!supervisorOverviewCard || !supervisorOverviewBody || !supervisorOverviewTitle) {
+      return;
+    }
+    supervisorOverviewBody.innerHTML = '';
+    const connections = Array.isArray(data.connections) ? data.connections : [];
+    supervisorOverviewTitle.textContent = `Kopplade användare för ${data.name || 'handledare'}`;
+
+    if (!connections.length) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.textContent = 'Inga kopplingar hittades.';
+      row.appendChild(cell);
+      supervisorOverviewBody.appendChild(row);
+    } else {
+      connections.forEach((entry) => {
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        nameCell.textContent = entry.username || 'Användare';
+        const infoCell = document.createElement('td');
+        const hash = entry.personnummer_hash || '';
+        const label = document.createElement('span');
+        label.textContent = 'Hash: ';
+        infoCell.appendChild(label);
+        const code = document.createElement('code');
+        code.textContent = hash ? `${hash.slice(0, 12)}…` : 'saknas';
+        infoCell.appendChild(code);
+        row.appendChild(nameCell);
+        row.appendChild(infoCell);
+        supervisorOverviewBody.appendChild(row);
+      });
+    }
+
+    supervisorOverviewCard.hidden = false;
+  }
+
+  if (supervisorOverviewForm) {
+    setMessageElement(supervisorOverviewMessage, '', false);
+    supervisorOverviewCard.hidden = true;
+    supervisorOverviewForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!supervisorOverviewMessage) return;
+      const emailInput = document.getElementById('overviewSupervisorEmail');
+      const email = emailInput ? emailInput.value.trim() : '';
+      setMessageElement(supervisorOverviewMessage, 'Hämtar kopplingar…', false);
+      supervisorOverviewCard.hidden = true;
+      try {
+        const res = await fetch('/admin/api/handledare/oversikt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte hämta kopplingar.');
+        }
+        renderSupervisorOverview(data.data || {});
+        setMessageElement(supervisorOverviewMessage, 'Kopplingar hämtade.', false);
+      } catch (err) {
+        supervisorOverviewCard.hidden = true;
+        setMessageElement(supervisorOverviewMessage, err.message, true);
       }
     });
   }

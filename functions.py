@@ -23,6 +23,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    UniqueConstraint,
     create_engine,
     delete,
     func,
@@ -96,6 +97,54 @@ user_pdfs_table = Table(
     ),
 )
 
+pending_supervisors_table = Table(
+    "pending_supervisors",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("email", String, nullable=False, unique=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+)
+
+supervisors_table = Table(
+    "supervisors",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("email", String, nullable=False, unique=True),
+    Column("password", String, nullable=False),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+)
+
+supervisor_connections_table = Table(
+    "supervisor_connections",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("supervisor_email", String, nullable=False, index=True),
+    Column("user_personnummer", String, nullable=False, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    UniqueConstraint(
+        "supervisor_email",
+        "user_personnummer",
+        name="uq_supervisor_connections_pair",
+    ),
+)
+
 password_resets_table = Table(
     "password_resets",
     metadata,
@@ -133,6 +182,9 @@ TABLE_REGISTRY: dict[str, Table] = {
         pending_users_table,
         users_table,
         user_pdfs_table,
+        pending_supervisors_table,
+        supervisors_table,
+        supervisor_connections_table,
         password_resets_table,
         admin_audit_log_table,
     )
@@ -451,6 +503,50 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     return True
 
 
+def admin_create_supervisor(email: str, name: str) -> bool:
+    """Create a pending supervisor that needs to activate the account."""
+
+    normalized_email = normalize_email(email)
+    email_hash = hash_value(normalized_email)
+    try:
+        with get_engine().begin() as conn:
+            existing_supervisor = conn.execute(
+                select(supervisors_table.c.id).where(
+                    supervisors_table.c.email == email_hash
+                )
+            ).first()
+            if existing_supervisor:
+                logger.warning("Supervisor %s already exists", normalized_email)
+                return False
+
+            existing_pending = conn.execute(
+                select(pending_supervisors_table.c.id).where(
+                    pending_supervisors_table.c.email == email_hash
+                )
+            ).first()
+            if existing_pending:
+                logger.warning(
+                    "Pending supervisor already exists for %s", normalized_email
+                )
+                return False
+
+            conn.execute(
+                insert(pending_supervisors_table).values(
+                    email=email_hash,
+                    name=name,
+                )
+            )
+    except IntegrityError:
+        logger.warning(
+            "Pending supervisor already exists or was created concurrently for %s",
+            normalized_email,
+        )
+        return False
+
+    logger.info("Pending supervisor created for %s", normalized_email)
+    return True
+
+
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     # Move a pending user identified by ``personnummer_hash`` into users.
     try:
@@ -523,6 +619,291 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
             )
         ).first()
     return row.username if row else None
+
+
+def check_pending_supervisor_hash(email_hash: str) -> bool:
+    """Return ``True`` if a pending supervisor with ``email_hash`` exists."""
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(pending_supervisors_table.c.id).where(
+                pending_supervisors_table.c.email == email_hash
+            )
+        ).first()
+    return row is not None
+
+
+def supervisor_activate_account(email_hash: str, password: str) -> bool:
+    """Move a pending supervisor into the active supervisor table."""
+
+    if not password or len(password) < 8:
+        raise ValueError("Lösenordet måste vara minst 8 tecken.")
+
+    try:
+        with get_engine().begin() as conn:
+            existing = conn.execute(
+                select(supervisors_table.c.id).where(
+                    supervisors_table.c.email == email_hash
+                )
+            ).first()
+            if existing:
+                logger.warning("Supervisor %s already activated", email_hash)
+                return False
+
+            row = conn.execute(
+                select(
+                    pending_supervisors_table.c.email,
+                    pending_supervisors_table.c.name,
+                ).where(pending_supervisors_table.c.email == email_hash)
+            ).first()
+            if not row:
+                logger.warning(
+                    "Pending supervisor %s not found during activation", email_hash
+                )
+                return False
+
+            conn.execute(
+                delete(pending_supervisors_table).where(
+                    pending_supervisors_table.c.email == email_hash
+                )
+            )
+            conn.execute(
+                insert(supervisors_table).values(
+                    email=row.email,
+                    name=row.name,
+                    password=hash_password(password),
+                )
+            )
+    except IntegrityError:
+        logger.warning(
+            "Supervisor activation for %s skipped because record already exists",
+            email_hash,
+        )
+        return False
+
+    logger.info("Supervisor %s activated", email_hash)
+    return True
+
+
+def supervisor_exists(email: str) -> bool:
+    """Return ``True`` if a supervisor with ``email`` exists."""
+
+    normalized = normalize_email(email)
+    email_hash = hash_value(normalized)
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email == email_hash
+            )
+        ).first()
+    return row is not None
+
+
+def verify_supervisor_credentials(email: str, password: str) -> bool:
+    """Return ``True`` if ``email`` and ``password`` match a supervisor."""
+
+    normalized = normalize_email(email)
+    email_hash = hash_value(normalized)
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(supervisors_table.c.password).where(
+                supervisors_table.c.email == email_hash
+            )
+        ).first()
+    if not row:
+        return False
+    return verify_password(row.password, password)
+
+
+def get_supervisor_name_by_hash(email_hash: str) -> Optional[str]:
+    """Return the name of the supervisor identified by ``email_hash``."""
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(supervisors_table.c.name).where(
+                supervisors_table.c.email == email_hash
+            )
+        ).first()
+    if not row:
+        return None
+    return row.name
+
+
+def get_supervisor_email_hash(email: str) -> str:
+    """Return the hashed e-mail used for supervisor tables."""
+
+    normalized = normalize_email(email)
+    return hash_value(normalized)
+
+
+def list_supervisor_connections(email_hash: str) -> List[Dict[str, Any]]:
+    """Return connected users for the given supervisor hash."""
+
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(
+                supervisor_connections_table.c.user_personnummer,
+                users_table.c.username,
+            )
+            .select_from(
+                supervisor_connections_table.join(
+                    users_table,
+                    supervisor_connections_table.c.user_personnummer
+                    == users_table.c.personnummer,
+                )
+            )
+            .where(supervisor_connections_table.c.supervisor_email == email_hash)
+            .order_by(users_table.c.username.asc())
+        )
+
+        return [
+            {
+                "personnummer_hash": row.user_personnummer,
+                "username": row.username,
+            }
+            for row in rows
+        ]
+
+
+def supervisor_has_access(
+    supervisor_email_hash: str, personnummer_hash: str
+) -> bool:
+    """Return ``True`` if supervisor has access to the given user."""
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(supervisor_connections_table.c.id).where(
+                supervisor_connections_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        ).first()
+    return row is not None
+
+
+def supervisor_remove_connection(
+    supervisor_email_hash: str, personnummer_hash: str
+) -> bool:
+    """Remove a connection between supervisor and user."""
+
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(supervisor_connections_table).where(
+                supervisor_connections_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        )
+    return result.rowcount > 0
+
+
+def admin_link_supervisor_to_user(
+    supervisor_email: str, personnummer: str
+) -> tuple[bool, str]:
+    """Create a connection between a supervisor and a user.
+
+    Returns a tuple (success, reason). ``reason`` is ``'created'`` when the
+    connection was stored, or one of ``'missing_supervisor'``, ``'missing_user'``
+    or ``'exists'`` for error cases.
+    """
+
+    normalized_email = normalize_email(supervisor_email)
+    email_hash = hash_value(normalized_email)
+    pnr_hash = _hash_personnummer(personnummer)
+
+    with get_engine().begin() as conn:
+        supervisor_row = conn.execute(
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email == email_hash
+            )
+        ).first()
+        if not supervisor_row:
+            logger.warning("Supervisor %s not found for linking", normalized_email)
+            return False, "missing_supervisor"
+
+        user_row = conn.execute(
+            select(users_table.c.id).where(
+                users_table.c.personnummer == pnr_hash
+            )
+        ).first()
+        if not user_row:
+            logger.warning(
+                "User %s not found when linking supervisor %s",
+                personnummer,
+                normalized_email,
+            )
+            return False, "missing_user"
+
+        existing = conn.execute(
+            select(supervisor_connections_table.c.id).where(
+                supervisor_connections_table.c.supervisor_email == email_hash,
+                supervisor_connections_table.c.user_personnummer == pnr_hash,
+            )
+        ).first()
+        if existing:
+            logger.info(
+                "Supervisor %s already connected to %s",
+                normalized_email,
+                personnummer,
+            )
+            return False, "exists"
+
+        conn.execute(
+            insert(supervisor_connections_table).values(
+                supervisor_email=email_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+
+    logger.info(
+        "Supervisor %s connected to user %s",
+        normalized_email,
+        personnummer,
+    )
+    return True, "created"
+
+
+def get_supervisor_overview(email_hash: str) -> Optional[Dict[str, Any]]:
+    """Return supervisor info together with connected users."""
+
+    with get_engine().connect() as conn:
+        supervisor_row = conn.execute(
+            select(supervisors_table.c.name).where(
+                supervisors_table.c.email == email_hash
+            )
+        ).first()
+        if not supervisor_row:
+            return None
+
+        connections = conn.execute(
+            select(
+                supervisor_connections_table.c.user_personnummer,
+                users_table.c.username,
+            )
+            .select_from(
+                supervisor_connections_table.join(
+                    users_table,
+                    supervisor_connections_table.c.user_personnummer
+                    == users_table.c.personnummer,
+                )
+            )
+            .where(supervisor_connections_table.c.supervisor_email == email_hash)
+            .order_by(users_table.c.username.asc())
+        )
+
+        return {
+            "name": supervisor_row.name,
+            "email_hash": email_hash,
+            "connections": [
+                {
+                    "personnummer_hash": row.user_personnummer,
+                    "username": row.username,
+                }
+                for row in connections
+            ],
+        }
 
 
 def _serialize_categories(categories: Sequence[str] | None) -> str:

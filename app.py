@@ -27,6 +27,7 @@ from flask import (
     Response,
     abort,
     current_app,
+    flash,
     jsonify,
     send_from_directory,
     make_response,
@@ -299,6 +300,7 @@ def send_pdf_share_email(
     recipient_email: str,
     attachments: Sequence[tuple[str, bytes]],
     sender_name: str,
+    owner_name: str | None = None,
 ) -> None:
     # Send one or more PDFs as attachments to ``recipient_email``.
 
@@ -309,10 +311,14 @@ def send_pdf_share_email(
     settings = _load_smtp_settings()
 
     safe_sender = escape(sender_name.strip() or "En användare")
+    safe_owner = escape((owner_name or "").strip()) if owner_name else None
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     subject_prefix = "Delade" if len(attachments) > 1 else "Delat"
-    msg["Subject"] = f"{subject_prefix} intyg från {safe_sender}"
+    if safe_owner:
+        msg["Subject"] = f"{subject_prefix} intyg för {safe_owner} från {safe_sender}"
+    else:
+        msg["Subject"] = f"{subject_prefix} intyg från {safe_sender}"
     msg["From"] = settings.user
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
@@ -320,14 +326,20 @@ def send_pdf_share_email(
 
     if len(attachments) == 1:
         safe_filename = escape(attachments[0][0])
+        if safe_owner:
+            sharing_line = (
+                f"<p><strong>{safe_sender}</strong> delar <strong>{safe_owner}</strong>s intyg med dig via JK Utbildningsintyg.</p>"
+            )
+        else:
+            sharing_line = (
+                f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via JK Utbildningsintyg.</p>"
+            )
         body_html = (
             "<html>"
             "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
             "<p>Hej,</p>"
-            f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via JK "
-            "Utbildningsintyg.</p>"
-            f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>."
-            "</p>"
+            + sharing_line
+            + f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>.</p>"
             "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
             "</body>"
             "</html>"
@@ -336,13 +348,20 @@ def send_pdf_share_email(
         item_list = "".join(
             f"<li><em>{escape(filename)}</em></li>" for filename, _ in attachments
         )
+        if safe_owner:
+            sharing_line = (
+                f"<p><strong>{safe_sender}</strong> delar intyg som tillhör <strong>{safe_owner}</strong> med dig via JK Utbildningsintyg.</p>"
+            )
+        else:
+            sharing_line = (
+                f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via JK Utbildningsintyg.</p>"
+            )
         body_html = (
             "<html>"
             "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
             "<p>Hej,</p>"
-            f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via JK "
-            "Utbildningsintyg.</p>"
-            "<p>Intygen hittar du i följande bilagor:</p>"
+            + sharing_line
+            + "<p>Intygen hittar du i följande bilagor:</p>"
             f"<ul>{item_list}</ul>"
             "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
             "</body>"
@@ -367,6 +386,20 @@ def _require_admin() -> str:
     if not session.get("admin_logged_in"):
         abort(403)
     return session.get("admin_username", "okänd")
+
+
+def _require_supervisor() -> tuple[str, str]:
+    if not session.get("supervisor_logged_in"):
+        abort(403)
+    email_hash = session.get("supervisor_email_hash")
+    if not email_hash:
+        abort(403)
+    supervisor_name = session.get("supervisor_name") or functions.get_supervisor_name_by_hash(
+        email_hash
+    )
+    if supervisor_name:
+        session["supervisor_name"] = supervisor_name
+    return email_hash, supervisor_name or "Handledare"
 
 def send_password_reset_email(to_email: str, link: str) -> None:
     # Skicka e-post med länk för återställning av lösenord.
@@ -521,6 +554,211 @@ def create_user(pnr_hash):
             logger.warning("User hash %s not found during create_user", pnr_hash)
             return "Fel: Användaren hittades inte"
 
+
+@app.route('/handledare/skapa/<email_hash>', methods=['GET', 'POST'])
+def supervisor_create(email_hash: str):
+    logger.info("Handling supervisor creation for hash %s", email_hash)
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        confirm = request.form.get('confirm', '').strip()
+        if password != confirm:
+            return render_template(
+                'create_supervisor.html',
+                error='Lösenorden måste matcha.',
+                invalid=False,
+            )
+        try:
+            if not functions.supervisor_activate_account(email_hash, password):
+                return render_template(
+                    'create_supervisor.html',
+                    error='Kontot kunde inte aktiveras. Kontrollera att länken är giltig.',
+                    invalid=False,
+                )
+        except ValueError as exc:
+            return render_template(
+                'create_supervisor.html',
+                error=str(exc),
+                invalid=False,
+            )
+        logger.info("Supervisor account activated for %s", email_hash)
+        return redirect(url_for('supervisor_login'))
+
+    if functions.check_pending_supervisor_hash(email_hash):
+        return render_template('create_supervisor.html', invalid=False)
+    logger.warning("Supervisor hash %s not found during activation", email_hash)
+    return render_template('create_supervisor.html', invalid=True)
+
+
+@app.route('/handledare/login', methods=['GET', 'POST'])
+def supervisor_login():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        if not email or not password:
+            return render_template(
+                'supervisor_login.html',
+                error='Ogiltiga inloggningsuppgifter.',
+            )
+        try:
+            valid = functions.verify_supervisor_credentials(email, password)
+        except ValueError:
+            return render_template(
+                'supervisor_login.html',
+                error='Ogiltiga inloggningsuppgifter.',
+            )
+        if not valid:
+            logger.warning("Invalid supervisor login for %s", email)
+            return render_template(
+                'supervisor_login.html',
+                error='Ogiltiga inloggningsuppgifter.',
+            )
+
+        email_hash = functions.get_supervisor_email_hash(email)
+        session['supervisor_logged_in'] = True
+        session['supervisor_email_hash'] = email_hash
+        supervisor_name = functions.get_supervisor_name_by_hash(email_hash)
+        if supervisor_name:
+            session['supervisor_name'] = supervisor_name
+        logger.info("Supervisor %s logged in", email)
+        return redirect(url_for('supervisor_dashboard'))
+
+    return render_template('supervisor_login.html')
+
+
+@app.route('/handledare', methods=['GET'])
+def supervisor_dashboard():
+    email_hash, supervisor_name = _require_supervisor()
+    connections = functions.list_supervisor_connections(email_hash)
+    users = []
+    for entry in connections:
+        person_hash = entry['personnummer_hash']
+        username = (entry.get('username') or 'Användare').strip()
+        pdfs = functions.get_user_pdfs(person_hash)
+        for pdf in pdfs:
+            pdf['category_labels'] = labels_for_slugs(pdf.get('categories') or [])
+        users.append(
+            {
+                'personnummer_hash': person_hash,
+                'username': username,
+                'pdfs': pdfs,
+            }
+        )
+
+    return render_template(
+        'supervisor_dashboard.html',
+        supervisor_name=supervisor_name,
+        users=users,
+    )
+
+
+@app.route('/handledare/anvandare/<person_hash>/pdf/<int:pdf_id>')
+def supervisor_download_pdf(person_hash: str, pdf_id: int):
+    email_hash, _ = _require_supervisor()
+    if not functions.supervisor_has_access(email_hash, person_hash):
+        logger.warning(
+            "Supervisor %s attempted to access pdf %s for %s without permission",
+            email_hash,
+            pdf_id,
+            person_hash,
+        )
+        abort(404)
+    pdf = functions.get_pdf_content(person_hash, pdf_id)
+    if not pdf:
+        abort(404)
+    filename, content = pdf
+    as_attachment = request.args.get('download', '1') != '0'
+    logger.info(
+        "Supervisor %s retrieving %s for %s",
+        email_hash,
+        filename,
+        person_hash,
+    )
+    response = make_response(content)
+    response.headers['Content-Type'] = 'application/pdf'
+    disposition = 'attachment' if as_attachment else 'inline'
+    response.headers['Content-Disposition'] = f"{disposition}; filename=\"{filename}\""
+    return response
+
+
+@app.post('/handledare/dela/<person_hash>/<int:pdf_id>')
+def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
+    email_hash, supervisor_name = _require_supervisor()
+    anchor = request.form.get('anchor', '')
+    redirect_target = url_for('supervisor_dashboard')
+    if anchor:
+        redirect_target += f'#{anchor}'
+
+    if not functions.supervisor_has_access(email_hash, person_hash):
+        logger.warning(
+            "Supervisor %s attempted to share pdf %s for %s without permission",
+            email_hash,
+            pdf_id,
+            person_hash,
+        )
+        flash('Åtgärden kunde inte utföras.', 'error')
+        return redirect(redirect_target)
+
+    recipient_email = (request.form.get('recipient_email') or '').strip()
+    if not recipient_email:
+        flash('Ange en e-postadress.', 'error')
+        return redirect(redirect_target)
+
+    try:
+        normalized_recipient = _normalize_valid_email(recipient_email)
+    except ValueError:
+        flash('Ogiltig e-postadress.', 'error')
+        return redirect(redirect_target)
+
+    pdf = functions.get_pdf_content(person_hash, pdf_id)
+    if not pdf:
+        flash('Intyget kunde inte hittas.', 'error')
+        return redirect(redirect_target)
+
+    owner_name = functions.get_username_by_personnummer_hash(person_hash) or 'Användaren'
+    attachments = [(pdf[0], pdf[1])]
+
+    try:
+        send_pdf_share_email(
+            normalized_recipient,
+            attachments,
+            supervisor_name,
+            owner_name=owner_name,
+        )
+    except RuntimeError:
+        logger.exception(
+            "Failed to share pdf %s for %s by supervisor %s",
+            pdf_id,
+            person_hash,
+            email_hash,
+        )
+        flash('Ett internt fel inträffade när intyget skulle delas.', 'error')
+        return redirect(redirect_target)
+
+    logger.info(
+        "Supervisor %s shared pdf %s for %s to %s",
+        email_hash,
+        pdf_id,
+        person_hash,
+        normalized_recipient,
+    )
+    flash('Intyget har skickats via e-post.', 'success')
+    return redirect(redirect_target)
+
+
+@app.post('/handledare/kopplingar/<person_hash>/ta-bort')
+def supervisor_remove_connection_route(person_hash: str):
+    email_hash, _ = _require_supervisor()
+    anchor = request.form.get('anchor', '')
+    redirect_target = url_for('supervisor_dashboard')
+    if anchor:
+        redirect_target += f'#{anchor}'
+
+    if functions.supervisor_remove_connection(email_hash, person_hash):
+        logger.info("Supervisor %s removed access to %s", email_hash, person_hash)
+        flash('Kopplingen har tagits bort.', 'success')
+    else:
+        flash('Kopplingen kunde inte tas bort.', 'error')
+    return redirect(redirect_target)
 
 @app.route('/aterstall-losenord/<token>', methods=['GET', 'POST'])
 def password_reset(token: str):
@@ -1082,6 +1320,109 @@ def admin_send_password_reset():
     return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat.', 'link': link})
 
 
+@app.post('/admin/api/handledare/skapa')
+def admin_create_supervisor_route():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get('email') or '').strip()
+    name = (payload.get('name') or '').strip()
+    if not email or not name:
+        return jsonify({'status': 'error', 'message': 'Ange namn och e-post.'}), 400
+
+    try:
+        normalized_email = functions.normalize_email(email)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
+
+    if not functions.admin_create_supervisor(normalized_email, name):
+        return (
+            jsonify({'status': 'error', 'message': 'Handledaren finns redan eller väntar på aktivering.'}),
+            409,
+        )
+
+    email_hash = functions.get_supervisor_email_hash(normalized_email)
+    link = url_for('supervisor_create', email_hash=email_hash, _external=True)
+
+    try:
+        send_creation_email(normalized_email, link)
+    except RuntimeError:
+        logger.exception("Failed to send supervisor creation email to %s", normalized_email)
+        return (
+            jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken.'}),
+            500,
+        )
+
+    functions.log_admin_action(
+        admin_name,
+        'skapade handledare',
+        f'email={normalized_email}',
+    )
+    return jsonify({'status': 'success', 'message': 'Handledare skapad.', 'link': link})
+
+
+@app.post('/admin/api/handledare/koppla')
+def admin_link_supervisor_route():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get('email') or '').strip()
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not email or not personnummer:
+        return jsonify({'status': 'error', 'message': 'Ange handledarens e-post och personnummer.'}), 400
+
+    try:
+        success, reason = functions.admin_link_supervisor_to_user(email, personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltiga användaruppgifter.'}), 400
+
+    if not success:
+        status_code = 400
+        message = 'Åtgärden kunde inte utföras.'
+        if reason == 'missing_supervisor':
+            status_code = 404
+            message = 'Handledaren finns inte.'
+        elif reason == 'missing_user':
+            status_code = 404
+            message = 'Användaren finns inte.'
+        elif reason == 'exists':
+            status_code = 409
+            message = 'Kopplingen finns redan.'
+        return jsonify({'status': 'error', 'message': message}), status_code
+
+    normalized_email = functions.normalize_email(email)
+    normalized_personnummer = functions.normalize_personnummer(personnummer)
+    functions.log_admin_action(
+        admin_name,
+        'kopplade handledare',
+        f'email={normalized_email}, personnummer={normalized_personnummer}',
+    )
+    return jsonify({'status': 'success', 'message': 'Handledaren har kopplats till användaren.'})
+
+
+@app.post('/admin/api/handledare/oversikt')
+def admin_supervisor_overview():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get('email') or '').strip()
+    if not email:
+        return jsonify({'status': 'error', 'message': 'Ange handledarens e-post.'}), 400
+
+    try:
+        email_hash = functions.get_supervisor_email_hash(email)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
+
+    overview = functions.get_supervisor_overview(email_hash)
+    if not overview:
+        return jsonify({'status': 'error', 'message': 'Handledaren hittades inte.'}), 404
+
+    normalized_email = functions.normalize_email(email)
+    functions.log_admin_action(
+        admin_name,
+        'visade handledaröversikt',
+        f'email={normalized_email}',
+    )
+    return jsonify({'status': 'success', 'data': overview})
+
 @app.get('/admin/avancerat')
 def admin_advanced():
     if not session.get('admin_logged_in'):
@@ -1219,6 +1560,9 @@ def logout():
     session.pop('admin_logged_in', None)
     session.pop('admin_username', None)
     session.pop('personnummer', None)
+    session.pop('supervisor_logged_in', None)
+    session.pop('supervisor_email_hash', None)
+    session.pop('supervisor_name', None)
     return redirect('/')
 
 @app.errorhandler(500)

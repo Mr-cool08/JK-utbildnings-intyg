@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Handledarpanel{% endblock %}
+{% block content %}
+    <h1>Handledarpanel</h1>
+    <p>Välkommen {{ supervisor_name }}. Här ser du alla användare som administratören har kopplat till dig.</p>
+    {% if users %}
+        {% for user in users %}
+            <section class="panel" id="user-{{ user.personnummer_hash }}">
+                <div class="panel-header">
+                    <h2>{{ user.username }}</h2>
+                    <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" onsubmit="return confirm('Är du säker på att du vill ta bort kopplingen?');">
+                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                        <button type="submit" class="danger">Ta bort koppling</button>
+                    </form>
+                </div>
+                {% if user.pdfs %}
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Filnamn</th>
+                                    <th>Kategorier</th>
+                                    <th>Åtgärder</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pdf in user.pdfs %}
+                                    <tr>
+                                        <td>{{ pdf.filename }}</td>
+                                        <td>
+                                            {% if pdf.category_labels %}
+                                                {{ pdf.category_labels | join(', ') }}
+                                            {% else %}
+                                                Okategoriserat
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="actions">
+                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
+                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
+                                                <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
+                                                    <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                                                    <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
+                                                    <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
+                                                    <button type="submit">Dela intyg</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p>Inga intyg är uppladdade för denna användare ännu.</p>
+                {% endif %}
+            </section>
+        {% endfor %}
+    {% else %}
+        <p>Det finns inga kopplade användare just nu. Kontakta administratören om du behöver åtkomst.</p>
+    {% endif %}
+{% endblock %}
