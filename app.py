@@ -1136,7 +1136,8 @@ def admin_advanced_update(table_name: str, row_id: int):
     try:
         updated = functions.update_table_row(table_name, row_id, values)
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 400
+        logger.exception(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
+        return jsonify({'status': 'error', 'message': 'Felaktiga data.'}), 400
     if not updated:
         return jsonify({'status': 'error', 'message': 'Posten hittades inte.'}), 404
     functions.log_admin_action(
