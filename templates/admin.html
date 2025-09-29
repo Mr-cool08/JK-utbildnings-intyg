@@ -25,18 +25,26 @@
         </div>
     </div>
 
-    <fieldset class="category-group">
-        <legend>Välj kurskategori</legend>
-        <div class="category-options">
-            {% for slug, label in categories %}
-            <label class="radio-option">
-                <input type="radio" name="categories" value="{{ slug }}" required />
-                <span>{{ label }}</span>
-            </label>
-            {% endfor %}
-        </div>
-        <small class="hint">Välj den kategori som matchar PDF:en.</small>
+    <fieldset id="fileCategoryGroup" class="category-group" hidden>
+        <legend>Koppla kategori till varje PDF</legend>
+        <div id="fileCategoryList" class="category-options file-category-list"></div>
+        <small class="hint">Välj en kategori för varje uppladdad PDF.</small>
     </fieldset>
+
+    <template id="fileCategoryTemplate">
+        <div class="file-category-item">
+            <span class="file-name"></span>
+            <label>
+                <span class="sr-only">Kategori</span>
+                <select class="file-category-select" required>
+                    <option value="">Välj kategori</option>
+                    {% for slug, label in categories %}
+                    <option value="{{ slug }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+    </template>
 
     <button id="submitBtn" type="submit">Skapa användare</button>
 

@@ -33,7 +33,6 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
-from werkzeug.exceptions import BadRequestKeyError
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger
@@ -466,28 +465,40 @@ def admin():
             username = request.form.get('username', '').strip()
             personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
 
-            # Single category value (from radio button)
-            try:
-                    raw_category = request.form['categories'].strip()  # kan kasta BadRequestKeyError
-            except BadRequestKeyError:
-                logger.warning("Admin upload missing category (no form key)")
-                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
-            logger.debug("Admin upload for %s with category %s", personnummer, raw_category)
-
-            if not raw_category:
-                logger.warning("Admin upload missing category")
-                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
-
-            # Normalize and wrap in a list for functions that expect a list
-            selected_categories = normalize_category_slugs([raw_category])
-            if len(selected_categories) != 1:
-                logger.warning("Admin upload with invalid category count")
-                return jsonify({'status': 'error', 'message': 'Välj en kurskategori.'}), 400
-
+            raw_categories = request.form.getlist('categories')
             pdf_files = request.files.getlist('pdf')
+            if not raw_categories:
+                logger.warning("Admin upload missing categories (no selection)")
+                return jsonify({'status': 'error', 'message': 'Välj kategori för varje PDF.'}), 400
             if not pdf_files:
                 logger.warning("Admin upload without PDF")
                 return jsonify({'status': 'error', 'message': 'PDF-fil saknas'}), 400
+
+            if len(raw_categories) != len(pdf_files):
+                logger.warning(
+                    "Admin upload category mismatch (categories=%d, files=%d)",
+                    len(raw_categories),
+                    len(pdf_files),
+                )
+                return jsonify({'status': 'error', 'message': 'Välj kategori för varje PDF.'}), 400
+
+            logger.debug(
+                "Admin upload for %s with categories %s",
+                personnummer,
+                raw_categories,
+            )
+
+            normalized_categories = []
+            for idx, raw in enumerate(raw_categories):
+                selected = normalize_category_slugs([raw])
+                if len(selected) != 1:
+                    logger.warning(
+                        "Admin upload invalid category for file %d (value=%r)",
+                        idx,
+                        raw,
+                    )
+                    return jsonify({'status': 'error', 'message': 'Välj giltig kategori för varje PDF.'}), 400
+                normalized_categories.append(selected[0])
 
             # --- Check if user exists ---
             user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
@@ -495,7 +506,10 @@ def admin():
             pending_exists = functions.check_pending_user_hash(pnr_hash)
 
             # --- Save PDFs ---
-            pdf_records = [save_pdf_for_user(personnummer, f, selected_categories) for f in pdf_files]
+            pdf_records = [
+                save_pdf_for_user(personnummer, file_storage, [category])
+                for file_storage, category in zip(pdf_files, normalized_categories)
+            ]
 
             # --- Return early for existing or pending users ---
             if user_exists:

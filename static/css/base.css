@@ -63,7 +63,8 @@ label {
 input[type="text"],
 input[type="email"],
 input[type="password"],
-input[type="file"] {
+input[type="file"],
+select {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid #ccc;
@@ -147,6 +148,45 @@ a.license-link {
 a.license-link:hover {
     background: #007bff;
     color: #fff;
+}
+
+.file-category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.file-category-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+.file-category-item .file-name {
+    font-weight: 600;
+    flex: 1;
+    word-break: break-word;
+}
+
+.file-category-item select {
+    max-width: 220px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .not-found {
