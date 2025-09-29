@@ -39,6 +39,7 @@
                 <li data-pdf-categories="{{ pdf.categories | join(',') }}">
                     <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
                         {{ pdf.filename }}
+                        test_text
                     </a>
                     <span class="pdf-meta">
                         <strong>Kategorier:</strong>
