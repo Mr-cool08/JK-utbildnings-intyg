@@ -543,9 +543,21 @@ def create_user(pnr_hash):
     # Allow a pending user to set a password and activate the account.
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == 'POST':
-        password = request.form['password']
+        password = request.form.get('password', '')
+        accepted_privacy = request.form.get('accept_privacy')
+        accepted_terms = request.form.get('accept_terms')
+        if not accepted_privacy or not accepted_terms:
+            logger.info("Missing policy consent when creating user for hash %s", pnr_hash)
+            return render_template(
+                'create_user.html',
+                error='Du måste samtycka till integritetspolicyn och användarvillkoren för att skapa ett konto.',
+            )
         logger.debug("Creating user with hash %s", pnr_hash)
-        functions.user_create_user(password, pnr_hash)
+        try:
+            functions.user_create_user(password, pnr_hash)
+        except ValueError as exc:
+            logger.warning("Konto kunde inte skapas för hash %s: %s", pnr_hash, exc)
+            return render_template('create_user.html', error=str(exc))
         return redirect('/login')
     elif request.method == 'GET':
         if functions.check_pending_user_hash(pnr_hash):
@@ -565,6 +577,18 @@ def supervisor_create(email_hash: str):
             return render_template(
                 'create_supervisor.html',
                 error='Lösenorden måste matcha.',
+                invalid=False,
+            )
+        accepted_privacy = request.form.get('accept_privacy')
+        accepted_terms = request.form.get('accept_terms')
+        if not accepted_privacy or not accepted_terms:
+            logger.info(
+                "Missing policy consent when activating supervisor account for %s",
+                email_hash,
+            )
+            return render_template(
+                'create_supervisor.html',
+                error='Du måste samtycka till integritetspolicyn och användarvillkoren för att aktivera kontot.',
                 invalid=False,
             )
         try:
@@ -802,6 +826,24 @@ def home():
     logger.debug("Rendering home page")
     return render_template('index.html')
 
+
+
+@app.route('/integritetspolicy', methods=['GET'])
+def privacy_policy():
+    logger.debug("Rendering privacy policy page")
+    return render_template('privacy.html')
+
+
+@app.route('/cookiepolicy', methods=['GET'])
+def cookie_policy():
+    logger.debug("Rendering cookie policy page")
+    return render_template('cookies.html')
+
+
+@app.route('/anvandarvillkor', methods=['GET'])
+def terms_of_use():
+    logger.debug("Rendering terms of use page")
+    return render_template('terms.html')
 
 
 @app.route('/license', methods=['GET'])

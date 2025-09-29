@@ -48,6 +48,38 @@ def supervisor_setup(empty_db):
     }
 
 
+def test_supervisor_route_requires_policy_consent(empty_db):
+    email = "samtycke@example.com"
+    name = "Handledare Samtycke"
+    assert functions.admin_create_supervisor(email, name)
+    email_hash = functions.get_supervisor_email_hash(email)
+
+    with app.app.test_client() as client:
+        response = client.get(f"/handledare/skapa/{email_hash}")
+        assert response.status_code == 200
+
+        response = client.post(
+            f"/handledare/skapa/{email_hash}",
+            data={
+                "password": "SakerLosen123",
+                "confirm": "SakerLosen123",
+            },
+        )
+        assert response.status_code == 200
+        assert "Du måste samtycka" in response.get_data(as_text=True)
+
+        response = client.post(
+            f"/handledare/skapa/{email_hash}",
+            data={
+                "password": "SakerLosen123",
+                "confirm": "SakerLosen123",
+                "accept_privacy": "on",
+                "accept_terms": "on",
+            },
+        )
+        assert response.status_code == 302
+
+
 def _supervisor_client(email_hash, name):
     client = app.app.test_client()
     with client.session_transaction() as sess:

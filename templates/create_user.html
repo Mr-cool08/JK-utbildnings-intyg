@@ -3,8 +3,26 @@
     <div class="create-account">
         <h2>Skapa konto</h2>
         <form method="POST">
+            {% if error %}
+                <p class="message error">{{ error }}</p>
+            {% endif %}
             <label for="password">Lösenord:</label>
             <input type="password" id="password" name="password" required>
+            <div class="consent-group">
+                <input type="checkbox" id="accept_privacy" name="accept_privacy" required>
+                <label for="accept_privacy">
+                    Jag bekräftar att jag har läst och förstått
+                    <a href="{{ url_for('privacy_policy') }}" target="_blank">integritetspolicyn</a>
+                    och hur mina personuppgifter behandlas.
+                </label>
+            </div>
+            <div class="consent-group">
+                <input type="checkbox" id="accept_terms" name="accept_terms" required>
+                <label for="accept_terms">
+                    Jag accepterar <a href="{{ url_for('terms_of_use') }}" target="_blank">användarvillkoren</a>
+                    och förbinder mig att följa dem.
+                </label>
+            </div>
             <button type="submit">Skapa konto</button>
         </form>
         <p class="license-note">Vänligen läs licensavtalet innan du skapar ditt konto:</p>

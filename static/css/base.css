@@ -456,11 +456,131 @@ a.license-link:hover {
     font-size: 1rem;
 }
 
-footer {
+.site-footer {
     text-align: center;
-    padding: 20px;
-    background: #333;
+    padding: 24px 16px;
+    background: #1f2933;
     color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 48px;
+}
+
+.site-footer .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+}
+
+.site-footer .footer-links a {
+    color: #e2e8f0;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.site-footer .footer-links a:hover,
+.site-footer .footer-links a:focus {
+    text-decoration: underline;
+}
+
+.site-footer p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #cbd5f5;
+}
+
+.cookie-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(26, 32, 44, 0.95);
+    color: #fff;
+    padding: 16px;
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.3);
+}
+
+.cookie-banner.is-hidden {
+    display: none;
+}
+
+.cookie-banner__content {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cookie-banner p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.cookie-banner a {
+    color: #90cdf4;
+    text-decoration: underline;
+}
+
+.cookie-banner button {
+    align-self: flex-start;
+    background: #38a169;
+    border: none;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cookie-banner button:hover,
+.cookie-banner button:focus {
+    background: #2f855a;
+}
+
+.consent-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.consent-group input[type="checkbox"] {
+    margin-top: 4px;
+}
+
+.consent-group label {
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.policy {
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    line-height: 1.6;
+}
+
+.policy h1 {
+    margin-top: 0;
+}
+
+.policy h2 {
+    margin-top: 32px;
+    font-size: 1.4rem;
+}
+
+.policy ul {
+    padding-left: 20px;
+}
+
+.policy li {
+    margin-bottom: 8px;
 }
 
 /* --- Konto­skapande-sida --- */
@@ -551,6 +671,14 @@ footer {
     .process-steps,
     .trust-grid {
         grid-template-columns: 1fr;
+    }
+
+    .cookie-banner__content {
+        align-items: stretch;
+    }
+
+    .cookie-banner button {
+        width: 100%;
     }
 }
 

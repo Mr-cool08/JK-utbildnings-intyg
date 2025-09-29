@@ -17,6 +17,22 @@
                 <label for="confirm">Bekräfta lösenord</label>
                 <input type="password" id="confirm" name="confirm" minlength="8" required>
 
+                <div class="consent-group">
+                    <input type="checkbox" id="accept_privacy" name="accept_privacy" required>
+                    <label for="accept_privacy">
+                        Jag har tagit del av <a href="{{ url_for('privacy_policy') }}" target="_blank">integritetspolicyn</a>
+                        och godkänner behandlingen av mina personuppgifter.
+                    </label>
+                </div>
+
+                <div class="consent-group">
+                    <input type="checkbox" id="accept_terms" name="accept_terms" required>
+                    <label for="accept_terms">
+                        Jag accepterar <a href="{{ url_for('terms_of_use') }}" target="_blank">användarvillkoren</a>
+                        för handledartjänsten.
+                    </label>
+                </div>
+
                 <button type="submit">Aktivera konto</button>
             </form>
             <p class="license-note">Genom att fortsätta accepterar du villkoren i vårt licensavtal.</p>

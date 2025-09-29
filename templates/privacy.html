@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Integritetspolicy{% endblock %}
+{% block content %}
+<article class="policy">
+    <h1>Integritetspolicy</h1>
+    <p>
+        Denna integritetspolicy beskriver hur vi samlar in, använder, lagrar och skyddar personuppgifter i enlighet med
+        Europaparlamentets och rådets förordning (EU) 2016/679 (GDPR) samt tillämplig svensk lagstiftning.
+        Policyn gäller för samtliga användare av tjänsten JK Utbildnings intygsportal.
+    </p>
+
+    <h2>Personuppgifter som behandlas</h2>
+    <p>Vi behandlar följande kategorier av personuppgifter beroende på vilken roll du har i tjänsten:</p>
+    <ul>
+        <li>Identitetsuppgifter såsom personnummer, namn och handledarkod.</li>
+        <li>Kontaktuppgifter som e-postadress och telefonnummer.</li>
+        <li>Uppgifter kopplade till utbildningsintyg, uppladdade dokument och kurskategorier.</li>
+        <li>Inloggnings- och sessionsdata, inklusive tekniska loggar och säkerhetshändelser.</li>
+    </ul>
+
+    <h2>Ändamål och rättslig grund</h2>
+    <p>Behandlingen sker endast för specificerade ändamål:</p>
+    <ul>
+        <li>Fullgöra avtal med användare och handledare enligt artikel 6.1 b GDPR.</li>
+        <li>Uppfylla rättsliga förpliktelser avseende bokföring och konsumenträtt enligt artikel 6.1 c GDPR.</li>
+        <li>Skydda berättigade intressen såsom att förebygga missbruk och säkerställa spårbarhet enligt artikel 6.1 f GDPR.</li>
+        <li>Kommunicera viktig information och support efter uttryckligt samtycke enligt artikel 6.1 a GDPR.</li>
+    </ul>
+
+    <h2>Lagringstid</h2>
+    <p>
+        Personuppgifter sparas endast så länge det är nödvändigt för att uppfylla ändamålen ovan. Kontouppgifter och
+        relaterade intyg sparas så länge användaren har ett aktivt konto och därefter i högst fem (5) år för att uppfylla
+        rättsliga krav och kunna hantera eventuella reklamationer.
+    </p>
+
+    <h2>Mottagare och överföringar</h2>
+    <p>
+        Personuppgifter delas endast med betrodda personuppgiftsbiträden som tillhandahåller drift, säkerhet,
+        e-postutskick och lagring. Alla biträden omfattas av personuppgiftsbiträdesavtal enligt artikel 28 GDPR och
+        får endast behandla uppgifter enligt våra instruktioner. Ingen överföring sker till tredje land utan att lämpliga
+        skyddsåtgärder, såsom EU-kommissionens standardavtalsklausuler, först har säkerställts.
+    </p>
+
+    <h2>Dina rättigheter</h2>
+    <p>Som registrerad har du rätt att:</p>
+    <ul>
+        <li>Begära tillgång till de uppgifter vi behandlar om dig (artikel 15).</li>
+        <li>Begära rättelse av felaktiga uppgifter (artikel 16).</li>
+        <li>Begära radering eller begränsning av behandlingen i vissa fall (artiklarna 17 och 18).</li>
+        <li>Invända mot behandling som grundar sig på berättigat intresse (artikel 21).</li>
+        <li>Få dina uppgifter överförda till en annan aktör (dataportabilitet enligt artikel 20).</li>
+        <li>Återkalla ett lämnat samtycke utan att det påverkar lagligheten av behandling som skett före återkallelsen.</li>
+        <li>Lämna klagomål till Integritetsskyddsmyndigheten (IMY) om du anser att vår behandling strider mot GDPR.</li>
+    </ul>
+
+    <h2>Datasäkerhet</h2>
+    <p>
+        Vi använder kryptering, åtkomstloggning, stark autentisering och kontinuerlig säkerhetsövervakning för att
+        skydda dina uppgifter mot obehörig åtkomst, förlust eller manipulation. Behörigheter granskas regelbundet och
+        all personal omfattas av sekretessavtal.
+    </p>
+
+    <h2>Cookies och spårning</h2>
+    <p>
+        Vi använder endast tekniskt nödvändiga kakor och sessionskakor för att möjliggöra säker inloggning och lagra
+        användarinställningar. Icke-nödvändiga analyskakor sätts enbart om du samtycker via cookie-bannern. Se vår
+        <a href="{{ url_for('cookie_policy') }}">cookiepolicy</a> för mer information.
+    </p>
+
+    <h2>Kontakt</h2>
+    <p>
+        Personuppgiftsansvarig är JK Utbildning AB. Vid frågor eller för att utöva dina rättigheter kontaktar du oss på
+        <a href="mailto:integritet@jk-utbildning.se">integritet@jk-utbildning.se</a>. Vi svarar på alla förfrågningar utan
+        onödigt dröjsmål och senast inom en (1) månad.
+    </p>
+</article>
+{% endblock %}

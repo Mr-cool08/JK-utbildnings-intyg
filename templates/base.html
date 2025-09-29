@@ -39,9 +39,50 @@
     <main>
         {% block content %}{% endblock %}
     </main>
-    <footer>
-        {% block footer %}Liam Suorsa © 2025{% endblock %}
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="{{ url_for('privacy_policy') }}">Integritetspolicy</a>
+            <a href="{{ url_for('cookie_policy') }}">Cookiepolicy</a>
+            <a href="{{ url_for('terms_of_use') }}">Användarvillkor</a>
+            <a href="{{ url_for('license') }}">Licensavtal</a>
+        </div>
+        <p>{% block footer %}Liam Suorsa © 2025{% endblock %}</p>
     </footer>
-
+    <div id="cookie-banner" class="cookie-banner" role="dialog" aria-live="polite" aria-label="Information om kakor">
+        <div class="cookie-banner__content">
+            <p>
+                Vi använder nödvändiga kakor för att sidan ska fungera och sessionskakor för att hålla dig inloggad.
+                Icke-nödvändiga kakor sätts endast om du ger ditt samtycke. Läs mer i vår
+                <a href="{{ url_for('cookie_policy') }}">cookiepolicy</a> och vår
+                <a href="{{ url_for('privacy_policy') }}">integritetspolicy</a>.
+            </p>
+            <button type="button" id="accept-cookies">Jag accepterar icke-nödvändiga kakor</button>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var banner = document.getElementById('cookie-banner');
+            if (!banner) {
+                return;
+            }
+            var consentGiven = document.cookie.split(';').some(function (entry) {
+                return entry.trim().indexOf('cookie_consent=granted') === 0;
+            });
+            if (consentGiven) {
+                banner.classList.add('is-hidden');
+                return;
+            }
+            var button = document.getElementById('accept-cookies');
+            if (!button) {
+                return;
+            }
+            button.addEventListener('click', function () {
+                var expires = new Date();
+                expires.setFullYear(expires.getFullYear() + 1);
+                document.cookie = 'cookie_consent=granted; path=/; expires=' + expires.toUTCString() + '; SameSite=Lax';
+                banner.classList.add('is-hidden');
+            });
+        })();
+    </script>
 </body>
 </html>

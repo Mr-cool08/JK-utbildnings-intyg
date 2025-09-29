@@ -11,7 +11,14 @@ def test_create_user_route_moves_pending_user(empty_db):
         assert resp.status_code == 200
         assert "Skapa konto" in resp.get_data(as_text=True)
 
-        resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
+        resp = client.post(
+            f"/create_user/{pnr_hash}",
+            data={
+                "password": "newpass",
+                "accept_privacy": "on",
+                "accept_terms": "on",
+            },
+        )
         assert resp.status_code == 302
 
     with empty_db.connect() as conn:
@@ -28,3 +35,14 @@ def test_create_user_route_moves_pending_user(empty_db):
 
     assert user_row is not None
     assert pending_row is None
+
+
+def test_create_user_requires_policy_consent(empty_db):
+    functions.admin_create_user("user@example.com", "User", "19900101-1234")
+    pnr_hash = functions.hash_value(functions.normalize_personnummer("19900101-1234"))
+
+    with app.app.test_client() as client:
+        resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "Du måste samtycka" in body
