@@ -353,7 +353,7 @@ def normalize_email(email: str) -> str:
         raise ValueError("Ogiltig e-postadress")
 
     normalized = cleaned.lower()
-    logger.debug("Normalizing email address for %s", normalized)
+    logger.debug("Normalizing email address")
     return normalized
 
 
@@ -369,14 +369,14 @@ def verify_password(hashed: str, password: str) -> bool:
 
 def normalize_personnummer(pnr: str) -> str:
     # Normalize Swedish personal numbers to the YYMMDDXXXX format.
-    logger.debug("Normalizing personnummer %s", pnr)
+    logger.debug("Normalizing personnummer")
     digits = re.sub(r"\D", "", pnr)
     if len(digits) == 12:
         digits = digits[2:]
     if len(digits) != 10:
-        logger.error("Invalid personnummer format: %s", pnr)
+        logger.error("Misslyckad normalisering av personnummer: ogiltigt format")
         raise ValueError("Ogiltigt personnummerformat.")
-    logger.debug("Normalized personnummer to %s", digits)
+    logger.debug("Personnummer normaliserat")
     return digits
 
 
@@ -476,7 +476,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 select(users_table.c.id).where(users_table.c.email == hashed_email)
             ).first()
             if existing_user:
-                logger.warning("Attempt to recreate existing user %s", email)
+                logger.warning("Attempt to recreate existing user hash %s", hashed_email)
                 return False
             existing_pending = conn.execute(
                 select(pending_users_table.c.id).where(
@@ -484,7 +484,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 )
             ).first()
             if existing_pending:
-                logger.warning("Pending user already exists for %s", personnummer)
+                logger.warning("Pending user already exists for hash %s", pnr_hash)
                 return False
             conn.execute(
                 insert(pending_users_table).values(
@@ -495,11 +495,11 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
             )
     except IntegrityError:
         logger.warning(
-            "Pending user already exists or was created concurrently for %s",
-            personnummer,
+            "Pending user already exists or was created concurrently for hash %s",
+            pnr_hash,
         )
         return False
-    logger.info("Pending user created for %s", personnummer)
+    logger.info("Pending user created for hash %s", pnr_hash)
     return True
 
 
@@ -516,7 +516,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 )
             ).first()
             if existing_supervisor:
-                logger.warning("Supervisor %s already exists", normalized_email)
+                logger.warning("Supervisor %s already exists", email_hash)
                 return False
 
             existing_pending = conn.execute(
@@ -526,7 +526,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
             ).first()
             if existing_pending:
                 logger.warning(
-                    "Pending supervisor already exists for %s", normalized_email
+                    "Pending supervisor already exists for %s", email_hash
                 )
                 return False
 
@@ -539,11 +539,11 @@ def admin_create_supervisor(email: str, name: str) -> bool:
     except IntegrityError:
         logger.warning(
             "Pending supervisor already exists or was created concurrently for %s",
-            normalized_email,
+            email_hash,
         )
         return False
 
-    logger.info("Pending supervisor created for %s", normalized_email)
+    logger.info("Pending supervisor created for %s", email_hash)
     return True
 
 
@@ -820,7 +820,7 @@ def admin_link_supervisor_to_user(
             )
         ).first()
         if not supervisor_row:
-            logger.warning("Supervisor %s not found for linking", normalized_email)
+            logger.warning("Supervisor %s not found for linking", email_hash)
             return False, "missing_supervisor"
 
         user_row = conn.execute(
@@ -831,8 +831,8 @@ def admin_link_supervisor_to_user(
         if not user_row:
             logger.warning(
                 "User %s not found when linking supervisor %s",
-                personnummer,
-                normalized_email,
+                pnr_hash,
+                email_hash,
             )
             return False, "missing_user"
 
@@ -845,8 +845,8 @@ def admin_link_supervisor_to_user(
         if existing:
             logger.info(
                 "Supervisor %s already connected to %s",
-                normalized_email,
-                personnummer,
+                email_hash,
+                pnr_hash,
             )
             return False, "exists"
 
@@ -859,8 +859,8 @@ def admin_link_supervisor_to_user(
 
     logger.info(
         "Supervisor %s connected to user %s",
-        normalized_email,
-        personnummer,
+        email_hash,
+        pnr_hash,
     )
     return True, "created"
 

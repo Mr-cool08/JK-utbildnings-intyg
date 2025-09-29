@@ -491,7 +491,6 @@ def save_pdf_for_user(
     pnr: str, file_storage, categories: Sequence[str]
 ) -> dict[str, str | int | Sequence[str]]:
     # Validate and store a PDF in the database for the provided personnummer.
-    logger.debug("Saving PDF for personnummer %s", pnr)
     if file_storage.filename == "":
         logger.error("No file selected for upload")
         raise ValueError("Ingen fil vald.")
@@ -507,17 +506,18 @@ def save_pdf_for_user(
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
+    pnr_norm = functions.normalize_personnummer(pnr)
+    pnr_hash = functions.hash_value(pnr_norm)
+    logger.debug("Saving PDF for person hash %s", pnr_hash)
+
     selected_categories = normalize_category_slugs(categories)
     if len(selected_categories) != 1:
         logger.error(
-            "Invalid number of categories (%d) for %s",
+            "Invalid number of categories (%d) for hash %s",
             len(selected_categories),
-            pnr,
+            pnr_hash,
         )
         raise ValueError("Exakt en kurskategori måste väljas.")
-
-    pnr_norm = functions.normalize_personnummer(pnr)
-    pnr_hash = functions.hash_value(pnr_norm)
 
     base = secure_filename(file_storage.filename)
     base = base.replace(pnr_norm, "")
@@ -530,7 +530,7 @@ def save_pdf_for_user(
     file_storage.stream.seek(0)
     content = file_storage.stream.read()
     pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
-    logger.info("Stored PDF for %s as id %s", pnr, pdf_id)
+    logger.info("Stored PDF for hash %s as id %s", pnr_hash, pdf_id)
     return {"id": pdf_id, "filename": filename, "categories": selected_categories}
 
 @app.route('/robots.txt')
@@ -600,26 +600,35 @@ def supervisor_login():
                 error='Ogiltiga inloggningsuppgifter.',
             )
         try:
-            valid = functions.verify_supervisor_credentials(email, password)
+            normalized_email = functions.normalize_email(email)
         except ValueError:
+            logger.warning("Ogiltig e-postadress vid handledarinloggning")
+            return render_template(
+                'supervisor_login.html',
+                error='Ogiltiga inloggningsuppgifter.',
+            )
+        email_hash = functions.hash_value(normalized_email)
+        try:
+            valid = functions.verify_supervisor_credentials(normalized_email, password)
+        except ValueError:
+            logger.warning("Ogiltig e-postadress vid handledarinloggning (validering)")
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
             )
         if not valid:
-            logger.warning("Invalid supervisor login for %s", email)
+            logger.warning("Invalid supervisor login for %s", email_hash)
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
             )
 
-        email_hash = functions.get_supervisor_email_hash(email)
         session['supervisor_logged_in'] = True
         session['supervisor_email_hash'] = email_hash
         supervisor_name = functions.get_supervisor_name_by_hash(email_hash)
         if supervisor_name:
             session['supervisor_name'] = supervisor_name
-        logger.info("Supervisor %s logged in", email)
+        logger.info("Supervisor %s logged in", email_hash)
         return redirect(url_for('supervisor_dashboard'))
 
     return render_template('supervisor_login.html')
@@ -806,33 +815,41 @@ def license():
 def login():
     # Authenticate users using personnummer and password.
     if request.method == 'POST':
-        personnummer = request.form['personnummer']
-        personnummer = functions.normalize_personnummer(personnummer)
+        raw_personnummer = request.form['personnummer']
+        try:
+            personnummer = functions.normalize_personnummer(raw_personnummer)
+        except ValueError:
+            logger.error("Ogiltigt personnummer angivet vid inloggning")
+            return (
+                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+                401,
+            )
+
         if personnummer == "" or not personnummer.isnumeric():
-            logger.error("Invalid personnummer: %s", personnummer)
+            logger.error("Ogiltigt normaliserat personnummer vid inloggning")
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
             )
         password = request.form['password']
+        personnummer_hash = functions.hash_value(personnummer)
         if password == "":
-            logger.error("Empty password provided for %s", personnummer)
+            logger.error("Empty password provided for %s", personnummer_hash)
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
             )
-        logger.debug("Login attempt for %s", personnummer)
+        logger.debug("Login attempt for %s", personnummer_hash)
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
-            personnummer_hash = functions.hash_value(personnummer)
             session['personnummer'] = personnummer_hash
             session['username'] = functions.get_username_by_personnummer_hash(
                 personnummer_hash
             )
-            logger.info("User %s logged in", personnummer)
+            logger.info("User %s logged in", personnummer_hash)
             return redirect('/dashboard')
         else:
-            logger.warning("Invalid login for %s", personnummer)
+            logger.warning("Invalid login for %s", personnummer_hash)
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
@@ -1067,9 +1084,13 @@ def admin():
 
         try:
             # --- Grab form data ---
-            email = request.form.get('email', '').strip()
+            email_input = request.form.get('email', '').strip()
             username = request.form.get('username', '').strip()
             personnummer = functions.normalize_personnummer(request.form.get('personnummer', '').strip())
+            normalized_email = functions.normalize_email(email_input)
+            email = normalized_email
+            email_hash = functions.hash_value(email)
+            pnr_hash = functions.hash_value(personnummer)
 
             raw_categories = request.form.getlist('categories')
             pdf_files = request.files.getlist('pdf')
@@ -1089,8 +1110,8 @@ def admin():
                 return jsonify({'status': 'error', 'message': 'Välj kategori för varje PDF.'}), 400
 
             logger.debug(
-                "Admin upload for %s with categories %s",
-                personnummer,
+                "Admin upload for hash %s with categories %s",
+                pnr_hash,
                 raw_categories,
             )
 
@@ -1108,7 +1129,6 @@ def admin():
 
             # --- Check if user exists ---
             user_exists = functions.get_user_info(personnummer) or functions.check_user_exists(email)
-            pnr_hash = functions.hash_value(personnummer)
             pending_exists = functions.check_pending_user_hash(pnr_hash)
 
             # --- Save PDFs ---
@@ -1119,11 +1139,11 @@ def admin():
 
             # --- Return early for existing or pending users ---
             if user_exists:
-                logger.info("PDFs uploaded for existing user %s (%d files)", personnummer, len(pdf_records))
+                logger.info("PDFs uploaded for existing user hash %s (%d files)", pnr_hash, len(pdf_records))
                 return jsonify({'status': 'success', 'message': 'PDF:er uppladdade för befintlig användare'})
 
             if pending_exists:
-                logger.info("PDFs uploaded for pending user %s (%d files)", personnummer, len(pdf_records))
+                logger.info("PDFs uploaded for pending user hash %s (%d files)", pnr_hash, len(pdf_records))
                 return jsonify({'status': 'success', 'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.'})
 
             # --- Create new pending user ---
@@ -1132,13 +1152,13 @@ def admin():
                 try:
                     send_creation_email(email, link)
                 except RuntimeError as e:
-                    logger.error("Failed to send creation email to %s", email, exc_info=True)
+                    logger.error("Failed to send creation email to hash %s", email_hash, exc_info=True)
                     return jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken via e-post.'}), 500
 
-                logger.info("Admin created user %s", personnummer)
+                logger.info("Admin created user hash %s", pnr_hash)
                 return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
 
-            logger.error("Failed to create pending user for %s", personnummer)
+            logger.error("Failed to create pending user for hash %s", pnr_hash)
             return jsonify({'status': 'error', 'message': 'Kunde inte skapa användare'}), 500
 
         except ValueError as ve:
@@ -1207,7 +1227,7 @@ def admin_user_overview():
     functions.log_admin_action(
         admin_name,
         'visade användaröversikt',
-        f'personnummer={normalized_personnummer}',
+        f'personnummer_hash={pnr_hash}',
     )
     return jsonify(response)
 
@@ -1236,10 +1256,11 @@ def admin_delete_pdf():
             404,
         )
 
+    pnr_hash = functions.hash_value(normalized_personnummer)
     functions.log_admin_action(
         admin_name,
         'raderade PDF',
-        f'personnummer={normalized_personnummer}, pdf_id={pdf_id_int}',
+        f'personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}',
     )
     return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
 
@@ -1277,10 +1298,11 @@ def admin_update_pdf():
             404,
         )
 
+    pnr_hash = functions.hash_value(normalized_personnummer)
     functions.log_admin_action(
         admin_name,
         'uppdaterade PDF-kategorier',
-        f'personnummer={normalized_personnummer}, pdf_id={pdf_id_int}, kategorier={";".join(normalized_categories)}',
+        f'personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}, kategorier={";".join(normalized_categories)}',
     )
     return jsonify({'status': 'success', 'message': 'Kategorier uppdaterade.'})
 
@@ -1314,10 +1336,12 @@ def admin_send_password_reset():
         logger.exception("Misslyckades att skicka återställningsmejl")
         return jsonify({'status': 'error', 'message': 'Kunde inte skicka återställningsmejl.'}), 500
 
+    pnr_hash = functions.hash_value(normalized_personnummer)
+    email_hash = functions.hash_value(functions.normalize_email(email))
     functions.log_admin_action(
         admin_name,
         'skickade lösenordsåterställning',
-        f'personnummer={normalized_personnummer}',
+        f'personnummer_hash={pnr_hash}, email_hash={email_hash}',
     )
     return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat.', 'link': link})
 
@@ -1348,7 +1372,7 @@ def admin_create_supervisor_route():
     try:
         send_creation_email(normalized_email, link)
     except RuntimeError:
-        logger.exception("Failed to send supervisor creation email to %s", normalized_email)
+        logger.exception("Failed to send supervisor creation email to %s", email_hash)
         return (
             jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken.'}),
             500,
@@ -1357,7 +1381,7 @@ def admin_create_supervisor_route():
     functions.log_admin_action(
         admin_name,
         'skapade handledare',
-        f'email={normalized_email}',
+        f'email_hash={email_hash}',
     )
     return jsonify({'status': 'success', 'message': 'Handledare skapad.', 'link': link})
 
@@ -1392,10 +1416,12 @@ def admin_link_supervisor_route():
 
     normalized_email = functions.normalize_email(email)
     normalized_personnummer = functions.normalize_personnummer(personnummer)
+    email_hash = functions.hash_value(normalized_email)
+    personnummer_hash = functions.hash_value(normalized_personnummer)
     functions.log_admin_action(
         admin_name,
         'kopplade handledare',
-        f'email={normalized_email}, personnummer={normalized_personnummer}',
+        f'email_hash={email_hash}, personnummer_hash={personnummer_hash}',
     )
     return jsonify({'status': 'success', 'message': 'Handledaren har kopplats till användaren.'})
 
@@ -1421,7 +1447,7 @@ def admin_supervisor_overview():
     functions.log_admin_action(
         admin_name,
         'visade handledaröversikt',
-        f'email={normalized_email}',
+        f'email_hash={functions.hash_value(normalized_email)}',
     )
     return jsonify({'status': 'success', 'data': overview})
 
