@@ -146,7 +146,7 @@ def _is_truthy(value: Optional[str]) -> bool:
     if value is None:
         return False
 
-    return value.strip().lower() in {"1", "ja", "on", "sant", "true", "t", "yes", "y"}
+    return value.strip().lower() in {"1", "ja", "on", "sant", "true", "t", "yes", "y", "True", "TRUE", "Ja", "JA", "On", "ON", "Sant", "SANT"}
 
 
 def _build_engine() -> Engine:
