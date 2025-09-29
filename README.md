@@ -18,7 +18,7 @@ This web application manages the issuance and storage of course certificates. It
    PDF_ENCRYPTION_KEYS="<ny primär nyckel>,<tidigare nyckel>"
    ```
 
-   Uppdatera variabeln och starta om applikationen för att rotera nycklar; behåll tidigare nycklar i listan tills alla äldre filer har krypterats om eller inte längre behövs.
+   Spara nyckelvärdet i din `.env`-fil (se `.example.env` för ett exempel) så att samma nyckel används vid varje omstart. Uppdatera variabeln och starta om applikationen för att rotera nycklar; behåll tidigare nycklar i listan tills alla äldre filer har krypterats om eller inte längre behövs.
 3. **Run the application**
    ```bash
    python app.py

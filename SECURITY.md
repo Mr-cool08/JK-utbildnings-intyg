@@ -26,7 +26,7 @@ Tillsammans kan vi skapa en tryggare digital miljö.
 
 ## Kryptering av lagrade PDF:er
 
-Alla PDF-intyg krypteras med Fernet innan de sparas i databasen. Du måste konfigurera miljövariabeln `PDF_ENCRYPTION_KEYS` med minst en giltig Fernet-nyckel (till exempel genererad via `python -m cryptography.fernet`). Vid nyckelrotation lägger du till den nya nyckeln först i listan och behåller tidigare nycklar efteråt:
+Alla PDF-intyg krypteras med Fernet innan de sparas i databasen. Spara nyckelvärdet i din permanenta `.env`-fil så att samma nyckel används även efter en omstart. Du måste konfigurera miljövariabeln `PDF_ENCRYPTION_KEYS` med minst en giltig Fernet-nyckel (till exempel genererad via `python -m cryptography.fernet`). Vid nyckelrotation lägger du till den nya nyckeln först i listan och behåller tidigare nycklar efteråt:
 
 ```
 PDF_ENCRYPTION_KEYS="<ny primär nyckel>,<gammal nyckel>"
