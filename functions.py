@@ -41,7 +41,7 @@ from sqlalchemy.pool import StaticPool
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger
+from logging_utils import configure_module_logger, mask_hash
 
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.DEBUG)  # or INFO in production
@@ -476,7 +476,9 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 select(users_table.c.id).where(users_table.c.email == hashed_email)
             ).first()
             if existing_user:
-                logger.warning("Attempt to recreate existing user hash %s", hashed_email)
+                logger.warning(
+                    "Attempt to recreate existing user hash %s", mask_hash(hashed_email)
+                )
                 return False
             existing_pending = conn.execute(
                 select(pending_users_table.c.id).where(
@@ -484,7 +486,9 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 )
             ).first()
             if existing_pending:
-                logger.warning("Pending user already exists for hash %s", pnr_hash)
+                logger.warning(
+                    "Pending user already exists for hash %s", mask_hash(pnr_hash)
+                )
                 return False
             conn.execute(
                 insert(pending_users_table).values(
@@ -496,10 +500,10 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     except IntegrityError:
         logger.warning(
             "Pending user already exists or was created concurrently for hash %s",
-            pnr_hash,
+            mask_hash(pnr_hash),
         )
         return False
-    logger.info("Pending user created for hash %s", pnr_hash)
+    logger.info("Pending user created for hash %s", mask_hash(pnr_hash))
     return True
 
 
@@ -516,7 +520,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 )
             ).first()
             if existing_supervisor:
-                logger.warning("Supervisor %s already exists", email_hash)
+                logger.warning("Supervisor %s already exists", mask_hash(email_hash))
                 return False
 
             existing_pending = conn.execute(
@@ -526,7 +530,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
             ).first()
             if existing_pending:
                 logger.warning(
-                    "Pending supervisor already exists for %s", email_hash
+                    "Pending supervisor already exists for %s", mask_hash(email_hash)
                 )
                 return False
 
@@ -539,11 +543,11 @@ def admin_create_supervisor(email: str, name: str) -> bool:
     except IntegrityError:
         logger.warning(
             "Pending supervisor already exists or was created concurrently for %s",
-            email_hash,
+            mask_hash(email_hash),
         )
         return False
 
-    logger.info("Pending supervisor created for %s", email_hash)
+    logger.info("Pending supervisor created for %s", mask_hash(email_hash))
     return True
 
 
@@ -557,7 +561,9 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
                 )
             ).first()
             if existing:
-                logger.warning("User %s already exists", personnummer_hash)
+                logger.warning(
+                    "User %s already exists", mask_hash(personnummer_hash)
+                )
                 return False
             row = conn.execute(
                 select(
@@ -567,7 +573,9 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
                 ).where(pending_users_table.c.personnummer == personnummer_hash)
             ).first()
             if not row:
-                logger.warning("Pending user %s not found", personnummer_hash)
+                logger.warning(
+                    "Pending user %s not found", mask_hash(personnummer_hash)
+                )
                 return False
             conn.execute(
                 delete(pending_users_table).where(
@@ -585,7 +593,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
     except IntegrityError:
         logger.warning(
             "User creation for %s skipped because record already exists",
-            personnummer_hash,
+            mask_hash(personnummer_hash),
         )
         return False
     verify_certificate.cache_clear()
@@ -647,7 +655,9 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
                 )
             ).first()
             if existing:
-                logger.warning("Supervisor %s already activated", email_hash)
+                logger.warning(
+                    "Supervisor %s already activated", mask_hash(email_hash)
+                )
                 return False
 
             row = conn.execute(
@@ -658,7 +668,8 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
             ).first()
             if not row:
                 logger.warning(
-                    "Pending supervisor %s not found during activation", email_hash
+                    "Pending supervisor %s not found during activation",
+                    mask_hash(email_hash),
                 )
                 return False
 
@@ -677,11 +688,11 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
     except IntegrityError:
         logger.warning(
             "Supervisor activation for %s skipped because record already exists",
-            email_hash,
+            mask_hash(email_hash),
         )
         return False
 
-    logger.info("Supervisor %s activated", email_hash)
+    logger.info("Supervisor %s activated", mask_hash(email_hash))
     return True
 
 
@@ -820,7 +831,9 @@ def admin_link_supervisor_to_user(
             )
         ).first()
         if not supervisor_row:
-            logger.warning("Supervisor %s not found for linking", email_hash)
+            logger.warning(
+                "Supervisor %s not found for linking", mask_hash(email_hash)
+            )
             return False, "missing_supervisor"
 
         user_row = conn.execute(
@@ -831,8 +844,8 @@ def admin_link_supervisor_to_user(
         if not user_row:
             logger.warning(
                 "User %s not found when linking supervisor %s",
-                pnr_hash,
-                email_hash,
+                mask_hash(pnr_hash),
+                mask_hash(email_hash),
             )
             return False, "missing_user"
 
@@ -845,8 +858,8 @@ def admin_link_supervisor_to_user(
         if existing:
             logger.info(
                 "Supervisor %s already connected to %s",
-                email_hash,
-                pnr_hash,
+                mask_hash(email_hash),
+                mask_hash(pnr_hash),
             )
             return False, "exists"
 
@@ -859,8 +872,8 @@ def admin_link_supervisor_to_user(
 
     logger.info(
         "Supervisor %s connected to user %s",
-        email_hash,
-        pnr_hash,
+        mask_hash(email_hash),
+        mask_hash(pnr_hash),
     )
     return True, "created"
 
@@ -952,9 +965,13 @@ def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:
         )
     deleted = result.rowcount > 0
     if deleted:
-        logger.info("PDF %s raderades för %s", pdf_id, personnummer_hash)
+        logger.info(
+            "PDF %s raderades för %s", pdf_id, mask_hash(personnummer_hash)
+        )
     else:
-        logger.warning("PDF %s kunde inte raderas för %s", pdf_id, personnummer_hash)
+        logger.warning(
+            "PDF %s kunde inte raderas för %s", pdf_id, mask_hash(personnummer_hash)
+        )
     return deleted
 
 
@@ -977,13 +994,13 @@ def update_pdf_categories(personnummer: str, pdf_id: int, categories: Sequence[s
             "PDF %s fick nya kategorier %s för %s",
             pdf_id,
             serialized,
-            personnummer_hash,
+            mask_hash(personnummer_hash),
         )
     else:
         logger.warning(
             "PDF %s kunde inte uppdateras för %s",
             pdf_id,
-            personnummer_hash,
+            mask_hash(personnummer_hash),
         )
     return updated
 
@@ -1005,7 +1022,12 @@ def store_pdf_blob(
             )
         )
         pdf_id = result.inserted_primary_key[0]
-    logger.info("Stored PDF %s for %s as id %s", filename, personnummer_hash, pdf_id)
+    logger.info(
+        "Stored PDF %s for %s as id %s",
+        filename,
+        mask_hash(personnummer_hash),
+        pdf_id,
+    )
     return int(pdf_id)
 
 
@@ -1150,7 +1172,7 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
         if not row or row.email != email_hash:
             logger.warning(
                 "Kunde inte skapa återställningstoken för %s: uppgifter matchar inte",
-                personnummer_hash,
+                mask_hash(personnummer_hash),
             )
             raise ValueError("Angivna uppgifter matchar ingen aktiv användare.")
 
@@ -1164,7 +1186,9 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
             )
         )
 
-    logger.info("Skapade återställningstoken för %s", personnummer_hash)
+    logger.info(
+        "Skapade återställningstoken för %s", mask_hash(personnummer_hash)
+    )
     return token
 
 
