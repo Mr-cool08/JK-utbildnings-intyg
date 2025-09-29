@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
@@ -140,44 +141,68 @@ TABLE_REGISTRY: dict[str, Table] = {
 _ENGINE: Optional[Engine] = None
 
 
+def _is_truthy(value: Optional[str]) -> bool:
+    # Return True when the provided string represents a truthy value.
+    if value is None:
+        return False
+
+    return value.strip().lower() in {"1", "ja", "on", "sant", "true", "t", "yes", "y"}
+
+
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        host = os.getenv("POSTGRES_HOST")
-        if not host:
-            raise RuntimeError(
-                "Set DATABASE_URL or provide POSTGRES_HOST with PostgreSQL credentials"
-            )
+        if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB")):
+            test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
+            if test_db_path == ":memory:":
+                db_url = "sqlite:///:memory:"
+                logger.info("Using in-memory SQLite test database")
+            else:
+                raw_path = Path(test_db_path).expanduser()
+                if not raw_path.is_absolute():
+                    raw_path = Path(APP_ROOT) / raw_path
+                raw_path.parent.mkdir(parents=True, exist_ok=True)
+                resolved = raw_path.resolve()
+                db_url = f"sqlite:///{resolved.as_posix()}"
+                logger.info("Using local SQLite test database at %s", resolved)
+        else:
+            host = os.getenv("POSTGRES_HOST")
+            if not host:
+                raise RuntimeError(
+                    "Set DATABASE_URL, enable ENABLE_LOCAL_TEST_DB or provide POSTGRES_HOST with PostgreSQL credentials"
+                )
 
-        user = os.getenv("POSTGRES_USER")
-        password = os.getenv("POSTGRES_PASSWORD", "")
-        database = os.getenv("POSTGRES_DB")
-        port = os.getenv("POSTGRES_PORT", "5432")
+            user = os.getenv("POSTGRES_USER")
+            password = os.getenv("POSTGRES_PASSWORD", "")
+            database = os.getenv("POSTGRES_DB")
+            port = os.getenv("POSTGRES_PORT", "5432")
 
-        if not user:
-            logger.error(
-                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-            )
-            raise RuntimeError(
-                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-            )
-        if not database:
-            logger.error(
-                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-            )
-            raise RuntimeError(
-                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-            )
+            if not user:
+                logger.error(
+                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+                )
+                raise RuntimeError(
+                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+                )
+            if not database:
+                logger.error(
+                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+                )
+                raise RuntimeError(
+                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+                )
 
-        encoded_user = quote_plus(user)
-        encoded_password = quote_plus(password)
-        encoded_db = quote_plus(database)
-        credentials = (
-            encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
-        )
-        port_segment = f":{port}" if port else ""
-        db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
+            encoded_user = quote_plus(user)
+            encoded_password = quote_plus(password)
+            encoded_db = quote_plus(database)
+            credentials = (
+                encoded_user
+                if password == ""
+                else f"{encoded_user}:{encoded_password}"
+            )
+            port_segment = f":{port}" if port else ""
+            db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
     url = make_url(db_url)
     logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 
