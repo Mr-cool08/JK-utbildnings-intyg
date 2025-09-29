@@ -15,6 +15,7 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import (
     Column,
     DateTime,
@@ -61,6 +62,79 @@ DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
 TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
+
+_PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
+
+
+def reset_pdf_encryption_cache() -> None:
+    # Clear cached Fernet instances so environment changes take effect.
+    global _PDF_FERNET_CACHE
+    _PDF_FERNET_CACHE = None
+
+
+def _load_pdf_encryption_keys() -> List[str]:
+    raw_keys = os.getenv("PDF_ENCRYPTION_KEYS")
+    if not raw_keys:
+        raw_keys = os.getenv("PDF_ENCRYPTION_KEY")
+
+    if not raw_keys:
+        raise RuntimeError(
+            "PDF_ENCRYPTION_KEYS/PDF_ENCRYPTION_KEY måste vara satt för att lagra PDF:er."
+        )
+
+    parts = [
+        segment.strip()
+        for segment in re.split(r"[,;\n]", raw_keys)
+        if segment.strip()
+    ]
+    if not parts:
+        raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
+
+    return parts
+
+
+def _get_pdf_fernets() -> Tuple[Fernet, ...]:
+    global _PDF_FERNET_CACHE
+
+    keys = _load_pdf_encryption_keys()
+    normalized = "|".join(keys)
+
+    if _PDF_FERNET_CACHE and _PDF_FERNET_CACHE[0] == normalized:
+        return _PDF_FERNET_CACHE[1]
+
+    fernets: List[Fernet] = []
+    for index, key in enumerate(keys):
+        try:
+            fernets.append(Fernet(key.encode("ascii")))
+        except Exception:  # pragma: no cover - defensive logging
+            logger.exception(
+                "Ogiltig PDF-krypteringsnyckel på position %s, hoppar över.", index
+            )
+
+    if not fernets:
+        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde läsas in.")
+
+    cached = (normalized, tuple(fernets))
+    _PDF_FERNET_CACHE = cached
+    return cached[1]
+
+
+def _encrypt_pdf_content(content: bytes) -> bytes:
+    active_fernet = _get_pdf_fernets()[0]
+    return active_fernet.encrypt(content)
+
+
+def _decrypt_pdf_content(content: bytes) -> bytes:
+    for fernet in _get_pdf_fernets():
+        try:
+            return fernet.decrypt(content)
+        except InvalidToken:
+            continue
+
+    logger.warning(
+        "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
+    )
+    return content
 
 pending_users_table = Table(
     "pending_users",
@@ -995,12 +1069,13 @@ def store_pdf_blob(
     categories: Sequence[str] | None = None,
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
+    encrypted_content = _encrypt_pdf_content(content)
     with get_engine().begin() as conn:
         result = conn.execute(
             insert(user_pdfs_table).values(
                 personnummer=personnummer_hash,
                 filename=filename,
-                content=content,
+                content=encrypted_content,
                 categories=_serialize_categories(categories),
             )
         )
@@ -1128,7 +1203,8 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
         ).first()
     if not row:
         return None
-    return row.filename, row.content
+    decrypted = _decrypt_pdf_content(row.content)
+    return row.filename, decrypted
 
 
 def _hash_token(token: str) -> str:

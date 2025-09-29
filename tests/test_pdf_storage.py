@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from cryptography.fernet import Fernet
+from sqlalchemy import select
+
 import functions
 from course_categories import COURSE_CATEGORIES
 
@@ -66,4 +69,64 @@ def test_get_pdf_metadata_handles_missing_entries(empty_db):
 
     assert functions.get_pdf_metadata(other_hash, pdf_id) is None
     assert functions.get_pdf_metadata(primary_hash, pdf_id + 100) is None
+
+
+def test_pdf_content_is_encrypted_at_rest(empty_db):
+    """Stored PDF-data ska krypteras men dekrypteras vid hämtning."""
+
+    _ = empty_db
+
+    pnr_hash = _personnummer_hash("9001011234")
+    original_content = b"%PDF-1.4 encrypted"
+    pdf_id = functions.store_pdf_blob(
+        pnr_hash, "encrypted.pdf", original_content, [COURSE_CATEGORIES[0][0]]
+    )
+
+    with functions.get_engine().connect() as conn:
+        query = select(functions.user_pdfs_table.c.content).where(
+            functions.user_pdfs_table.c.id == pdf_id
+        )
+        stored_blob = conn.execute(query).scalar_one()
+
+    assert stored_blob != original_content
+
+    filename, decrypted = functions.get_pdf_content(pnr_hash, pdf_id)
+    assert filename == "encrypted.pdf"
+    assert decrypted == original_content
+
+
+def test_pdf_key_rotation_allows_decryption_of_old_files(empty_db, monkeypatch):
+    """Äldre filer ska kunna dekrypteras när en nyckel roteras."""
+
+    _ = empty_db
+
+    current_keys = functions._load_pdf_encryption_keys()
+    original_key = current_keys[0]
+    functions.reset_pdf_encryption_cache()
+
+    pnr_hash = _personnummer_hash("9001011234")
+    legacy_content = b"%PDF-1.4 legacy"
+    pdf_id = functions.store_pdf_blob(
+        pnr_hash, "legacy.pdf", legacy_content, [COURSE_CATEGORIES[0][0]]
+    )
+
+    new_key = Fernet.generate_key().decode("ascii")
+    rotated_value = ",".join([new_key, original_key])
+    monkeypatch.setenv("PDF_ENCRYPTION_KEYS", rotated_value)
+    functions.reset_pdf_encryption_cache()
+
+    filename, decrypted = functions.get_pdf_content(pnr_hash, pdf_id)
+    assert filename == "legacy.pdf"
+    assert decrypted == legacy_content
+
+    fresh_pdf_id = functions.store_pdf_blob(
+        pnr_hash, "fresh.pdf", b"%PDF-1.4 fresh", [COURSE_CATEGORIES[0][0]]
+    )
+    with functions.get_engine().connect() as conn:
+        query = select(functions.user_pdfs_table.c.content).where(
+            functions.user_pdfs_table.c.id == fresh_pdf_id
+        )
+        stored_blob = conn.execute(query).scalar_one()
+
+    assert stored_blob != b"%PDF-1.4 fresh"
 

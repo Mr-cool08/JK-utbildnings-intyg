@@ -50,8 +50,10 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
             )
         )
     assert len(rows) == 1
-    assert rows[0].content == pdf_bytes
     assert rows[0].categories == COURSE_CATEGORIES[0][0]
+    filename, decrypted = functions.get_pdf_content(pnr_hash, rows[0].id)
+    assert filename == rows[0].filename
+    assert decrypted == pdf_bytes
 
 
 def test_admin_upload_existing_email(empty_db):
@@ -90,8 +92,10 @@ def test_admin_upload_existing_email(empty_db):
             )
         )
     assert len(rows) == 1
-    assert rows[0].content == pdf_bytes
     assert rows[0].categories == COURSE_CATEGORIES[1][0]
+    filename, decrypted = functions.get_pdf_content(new_hash, rows[0].id)
+    assert filename == rows[0].filename
+    assert decrypted == pdf_bytes
 
 
 def test_admin_upload_pending_user(empty_db):
@@ -132,8 +136,10 @@ def test_admin_upload_pending_user(empty_db):
             )
         )
     assert len(rows) == 1
-    assert rows[0].content == pdf_bytes
     assert rows[0].categories == COURSE_CATEGORIES[0][0]
+    filename, decrypted = functions.get_pdf_content(pnr_hash, rows[0].id)
+    assert filename == rows[0].filename
+    assert decrypted == pdf_bytes
 
 
 def test_admin_upload_multiple_pdfs_with_individual_categories(empty_db):
@@ -179,10 +185,15 @@ def test_admin_upload_multiple_pdfs_with_individual_categories(empty_db):
         )
 
     assert len(rows) == 2
-    stored = {(row.categories, row.content) for row in rows}
-    assert stored == {
-        (COURSE_CATEGORIES[0][0], pdf_first),
-        (COURSE_CATEGORIES[1][0], pdf_second),
+    decrypted_by_category = {}
+    for row in rows:
+        filename, decrypted = functions.get_pdf_content(personnummer_hash, row.id)
+        assert filename == row.filename
+        decrypted_by_category[row.categories] = decrypted
+
+    assert decrypted_by_category == {
+        COURSE_CATEGORIES[0][0]: pdf_first,
+        COURSE_CATEGORIES[1][0]: pdf_second,
     }
 
 

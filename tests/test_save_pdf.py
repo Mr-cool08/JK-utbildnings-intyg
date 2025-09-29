@@ -32,6 +32,8 @@ def test_save_pdf_stores_in_database(empty_db):
     assert "id" in result and "filename" in result
     assert "9001011234" not in result["filename"]
 
+    pnr_hash = functions.hash_value("9001011234")
+
     with functions.get_engine().connect() as conn:
         row = conn.execute(
             functions.user_pdfs_table.select().where(
@@ -40,8 +42,11 @@ def test_save_pdf_stores_in_database(empty_db):
         ).first()
     assert row is not None
     assert row.filename == result["filename"]
-    assert row.personnummer == functions.hash_value("9001011234")
-    assert row.content.startswith(b"%PDF-")
+    assert row.personnummer == pnr_hash
+
+    filename, decrypted = functions.get_pdf_content(pnr_hash, row.id)
+    assert filename == result["filename"]
+    assert decrypted == b"%PDF-1.4 test"
 
 
 def test_save_pdf_rejects_invalid_files(empty_db):
