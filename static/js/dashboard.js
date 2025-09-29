@@ -56,19 +56,26 @@
     const shareForm = document.getElementById('shareForm');
     const shareEmailInput = document.getElementById('shareRecipientEmail');
     const shareFeedback = document.getElementById('shareFeedback');
-    const shareDocumentName = document.getElementById('shareDocumentName');
+    const shareDocumentSummary = document.getElementById('shareDocumentSummary');
+    const shareDocumentSelection = document.getElementById('shareDocumentSelection');
+    const shareDocumentList = document.getElementById('shareDocumentList');
     const closeElements = shareModal
       ? Array.from(shareModal.querySelectorAll('[data-share-close]'))
       : [];
     const submitButton = shareForm
       ? shareForm.querySelector('button[type="submit"]')
       : null;
+    const shareSelectedButton = document.getElementById('shareSelectedButton');
+    const selectionCheckboxes = Array.from(
+      document.querySelectorAll('[data-share-select]')
+    );
 
     if (!shareModal || !shareForm || !shareEmailInput || !submitButton) {
       return;
     }
 
-    let activePdfId = null;
+    let activePdfIds = [];
+    let clearSelectionOnSuccess = false;
     let isSubmitting = false;
 
     function setFeedback(message, state) {
@@ -95,24 +102,60 @@
       }
     };
 
-    function openShareModal(pdfId, pdfName) {
-      activePdfId = pdfId;
+    function renderSelectionList(items) {
+      if (!shareDocumentSelection || !shareDocumentList) {
+        return;
+      }
+
+      shareDocumentList.innerHTML = '';
+
+      if (!items.length) {
+        shareDocumentSelection.hidden = true;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      items.forEach((item) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = item.name || 'intyget';
+        fragment.appendChild(listItem);
+      });
+
+      shareDocumentList.appendChild(fragment);
+      shareDocumentSelection.hidden = false;
+    }
+
+    function openShareModal(pdfs, { clearSelection = false } = {}) {
+      activePdfIds = pdfs.map((pdf) => pdf.id);
+      clearSelectionOnSuccess = clearSelection;
       shareModal.classList.add('is-visible');
       shareModal.setAttribute('aria-hidden', 'false');
       setFeedback('', '');
       shareEmailInput.value = '';
       shareEmailInput.focus();
-      if (shareDocumentName) {
-        shareDocumentName.textContent = pdfName || 'intyget';
+      if (shareDocumentSummary) {
+        if (pdfs.length === 1) {
+          shareDocumentSummary.textContent = pdfs[0].name || 'intyget';
+        } else if (pdfs.length > 1) {
+          shareDocumentSummary.textContent = `${pdfs.length} intyg`;
+        } else {
+          shareDocumentSummary.textContent = 'intyget';
+        }
       }
+      renderSelectionList(pdfs);
       document.addEventListener('keydown', handleKeyDown);
     }
 
     function closeShareModal() {
-      activePdfId = null;
+      activePdfIds = [];
+      clearSelectionOnSuccess = false;
       shareModal.classList.remove('is-visible');
       shareModal.setAttribute('aria-hidden', 'true');
       setFeedback('', '');
+      if (shareDocumentSummary) {
+        shareDocumentSummary.textContent = 'intyget';
+      }
+      renderSelectionList([]);
       document.removeEventListener('keydown', handleKeyDown);
     }
 
@@ -136,14 +179,18 @@
         return;
       }
 
-      if (!activePdfId) {
+      if (!activePdfIds.length) {
         setFeedback('Det gick inte att identifiera intyget.', 'error');
         return;
       }
 
       isSubmitting = true;
       submitButton.disabled = true;
-      setFeedback('Skickar intyget...', 'info');
+      const sendingMessage =
+        activePdfIds.length === 1
+          ? 'Skickar intyget...'
+          : 'Skickar intygen...';
+      setFeedback(sendingMessage, 'info');
 
       try {
         const response = await fetch('/share_pdf', {
@@ -153,7 +200,7 @@
             Accept: 'application/json',
           },
           body: JSON.stringify({
-            pdf_id: activePdfId,
+            pdf_ids: activePdfIds,
             recipient_email: email,
           }),
         });
@@ -161,11 +208,18 @@
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-          setFeedback(
-            data.meddelande || 'Intyget har skickats.',
-            'success'
-          );
+          const defaultSuccess =
+            activePdfIds.length === 1
+              ? 'Intyget har skickats.'
+              : 'Intygen har skickats.';
+          setFeedback(data.meddelande || defaultSuccess, 'success');
           shareEmailInput.value = '';
+          if (clearSelectionOnSuccess) {
+            selectionCheckboxes.forEach((checkbox) => {
+              checkbox.checked = false;
+            });
+            updateShareSelectionState();
+          }
         } else {
           setFeedback(
             data.fel || 'Det gick inte att skicka intyget.',
@@ -179,6 +233,50 @@
         submitButton.disabled = false;
       }
     });
+
+    function getSelectedPdfs() {
+      return selectionCheckboxes
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => ({
+          id: Number.parseInt(checkbox.value || '', 10),
+          name: checkbox.dataset.pdfName || 'intyget',
+        }))
+        .filter((pdf) => Number.isInteger(pdf.id));
+    }
+
+    function updateShareSelectionState() {
+      if (!shareSelectedButton) {
+        return;
+      }
+
+      const selected = getSelectedPdfs();
+      shareSelectedButton.disabled = selected.length === 0;
+
+      if (selected.length === 1) {
+        shareSelectedButton.textContent = 'Dela markerat intyg';
+      } else if (selected.length > 1) {
+        shareSelectedButton.textContent = `Dela ${selected.length} markerade intyg`;
+      } else {
+        shareSelectedButton.textContent = 'Dela markerade intyg';
+      }
+    }
+
+    selectionCheckboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', updateShareSelectionState);
+    });
+
+    updateShareSelectionState();
+
+    if (shareSelectedButton) {
+      shareSelectedButton.addEventListener('click', () => {
+        const selected = getSelectedPdfs();
+        if (!selected.length) {
+          return;
+        }
+
+        openShareModal(selected, { clearSelection: true });
+      });
+    }
 
     const shareButtons = Array.from(
       document.querySelectorAll('[data-share-button]')
@@ -194,7 +292,7 @@
           return;
         }
 
-        openShareModal(pdfId, pdfName);
+        openShareModal([{ id: pdfId, name: pdfName }]);
       });
     });
   }

@@ -268,6 +268,81 @@
     box-shadow: none;
 }
 
+.share-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 28px;
+    padding: 16px 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+}
+
+.share-selection__hint {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #4b5563;
+}
+
+.share-selected-button {
+    align-self: flex-start;
+    background-color: #1d4ed8;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.share-selected-button:hover {
+    background-color: #153e9b;
+    box-shadow: 0 12px 22px rgba(29, 78, 216, 0.25);
+    transform: translateY(-1px);
+}
+
+.share-selected-button:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.55);
+    outline-offset: 2px;
+}
+
+.share-selected-button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.pdf-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.pdf-select {
+    width: 18px;
+    height: 18px;
+    margin: 4px 0 0;
+    accent-color: #1d4ed8;
+    flex-shrink: 0;
+}
+
+.pdf-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pdf-actions {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
 .share-modal {
     position: fixed;
     inset: 0;
@@ -396,6 +471,30 @@
 
 .share-modal__feedback[data-state="info"] {
     color: #2563eb;
+}
+
+.share-modal__selection {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f3f4f6;
+    padding: 12px 14px;
+}
+
+.share-modal__selection[hidden] {
+    display: none;
+}
+
+.share-modal__selection-lead {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+#shareDocumentList {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.9rem;
+    color: #1f2937;
 }
 
 @media (max-width: 640px) {
