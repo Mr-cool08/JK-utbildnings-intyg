@@ -61,6 +61,61 @@
 </section>
 
 <section class="panel">
+    <h2>Hantera handledare</h2>
+    <p>Skapa nya handledare och koppla dem till befintliga användare.</p>
+    <div class="row">
+        <div class="col">
+            <form id="createSupervisorForm" class="stacked-form">
+                <h3>Skapa handledare</h3>
+                <label for="supervisorName">Namn</label>
+                <input id="supervisorName" name="name" type="text" required placeholder="Namn på handledare">
+
+                <label for="supervisorEmail">E-post</label>
+                <input id="supervisorEmail" name="email" type="email" required placeholder="handledare@example.com">
+
+                <button type="submit">Skapa handledare</button>
+                <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+            </form>
+        </div>
+        <div class="col">
+            <form id="linkSupervisorForm" class="stacked-form">
+                <h3>Koppla handledare till användare</h3>
+                <label for="linkSupervisorEmail">Handledarens e-post</label>
+                <input id="linkSupervisorEmail" name="email" type="email" required placeholder="handledare@example.com">
+
+                <label for="linkPersonnummer">Användarens personnummer</label>
+                <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
+
+                <button type="submit">Skapa koppling</button>
+                <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+            </form>
+        </div>
+    </div>
+
+    <form id="supervisorOverviewForm" class="inline-form">
+        <label for="overviewSupervisorEmail">Visa kopplingar för handledare</label>
+        <input id="overviewSupervisorEmail" name="email" type="email" required placeholder="handledare@example.com">
+        <button type="submit">Visa kopplingar</button>
+        <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
+    </form>
+
+    <div id="supervisorOverviewCard" class="card" hidden>
+        <h3 id="supervisorOverviewTitle">Kopplade användare</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Användarnamn</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody id="supervisorOverviewBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
     <h2>Hantera befintliga intyg</h2>
     <p>Sök fram en användares PDF:er för att ändra kategori eller ta bort filen.</p>
     <form id="pdfLookupForm" class="inline-form">

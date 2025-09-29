@@ -12,7 +12,10 @@
     <nav>
         <a class="brand" href="/">Hem</a>
         <div class="nav-links">
-            {% if session.get('user_logged_in') %}
+            {% if session.get('supervisor_logged_in') %}
+                <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
+                <a href="/logout">Logga ut</a>
+            {% elif session.get('user_logged_in') %}
                 <a href="/dashboard">Intyg</a>
                 <a href="/logout">Logga ut</a>
             {% elif session.get('admin_logged_in') %}
@@ -20,9 +23,19 @@
                 <a href="/logout">Logga ut</a>
             {% else %}
                 <a href="/login">Logga in</a>
+                <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
             {% endif %}
         </div>
     </nav>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
     <main>
         {% block content %}{% endblock %}
     </main>
