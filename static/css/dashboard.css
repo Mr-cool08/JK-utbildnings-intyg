@@ -13,16 +13,20 @@
 }
 
 .support-actions {
-    margin: 0 0 28px;
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
+    align-items: flex-end;
+    gap: 6px;
+    margin: 0;
+    z-index: 1000;
 }
 
 .support-text {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: #374151;
 }
 
@@ -30,28 +34,54 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #f3f4f6;
-    color: #1f2937;
+    background: rgba(30, 41, 59, 0.82);
+    color: #f9fafb;
     text-decoration: none;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 9px 16px;
+    border-radius: 9999px;
+    font-size: 0.85rem;
     font-weight: 500;
-    border: 1px solid #d1d5db;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    box-shadow: none;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.25);
+    opacity: 0.7;
+    backdrop-filter: blur(4px);
 }
 
 .support-email-button:hover,
 .support-email-button:focus {
-    background: #e5e7eb;
-    border-color: #cbd5e1;
-    color: #111827;
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.32);
 }
 
 .support-email-button:focus {
-    outline: 2px solid rgba(59, 130, 246, 0.35);
-    outline-offset: 2px;
+    outline: 2px solid rgba(148, 163, 184, 0.65);
+    outline-offset: 3px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 768px) {
+    .support-actions {
+        bottom: 18px;
+        right: 18px;
+    }
+
+    .support-email-button {
+        font-size: 0.8rem;
+        padding: 8px 14px;
+    }
 }
 
 .category-list {
