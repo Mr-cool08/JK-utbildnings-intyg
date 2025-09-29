@@ -59,6 +59,16 @@
     const shareDocumentSummary = document.getElementById('shareDocumentSummary');
     const shareDocumentSelection = document.getElementById('shareDocumentSelection');
     const shareDocumentList = document.getElementById('shareDocumentList');
+    const supportsNativeDialog =
+      !!shareModal &&
+      typeof shareModal.showModal === 'function' &&
+      typeof shareModal.close === 'function';
+
+    if (shareModal && !supportsNativeDialog) {
+      shareModal.setAttribute('data-polyfill', 'true');
+      shareModal.setAttribute('aria-hidden', 'true');
+    }
+
     const closeElements = shareModal
       ? Array.from(shareModal.querySelectorAll('[data-share-close]'))
       : [];
@@ -128,11 +138,25 @@
     function openShareModal(pdfs, { clearSelection = false } = {}) {
       activePdfIds = pdfs.map((pdf) => pdf.id);
       clearSelectionOnSuccess = clearSelection;
-      shareModal.classList.add('is-visible');
-      shareModal.setAttribute('aria-hidden', 'false');
+      if (supportsNativeDialog) {
+        if (!shareModal.open) {
+          shareModal.showModal();
+        }
+      } else {
+        shareModal.classList.add('is-visible');
+        shareModal.setAttribute('aria-hidden', 'false');
+        document.addEventListener('keydown', handleKeyDown);
+      }
       setFeedback('', '');
       shareEmailInput.value = '';
-      shareEmailInput.focus();
+      const focusEmailInput = () => {
+        shareEmailInput.focus();
+      };
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusEmailInput);
+      } else {
+        setTimeout(focusEmailInput, 0);
+      }
       if (shareDocumentSummary) {
         if (pdfs.length === 1) {
           shareDocumentSummary.textContent = pdfs[0].name || 'intyget';
@@ -143,20 +167,29 @@
         }
       }
       renderSelectionList(pdfs);
-      document.addEventListener('keydown', handleKeyDown);
     }
 
-    function closeShareModal() {
+    function resetShareModalState() {
       activePdfIds = [];
       clearSelectionOnSuccess = false;
-      shareModal.classList.remove('is-visible');
-      shareModal.setAttribute('aria-hidden', 'true');
       setFeedback('', '');
       if (shareDocumentSummary) {
         shareDocumentSummary.textContent = 'intyget';
       }
       renderSelectionList([]);
-      document.removeEventListener('keydown', handleKeyDown);
+    }
+
+    function closeShareModal() {
+      if (supportsNativeDialog) {
+        if (shareModal.open) {
+          shareModal.close();
+        }
+      } else {
+        shareModal.classList.remove('is-visible');
+        shareModal.setAttribute('aria-hidden', 'true');
+        document.removeEventListener('keydown', handleKeyDown);
+        resetShareModalState();
+      }
     }
 
     closeElements.forEach((element) => {
@@ -164,6 +197,22 @@
         closeShareModal();
       });
     });
+
+    if (supportsNativeDialog) {
+      shareModal.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        closeShareModal();
+      });
+      shareModal.addEventListener('close', () => {
+        resetShareModalState();
+      });
+    } else {
+      shareModal.addEventListener('click', (event) => {
+        if (event.target === shareModal) {
+          closeShareModal();
+        }
+      });
+    }
 
     shareForm.addEventListener('submit', async (event) => {
       event.preventDefault();
