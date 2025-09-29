@@ -300,14 +300,6 @@
 
       const selected = getSelectedPdfs();
       shareSelectedButton.disabled = selected.length === 0;
-
-      if (selected.length === 1) {
-        shareSelectedButton.textContent = 'Dela markerat intyg';
-      } else if (selected.length > 1) {
-        shareSelectedButton.textContent = `Dela ${selected.length} markerade intyg`;
-      } else {
-        shareSelectedButton.textContent = 'Dela markerade intyg';
-      }
     }
 
     selectionCheckboxes.forEach((checkbox) => {
@@ -327,23 +319,6 @@
       });
     }
 
-    const shareButtons = Array.from(
-      document.querySelectorAll('[data-share-button]')
-    );
-
-    shareButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const pdfId = Number.parseInt(button.dataset.pdfId || '', 10);
-        const pdfName = button.dataset.pdfName || 'intyget';
-
-        if (!Number.isInteger(pdfId)) {
-          setFeedback('Det gick inte att identifiera intyget.', 'error');
-          return;
-        }
-
-        openShareModal([{ id: pdfId, name: pdfName }]);
-      });
-    });
   }
 
   setupFiltering();
