@@ -591,7 +591,7 @@ def share_pdf() -> tuple[Response, int]:
         logger.exception(
             "Failed to share pdf %s from %s to %s", pdf_id, pnr_hash, normalized_recipient
         )
-        return jsonify({'fel': str(exc)}), 500
+        return jsonify({'fel': 'Ett internt fel har inträffat.'}), 500
 
     logger.info(
         "User %s delade intyg %s med %s",
