@@ -297,29 +297,33 @@ def send_creation_email(to_email: str, link: str) -> None:
 
 def send_pdf_share_email(
     recipient_email: str,
-    pdf_filename: str,
-    pdf_content: bytes,
+    attachments: Sequence[tuple[str, bytes]],
     sender_name: str,
 ) -> None:
-    # Send the selected PDF as an attachment to ``recipient_email``.
+    # Send one or more PDFs as attachments to ``recipient_email``.
+
+    if not attachments:
+        raise ValueError("Minst ett intyg krävs för delning.")
 
     normalized_email = _normalize_valid_email(recipient_email)
     settings = _load_smtp_settings()
 
     safe_sender = escape(sender_name.strip() or "En användare")
-    safe_filename = escape(pdf_filename)
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = f"Delat intyg från {safe_sender}"
+    subject_prefix = "Delade" if len(attachments) > 1 else "Delat"
+    msg["Subject"] = f"{subject_prefix} intyg från {safe_sender}"
     msg["From"] = settings.user
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
-    msg.set_content(
-        (
+
+    if len(attachments) == 1:
+        safe_filename = escape(attachments[0][0])
+        body_html = (
             "<html>"
             "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
-            f"<p>Hej,</p>"
+            "<p>Hej,</p>"
             f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via JK "
             "Utbildningsintyg.</p>"
             f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>."
@@ -327,15 +331,33 @@ def send_pdf_share_email(
             "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
             "</body>"
             "</html>"
-        ),
-        subtype="html",
-    )
-    msg.add_attachment(
-        pdf_content,
-        maintype="application",
-        subtype="pdf",
-        filename=pdf_filename,
-    )
+        )
+    else:
+        item_list = "".join(
+            f"<li><em>{escape(filename)}</em></li>" for filename, _ in attachments
+        )
+        body_html = (
+            "<html>"
+            "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
+            "<p>Hej,</p>"
+            f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via JK "
+            "Utbildningsintyg.</p>"
+            "<p>Intygen hittar du i följande bilagor:</p>"
+            f"<ul>{item_list}</ul>"
+            "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
+            "</body>"
+            "</html>"
+        )
+
+    msg.set_content(body_html, subtype="html")
+
+    for filename, content in attachments:
+        msg.add_attachment(
+            content,
+            maintype="application",
+            subtype="pdf",
+            filename=filename,
+        )
 
     _send_email_message(msg, normalized_email, settings)
 
@@ -682,13 +704,38 @@ def share_pdf() -> tuple[Response, int]:
     if not payload:
         return jsonify({'fel': 'Ogiltig begäran.'}), 400
 
-    pdf_id_raw = payload.get('pdf_id') if hasattr(payload, 'get') else None
+    pdf_ids_raw = payload.get('pdf_ids') if hasattr(payload, 'get') else None
     recipient_email = (payload.get('recipient_email', '') if hasattr(payload, 'get') else '').strip()
 
-    try:
-        pdf_id = int(pdf_id_raw)
-    except (TypeError, ValueError):
-        logger.warning("Invalid pdf_id provided for sharing: %r", pdf_id_raw)
+    if pdf_ids_raw is None and hasattr(payload, 'get'):
+        pdf_id_raw = payload.get('pdf_id')
+        if pdf_id_raw is not None:
+            pdf_ids_raw = [pdf_id_raw]
+
+    if pdf_ids_raw is None:
+        return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
+
+    if isinstance(pdf_ids_raw, (str, bytes)):
+        candidate_ids = [pdf_ids_raw]
+    elif isinstance(pdf_ids_raw, (list, tuple, set)):
+        candidate_ids = list(pdf_ids_raw)
+    else:
+        candidate_ids = [pdf_ids_raw]
+
+    pdf_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw_id in candidate_ids:
+        try:
+            pdf_id = int(raw_id)
+        except (TypeError, ValueError):
+            logger.warning("Invalid pdf_id provided for sharing: %r", raw_id)
+            return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
+        if pdf_id in seen_ids:
+            continue
+        seen_ids.add(pdf_id)
+        pdf_ids.append(pdf_id)
+
+    if not pdf_ids:
         return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
 
     if not recipient_email:
@@ -699,12 +746,15 @@ def share_pdf() -> tuple[Response, int]:
         logger.error("Share request missing personnummer in session")
         return jsonify({'fel': 'Saknar användaruppgifter.'}), 400
 
-    pdf = functions.get_pdf_content(pnr_hash, pdf_id)
-    if not pdf:
-        logger.warning("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
-        return jsonify({'fel': 'Intyget kunde inte hittas.'}), 404
+    attachments: list[tuple[str, bytes]] = []
 
-    filename, content = pdf
+    for pdf_id in pdf_ids:
+        pdf = functions.get_pdf_content(pnr_hash, pdf_id)
+        if not pdf:
+            logger.warning("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
+            return jsonify({'fel': 'Intyget kunde inte hittas.'}), 404
+        filename, content = pdf
+        attachments.append((filename, content))
 
     sender_name = session.get('username')
     if not sender_name:
@@ -729,23 +779,30 @@ def share_pdf() -> tuple[Response, int]:
     try:
         send_pdf_share_email(
             normalized_recipient,
-            filename,
-            content,
+            attachments,
             sender_display,
         )
     except RuntimeError as exc:
         logger.exception(
-            "Failed to share pdf %s from %s to %s", pdf_id, pnr_hash, normalized_recipient
+            "Failed to share pdf %s from %s to %s",
+            pdf_ids,
+            pnr_hash,
+            normalized_recipient,
         )
         return jsonify({'fel': 'Ett internt fel har inträffat.'}), 500
 
     logger.info(
         "User %s delade intyg %s med %s",
         pnr_hash,
-        pdf_id,
+        pdf_ids,
         normalized_recipient,
     )
-    return jsonify({'meddelande': 'Intyget har skickats via e-post.'}), 200
+    success_message = (
+        'Intyget har skickats via e-post.'
+        if len(attachments) == 1
+        else 'Intygen har skickats via e-post.'
+    )
+    return jsonify({'meddelande': success_message}), 200
 
 
 @app.route('/view_pdf/<int:pdf_id>')

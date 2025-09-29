@@ -31,6 +31,20 @@
     {% endif %}
 
     {% if grouped_pdfs %}
+    <div class="share-selection" aria-label="Delning av flera intyg">
+        <button
+            type="button"
+            id="shareSelectedButton"
+            class="share-selected-button"
+            disabled
+        >
+            Dela markerade intyg
+        </button>
+        <p class="share-selection__hint">
+            Markera de intyg du vill dela och klicka på knappen för att skicka dem i samma e-post.
+        </p>
+    </div>
+
     <section class="category-groups" aria-label="Intyg sorterade efter kategori">
         {% for group in grouped_pdfs %}
         <article class="category-group">
@@ -41,29 +55,41 @@
             <ul class="pdf-list">
                 {% for pdf in group.pdfs %}
                 <li data-pdf-categories="{{ pdf.categories | join(',') }}">
-                    <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
-                        {{ pdf.filename }}
-                    </a>
-                    <span class="pdf-meta">
-                        <strong>Kategorier:</strong>
-                        {% if pdf.category_labels %}
-                            {{ pdf.category_labels | join(', ') }}
-                        {% else %}
-                            Inte angiven
-                        {% endif %}
-                        <br>
-
-                    </span>
-                    <div class="pdf-actions">
-                        <button
-                            type="button"
-                            class="share-button"
-                            data-share-button
-                            data-pdf-id="{{ pdf.id }}"
+                    <div class="pdf-entry">
+                        <input
+                            type="checkbox"
+                            class="pdf-select"
+                            data-share-select
+                            value="{{ pdf.id }}"
                             data-pdf-name="{{ pdf.filename }}"
+                            aria-label="Markera {{ pdf.filename }} för delning"
                         >
-                            Dela via e-post
-                        </button>
+                        <div class="pdf-details">
+                            <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
+                                {{ pdf.filename }}
+                            </a>
+                            <span class="pdf-meta">
+                                <strong>Kategorier:</strong>
+                                {% if pdf.category_labels %}
+                                    {{ pdf.category_labels | join(', ') }}
+                                {% else %}
+                                    Inte angiven
+                                {% endif %}
+                                <br>
+
+                            </span>
+                        </div>
+                        <div class="pdf-actions">
+                            <button
+                                type="button"
+                                class="share-button"
+                                data-share-button
+                                data-pdf-id="{{ pdf.id }}"
+                                data-pdf-name="{{ pdf.filename }}"
+                            >
+                                Dela via e-post
+                            </button>
+                        </div>
                     </div>
                 </li>
                 {% endfor %}
@@ -82,8 +108,12 @@
         <button type="button" class="share-modal__close" aria-label="Stäng delningsrutan" data-share-close>&times;</button>
         <h2 id="shareModalTitle">Dela intyg via e-post</h2>
         <p class="share-modal__lead">
-            Du delar <strong id="shareDocumentName">intyget</strong>. Ange mottagarens e-postadress nedan.
+            Du delar <strong id="shareDocumentSummary">intyget</strong>. Ange mottagarens e-postadress nedan.
         </p>
+        <div class="share-modal__selection" id="shareDocumentSelection" hidden>
+            <p class="share-modal__selection-lead">Följande intyg skickas som bilagor:</p>
+            <ul id="shareDocumentList"></ul>
+        </div>
         <form id="shareForm" class="share-form" novalidate>
             <label for="shareRecipientEmail">Mottagarens e-postadress</label>
             <input
