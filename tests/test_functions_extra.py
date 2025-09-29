@@ -45,6 +45,7 @@ def test_admin_create_user_duplicate(empty_db):
             functions.users_table.insert().values(
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
+                email_plain=functions.normalize_email("exist@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -58,6 +59,7 @@ def test_check_personnummer_password(empty_db):
             functions.users_table.insert().values(
                 username="Test",
                 email=functions.hash_value("test@example.com"),
+                email_plain=functions.normalize_email("test@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -72,6 +74,7 @@ def test_get_user_info(empty_db):
             functions.users_table.insert().values(
                 username="Info",
                 email=functions.hash_value("info@example.com"),
+                email_plain=functions.normalize_email("info@example.com"),
                 password=functions.hash_password("pass"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -89,6 +92,7 @@ def test_user_create_user_fails_if_exists(empty_db):
             functions.users_table.insert().values(
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
+                email_plain=functions.normalize_email("exist@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=pnr_hash,
             )
@@ -111,6 +115,7 @@ def test_check_password_user_and_get_username(empty_db):
             functions.users_table.insert().values(
                 username=username,
                 email=functions.hash_value(email),
+                email_plain=functions.normalize_email(email),
                 password=functions.hash_password(password),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -128,6 +133,7 @@ def test_get_username_by_personnummer_hash(empty_db):
             functions.users_table.insert().values(
                 username="PersonnummerNamn",
                 email=functions.hash_value("hash@example.com"),
+                email_plain=functions.normalize_email("hash@example.com"),
                 password=functions.hash_password("hemligt"),
                 personnummer=pnr_hash,
             )

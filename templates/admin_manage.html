@@ -1,0 +1,45 @@
+{% block title %}Admin — Hantera intyg{% endblock %}
+{% block content %}
+<h1>Admin — Hantera intyg</h1>
+<p>Hantera uppladdade PDF-intyg, justera kategorier och skicka återställningslänkar.</p>
+
+<section class="admin-section">
+    <h2>Sök användare</h2>
+    <form id="searchForm" autocomplete="off">
+        <label for="searchPersonnummer">Personnummer</label>
+        <input id="searchPersonnummer" name="personnummer" type="text" placeholder="ÅÅMMDDXXXX" required>
+        <button type="submit">Hämta PDF:er</button>
+    </form>
+    <div id="adminMessage" class="message" role="status" style="display:none"></div>
+</section>
+
+<section id="pdfResults" class="admin-section" hidden>
+    <h2>Registrerade PDF:er</h2>
+    <p id="currentUser"></p>
+    <table id="pdfTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Filnamn</th>
+                <th>Kategorier</th>
+                <th>Uppladdad</th>
+                <th>Åtgärder</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</section>
+
+<section class="admin-section">
+    <h2>Skicka återställningslänk</h2>
+    <form id="resetForm" autocomplete="off">
+        <label for="resetEmail">E-postadress</label>
+        <input id="resetEmail" name="email" type="email" placeholder="användare@example.com" required>
+        <button type="submit">Skicka återställning</button>
+    </form>
+    <p class="hint">En återställningslänk skickas till användaren och är giltig i 24 timmar.</p>
+</section>
+
+<script id="categoryData" type="application/json">{{ categories | tojson }}</script>
+<script src="{{ url_for('static', filename='js/admin_manage.js') }}"></script>
+{% endblock %}

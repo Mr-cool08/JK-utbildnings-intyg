@@ -20,6 +20,7 @@ def test_admin_upload_existing_user_only_saves_pdf(empty_db):
             functions.users_table.insert().values(
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
+                email_plain=functions.normalize_email("exist@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -61,6 +62,7 @@ def test_admin_upload_existing_email(empty_db):
             functions.users_table.insert().values(
                 username="Existing",
                 email=functions.hash_value("exist@example.com"),
+                email_plain=functions.normalize_email("exist@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )

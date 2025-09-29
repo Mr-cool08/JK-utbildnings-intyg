@@ -1,0 +1,41 @@
+{% block title %}Admin — Databastool{% endblock %}
+{% block content %}
+<h1>Admin — Databastool</h1>
+<p>Här kan du köra egna SQL-kommandon mot databasen. Var försiktig med ändringar.</p>
+
+{% if error %}
+<div class="message error">{{ error }}</div>
+{% endif %}
+{% if message %}
+<div class="message success">{{ message }}</div>
+{% endif %}
+
+<form method="post" class="admin-section">
+    <label for="sql">SQL-fråga</label>
+    <textarea id="sql" name="sql" rows="6" required>{{ query }}</textarea>
+    <button type="submit">Kör fråga</button>
+</form>
+
+{% if columns %}
+<table class="admin-table">
+    <thead>
+        <tr>
+            {% for column in columns %}
+            <th>{{ column }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            {% for cell in row %}
+            <td>{{ cell }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif rows is not none %}
+<p>Frågan returnerade inga rader.</p>
+{% endif %}
+{% endblock %}

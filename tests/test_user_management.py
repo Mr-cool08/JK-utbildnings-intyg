@@ -13,6 +13,7 @@ def test_check_user_exists(empty_db):
             functions.users_table.insert().values(
                 username="Exists",
                 email=functions.hash_value(email),
+                email_plain=functions.normalize_email(email),
                 password=functions.hash_password("pass"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -47,5 +48,6 @@ def test_user_create_user_success(empty_db):
     assert pending is None
     assert user_row is not None
     assert user_row.email == functions.hash_value(email)
+    assert user_row.email_plain == functions.normalize_email(email)
     assert user_row.username == username
     assert functions.check_user_exists(email)

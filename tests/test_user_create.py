@@ -7,6 +7,7 @@ def test_user_create_hashes_password(empty_db):
         conn.execute(
             functions.pending_users_table.insert().values(
                 email=functions.hash_value("user@example.com"),
+                email_plain="user@example.com",
                 username="User",
                 personnummer=pnr_hash,
             )

@@ -18,6 +18,7 @@ def test_admin_create_user_single_pdf(empty_db):
     with empty_db.connect() as conn:
         row = conn.execute(functions.pending_users_table.select()).first()
     assert row.email == functions.hash_value(email)
+    assert row.email_plain == functions.normalize_email(email)
     assert row.username == username
 
 

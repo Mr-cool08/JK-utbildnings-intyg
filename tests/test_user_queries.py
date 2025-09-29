@@ -15,6 +15,7 @@ def test_verify_certificate_existing_user(empty_db):
             functions.users_table.insert().values(
                 username="Test",
                 email=functions.hash_value("user@example.com"),
+                email_plain=functions.normalize_email("user@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )
@@ -31,6 +32,7 @@ def test_check_user_exists(empty_db):
             functions.users_table.insert().values(
                 username="Tester",
                 email=functions.hash_value(email),
+                email_plain=functions.normalize_email(email),
                 password=functions.hash_password("pass"),
                 personnummer=functions.hash_value("9001011234"),
             )

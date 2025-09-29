@@ -40,6 +40,7 @@ def user_db(tmp_path, monkeypatch):
             functions.users_table.insert().values(
                 username="Test",
                 email=functions.hash_value("test@example.com"),
+                email_plain=functions.normalize_email("test@example.com"),
                 password=functions.hash_password("secret"),
                 personnummer=functions.hash_value("9001011234"),
             )

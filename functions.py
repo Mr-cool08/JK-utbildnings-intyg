@@ -7,7 +7,8 @@ import importlib.util
 import logging
 import os
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
@@ -27,6 +28,7 @@ from sqlalchemy import (
     select,
     inspect,
     text,
+    update,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
@@ -62,6 +64,7 @@ pending_users_table = Table(
     Column("id", Integer, primary_key=True),
     Column("username", String, nullable=False),
     Column("email", String, nullable=False),
+    Column("email_plain", String, nullable=False, server_default=""),
     Column("personnummer", String, nullable=False, unique=True),
 )
 
@@ -71,9 +74,50 @@ users_table = Table(
     Column("id", Integer, primary_key=True),
     Column("username", String, nullable=False),
     Column("email", String, nullable=False, unique=True),
+    Column("email_plain", String, nullable=False, server_default=""),
     Column("password", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
 )
+
+password_resets_table = Table(
+    "password_resets",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("user_id", Integer, nullable=False),
+    Column("token", String, nullable=False, unique=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+)
+
+RESET_TOKEN_LIFETIME = timedelta(hours=24)
+
+
+def _ensure_aware(dt_value: datetime | str | None) -> datetime:
+    # Konvertera värden till tidszonssatta datetime-objekt.
+    if dt_value is None:
+        return datetime.now(timezone.utc)
+    if isinstance(dt_value, str):
+        for fmt in (None, "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = (
+                    datetime.fromisoformat(dt_value)
+                    if fmt is None
+                    else datetime.strptime(dt_value, fmt)
+                )
+            except ValueError:
+                continue
+            else:
+                dt_value = parsed
+                break
+        else:
+            return datetime.now(timezone.utc)
+    if dt_value.tzinfo is None:
+        return dt_value.replace(tzinfo=timezone.utc)
+    return dt_value
 
 user_pdfs_table = Table(
     "user_pdfs",
@@ -187,6 +231,20 @@ def create_database() -> None:
             conn.execute(
                 text(
                     "ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL"
+                )
+            )
+        user_columns = {col["name"] for col in inspector.get_columns("users")}
+        if "email_plain" not in user_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN email_plain TEXT DEFAULT '' NOT NULL"
+                )
+            )
+        pending_columns = {col["name"] for col in inspector.get_columns("pending_users")}
+        if "email_plain" not in pending_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE pending_users ADD COLUMN email_plain TEXT DEFAULT '' NOT NULL"
                 )
             )
     logger.info("Database initialized")
@@ -362,6 +420,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
             conn.execute(
                 insert(pending_users_table).values(
                     email=hashed_email,
+                    email_plain=normalized_email,
                     username=username,
                     personnummer=pnr_hash,
                 )
@@ -391,6 +450,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             row = conn.execute(
                 select(
                     pending_users_table.c.email,
+                    pending_users_table.c.email_plain,
                     pending_users_table.c.username,
                     pending_users_table.c.personnummer,
                 ).where(pending_users_table.c.personnummer == personnummer_hash)
@@ -406,6 +466,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             conn.execute(
                 insert(users_table).values(
                     email=row.email,
+                    email_plain=row.email_plain,
                     password=hash_password(password),
                     username=row.username,
                     personnummer=row.personnummer,
@@ -571,6 +632,12 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
     return pdfs
 
 
+def get_user_pdfs_for_personnummer(personnummer: str) -> List[Dict[str, Any]]:
+    # Return PDFs for a personnummer provided in clear text.
+    pnr_hash = _hash_personnummer(personnummer)
+    return get_user_pdfs(pnr_hash)
+
+
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
     # Return metadata for a single PDF without loading its content.
     with get_engine().connect() as conn:
@@ -612,6 +679,36 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
     return row.filename, row.content
 
 
+def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:
+    # Delete a specific PDF for the provided personnummer.
+    pnr_hash = _hash_personnummer(personnummer)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(user_pdfs_table).where(
+                user_pdfs_table.c.personnummer == pnr_hash,
+                user_pdfs_table.c.id == pdf_id,
+            )
+        )
+    return result.rowcount > 0
+
+
+def update_user_pdf_categories(
+    personnummer: str, pdf_id: int, categories: Sequence[str]
+) -> bool:
+    # Uppdatera kategorier för ett PDF-intyg.
+    pnr_hash = _hash_personnummer(personnummer)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(user_pdfs_table)
+            .where(
+                user_pdfs_table.c.personnummer == pnr_hash,
+                user_pdfs_table.c.id == pdf_id,
+            )
+            .values(categories=_serialize_categories(categories))
+        )
+    return result.rowcount > 0
+
+
 def create_test_user() -> None:
     # Populate the database with a simple test user.
     email = "test@example.com"
@@ -621,3 +718,103 @@ def create_test_user() -> None:
         admin_create_user(email, username, personnummer)
         pnr_hash = _hash_personnummer(personnummer)
         user_create_user("password", pnr_hash)
+
+
+def create_password_reset(email: str) -> Optional[Dict[str, str]]:
+    # Skapa en återställningsbegäran för en användares lösenord.
+    normalized = normalize_email(email)
+    hashed_email = hash_value(normalized)
+    with get_engine().begin() as conn:
+        user_row = conn.execute(
+            select(
+                users_table.c.id,
+                users_table.c.email_plain,
+                users_table.c.username,
+            ).where(users_table.c.email == hashed_email)
+        ).first()
+        if not user_row:
+            return None
+        token = secrets.token_urlsafe(32)
+        conn.execute(
+            delete(password_resets_table).where(
+                password_resets_table.c.user_id == user_row.id
+            )
+        )
+        conn.execute(
+            insert(password_resets_table).values(user_id=user_row.id, token=token)
+        )
+    return {
+        "token": token,
+        "email": user_row.email_plain,
+        "username": user_row.username,
+    }
+
+
+def load_password_reset(token: str) -> Optional[Dict[str, Any]]:
+    # Läs in en återställningsbegäran om token är giltig.
+    now = datetime.now(timezone.utc)
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(
+                password_resets_table.c.id,
+                password_resets_table.c.user_id,
+                password_resets_table.c.created_at,
+                users_table.c.username,
+            )
+            .select_from(
+                password_resets_table.join(
+                    users_table, users_table.c.id == password_resets_table.c.user_id
+                )
+            )
+            .where(password_resets_table.c.token == token)
+        ).first()
+        if not row:
+            return None
+        created_at = _ensure_aware(row.created_at)
+        if now - created_at > RESET_TOKEN_LIFETIME:
+            conn.execute(
+                delete(password_resets_table).where(
+                    password_resets_table.c.id == row.id
+                )
+            )
+            return None
+        return {
+            "reset_id": row.id,
+            "user_id": row.user_id,
+            "username": row.username,
+        }
+
+
+def reset_password_with_token(token: str, password: str) -> bool:
+    # Uppdatera användarens lösenord om token är giltig.
+    hashed_password = hash_password(password)
+    now = datetime.now(timezone.utc)
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(
+                password_resets_table.c.id,
+                password_resets_table.c.user_id,
+                password_resets_table.c.created_at,
+            ).where(password_resets_table.c.token == token)
+        ).first()
+        if not row:
+            return False
+        created_at = _ensure_aware(row.created_at)
+        if now - created_at > RESET_TOKEN_LIFETIME:
+            conn.execute(
+                delete(password_resets_table).where(
+                    password_resets_table.c.id == row.id
+                )
+            )
+            return False
+        conn.execute(
+            update(users_table)
+            .where(users_table.c.id == row.user_id)
+            .values(password=hashed_password)
+        )
+        conn.execute(
+            delete(password_resets_table).where(
+                password_resets_table.c.id == row.id
+            )
+        )
+    return True

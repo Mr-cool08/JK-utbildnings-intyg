@@ -17,6 +17,8 @@
                 <a href="/logout">Logga ut</a>
             {% elif session.get('admin_logged_in') %}
                 <a href="/admin">Admin</a>
+                <a href="/admin/hantera">Hantera intyg</a>
+                <a href="/admin/databas">Databastool</a>
                 <a href="/logout">Logga ut</a>
             {% else %}
                 <a href="/login">Logga in</a>

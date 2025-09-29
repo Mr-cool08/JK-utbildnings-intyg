@@ -33,6 +33,7 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
+from sqlalchemy import text
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger
@@ -105,11 +106,9 @@ def health() -> tuple[dict, int]:
     # Basic health check endpoint.
     return {"status": "ok"}, 200
 
-def send_creation_email(to_email: str, link: str) -> None:
-    # Send a password creation link via SMTP.
 
-    # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-    
+def _send_email_message(to_email: str, subject: str, html_body: str) -> None:
+    # Skicka ett HTML-e-postmeddelande via SMTP.
     normalized_email = functions.normalize_email(to_email)
     if normalized_email != to_email:
         logger.debug(
@@ -126,24 +125,12 @@ def send_creation_email(to_email: str, link: str) -> None:
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = "Skapa ditt konto"
+    msg["Subject"] = subject
     msg["From"] = smtp_user
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
-    msg.set_content(
-        f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Skapa ditt konto genom att besöka denna länk:</p>
-                <p><a href="{link}">{link}</a></p>
-                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
-            </body>
-        </html>
-        """,
-        subtype="html",
-    )
+    msg.set_content(html_body, subtype="html")
 
     context = ssl.create_default_context()
 
@@ -198,7 +185,7 @@ def send_creation_email(to_email: str, link: str) -> None:
                 logger.error("SMTP server refused recipients: %s", refused)
                 raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
-        logger.info("Skickade aktiveringslänk till %s", normalized_email)
+        logger.info("Skickade e-post till %s", normalized_email)
         logger.debug(
             "Meddelande-ID för utskick till %s: %s",
             normalized_email,
@@ -217,6 +204,38 @@ def send_creation_email(to_email: str, link: str) -> None:
     except OSError as exc:
         logger.exception("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
+
+
+def send_creation_email(to_email: str, link: str) -> None:
+    # Skicka ett mejl med länk för kontoskapande.
+    body = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Skapa ditt konto genom att besöka denna länk:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
+            </body>
+        </html>
+        """
+    _send_email_message(to_email, "Skapa ditt konto", body)
+
+
+def send_password_reset_email(to_email: str, link: str, username: str | None = None) -> None:
+    # Skicka en återställningslänk för lösenord.
+    greeting = "Hej," if not username else f"Hej {username},"
+    body = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>{greeting}</p>
+                <p>Du har fått en begäran om att återställa lösenordet för ditt konto.</p>
+                <p>Klicka på länken nedan för att sätta ett nytt lösenord:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>Länken är giltig i 24 timmar. Om du inte begärde återställningen kan du ignorera detta mejl.</p>
+            </body>
+        </html>
+        """
+    _send_email_message(to_email, "Återställ ditt lösenord", body)
 
 @app.context_processor
 def inject_flags():
@@ -347,6 +366,41 @@ def login():
     return render_template('user_login.html')
 
 
+@app.route('/aterstall/<token>', methods=['GET', 'POST'])
+def reset_password(token: str):
+    # Återställ en användares lösenord via token.
+    logger.info("Försök att återställa lösenord med token %s", token)
+    reset_info = functions.load_password_reset(token)
+    if not reset_info:
+        logger.warning("Ogiltig eller utgången återställningstoken")
+        return render_template('reset_password.html', invalid=True), 404
+
+    if request.method == 'POST':
+        password = (request.form.get('password') or '').strip()
+        if not password:
+            error = 'Ange ett nytt lösenord.'
+            return render_template(
+                'reset_password.html',
+                invalid=False,
+                token=token,
+                username=reset_info['username'],
+                error=error,
+            )
+        if not functions.reset_password_with_token(token, password):
+            logger.warning("Återställningstoken ogiltig vid bekräftelse")
+            return render_template('reset_password.html', invalid=True), 410
+
+        logger.info("Lösenord uppdaterat för token %s", token)
+        return redirect('/login')
+
+    return render_template(
+        'reset_password.html',
+        invalid=False,
+        token=token,
+        username=reset_info['username'],
+    )
+
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     # Visa alla PDF:er för den inloggade användaren.
@@ -450,6 +504,205 @@ def view_pdf(pdf_id: int):
         abort(404)
     logger.info("User %s laddar ned %s via direktlänk", pnr_hash, pdf['filename'])
     return redirect(url_for('download_pdf', pdf_id=pdf_id))
+
+@app.route('/admin/hantera', methods=['GET'])
+def admin_manage():
+    # Visa sidan för administrativ hantering av intyg.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin GET for manage page")
+        return redirect('/login_admin')
+
+    return render_template('admin_manage.html', categories=COURSE_CATEGORIES)
+
+
+@app.post('/admin/hantera/pdfer')
+def admin_list_pdfs():
+    # Hämta alla PDF-intyg för ett personnummer.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin access when listing PDFs")
+        return jsonify({'status': 'error', 'message': 'Behörighet saknas'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not personnummer:
+        return jsonify({'status': 'error', 'message': 'Ange ett personnummer.'}), 400
+
+    try:
+        normalized = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    user_info = functions.get_user_info(normalized)
+    if not user_info:
+        return jsonify({'status': 'error', 'message': 'Ingen användare hittades.'}), 404
+
+    pdfs = functions.get_user_pdfs_for_personnummer(normalized)
+    serialized = [
+        {
+            'id': item['id'],
+            'filename': item['filename'],
+            'categories': item['categories'],
+            'uploaded_at': item['uploaded_at'].isoformat()
+            if item['uploaded_at']
+            else None,
+        }
+        for item in pdfs
+    ]
+    return jsonify({'status': 'success', 'pdfs': serialized})
+
+
+@app.post('/admin/hantera/radera_pdf')
+def admin_delete_pdf():
+    # Ta bort ett PDF-intyg.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin access when deleting PDF")
+        return jsonify({'status': 'error', 'message': 'Behörighet saknas'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    pdf_id = payload.get('pdf_id')
+
+    try:
+        normalized = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        pdf_id_int = int(pdf_id)
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-ID.'}), 400
+
+    if functions.delete_user_pdf(normalized, pdf_id_int):
+        logger.info("Admin tog bort PDF %s för %s", pdf_id_int, normalized)
+        return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
+
+    logger.warning("Admin misslyckades ta bort PDF %s för %s", pdf_id_int, normalized)
+    return jsonify({'status': 'error', 'message': 'PDF hittades inte.'}), 404
+
+
+@app.post('/admin/hantera/uppdatera_kategorier')
+def admin_update_pdf_categories():
+    # Uppdatera kategorier för ett PDF-intyg.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin access when updating categories")
+        return jsonify({'status': 'error', 'message': 'Behörighet saknas'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    pdf_id = payload.get('pdf_id')
+    categories = payload.get('categories')
+
+    try:
+        normalized = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        pdf_id_int = int(pdf_id)
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-ID.'}), 400
+
+    if not isinstance(categories, list) or not categories:
+        return jsonify({'status': 'error', 'message': 'Välj minst en kategori.'}), 400
+
+    normalized_categories = normalize_category_slugs(categories)
+    if len(normalized_categories) != len(set(categories)):
+        logger.debug("Kategori-normalisering justerade indata %s", categories)
+
+    if not normalized_categories:
+        return jsonify({'status': 'error', 'message': 'Ogiltiga kategorier.'}), 400
+
+    if functions.update_user_pdf_categories(normalized, pdf_id_int, normalized_categories):
+        logger.info(
+            "Admin uppdaterade kategorier för PDF %s till %s",
+            pdf_id_int,
+            normalized_categories,
+        )
+        labels = labels_for_slugs(normalized_categories)
+        return jsonify(
+            {
+                'status': 'success',
+                'message': 'Kategorier uppdaterade.',
+                'categories': normalized_categories,
+                'labels': labels,
+            }
+        )
+
+    logger.warning("Kunde inte uppdatera kategorier för PDF %s", pdf_id_int)
+    return jsonify({'status': 'error', 'message': 'PDF hittades inte.'}), 404
+
+
+@app.post('/admin/hantera/skicka_aterstallning')
+def admin_send_password_reset():
+    # Skicka återställningslänk till en användare.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin access when sending reset email")
+        return jsonify({'status': 'error', 'message': 'Behörighet saknas'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get('email') or '').strip()
+    if not email:
+        return jsonify({'status': 'error', 'message': 'Ange en e-postadress.'}), 400
+
+    try:
+        reset_info = functions.create_password_reset(email)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+
+    if not reset_info:
+        logger.warning("Försök att återställa lösenord för okänd e-post %s", email)
+        return jsonify({'status': 'error', 'message': 'Ingen användare hittades.'}), 404
+
+    link = url_for('reset_password', token=reset_info['token'], _external=True)
+    try:
+        send_password_reset_email(reset_info['email'], link, reset_info.get('username'))
+    except RuntimeError as exc:
+        logger.exception("Misslyckades att skicka återställningsmejl")
+        return jsonify({'status': 'error', 'message': str(exc)}), 500
+
+    logger.info("Återställningslänk skickad till %s", reset_info['email'])
+    return jsonify({'status': 'success', 'message': 'Återställningslänk skickad.', 'link': link})
+
+
+@app.route('/admin/databas', methods=['GET', 'POST'])
+def admin_database_tool():
+    # Ge administratörer möjlighet att köra SQL mot databasen.
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin GET för databastool")
+        return redirect('/login_admin')
+
+    query = ''
+    rows: Sequence[Sequence[str]] | None = None
+    columns: Sequence[str] | None = None
+    message = None
+    error = None
+
+    if request.method == 'POST':
+        query = request.form.get('sql', '').strip()
+        if not query:
+            error = 'Ange en SQL-fråga.'
+        else:
+            try:
+                with functions.get_engine().begin() as conn:
+                    result = conn.execute(text(query))
+                    if result.returns_rows:
+                        columns = list(result.keys())
+                        rows = result.fetchall()
+                    else:
+                        message = f'Frågan kördes. Påverkade rader: {result.rowcount}.'
+            except Exception as exc:  # pragma: no cover - defensivt för oväntade fel
+                logger.exception("SQL-fel i databastool")
+                error = f'Fel vid körning: {exc}'
+
+    return render_template(
+        'admin_database.html',
+        query=query,
+        rows=rows,
+        columns=columns,
+        message=message,
+        error=error,
+    )
+
 
 @app.route('/admin', methods=['POST', 'GET'])
 def admin():

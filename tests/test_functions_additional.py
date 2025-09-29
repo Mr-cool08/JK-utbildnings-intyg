@@ -27,6 +27,7 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
         pending_row = conn.execute(functions.pending_users_table.select()).first()
     assert pending_row is not None
     assert pending_row.email == functions.hash_value(email)
+    assert pending_row.email_plain == functions.normalize_email(email)
     assert pending_row.username == username
 
     pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
@@ -43,6 +44,7 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
 
     assert pending_after is None
     assert user_row is not None
+    assert user_row.email_plain == functions.normalize_email(email)
 
     functions.verify_certificate.cache_clear()
     assert functions.verify_certificate(personnummer)
