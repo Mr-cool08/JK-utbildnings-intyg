@@ -12,6 +12,48 @@
     color: #1f2937;
 }
 
+.support-actions {
+    margin: 0 0 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.support-text {
+    margin: 0;
+    font-size: 1rem;
+    color: #374151;
+}
+
+.support-email-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f3f4f6;
+    color: #1f2937;
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border: 1px solid #d1d5db;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    box-shadow: none;
+}
+
+.support-email-button:hover,
+.support-email-button:focus {
+    background: #e5e7eb;
+    border-color: #cbd5e1;
+    color: #111827;
+}
+
+.support-email-button:focus {
+    outline: 2px solid rgba(59, 130, 246, 0.35);
+    outline-offset: 2px;
+}
+
 .category-list {
     margin-bottom: 28px;
     border: 1px solid #e5e7eb;
