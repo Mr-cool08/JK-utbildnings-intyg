@@ -38,6 +38,7 @@ def test_save_pdf_logging_masks_personnummer(caplog):
     normalized = functions.normalize_personnummer("19900101-1234")
     hashed = functions.hash_value(normalized)
 
+    caplog.set_level(logging.DEBUG, logger="functions")
     with caplog.at_level(logging.DEBUG, logger="app"):
         save_pdf_for_user("19900101-1234", pdf, [category])
 
@@ -52,6 +53,7 @@ def test_login_logging_masks_personnummer(user_db, caplog):
     normalized = functions.normalize_personnummer("9001011234")
     hashed = functions.hash_value(normalized)
 
+    caplog.set_level(logging.DEBUG, logger="functions")
     with caplog.at_level(logging.DEBUG, logger="app"):
         response = client.post(
             "/login",
@@ -91,6 +93,7 @@ def test_admin_upload_logging_masks_sensitive_data(empty_db, caplog):
             )
         )
 
+    caplog.set_level(logging.DEBUG, logger="functions")
     with caplog.at_level(logging.DEBUG, logger="app"):
         with _admin_client() as client:
             response = client.post("/admin", data=data, content_type="multipart/form-data")
