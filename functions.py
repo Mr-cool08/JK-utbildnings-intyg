@@ -15,7 +15,9 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 
+from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -63,12 +65,17 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
 
+_PDF_AES_CACHE: Tuple[str, Tuple[bytes, ...]] | None = None
 _PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
+
+_PDF_ENCRYPTION_PREFIX = b"JKAE1"
+_PDF_NONCE_SIZE = 12
 
 
 def reset_pdf_encryption_cache() -> None:
     # Clear cached Fernet instances so environment changes take effect.
-    global _PDF_FERNET_CACHE
+    global _PDF_AES_CACHE, _PDF_FERNET_CACHE
+    _PDF_AES_CACHE = None
     _PDF_FERNET_CACHE = None
 
 
@@ -93,7 +100,39 @@ def _load_pdf_encryption_keys() -> List[str]:
     return parts
 
 
-def _get_pdf_fernets() -> Tuple[Fernet, ...]:
+def _get_pdf_aes_keys() -> Tuple[bytes, ...]:
+    global _PDF_AES_CACHE
+
+    keys = _load_pdf_encryption_keys()
+    normalized = "|".join(keys)
+
+    if _PDF_AES_CACHE and _PDF_AES_CACHE[0] == normalized:
+        return _PDF_AES_CACHE[1]
+
+    iterations = _pbkdf2_iterations()
+    derived: List[bytes] = []
+    pdf_salt = f"{SALT}|pdf".encode("utf-8")
+    for secret in keys:
+        if not secret:
+            continue
+        derived_key = hashlib.pbkdf2_hmac(
+            "sha256",
+            secret.encode("utf-8"),
+            pdf_salt,
+            iterations,
+            dklen=32,
+        )
+        derived.append(derived_key)
+
+    if not derived:
+        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde härledas.")
+
+    cached = (normalized, tuple(derived))
+    _PDF_AES_CACHE = cached
+    return cached[1]
+
+
+def _get_legacy_pdf_fernets() -> Tuple[Fernet, ...]:
     global _PDF_FERNET_CACHE
 
     keys = _load_pdf_encryption_keys()
@@ -106,13 +145,11 @@ def _get_pdf_fernets() -> Tuple[Fernet, ...]:
     for index, key in enumerate(keys):
         try:
             fernets.append(Fernet(key.encode("ascii")))
-        except Exception:  # pragma: no cover - defensive logging
-            logger.exception(
-                "Ogiltig PDF-krypteringsnyckel på position %s, hoppar över.", index
+        except Exception:  # pragma: no cover - defensiv loggning
+            logger.debug(
+                "PDF-nyckel på position %s är inte en giltig Fernet-nyckel, hoppar över.",
+                index,
             )
-
-    if not fernets:
-        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde läsas in.")
 
     cached = (normalized, tuple(fernets))
     _PDF_FERNET_CACHE = cached
@@ -120,12 +157,35 @@ def _get_pdf_fernets() -> Tuple[Fernet, ...]:
 
 
 def _encrypt_pdf_content(content: bytes) -> bytes:
-    active_fernet = _get_pdf_fernets()[0]
-    return active_fernet.encrypt(content)
+    aes_key = _get_pdf_aes_keys()[0]
+    nonce = os.urandom(_PDF_NONCE_SIZE)
+    cipher = AESGCM(aes_key)
+    encrypted = cipher.encrypt(nonce, content, None)
+    return _PDF_ENCRYPTION_PREFIX + nonce + encrypted
 
 
 def _decrypt_pdf_content(content: bytes) -> bytes:
-    for fernet in _get_pdf_fernets():
+    if content.startswith(_PDF_ENCRYPTION_PREFIX):
+        nonce = content[len(_PDF_ENCRYPTION_PREFIX) : len(_PDF_ENCRYPTION_PREFIX) + _PDF_NONCE_SIZE]
+        ciphertext = content[len(_PDF_ENCRYPTION_PREFIX) + _PDF_NONCE_SIZE :]
+        if len(nonce) != _PDF_NONCE_SIZE:
+            logger.warning(
+                "Kunde inte dekryptera PDF-innehåll: saknar giltig nonce, returnerar ursprungliga data."
+            )
+            return content
+
+        for key in _get_pdf_aes_keys():
+            cipher = AESGCM(key)
+            try:
+                return cipher.decrypt(nonce, ciphertext, None)
+            except InvalidTag:
+                continue
+        logger.warning(
+            "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
+        )
+        return content
+
+    for fernet in _get_legacy_pdf_fernets():
         try:
             return fernet.decrypt(content)
         except InvalidToken:

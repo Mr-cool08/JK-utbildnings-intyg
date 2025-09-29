@@ -100,8 +100,7 @@ def test_pdf_key_rotation_allows_decryption_of_old_files(empty_db, monkeypatch):
 
     _ = empty_db
 
-    current_keys = functions._load_pdf_encryption_keys()
-    original_key = current_keys[0]
+    monkeypatch.setenv("PDF_ENCRYPTION_KEYS", "primar,sekundar")
     functions.reset_pdf_encryption_cache()
 
     pnr_hash = _personnummer_hash("9001011234")
@@ -110,9 +109,7 @@ def test_pdf_key_rotation_allows_decryption_of_old_files(empty_db, monkeypatch):
         pnr_hash, "legacy.pdf", legacy_content, [COURSE_CATEGORIES[0][0]]
     )
 
-    new_key = Fernet.generate_key().decode("ascii")
-    rotated_value = ",".join([new_key, original_key])
-    monkeypatch.setenv("PDF_ENCRYPTION_KEYS", rotated_value)
+    monkeypatch.setenv("PDF_ENCRYPTION_KEYS", "nyprimar,primar,sekundar")
     functions.reset_pdf_encryption_cache()
 
     filename, decrypted = functions.get_pdf_content(pnr_hash, pdf_id)
@@ -129,4 +126,34 @@ def test_pdf_key_rotation_allows_decryption_of_old_files(empty_db, monkeypatch):
         stored_blob = conn.execute(query).scalar_one()
 
     assert stored_blob != b"%PDF-1.4 fresh"
+
+
+def test_decrypts_legacy_fernet_content(empty_db, monkeypatch):
+    """Filer krypterade med äldre Fernet-nycklar ska kunna läsas."""
+
+    _ = empty_db
+
+    legacy_key = Fernet.generate_key().decode("ascii")
+    monkeypatch.setenv("PDF_ENCRYPTION_KEYS", legacy_key)
+    functions.reset_pdf_encryption_cache()
+
+    pnr_hash = _personnummer_hash("9001011234")
+    original = b"%PDF-1.4 legacy-fern"
+    fernet = Fernet(legacy_key.encode("ascii"))
+    encrypted = fernet.encrypt(original)
+
+    with functions.get_engine().begin() as conn:
+        result = conn.execute(
+            functions.user_pdfs_table.insert().values(
+                personnummer=pnr_hash,
+                filename="legacy.pdf",
+                content=encrypted,
+                categories="",
+            )
+        )
+        pdf_id = result.inserted_primary_key[0]
+
+    filename, decrypted = functions.get_pdf_content(pnr_hash, pdf_id)
+    assert filename == "legacy.pdf"
+    assert decrypted == original
 
