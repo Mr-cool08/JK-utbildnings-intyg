@@ -102,9 +102,8 @@
     {% endif %}
 </section>
 
-<div id="shareModal" class="share-modal" aria-hidden="true">
-    <div class="share-modal__backdrop" data-share-close></div>
-    <div class="share-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+<dialog id="shareModal" class="share-modal" aria-modal="true" aria-labelledby="shareModalTitle">
+    <div class="share-modal__dialog" role="document">
         <button type="button" class="share-modal__close" aria-label="Stäng delningsrutan" data-share-close>&times;</button>
         <h2 id="shareModalTitle">Dela intyg via e-post</h2>
         <p class="share-modal__lead">
@@ -128,6 +127,6 @@
         </form>
         <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
     </div>
-</div>
+</dialog>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
