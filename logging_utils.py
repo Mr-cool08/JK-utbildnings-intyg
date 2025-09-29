@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Iterable
 
+MASK_PLACEHOLDER = "***"
+
 
 def configure_module_logger(name: str) -> logging.Logger:
     # Return a module logger configured to avoid duplicate log output.
@@ -45,3 +47,37 @@ def configure_module_logger(name: str) -> logging.Logger:
     logger.propagate = False
     setattr(logger, "_jk_configured", True)
     return logger
+
+
+def mask_hash(value: str, prefix: int = 10) -> str:
+    """Return a shortened representation of a hash value for logging."""
+
+    if not value:
+        return MASK_PLACEHOLDER
+
+    trimmed = value[:prefix]
+    return f"{trimmed}…" if len(value) > prefix else trimmed
+
+
+def mask_personnummer(value: str) -> str:
+    """Mask all but the last four digits of a personnummer for logging."""
+
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if not digits:
+        return MASK_PLACEHOLDER
+
+    tail = digits[-4:]
+    return f"{MASK_PLACEHOLDER}{tail}"
+
+
+def mask_email(value: str) -> str:
+    """Mask the local part of an email address for logging purposes."""
+
+    if not value or "@" not in value:
+        return MASK_PLACEHOLDER
+
+    local, domain = value.split("@", 1)
+    if not local:
+        return f"{MASK_PLACEHOLDER}@{domain}"
+
+    return f"{local[0]}***@{domain}"

@@ -40,7 +40,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger
+from logging_utils import configure_module_logger, mask_hash
 
 from course_categories import (
     COURSE_CATEGORIES,
@@ -508,14 +508,14 @@ def save_pdf_for_user(
 
     pnr_norm = functions.normalize_personnummer(pnr)
     pnr_hash = functions.hash_value(pnr_norm)
-    logger.debug("Saving PDF for person hash %s", pnr_hash)
+    logger.debug("Saving PDF for person %s", mask_hash(pnr_hash))
 
     selected_categories = normalize_category_slugs(categories)
     if len(selected_categories) != 1:
         logger.error(
             "Invalid number of categories (%d) for hash %s",
             len(selected_categories),
-            pnr_hash,
+            mask_hash(pnr_hash),
         )
         raise ValueError("Exakt en kurskategori måste väljas.")
 
@@ -530,7 +530,7 @@ def save_pdf_for_user(
     file_storage.stream.seek(0)
     content = file_storage.stream.read()
     pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
-    logger.info("Stored PDF for hash %s as id %s", pnr_hash, pdf_id)
+    logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
     return {"id": pdf_id, "filename": filename, "categories": selected_categories}
 
 @app.route('/robots.txt')
@@ -834,22 +834,22 @@ def login():
         password = request.form['password']
         personnummer_hash = functions.hash_value(personnummer)
         if password == "":
-            logger.error("Empty password provided for %s", personnummer_hash)
+            logger.error("Empty password provided for %s", mask_hash(personnummer_hash))
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
             )
-        logger.debug("Login attempt for %s", personnummer_hash)
+        logger.debug("Login attempt for %s", mask_hash(personnummer_hash))
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
             session['personnummer'] = personnummer_hash
             session['username'] = functions.get_username_by_personnummer_hash(
                 personnummer_hash
             )
-            logger.info("User %s logged in", personnummer_hash)
+            logger.info("User %s logged in", mask_hash(personnummer_hash))
             return redirect('/dashboard')
         else:
-            logger.warning("Invalid login for %s", personnummer_hash)
+            logger.warning("Invalid login for %s", mask_hash(personnummer_hash))
             return (
                 render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
                 401,
@@ -1110,8 +1110,8 @@ def admin():
                 return jsonify({'status': 'error', 'message': 'Välj kategori för varje PDF.'}), 400
 
             logger.debug(
-                "Admin upload for hash %s with categories %s",
-                pnr_hash,
+                "Admin upload for %s with categories %s",
+                mask_hash(pnr_hash),
                 raw_categories,
             )
 
@@ -1139,11 +1139,19 @@ def admin():
 
             # --- Return early for existing or pending users ---
             if user_exists:
-                logger.info("PDFs uploaded for existing user hash %s (%d files)", pnr_hash, len(pdf_records))
+                logger.info(
+                    "PDFs uploaded for existing user %s (%d files)",
+                    mask_hash(pnr_hash),
+                    len(pdf_records),
+                )
                 return jsonify({'status': 'success', 'message': 'PDF:er uppladdade för befintlig användare'})
 
             if pending_exists:
-                logger.info("PDFs uploaded for pending user hash %s (%d files)", pnr_hash, len(pdf_records))
+                logger.info(
+                    "PDFs uploaded for pending user %s (%d files)",
+                    mask_hash(pnr_hash),
+                    len(pdf_records),
+                )
                 return jsonify({'status': 'success', 'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.'})
 
             # --- Create new pending user ---
@@ -1152,13 +1160,17 @@ def admin():
                 try:
                     send_creation_email(email, link)
                 except RuntimeError as e:
-                    logger.error("Failed to send creation email to hash %s", email_hash, exc_info=True)
+                    logger.error(
+                        "Failed to send creation email to %s",
+                        mask_hash(email_hash),
+                        exc_info=True,
+                    )
                     return jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken via e-post.'}), 500
 
-                logger.info("Admin created user hash %s", pnr_hash)
+                logger.info("Admin created user %s", mask_hash(pnr_hash))
                 return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
 
-            logger.error("Failed to create pending user for hash %s", pnr_hash)
+            logger.error("Failed to create pending user for %s", mask_hash(pnr_hash))
             return jsonify({'status': 'error', 'message': 'Kunde inte skapa användare'}), 500
 
         except ValueError as ve:
