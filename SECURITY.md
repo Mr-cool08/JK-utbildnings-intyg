@@ -4,7 +4,7 @@ Vi tar säkerhet på största allvar och uppskattar att du hjälper oss att skyd
 
 Om du upptäcker en sårbarhet, vänligen rapportera den till oss på följande sätt:
 
-E-postadress: temp@email.com
+E-postadress: liam@utbildningsintyg.se
 
 Beskrivning: Inkludera en så detaljerad beskrivning som möjligt, gärna med steg för att reproducera problemet.
 
