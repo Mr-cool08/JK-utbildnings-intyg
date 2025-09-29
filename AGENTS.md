@@ -7,3 +7,4 @@
 - Ensure commit messages are descriptive.
 - Do not commit sensitive information.
 - Everything displayed to end users must be written in Swedish.
+- Provide a screenshot of UI changes whenever it is possible to capture one, and include it directly in the PR description.
