@@ -17,7 +17,7 @@
         <label for="searchInput">Sök</label>
         <input id="searchInput" name="search" type="text" placeholder="Filtrera poster" />
 
-        <button type="submit">Ladda poster</button>
+        <button type="submit" class="btn">Ladda poster</button>
     </form>
 </section>
 
@@ -43,9 +43,9 @@
         <textarea id="payloadInput" name="payload" rows="6" placeholder='{"kolumn": "värde"}'></textarea>
 
         <div class="button-row">
-            <button type="button" id="createBtn">Skapa ny rad</button>
-            <button type="button" id="updateBtn">Uppdatera rad</button>
-            <button type="button" id="deleteBtn" class="danger">Ta bort rad</button>
+            <button type="button" id="createBtn" class="btn btn-secondary">Skapa ny rad</button>
+            <button type="button" id="updateBtn" class="btn btn-secondary">Uppdatera rad</button>
+            <button type="button" id="deleteBtn" class="btn btn-danger">Ta bort rad</button>
         </div>
         <p id="editorMessage" class="message" aria-live="polite"></p>
     </form>

@@ -2,12 +2,12 @@
 {% block title %}Användarinloggning{% endblock %}
 {% block content %}
     <h1>Användarinloggning</h1>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <form action="/login" method="POST">
+    {% if error %}<p class="message error">{{ error }}</p>{% endif %}
+    <form action="/login" method="POST" class="form-card">
         <label for="personnummer">Personnummer:</label>
         <input type="text" id="personnummer" name="personnummer" required placeholder="ÅÅMMDDXXXX">
         <label for="password">Lösenord:</label>
         <input type="password" id="password" name="password" required>
-        <button type="submit">Logga in</button>
+        <button type="submit" class="btn">Logga in</button>
     </form>
 {% endblock %}

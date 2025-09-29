@@ -14,7 +14,7 @@
     </h1>
     <div class="support-actions" aria-label="Sektion för att kontakta supporten">
         <a
-            class="support-email-button"
+            class="btn btn-ghost support-email-button"
             href="mailto:support@utbildningsintyg.se?subject=Beg%C3%A4ran%20om%20radering%20av%20anv%C3%A4ndardata&body=Hej%20supportteamet%2C%0A%0AJag%20vill%20beg%C3%A4ra%20att%20all%20min%20anv%C3%A4ndardata%20tas%20bort.%0A%0AV%C3%A4nligen%20bekr%C3%Afta%20n%C3%A4r%20det%20%C3%A4r%20klart.%0A%0ATack!"
             aria-describedby="supportRemovalHint"
         >
@@ -43,7 +43,7 @@
         <button
             type="button"
             id="shareSelectedButton"
-            class="share-selected-button"
+            class="btn share-selected-button"
             disabled
         >
             Dela markerade intyg
@@ -90,7 +90,7 @@
                         <div class="pdf-actions">
                             <button
                                 type="button"
-                                class="share-button"
+                                class="btn btn-secondary share-button"
                                 data-share-button
                                 data-pdf-id="{{ pdf.id }}"
                                 data-pdf-name="{{ pdf.filename }}"
@@ -131,7 +131,7 @@
                 autocomplete="email"
                 placeholder="namn@example.se"
             >
-            <button type="submit" class="share-submit">Skicka intyget</button>
+            <button type="submit" class="btn share-submit">Skicka intyget</button>
         </form>
         <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
     </div>

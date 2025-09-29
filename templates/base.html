@@ -9,9 +9,10 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav>
-        <a class="brand" href="/">Hem</a>
-        <div class="nav-links">
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a class="brand" href="/">Hem</a>
+            <div class="nav-links">
             {% if session.get('supervisor_logged_in') %}
                 <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
                 <a href="/logout">Logga ut</a>
@@ -25,6 +26,7 @@
                 <a href="/login">Logga in</a>
                 <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
             {% endif %}
+            </div>
         </div>
     </nav>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -39,8 +41,10 @@
     <main>
         {% block content %}{% endblock %}
     </main>
-    <footer>
-        {% block footer %}Liam Suorsa © 2025{% endblock %}
+    <footer class="site-footer">
+        <div class="footer-inner">
+            {% block footer %}Liam Suorsa © 2025{% endblock %}
+        </div>
     </footer>
 
 </body>

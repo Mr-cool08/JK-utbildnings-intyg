@@ -10,7 +10,7 @@
                     <h2>{{ user.username }}</h2>
                     <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" onsubmit="return confirm('Är du säker på att du vill ta bort kopplingen?');">
                         <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                        <button type="submit" class="danger">Ta bort koppling</button>
+                        <button type="submit" class="btn btn-danger">Ta bort koppling</button>
                     </form>
                 </div>
                 {% if user.pdfs %}
@@ -42,7 +42,7 @@
                                                     <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
                                                     <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
                                                     <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
-                                                    <button type="submit">Dela intyg</button>
+                                                    <button type="submit" class="btn btn-secondary">Dela intyg</button>
                                                 </form>
                                             </div>
                                         </td>

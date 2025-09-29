@@ -2,11 +2,11 @@
 {% block title %}Administratörsinloggning{% endblock %}
 {% block content %}
     <h1>Administratörsinloggning</h1>
-    <form action="/login_admin" method="POST">
+    <form action="/login_admin" method="POST" class="form-card">
         <label for="username">Användarnamn:</label>
         <input type="text" id="username" name="username" required>
         <label for="password">Lösenord:</label>
         <input type="password" id="password" name="password" required>
-        <button type="submit">Logga in</button>
+        <button type="submit" class="btn">Logga in</button>
     </form>
 {% endblock %}
