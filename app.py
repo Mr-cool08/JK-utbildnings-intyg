@@ -324,8 +324,7 @@ def send_pdf_share_email(
             "Utbildningsintyg.</p>"
             f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>."
             "</p>"
-            "<p>Har du frågor kan du svara direkt på detta e-postmeddelande.</p>"
-            "<p>Vänliga hälsningar,<br>JK Utbildningsintyg</p>"
+            "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
             "</body>"
             "</html>"
         ),
