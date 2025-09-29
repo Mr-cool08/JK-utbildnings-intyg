@@ -147,43 +147,63 @@ sed -i \
   -e "s#__KEY__#${KEY_PATH}#g" \
   /etc/nginx/nginx.conf
 
-# Validate external PostgreSQL configuration.
+# Validate external PostgreSQL configuration or enable local SQLite fallback.
 if [ -z "${DATABASE_URL:-}" ]; then
-  if [ -z "${POSTGRES_HOST:-}" ]; then
-    echo "Set DATABASE_URL or configure POSTGRES_HOST with credentials" >&2
-    exit 1
-  fi
+  enable_local_db="$(printf '%s' "${ENABLE_LOCAL_TEST_DB:-false}" | tr '[:upper:]' '[:lower:]')"
 
-  if [ -z "${POSTGRES_USER:-}" ]; then
-    echo "POSTGRES_USER must be set when POSTGRES_HOST is configured" >&2
-    exit 1
-  fi
+  case "${enable_local_db}" in
+    1|true|on|yes|ja|sant)
+      local_db_path="${LOCAL_TEST_DB_PATH:-instance/test.db}"
+      if [ "${local_db_path}" = ":memory:" ]; then
+        export DATABASE_URL="sqlite:///:memory:"
+        echo "Using in-memory SQLite database for local tests"
+      else
+        if [ "${local_db_path#/}" = "${local_db_path}" ]; then
+          local_db_path="/app/${local_db_path}"
+        fi
+        mkdir -p "$(dirname "${local_db_path}")"
+        export DATABASE_URL="sqlite:///${local_db_path}"
+        echo "Using local SQLite database for tests at ${local_db_path}"
+      fi
+      ;;
+    *)
+      if [ -z "${POSTGRES_HOST:-}" ]; then
+        echo "Set DATABASE_URL, enable ENABLE_LOCAL_TEST_DB or configure POSTGRES_HOST with credentials" >&2
+        exit 1
+      fi
 
-  if [ -z "${POSTGRES_DB:-}" ]; then
-    echo "POSTGRES_DB must be set when POSTGRES_HOST is configured" >&2
-    exit 1
-  fi
+      if [ -z "${POSTGRES_USER:-}" ]; then
+        echo "POSTGRES_USER must be set when POSTGRES_HOST is configured" >&2
+        exit 1
+      fi
 
-  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+      if [ -z "${POSTGRES_DB:-}" ]; then
+        echo "POSTGRES_DB must be set when POSTGRES_HOST is configured" >&2
+        exit 1
+      fi
 
-  encoded_user="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_USER']))")"
-  encoded_password="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', ''))) if 'POSTGRES_PASSWORD' in os.environ else print('')")"
-  encoded_db="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_DB']))")"
+      POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
-  if [ -n "${POSTGRES_PASSWORD:-}" ]; then
-    credentials="${encoded_user}:${encoded_password}"
-  else
-    credentials="${encoded_user}"
-  fi
+      encoded_user="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_USER']))")"
+      encoded_password="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', '')) if 'POSTGRES_PASSWORD' in os.environ else '')")"
+      encoded_db="$(python -c "import os, urllib.parse; print(urllib.parse.quote_plus(os.environ['POSTGRES_DB']))")"
 
-  if [ -n "${POSTGRES_PORT}" ]; then
-    port_segment=":${POSTGRES_PORT}"
-  else
-    port_segment=""
-  fi
+      if [ -n "${POSTGRES_PASSWORD:-}" ]; then
+        credentials="${encoded_user}:${encoded_password}"
+      else
+        credentials="${encoded_user}"
+      fi
 
-  export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${encoded_db}"
-  echo "Using external PostgreSQL server at ${POSTGRES_HOST}${port_segment}"
+      if [ -n "${POSTGRES_PORT}" ]; then
+        port_segment=":${POSTGRES_PORT}"
+      else
+        port_segment=""
+      fi
+
+      export DATABASE_URL="postgresql+psycopg://${credentials}@${POSTGRES_HOST}${port_segment}/${encoded_db}"
+      echo "Using external PostgreSQL server at ${POSTGRES_HOST}${port_segment}"
+      ;;
+  esac
 fi
 
 # Starta Gunicorn (kör som app:app)
