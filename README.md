@@ -11,6 +11,14 @@ This web application manages the issuance and storage of course certificates. It
    pip install -r requirements.txt
    ```
 2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Provide the credentials for your external PostgreSQL server by setting `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and optionally `POSTGRES_PORT`. The container derives the SQLAlchemy connection string from these values whenever `DATABASE_URL` is empty. If you prefer, you can instead set `DATABASE_URL` directly to a PostgreSQL connection string. For local development or automated tests you may temporarily enable `ENABLE_LOCAL_TEST_DB` to let the app create a SQLite database file defined by `LOCAL_TEST_DB_PATH`; the flag is disabled by default so production deployments still require PostgreSQL.
+
+   *Säker PDF-lagring*: sätt `PDF_ENCRYPTION_KEYS` till en kommaseparerad lista med [Fernet-nycklar](https://cryptography.io/en/latest/fernet/). Den första nyckeln används för att kryptera nyuppladdade filer och samtliga nycklar prövas i turordning vid dekryptering. Exempel:
+
+   ```bash
+   PDF_ENCRYPTION_KEYS="<ny primär nyckel>,<tidigare nyckel>"
+   ```
+
+   Spara nyckelvärdet i din `.env`-fil (se `.example.env` för ett exempel) så att samma nyckel används vid varje omstart. Uppdatera variabeln och starta om applikationen för att rotera nycklar; behåll tidigare nycklar i listan tills alla äldre filer har krypterats om eller inte längre behövs.
 3. **Run the application**
    ```bash
    python app.py

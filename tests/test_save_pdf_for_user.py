@@ -27,6 +27,12 @@ def test_save_pdf_for_user(empty_db):
             )
         ).first()
     assert row is not None
-    assert row.content == pdf_bytes
     assert row.filename == result["filename"]
     assert row.categories == category
+
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900101-1234")
+    )
+    filename, decrypted = functions.get_pdf_content(personnummer_hash, row.id)
+    assert filename == result["filename"]
+    assert decrypted == pdf_bytes
