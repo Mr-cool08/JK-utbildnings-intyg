@@ -145,11 +145,6 @@
     font-weight: 600;
 }
 
-.pdf-meta {
-    color: var(--color-text-muted);
-    font-size: 0.95rem;
-}
-
 .pdf-entry {
     display: flex;
     align-items: flex-start;
@@ -169,18 +164,17 @@
     flex-direction: column;
     gap: 0.35rem;
     flex: 1;
+    min-width: 0;
 }
 
-.pdf-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
-    flex-shrink: 0;
+.pdf-details a {
+    overflow-wrap: anywhere;
 }
 
-.pdf-actions .btn {
-    padding: 0.45rem 1rem;
+.pdf-meta {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
 }
 
 .share-selection {
