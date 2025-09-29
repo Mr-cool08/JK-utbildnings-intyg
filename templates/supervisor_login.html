@@ -4,15 +4,15 @@
     <h1>Handledarinloggning</h1>
     <p>Ange din e-postadress och ditt lösenord för att komma åt de intyg du har behörighet till.</p>
     {% if error %}
-        <p class="error">{{ error }}</p>
+        <p class="message error">{{ error }}</p>
     {% endif %}
-    <form method="post">
+    <form method="post" class="form-card">
         <label for="email">E-post</label>
         <input type="email" id="email" name="email" required placeholder="handledare@example.com">
 
         <label for="password">Lösenord</label>
         <input type="password" id="password" name="password" required>
 
-        <button type="submit">Logga in</button>
+        <button type="submit" class="btn">Logga in</button>
     </form>
 {% endblock %}

@@ -4,20 +4,20 @@
     <div class="create-account">
         <h2>Aktivera handledarkonto</h2>
         {% if invalid %}
-            <p class="error">Länken är ogiltig eller har redan använts. Kontakta administratören om du behöver en ny inbjudan.</p>
+            <p class="message error">Länken är ogiltig eller har redan använts. Kontakta administratören om du behöver en ny inbjudan.</p>
         {% else %}
             {% if error %}
-                <p class="error">{{ error }}</p>
+                <p class="message error">{{ error }}</p>
             {% endif %}
             <p>Välj ett starkt lösenord för ditt handledarkonto. Lösenordet måste vara minst åtta tecken långt.</p>
-            <form method="post">
+            <form method="post" class="form-card">
                 <label for="password">Lösenord</label>
                 <input type="password" id="password" name="password" minlength="8" required>
 
                 <label for="confirm">Bekräfta lösenord</label>
                 <input type="password" id="confirm" name="confirm" minlength="8" required>
 
-                <button type="submit">Aktivera konto</button>
+                <button type="submit" class="btn">Aktivera konto</button>
             </form>
             <p class="license-note">Genom att fortsätta accepterar du villkoren i vårt licensavtal.</p>
             <a href="{{ url_for('license') }}" class="license-link" target="_blank">Läs licensavtalet</a>

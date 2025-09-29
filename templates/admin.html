@@ -49,7 +49,7 @@
             </div>
         </template>
 
-        <button id="submitBtn" type="submit">Skapa användare</button>
+        <button id="submitBtn" type="submit" class="btn">Skapa användare</button>
 
         <div id="progressContainer" class="progress-container" style="display:none">
             <div id="progressBar" class="progress-bar"></div>
@@ -73,7 +73,7 @@
                 <label for="supervisorEmail">E-post</label>
                 <input id="supervisorEmail" name="email" type="email" required placeholder="handledare@example.com">
 
-                <button type="submit">Skapa handledare</button>
+                <button type="submit" class="btn">Skapa handledare</button>
                 <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
             </form>
         </div>
@@ -86,7 +86,7 @@
                 <label for="linkPersonnummer">Användarens personnummer</label>
                 <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
 
-                <button type="submit">Skapa koppling</button>
+                <button type="submit" class="btn">Skapa koppling</button>
                 <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
             </form>
         </div>
@@ -95,7 +95,7 @@
     <form id="supervisorOverviewForm" class="inline-form">
         <label for="overviewSupervisorEmail">Visa kopplingar för handledare</label>
         <input id="overviewSupervisorEmail" name="email" type="email" required placeholder="handledare@example.com">
-        <button type="submit">Visa kopplingar</button>
+        <button type="submit" class="btn">Visa kopplingar</button>
         <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
     </form>
 
@@ -121,7 +121,7 @@
     <form id="pdfLookupForm" class="inline-form">
         <label for="lookupPersonnummer">Personnummer</label>
         <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
-        <button type="submit">Visa PDF:er</button>
+        <button type="submit" class="btn">Visa PDF:er</button>
         <span id="pdfLookupMessage" class="message" aria-live="polite"></span>
     </form>
 
@@ -154,7 +154,7 @@
         <label for="resetEmail">E-post</label>
         <input id="resetEmail" name="resetEmail" type="email" required placeholder="user@example.com" />
 
-        <button type="submit">Skicka återställningslänk</button>
+        <button type="submit" class="btn">Skicka återställningslänk</button>
         <p id="resetMessage" class="message" aria-live="polite"></p>
     </form>
 </section>
@@ -162,7 +162,7 @@
 <section class="panel">
     <h2>Avancerade verktyg</h2>
     <p>Behöver du full åtkomst till databasen? Besök den avancerade redigeraren. Allt loggas.</p>
-    <p><a class="button" href="{{ url_for('admin_advanced') }}">Öppna avancerad databasredigerare</a></p>
+    <p><a class="btn btn-secondary" href="{{ url_for('admin_advanced') }}">Öppna avancerad databasredigerare</a></p>
 </section>
 
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
