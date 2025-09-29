@@ -1120,7 +1120,8 @@ def admin_advanced_create(table_name: str):
     try:
         row = functions.create_table_row(table_name, values)
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 400
+        logger.warning(f"Error in create_table_row: {exc}")
+        return jsonify({'status': 'error', 'message': 'Kunde inte skapa posten.'}), 400
     functions.log_admin_action(
         admin_name,
         'skapade post',
