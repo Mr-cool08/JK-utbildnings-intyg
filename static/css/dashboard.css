@@ -193,6 +193,169 @@
     font-size: 0.9rem;
 }
 
+.pdf-actions {
+    margin-top: 10px;
+}
+
+.share-button {
+    background-color: #1d4ed8;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.share-button:hover {
+    background-color: #153e9b;
+    box-shadow: 0 10px 18px rgba(29, 78, 216, 0.25);
+    transform: translateY(-1px);
+}
+
+.share-button:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.55);
+    outline-offset: 2px;
+}
+
+.share-button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.share-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.share-modal.is-visible {
+    display: flex;
+}
+
+.share-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.share-modal__dialog {
+    position: relative;
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 24px 40px rgba(15, 23, 42, 0.18);
+    padding: 28px 32px;
+    width: min(92%, 420px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 1;
+}
+
+.share-modal__close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.share-modal__close:hover {
+    color: #111827;
+    transform: scale(1.05);
+}
+
+.share-modal__close:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.65);
+    outline-offset: 2px;
+}
+
+.share-modal__lead {
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.95rem;
+}
+
+.share-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.share-form label {
+    font-weight: 600;
+    color: #111827;
+}
+
+.share-form input {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.share-form input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+    outline: none;
+}
+
+.share-submit {
+    align-self: flex-start;
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.share-submit:hover {
+    background-color: #1d4ed8;
+    box-shadow: 0 12px 20px rgba(37, 99, 235, 0.25);
+    transform: translateY(-1px);
+}
+
+.share-submit:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.55);
+    outline-offset: 2px;
+}
+
+.share-modal__feedback {
+    margin: 0;
+    font-size: 0.9rem;
+    min-height: 1.2em;
+}
+
+.share-modal__feedback[hidden] {
+    display: none;
+}
+
+.share-modal__feedback[data-state="success"] {
+    color: #047857;
+}
+
+.share-modal__feedback[data-state="error"] {
+    color: #b91c1c;
+}
+
+.share-modal__feedback[data-state="info"] {
+    color: #2563eb;
+}
+
 @media (max-width: 640px) {
     .dashboard {
         padding: 22px 20px;
