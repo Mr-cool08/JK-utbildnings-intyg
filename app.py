@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+import string
 import ssl
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from html import escape
 from typing import Sequence
 from email import policy
 from email.message import EmailMessage
@@ -21,6 +24,7 @@ from smtplib import (
 
 from flask import (
     Flask,
+    Response,
     abort,
     current_app,
     jsonify,
@@ -55,6 +59,155 @@ logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
 
 
+
+
+@dataclass(frozen=True)
+class SMTPSettings:
+    server: str
+    port: int
+    user: str
+    password: str
+    timeout: int
+
+
+ALLOWED_LOCAL_CHARS = frozenset(
+    string.ascii_letters
+    + string.digits
+    + "!#$%&'*+/=?^_`{|}~.-"
+)
+
+
+def _is_ascii_printable(value: str) -> bool:
+    return all(32 <= ord(ch) <= 126 for ch in value)
+
+
+def _normalize_valid_email(address: str) -> str:
+    normalized = functions.normalize_email(address)
+    if not normalized or "@" not in normalized or normalized.count("@") != 1:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if len(normalized) > 320 or not _is_ascii_printable(normalized):
+        raise ValueError("Ogiltig e-postadress.")
+
+    local_part, domain = normalized.split("@", 1)
+    if not local_part or not domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if local_part.startswith(".") or local_part.endswith("."):
+        raise ValueError("Ogiltig e-postadress.")
+
+    if ".." in local_part or ".." in domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if any(ch not in ALLOWED_LOCAL_CHARS for ch in local_part):
+        raise ValueError("Ogiltig e-postadress.")
+
+    labels = domain.split(".")
+    if len(labels) < 2 or any(not label for label in labels):
+        raise ValueError("Ogiltig e-postadress.")
+
+    for label in labels:
+        if label.startswith("-") or label.endswith("-"):
+            raise ValueError("Ogiltig e-postadress.")
+        if not all(ch.isalnum() or ch == "-" for ch in label):
+            raise ValueError("Ogiltig e-postadress.")
+
+    return normalized
+
+
+def _load_smtp_settings() -> SMTPSettings:
+    smtp_server = os.getenv("smtp_server")
+    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_user = os.getenv("smtp_user")
+    smtp_password = os.getenv("smtp_password")
+    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+
+    if not (smtp_server and smtp_user and smtp_password):
+        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
+
+    return SMTPSettings(
+        server=smtp_server,
+        port=smtp_port,
+        user=smtp_user,
+        password=smtp_password,
+        timeout=smtp_timeout,
+    )
+
+
+def _send_email_message(
+    msg: EmailMessage, normalized_recipient: str, settings: SMTPSettings
+) -> None:
+    context = ssl.create_default_context()
+
+    try:
+        use_ssl = settings.port == 465
+        logger.info(
+            "Förbereder utskick till %s via %s:%s (%s, timeout %ss)",
+            normalized_recipient,
+            settings.server,
+            settings.port,
+            "SSL" if use_ssl else "STARTTLS",
+            settings.timeout,
+        )
+
+        smtp_cls = SMTP_SSL if use_ssl else SMTP
+        smtp_kwargs = {"timeout": settings.timeout}
+        if use_ssl:
+            smtp_kwargs["context"] = context
+
+        with smtp_cls(settings.server, settings.port, **smtp_kwargs) as smtp:
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
+            if not use_ssl:
+                try:
+                    from inspect import signature
+
+                    if "context" in signature(smtp.starttls).parameters:
+                        smtp.starttls(context=context)
+                        logger.debug("SMTP STARTTLS initierad med kontext")
+                    else:
+                        smtp.starttls()
+                        logger.debug("SMTP STARTTLS initierad utan kontext")
+                except (TypeError, ValueError):
+                    smtp.starttls()
+                    logger.debug("SMTP STARTTLS initierad (fallback)")
+
+                if hasattr(smtp, "ehlo"):
+                    smtp.ehlo()
+
+            smtp.login(settings.user, settings.password)
+            logger.debug("SMTP inloggning lyckades för %s", settings.user)
+
+            if hasattr(smtp, "send_message"):
+                refused = smtp.send_message(msg)
+            else:
+                refused = smtp.sendmail(
+                    settings.user, [normalized_recipient], msg.as_string()
+                )
+
+            if refused:
+                logger.error("SMTP server refused recipients: %s", refused)
+                raise RuntimeError("E-postservern accepterade inte mottagaren.")
+
+        logger.debug(
+            "Meddelande-ID för utskick till %s: %s",
+            normalized_recipient,
+            msg["Message-ID"],
+        )
+
+    except SMTPAuthenticationError as exc:
+        logger.exception("SMTP login failed for %s", settings.user)
+        raise RuntimeError("SMTP-inloggning misslyckades") from exc
+    except SMTPServerDisconnected as exc:
+        logger.exception("Server closed the connection during SMTP session")
+        raise RuntimeError("Det gick inte att skicka e-post") from exc
+    except SMTPException as exc:
+        logger.exception("SMTP error when sending to %s", normalized_recipient)
+        raise RuntimeError("Det gick inte att skicka e-post") from exc
+    except OSError as exc:
+        logger.exception("Connection error to email server")
+        raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
 
 def _enable_debug_mode(app: Flask) -> None:
@@ -109,25 +262,18 @@ def send_creation_email(to_email: str, link: str) -> None:
     # Send a password creation link via SMTP.
 
     # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-    
-    normalized_email = functions.normalize_email(to_email)
+
+    normalized_email = _normalize_valid_email(to_email)
     if normalized_email != to_email:
         logger.debug(
             "Normalized recipient email from %r to %s", to_email, normalized_email
         )
 
-    smtp_server = os.getenv("smtp_server")
-    smtp_port = int(os.getenv("smtp_port", "587"))
-    smtp_user = os.getenv("smtp_user")
-    smtp_password = os.getenv("smtp_password")
-    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
-
-    if not (smtp_server and smtp_user and smtp_password):
-        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
+    settings = _load_smtp_settings()
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = "Skapa ditt konto"
-    msg["From"] = smtp_user
+    msg["From"] = settings.user
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
@@ -145,78 +291,55 @@ def send_creation_email(to_email: str, link: str) -> None:
         subtype="html",
     )
 
-    context = ssl.create_default_context()
+    _send_email_message(msg, normalized_email, settings)
 
-    try:
-        use_ssl = smtp_port == 465
-        logger.info(
-            "Förbereder utskick till %s via %s:%s (%s, timeout %ss)",
-            normalized_email,
-            smtp_server,
-            smtp_port,
-            "SSL" if use_ssl else "STARTTLS",
-            smtp_timeout,
-        )
 
-        smtp_cls = SMTP_SSL if use_ssl else SMTP
-        smtp_kwargs = {"timeout": smtp_timeout}
-        if use_ssl:
-            smtp_kwargs["context"] = context
 
-        with smtp_cls(smtp_server, smtp_port, **smtp_kwargs) as smtp:
-            if hasattr(smtp, "ehlo"):
-                smtp.ehlo()
+def send_pdf_share_email(
+    recipient_email: str,
+    pdf_filename: str,
+    pdf_content: bytes,
+    sender_name: str,
+) -> None:
+    # Send the selected PDF as an attachment to ``recipient_email``.
 
-            if not use_ssl:
-                try:
-                    from inspect import signature
+    normalized_email = _normalize_valid_email(recipient_email)
+    settings = _load_smtp_settings()
 
-                    if "context" in signature(smtp.starttls).parameters:
-                        smtp.starttls(context=context)
-                        logger.debug("SMTP STARTTLS initierad med kontext")
-                    else:
-                        smtp.starttls()
-                        logger.debug("SMTP STARTTLS initierad utan kontext")
-                except (TypeError, ValueError):
-                    smtp.starttls()
-                    logger.debug("SMTP STARTTLS initierad (fallback)")
+    safe_sender = escape(sender_name.strip() or "En användare")
+    safe_filename = escape(pdf_filename)
 
-                if hasattr(smtp, "ehlo"):
-                    smtp.ehlo()
+    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
+    msg["Subject"] = f"Delat intyg från {safe_sender}"
+    msg["From"] = settings.user
+    msg["To"] = normalized_email
+    msg["Message-ID"] = make_msgid()
+    msg["Date"] = format_datetime(datetime.now(timezone.utc))
+    msg.set_content(
+        (
+            "<html>"
+            "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
+            f"<p>Hej,</p>"
+            f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via JK "
+            "Utbildningsintyg.</p>"
+            f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>."
+            "</p>"
+            "<p>Har du frågor kan du svara direkt på detta e-postmeddelande.</p>"
+            "<p>Vänliga hälsningar,<br>JK Utbildningsintyg</p>"
+            "</body>"
+            "</html>"
+        ),
+        subtype="html",
+    )
+    msg.add_attachment(
+        pdf_content,
+        maintype="application",
+        subtype="pdf",
+        filename=pdf_filename,
+    )
 
-            smtp.login(smtp_user, smtp_password)
-            logger.debug("SMTP inloggning lyckades för %s", smtp_user)
+    _send_email_message(msg, normalized_email, settings)
 
-            if hasattr(smtp, "send_message"):
-                refused = smtp.send_message(msg)
-            else:
-                refused = smtp.sendmail(
-                    smtp_user, [normalized_email], msg.as_string()
-                )
-
-            if refused:
-                logger.error("SMTP server refused recipients: %s", refused)
-                raise RuntimeError("E-postservern accepterade inte mottagaren.")
-
-        logger.info("Skickade aktiveringslänk till %s", normalized_email)
-        logger.debug(
-            "Meddelande-ID för utskick till %s: %s",
-            normalized_email,
-            msg["Message-ID"],
-        )
-
-    except SMTPAuthenticationError as exc:
-        logger.exception("SMTP login failed for %s", smtp_user)
-        raise RuntimeError("SMTP-inloggning misslyckades") from exc
-    except SMTPServerDisconnected as exc:
-        logger.exception("Server closed the connection during SMTP session")
-        raise RuntimeError("Det gick inte att skicka e-post") from exc
-    except SMTPException as exc:
-        logger.exception("SMTP error when sending to %s", normalized_email)
-        raise RuntimeError("Det gick inte att skicka e-post") from exc
-    except OSError as exc:
-        logger.exception("Connection error to email server")
-        raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
 @app.context_processor
 def inject_flags():
@@ -437,6 +560,83 @@ def download_pdf(pdf_id: int):
     return response
 
 
+@app.route('/share_pdf', methods=['POST'])
+def share_pdf() -> tuple[Response, int]:
+    # Share a PDF with a recipient via e-post.
+    if not session.get('user_logged_in'):
+        logger.debug("Unauthenticated share attempt")
+        return jsonify({'fel': 'Du måste vara inloggad för att dela intyg.'}), 401
+
+    payload = request.get_json(silent=True) or request.form
+    if not payload:
+        return jsonify({'fel': 'Ogiltig begäran.'}), 400
+
+    pdf_id_raw = payload.get('pdf_id') if hasattr(payload, 'get') else None
+    recipient_email = (payload.get('recipient_email', '') if hasattr(payload, 'get') else '').strip()
+
+    try:
+        pdf_id = int(pdf_id_raw)
+    except (TypeError, ValueError):
+        logger.warning("Invalid pdf_id provided for sharing: %r", pdf_id_raw)
+        return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
+
+    if not recipient_email:
+        return jsonify({'fel': 'Ange en e-postadress.'}), 400
+
+    pnr_hash = session.get('personnummer')
+    if not pnr_hash:
+        logger.error("Share request missing personnummer in session")
+        return jsonify({'fel': 'Saknar användaruppgifter.'}), 400
+
+    pdf = functions.get_pdf_content(pnr_hash, pdf_id)
+    if not pdf:
+        logger.warning("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
+        return jsonify({'fel': 'Intyget kunde inte hittas.'}), 404
+
+    filename, content = pdf
+
+    sender_name = session.get('username')
+    if not sender_name:
+        sender_name = functions.get_username_by_personnummer_hash(pnr_hash)
+        if sender_name:
+            session['username'] = sender_name
+
+    sender_display = (sender_name or '').strip() or 'En användare'
+
+    try:
+        normalized_recipient = _normalize_valid_email(recipient_email)
+    except ValueError:
+        return jsonify({'fel': 'Ogiltig e-postadress.'}), 400
+
+    if normalized_recipient != recipient_email:
+        logger.debug(
+            "Normalized share recipient email from %r to %s",
+            recipient_email,
+            normalized_recipient,
+        )
+
+    try:
+        send_pdf_share_email(
+            normalized_recipient,
+            filename,
+            content,
+            sender_display,
+        )
+    except RuntimeError as exc:
+        logger.exception(
+            "Failed to share pdf %s from %s to %s", pdf_id, pnr_hash, normalized_recipient
+        )
+        return jsonify({'fel': 'Ett internt fel har inträffat.'}), 500
+
+    logger.info(
+        "User %s delade intyg %s med %s",
+        pnr_hash,
+        pdf_id,
+        normalized_recipient,
+    )
+    return jsonify({'meddelande': 'Intyget har skickats via e-post.'}), 200
+
+
 @app.route('/view_pdf/<int:pdf_id>')
 def view_pdf(pdf_id: int):
     # Redirect to a direct download of the specified PDF.
@@ -526,8 +726,8 @@ def admin():
                 try:
                     send_creation_email(email, link)
                 except RuntimeError as e:
-                    logger.error("Failed to send creation email to %s", email)
-                    return jsonify({'status': 'error', 'message': str(e)}), 500
+                    logger.error("Failed to send creation email to %s", email, exc_info=True)
+                    return jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken via e-post.'}), 500
 
                 logger.info("Admin created user %s", personnummer)
                 return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
