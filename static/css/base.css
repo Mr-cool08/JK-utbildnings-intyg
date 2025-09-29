@@ -378,6 +378,23 @@ footer {
     margin-top: 0;
 }
 
+.card {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: #fff;
+    border: 1px solid #d4dae2;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(15, 31, 51, 0.08);
+}
+
+.card h3 {
+    margin-top: 0;
+}
+
+.table-scroll {
+    overflow-x: auto;
+}
+
 .inline-form {
     display: flex;
     flex-wrap: wrap;
@@ -448,7 +465,16 @@ button.danger:focus {
 }
 
 .category-select {
-    min-width: 180px;
+    min-width: 200px;
+    min-height: 7rem;
+    padding: 6px;
+}
+
+.category-empty {
+    display: inline-block;
+    padding: 0.4rem 0.5rem;
+    color: #5f6b7a;
+    font-style: italic;
 }
 
 .button-row {

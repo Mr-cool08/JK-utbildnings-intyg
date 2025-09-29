@@ -5,7 +5,32 @@
   const pdfResultBody = document.getElementById('pdfResultBody');
   const resetForm = document.getElementById('resetForm');
   const resetMessage = document.getElementById('resetMessage');
-  const categories = Array.isArray(window.APP_CATEGORIES) ? window.APP_CATEGORIES : [];
+
+  function normalizeCategories(list) {
+    if (!Array.isArray(list)) return [];
+    const normalized = [];
+    const seen = new Set();
+    list.forEach((entry) => {
+      let slug;
+      let label;
+      if (Array.isArray(entry) && entry.length >= 2) {
+        [slug, label] = entry;
+      } else if (entry && typeof entry === 'object') {
+        ({ slug, label } = entry);
+      }
+      if (typeof slug === 'string' && typeof label === 'string') {
+        const trimmedSlug = slug.trim();
+        const trimmedLabel = label.trim();
+        if (trimmedSlug && trimmedLabel && !seen.has(trimmedSlug)) {
+          normalized.push({ slug: trimmedSlug, label: trimmedLabel });
+          seen.add(trimmedSlug);
+        }
+      }
+    });
+    return normalized;
+  }
+
+  let categories = normalizeCategories(window.APP_CATEGORIES);
   let lastLookup = '';
 
   function setLookupMessage(text, isError) {
@@ -15,18 +40,29 @@
   }
 
   function renderCategoryOptions(selected) {
+    const normalizedSelected = new Set(selected || []);
+
+    if (!categories.length) {
+      const span = document.createElement('span');
+      span.className = 'category-empty';
+      span.textContent = 'Inga kategorier tillgängliga.';
+      return { control: span, disabled: true };
+    }
+
     const select = document.createElement('select');
     select.multiple = true;
     select.className = 'category-select';
-    const selectedSet = new Set(selected || []);
-    categories.forEach(([slug, label]) => {
+    select.size = Math.min(6, Math.max(3, categories.length));
+
+    categories.forEach(({ slug, label }) => {
       const option = document.createElement('option');
       option.value = slug;
       option.textContent = label;
-      option.selected = selectedSet.has(slug);
+      option.selected = normalizedSelected.has(slug);
       select.appendChild(option);
     });
-    return select;
+
+    return { control: select, disabled: false };
   }
 
   function renderPdfRow(pdf) {
@@ -40,8 +76,8 @@
     tr.appendChild(fileCell);
 
     const categoryCell = document.createElement('td');
-    const select = renderCategoryOptions(pdf.categories);
-    categoryCell.appendChild(select);
+    const { control, disabled } = renderCategoryOptions(pdf.categories);
+    categoryCell.appendChild(control);
     tr.appendChild(categoryCell);
 
     const uploadedCell = document.createElement('td');
@@ -52,8 +88,12 @@
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.textContent = 'Spara kategorier';
+    saveBtn.disabled = disabled;
+    saveBtn.title = disabled ? 'Inga kategorier har konfigurerats.' : '';
     saveBtn.addEventListener('click', async () => {
-      await updatePdf(pdf.id, Array.from(select.selectedOptions).map((o) => o.value));
+      if (disabled) return;
+      const selectedValues = Array.from(control.selectedOptions).map((o) => o.value);
+      await updatePdf(pdf.id, selectedValues);
     });
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -90,6 +130,7 @@
         pdfResults.hidden = true;
         return;
       }
+      categories = normalizeCategories(data.data.categories);
       data.data.pdfs.forEach((pdf) => {
         pdfResultBody.appendChild(renderPdfRow(pdf));
       });
