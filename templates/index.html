@@ -12,25 +12,77 @@
 {% endblock %}
 {% block content %}
 <div class="hero">
-    <h1>Hantera utbildningsintyg enkelt</h1>
-    <p>JK Utbildnings Intyg hjälper dig att lagra och komma åt intyg var du än är.</p>
+    <p class="hero-eyebrow">Digitalt arkiv för utbildningsintyg</p>
+    <h1>Trygg hantering av utbildningsintyg</h1>
+    <p>JK Utbildnings Intyg hjälper utbildningsföretag och kursdeltagare att lagra, verifiera och hitta rätt intyg på några sekunder.</p>
     <div class="actions">
-        <a class="btn" href="/login">Användarinloggning</a>
+        <a class="btn" href="/login">Logga in</a>
+        <a class="btn btn-outline" href="#sa-fungerar">Utforska tjänsten</a>
     </div>
+    <ul class="hero-highlights">
+        <li>GDPR-anpassad lagring inom EU</li>
+        <li>Säker delning av signerade PDF-intyg</li>
+        <li>Stöd för både administratörer och studerande</li>
+    </ul>
 </div>
 
 <section class="features">
-    <div class="feature">
-        <h2>Organisera</h2>
-        <p>Spara alla dina utbildningsintyg på ett ställe.</p>
+    <h2>Funktioner som sparar tid</h2>
+    <div class="feature-grid">
+        <article class="feature">
+            <h3>Organisera smart</h3>
+            <p>Samla alla utbildningsintyg på ett ställe med tydlig struktur efter personnummer.</p>
+        </article>
+        <article class="feature">
+            <h3>Verifiera direkt</h3>
+            <p>Dela säkra länkar till PDF-intyg och ge mottagare möjlighet att kontrollera äktheten.</p>
+        </article>
+        <article class="feature">
+            <h3>Åtkomst överallt</h3>
+            <p>Logga in från dator, mobil eller surfplatta och hämta intyg när som helst.</p>
+        </article>
     </div>
-    <div class="feature">
-        <h2>Verifiera</h2>
-        <p>Dela och verifiera intyg enkelt.</p>
+</section>
+
+<section id="sa-fungerar" class="process">
+    <h2>Så fungerar det</h2>
+    <ol class="process-steps">
+        <li>
+            <span class="step-title">Registrera deltagare</span>
+            <p>Administratören lägger till nya deltagare och laddar upp deras senaste intyg.</p>
+        </li>
+        <li>
+            <span class="step-title">Aktivera konto</span>
+            <p>Deltagaren får en länk via e-post, väljer lösenord och får tillgång till sitt personliga arkiv.</p>
+        </li>
+        <li>
+            <span class="step-title">Hämta och dela</span>
+            <p>Intygen kan laddas ned på sekunder och delas med arbetsgivare eller myndigheter vid behov.</p>
+        </li>
+    </ol>
+</section>
+
+<section class="trust">
+    <h2>Varför organisationer väljer JK Utbildnings Intyg</h2>
+    <div class="trust-grid">
+        <article class="trust-card">
+            <h3>Säkerhet först</h3>
+            <p>Krypterade lösenord, kontrollerade filtyper och tydlig loggning skyddar känsliga uppgifter.</p>
+        </article>
+        <article class="trust-card">
+            <h3>Enkel administration</h3>
+            <p>Smidiga formulär och tydliga listor gör det lätt att hålla koll på uppladdade intyg.</p>
+        </article>
+        <article class="trust-card">
+            <h3>Support nära till hands</h3>
+            <p>Teamet bakom tjänsten hjälper dig hela vägen från uppstart till löpande drift.</p>
+        </article>
     </div>
-    <div class="feature">
-        <h2>Åtkomst</h2>
-        <p>Logga in från valfri enhet för att se dina intyg.</p>
-    </div>
+</section>
+
+<section class="cta-banner">
+    <h2>Klara att digitalisera intygen?</h2>
+    <p>Bjud in dina administratörer, logga in och kom igång med en trygg och enkel lösning redan idag.</p>
+    <a class="btn" href="/login">Starta nu</a>
 </section>
 {% endblock %}
