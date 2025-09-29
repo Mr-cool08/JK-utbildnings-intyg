@@ -48,8 +48,19 @@
                             Inte angiven
                         {% endif %}
                         <br>
-                        
+
                     </span>
+                    <div class="pdf-actions">
+                        <button
+                            type="button"
+                            class="share-button"
+                            data-share-button
+                            data-pdf-id="{{ pdf.id }}"
+                            data-pdf-name="{{ pdf.filename }}"
+                        >
+                            Dela via e-post
+                        </button>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
@@ -60,4 +71,29 @@
     <p>Inga PDF:er uppladdade.</p>
     {% endif %}
 </section>
+
+<div id="shareModal" class="share-modal" aria-hidden="true">
+    <div class="share-modal__backdrop" data-share-close></div>
+    <div class="share-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+        <button type="button" class="share-modal__close" aria-label="Stäng delningsrutan" data-share-close>&times;</button>
+        <h2 id="shareModalTitle">Dela intyg via e-post</h2>
+        <p class="share-modal__lead">
+            Du delar <strong id="shareDocumentName">intyget</strong>. Ange mottagarens e-postadress nedan.
+        </p>
+        <form id="shareForm" class="share-form" novalidate>
+            <label for="shareRecipientEmail">Mottagarens e-postadress</label>
+            <input
+                type="email"
+                id="shareRecipientEmail"
+                name="recipient_email"
+                required
+                autocomplete="email"
+                placeholder="namn@example.se"
+            >
+            <button type="submit" class="share-submit">Skicka intyget</button>
+        </form>
+        <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
