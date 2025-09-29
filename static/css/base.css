@@ -591,6 +591,8 @@ small.hint {
 .hero .actions {
     display: flex;
     justify-content: center;
+    align-items: center;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: 1rem;
 }
@@ -826,7 +828,7 @@ small.hint {
     }
 
     .hero .actions {
-        justify-content: flex-start;
+        justify-content: center;
     }
 
     .hero-highlights {
