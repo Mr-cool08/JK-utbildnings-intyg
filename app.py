@@ -1072,7 +1072,8 @@ def admin_send_password_reset():
     try:
         send_password_reset_email(email, link)
     except RuntimeError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 500
+        logger.exception("Misslyckades att skicka återställningsmejl")
+        return jsonify({'status': 'error', 'message': 'Kunde inte skicka återställningsmejl.'}), 500
 
     functions.log_admin_action(
         admin_name,
