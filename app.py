@@ -218,6 +218,90 @@ def send_creation_email(to_email: str, link: str) -> None:
         logger.exception("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
+
+def _require_admin() -> str:
+    if not session.get("admin_logged_in"):
+        abort(403)
+    return session.get("admin_username", "okänd")
+
+def send_password_reset_email(to_email: str, link: str) -> None:
+    # Skicka e-post med länk för återställning av lösenord.
+    normalized_email = functions.normalize_email(to_email)
+    smtp_server = os.getenv("smtp_server")
+    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_user = os.getenv("smtp_user")
+    smtp_password = os.getenv("smtp_password")
+    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+
+    if not (smtp_server and smtp_user and smtp_password):
+        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
+
+    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
+    msg["Subject"] = "Återställ ditt lösenord"
+    msg["From"] = smtp_user
+    msg["To"] = normalized_email
+    msg["Message-ID"] = make_msgid()
+    msg["Date"] = format_datetime(datetime.now(timezone.utc))
+    msg.set_content(
+        f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Du har begärt att återställa ditt lösenord. Använd länken nedan för att välja ett nytt lösenord:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>Länken är giltig i 48 timmar. Om du inte begärde detta kan du ignorera meddelandet.</p>
+            </body>
+        </html>
+        """,
+        subtype="html",
+    )
+
+    context = ssl.create_default_context()
+
+    try:
+        use_ssl = smtp_port == 465
+        smtp_cls = SMTP_SSL if use_ssl else SMTP
+        smtp_kwargs = {"timeout": smtp_timeout}
+        if use_ssl:
+            smtp_kwargs["context"] = context
+
+        with smtp_cls(smtp_server, smtp_port, **smtp_kwargs) as smtp:
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
+            if not use_ssl:
+                try:
+                    from inspect import signature
+
+                    if "context" in signature(smtp.starttls).parameters:
+                        smtp.starttls(context=context)
+                    else:
+                        smtp.starttls()
+                except (TypeError, ValueError):
+                    smtp.starttls()
+
+                if hasattr(smtp, "ehlo"):
+                    smtp.ehlo()
+
+            smtp.login(smtp_user, smtp_password)
+
+            if hasattr(smtp, "send_message"):
+                refused = smtp.send_message(msg)
+            else:
+                refused = smtp.sendmail(
+                    smtp_user,
+                    [normalized_email],
+                    msg.as_string(),
+                )
+
+            if refused:
+                logger.error("SMTP server refused recipients: %s", refused)
+                raise RuntimeError("E-postservern accepterade inte mottagaren.")
+
+    except (SMTPAuthenticationError, SMTPServerDisconnected, SMTPException) as exc:
+        logger.exception("SMTP-fel vid utskick av återställningsmejl")
+        raise RuntimeError("Det gick inte att skicka återställningsmejlet.") from exc
+
 @app.context_processor
 def inject_flags():
     # Expose flags indicating debug mode to Jinja templates.
@@ -292,6 +376,34 @@ def create_user(pnr_hash):
         else:
             logger.warning("User hash %s not found during create_user", pnr_hash)
             return "Fel: Användaren hittades inte"
+
+
+@app.route('/aterstall-losenord/<token>', methods=['GET', 'POST'])
+def password_reset(token: str):
+    info = functions.get_password_reset(token)
+    if not info or info.get('used_at') is not None:
+        return render_template('password_reset.html', invalid=True)
+
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        confirm = request.form.get('confirm', '').strip()
+        if not password or password != confirm:
+            return render_template(
+                'password_reset.html',
+                invalid=False,
+                error='Lösenorden måste fyllas i och matcha.',
+            )
+        if len(password) < 8:
+            return render_template(
+                'password_reset.html',
+                invalid=False,
+                error='Lösenordet måste vara minst 8 tecken.',
+            )
+        if not functions.reset_password_with_token(token, password):
+            return render_template('password_reset.html', invalid=True)
+        return redirect('/login')
+
+    return render_template('password_reset.html', invalid=False)
 
 @app.route('/', methods=['GET'])
 def home():
@@ -548,7 +660,252 @@ def admin():
         return redirect('/login_admin')
 
     logger.debug("Rendering admin page")
-    return render_template('admin.html', categories=COURSE_CATEGORIES)
+    return render_template(
+        'admin.html',
+        categories=COURSE_CATEGORIES,
+    )
+
+
+@app.post('/admin/api/oversikt')
+def admin_user_overview():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not personnummer:
+        return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    pnr_hash = functions.hash_value(normalized_personnummer)
+    pdfs = functions.get_user_pdfs(pnr_hash)
+    overview = []
+    for pdf in pdfs:
+        overview.append(
+            {
+                'id': pdf['id'],
+                'filename': pdf['filename'],
+                'categories': pdf.get('categories') or [],
+                'category_labels': labels_for_slugs(pdf.get('categories') or []),
+                'uploaded_at': pdf.get('uploaded_at').isoformat()
+                if pdf.get('uploaded_at')
+                else None,
+            }
+        )
+
+    user_row = functions.get_user_info(normalized_personnummer)
+    pending = functions.check_pending_user(normalized_personnummer)
+    response = {
+        'status': 'success',
+        'data': {
+            'personnummer_hash': pnr_hash,
+            'username': user_row.username if user_row else None,
+            'email_hash': user_row.email if user_row else None,
+            'pending': pending,
+            'pdfs': overview,
+            'categories': [
+                {'slug': slug, 'label': label}
+                for slug, label in COURSE_CATEGORIES
+            ],
+        },
+    }
+    functions.log_admin_action(
+        admin_name,
+        'visade användaröversikt',
+        f'personnummer={normalized_personnummer}',
+    )
+    return jsonify(response)
+
+
+@app.post('/admin/api/radera-pdf')
+def admin_delete_pdf():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    pdf_id = payload.get('pdf_id')
+    if not personnummer or pdf_id is None:
+        return jsonify({'status': 'error', 'message': 'Ange personnummer och PDF-id.'}), 400
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        pdf_id_int = int(pdf_id)
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-id.'}), 400
+
+    if not functions.delete_user_pdf(normalized_personnummer, pdf_id_int):
+        return (
+            jsonify({'status': 'error', 'message': 'PDF kunde inte hittas.'}),
+            404,
+        )
+
+    functions.log_admin_action(
+        admin_name,
+        'raderade PDF',
+        f'personnummer={normalized_personnummer}, pdf_id={pdf_id_int}',
+    )
+    return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
+
+
+@app.post('/admin/api/uppdatera-pdf')
+def admin_update_pdf():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    pdf_id = payload.get('pdf_id')
+    categories = payload.get('categories')
+    if not isinstance(categories, list):
+        return jsonify({'status': 'error', 'message': 'Kategorier måste vara en lista.'}), 400
+    if not personnummer or pdf_id is None:
+        return jsonify({'status': 'error', 'message': 'Ange personnummer och PDF-id.'}), 400
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+    try:
+        pdf_id_int = int(pdf_id)
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-id.'}), 400
+
+    try:
+        normalized_categories = normalize_category_slugs(categories)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltig kategori vald.'}), 400
+
+    if not functions.update_pdf_categories(
+        normalized_personnummer, pdf_id_int, normalized_categories
+    ):
+        return (
+            jsonify({'status': 'error', 'message': 'PDF kunde inte uppdateras.'}),
+            404,
+        )
+
+    functions.log_admin_action(
+        admin_name,
+        'uppdaterade PDF-kategorier',
+        f'personnummer={normalized_personnummer}, pdf_id={pdf_id_int}, kategorier={";".join(normalized_categories)}',
+    )
+    return jsonify({'status': 'success', 'message': 'Kategorier uppdaterade.'})
+
+
+@app.post('/admin/api/skicka-aterstallning')
+def admin_send_password_reset():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    email = (payload.get('email') or '').strip()
+    if not personnummer or not email:
+        return jsonify({'status': 'error', 'message': 'Ange både personnummer och e-post.'}), 400
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        token = functions.create_password_reset_token(normalized_personnummer, email)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 404
+    except Exception:
+        logger.exception("Misslyckades att skapa återställningstoken")
+        return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
+
+    link = url_for('password_reset', token=token, _external=True)
+    try:
+        send_password_reset_email(email, link)
+    except RuntimeError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 500
+
+    functions.log_admin_action(
+        admin_name,
+        'skickade lösenordsåterställning',
+        f'personnummer={normalized_personnummer}',
+    )
+    return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat.', 'link': link})
+
+
+@app.get('/admin/avancerat')
+def admin_advanced():
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin advanced GET")
+        return redirect('/login_admin')
+    tables = sorted(functions.TABLE_REGISTRY.keys())
+    return render_template('admin_advanced.html', tables=tables)
+
+
+@app.get('/admin/advanced/api/schema/<table_name>')
+def admin_advanced_schema(table_name: str):
+    _require_admin()
+    try:
+        schema = functions.get_table_schema(table_name)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
+    return jsonify({'status': 'success', 'schema': schema})
+
+
+@app.get('/admin/advanced/api/rows/<table_name>')
+def admin_advanced_rows(table_name: str):
+    _require_admin()
+    search_term = request.args.get('sok')
+    limit = request.args.get('limit', type=int) or 100
+    try:
+        rows = functions.fetch_table_rows(table_name, search_term, limit)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
+    return jsonify({'status': 'success', 'rows': rows})
+
+
+@app.post('/admin/advanced/api/rows/<table_name>')
+def admin_advanced_create(table_name: str):
+    admin_name = _require_admin()
+    values = request.get_json(silent=True) or {}
+    try:
+        row = functions.create_table_row(table_name, values)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+    functions.log_admin_action(
+        admin_name,
+        'skapade post',
+        f'tabell={table_name}',
+    )
+    return jsonify({'status': 'success', 'row': row}), 201
+
+
+@app.put('/admin/advanced/api/rows/<table_name>/<int:row_id>')
+def admin_advanced_update(table_name: str, row_id: int):
+    admin_name = _require_admin()
+    values = request.get_json(silent=True) or {}
+    try:
+        updated = functions.update_table_row(table_name, row_id, values)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+    if not updated:
+        return jsonify({'status': 'error', 'message': 'Posten hittades inte.'}), 404
+    functions.log_admin_action(
+        admin_name,
+        'uppdaterade post',
+        f'tabell={table_name}, id={row_id}',
+    )
+    return jsonify({'status': 'success'})
+
+
+@app.delete('/admin/advanced/api/rows/<table_name>/<int:row_id>')
+def admin_advanced_delete(table_name: str, row_id: int):
+    admin_name = _require_admin()
+    try:
+        deleted = functions.delete_table_row(table_name, row_id)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
+    if not deleted:
+        return jsonify({'status': 'error', 'message': 'Posten hittades inte.'}), 404
+    functions.log_admin_action(
+        admin_name,
+        'raderade post',
+        f'tabell={table_name}, id={row_id}',
+    )
+    return jsonify({'status': 'success'})
 
 
 @app.route('/verify_certificate/<personnummer>', methods=['GET'])
@@ -584,6 +941,7 @@ def login_admin():
         admin_username = os.getenv('admin_username')
         if request.form['username'] == admin_username and request.form['password'] == admin_password:
             session['admin_logged_in'] = True
+            session['admin_username'] = admin_username
             logger.info("Admin %s logged in", admin_username)
             return redirect('/admin')
         else:
@@ -603,6 +961,7 @@ def logout():
     logger.info("Logging out user and admin")
     session.pop('user_logged_in', None)
     session.pop('admin_logged_in', None)
+    session.pop('admin_username', None)
     session.pop('personnummer', None)
     return redirect('/')
 

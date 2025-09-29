@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Avancerad databasredigerare{% endblock %}
+{% block content %}
+<h1>Avancerad databasredigerare</h1>
+<p>Här kan du läsa, skapa, uppdatera och ta bort poster i databasen. Alla åtgärder loggas tillsammans med din administratörsidentitet.</p>
+
+<section class="panel">
+    <h2>Välj tabell</h2>
+    <form id="tableForm" class="inline-form">
+        <label for="tableSelect">Tabell</label>
+        <select id="tableSelect" name="table">
+            {% for name in tables %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="searchInput">Sök</label>
+        <input id="searchInput" name="search" type="text" placeholder="Filtrera poster" />
+
+        <button type="submit">Ladda poster</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Poster</h2>
+    <p id="tableStatus" class="message" aria-live="polite">Välj en tabell för att se poster.</p>
+    <div id="tableContainer" class="responsive-table" hidden>
+        <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Redigera post</h2>
+    <p>Ange fält och värden i JSON-format. Binära kolumner använder Base64-kodning.</p>
+    <form id="editorForm" class="stacked-form">
+        <label for="rowIdInput">Rad-ID</label>
+        <input id="rowIdInput" name="rowId" type="number" min="1" placeholder="ID" />
+
+        <label for="payloadInput">Data (JSON)</label>
+        <textarea id="payloadInput" name="payload" rows="6" placeholder='{"kolumn": "värde"}'></textarea>
+
+        <div class="button-row">
+            <button type="button" id="createBtn">Skapa ny rad</button>
+            <button type="button" id="updateBtn">Uppdatera rad</button>
+            <button type="button" id="deleteBtn" class="danger">Ta bort rad</button>
+        </div>
+        <p id="editorMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<script src="{{ url_for('static', filename='js/admin_advanced.js') }}"></script>
+{% endblock %}

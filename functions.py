@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib.util
 import logging
 import os
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timezone, timedelta
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
@@ -24,9 +26,11 @@ from sqlalchemy import (
     delete,
     func,
     insert,
-    select,
     inspect,
+    or_,
+    select,
     text,
+    update,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
@@ -90,6 +94,48 @@ user_pdfs_table = Table(
         nullable=False,
     ),
 )
+
+password_resets_table = Table(
+    "password_resets",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("personnummer", String, nullable=False, index=True),
+    Column("email", String, nullable=False),
+    Column("token_hash", String, nullable=False, unique=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column("used_at", DateTime(timezone=True)),
+)
+
+admin_audit_log_table = Table(
+    "admin_audit_log",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("admin", String, nullable=False),
+    Column("action", String, nullable=False),
+    Column("details", String, nullable=False),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+)
+
+TABLE_REGISTRY: dict[str, Table] = {
+    table.name: table
+    for table in (
+        pending_users_table,
+        users_table,
+        user_pdfs_table,
+        password_resets_table,
+        admin_audit_log_table,
+    )
+}
 
 _ENGINE: Optional[Engine] = None
 
@@ -189,6 +235,10 @@ def create_database() -> None:
                     "ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL"
                 )
             )
+        existing_tables = set(inspector.get_table_names())
+        for table in (password_resets_table, admin_audit_log_table):
+            if table.name not in existing_tables:
+                table.create(bind=conn)
     logger.info("Database initialized")
 
 
@@ -469,6 +519,69 @@ def _deserialize_categories(raw: Optional[str]) -> List[str]:
     return [part for part in raw.split(",") if part]
 
 
+def log_admin_action(admin: str, action: str, details: str) -> None:
+    # Spara en revisionspost för administratörsåtgärder.
+    admin_name = admin or "okänd"
+    trimmed_details = details.strip()
+    with get_engine().begin() as conn:
+        conn.execute(
+            insert(admin_audit_log_table).values(
+                admin=admin_name,
+                action=action,
+                details=trimmed_details[:1000],
+            )
+        )
+    logger.info("Admin %s utförde %s: %s", admin_name, action, trimmed_details)
+
+
+def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:
+    # Ta bort en PDF kopplad till en användares personnummer.
+    personnummer_hash = _hash_personnummer(personnummer)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(user_pdfs_table).where(
+                user_pdfs_table.c.personnummer == personnummer_hash,
+                user_pdfs_table.c.id == pdf_id,
+            )
+        )
+    deleted = result.rowcount > 0
+    if deleted:
+        logger.info("PDF %s raderades för %s", pdf_id, personnummer_hash)
+    else:
+        logger.warning("PDF %s kunde inte raderas för %s", pdf_id, personnummer_hash)
+    return deleted
+
+
+def update_pdf_categories(personnummer: str, pdf_id: int, categories: Sequence[str]) -> bool:
+    # Uppdatera kategorierna för en PDF.
+    personnummer_hash = _hash_personnummer(personnummer)
+    serialized = _serialize_categories(categories)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(user_pdfs_table)
+            .where(
+                user_pdfs_table.c.personnummer == personnummer_hash,
+                user_pdfs_table.c.id == pdf_id,
+            )
+            .values(categories=serialized)
+        )
+    updated = result.rowcount > 0
+    if updated:
+        logger.info(
+            "PDF %s fick nya kategorier %s för %s",
+            pdf_id,
+            serialized,
+            personnummer_hash,
+        )
+    else:
+        logger.warning(
+            "PDF %s kunde inte uppdateras för %s",
+            pdf_id,
+            personnummer_hash,
+        )
+    return updated
+
+
 def store_pdf_blob(
     personnummer_hash: str,
     filename: str,
@@ -610,6 +723,219 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
     if not row:
         return None
     return row.filename, row.content
+
+
+def _hash_token(token: str) -> str:
+    return hash_value(token)
+
+
+def create_password_reset_token(personnummer: str, email: str) -> str:
+    # Skapa ett återställningstoken för en användare.
+    personnummer_hash = _hash_personnummer(personnummer)
+    normalized_email = normalize_email(email)
+    email_hash = hash_value(normalized_email)
+
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(users_table.c.email).where(
+                users_table.c.personnummer == personnummer_hash
+            )
+        ).first()
+        if not row or row.email != email_hash:
+            logger.warning(
+                "Kunde inte skapa återställningstoken för %s: uppgifter matchar inte",
+                personnummer_hash,
+            )
+            raise ValueError("Angivna uppgifter matchar ingen aktiv användare.")
+
+        token = secrets.token_urlsafe(32)
+        token_hash = _hash_token(token)
+        conn.execute(
+            insert(password_resets_table).values(
+                personnummer=personnummer_hash,
+                email=email_hash,
+                token_hash=token_hash,
+            )
+        )
+
+    logger.info("Skapade återställningstoken för %s", personnummer_hash)
+    return token
+
+
+def get_password_reset(token: str) -> Optional[Dict[str, Any]]:
+    # Hämta metadata för ett återställningstoken.
+    token_hash = _hash_token(token)
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(
+                password_resets_table.c.personnummer,
+                password_resets_table.c.email,
+                password_resets_table.c.created_at,
+                password_resets_table.c.used_at,
+            ).where(password_resets_table.c.token_hash == token_hash)
+        ).first()
+    if not row:
+        return None
+    return {
+        "personnummer": row.personnummer,
+        "email": row.email,
+        "created_at": row.created_at,
+        "used_at": row.used_at,
+    }
+
+
+def reset_password_with_token(token: str, new_password: str) -> bool:
+    # Återställ lösenordet för det angivna tokenet.
+    token_hash = _hash_token(token)
+    now = datetime.now(timezone.utc)
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(
+                password_resets_table.c.personnummer,
+                password_resets_table.c.used_at,
+                password_resets_table.c.created_at,
+            ).where(password_resets_table.c.token_hash == token_hash)
+        ).first()
+        if not row:
+            logger.warning("Okänt återställningstoken användes")
+            return False
+        if row.used_at is not None:
+            logger.warning("Förbrukat återställningstoken användes igen")
+            return False
+
+        created_at = row.created_at
+        if created_at and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        if created_at and now - created_at > timedelta(days=2):
+            logger.warning("Utgånget återställningstoken för %s", row.personnummer)
+            return False
+
+        conn.execute(
+            update(users_table)
+            .where(users_table.c.personnummer == row.personnummer)
+            .values(password=hash_password(new_password))
+        )
+        conn.execute(
+            update(password_resets_table)
+            .where(password_resets_table.c.token_hash == token_hash)
+            .values(used_at=now)
+        )
+
+    verify_certificate.cache_clear()
+    logger.info("Lösenord återställt för %s", row.personnummer)
+    return True
+
+
+def _get_table(table_name: str) -> Table:
+    table = TABLE_REGISTRY.get(table_name)
+    if table is None:
+        raise ValueError("Okänd tabell")
+    return table
+
+
+def get_table_schema(table_name: str) -> List[Dict[str, Any]]:
+    table = _get_table(table_name)
+    schema: List[Dict[str, Any]] = []
+    for column in table.c:
+        schema.append(
+            {
+                "name": column.name,
+                "type": type(column.type).__name__,
+                "nullable": bool(column.nullable),
+                "primary_key": column.primary_key,
+            }
+        )
+    return schema
+
+
+def _encode_value(value: Any) -> Any:
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode("ascii")
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
+def _decode_value(column: Column, raw_value: Any) -> Any:
+    if raw_value is None:
+        return None
+    if isinstance(column.type, LargeBinary):
+        if raw_value == "":
+            return b""
+        if isinstance(raw_value, str):
+            try:
+                return base64.b64decode(raw_value.encode("ascii"))
+            except Exception as exc:  # pragma: no cover - defensiv kontroll
+                raise ValueError("Ogiltig binärdata") from exc
+        raise ValueError("Ogiltig binärdata")
+    return raw_value
+
+
+def fetch_table_rows(table_name: str, search: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    table = _get_table(table_name)
+    stmt = select(table)
+    if search:
+        search_term = f"%{search.lower()}%"
+        conditions = []
+        for column in table.c:
+            if isinstance(column.type, String):
+                conditions.append(func.lower(column).like(search_term))
+        if conditions:
+            stmt = stmt.where(or_(*conditions))
+    stmt = stmt.order_by(table.c.id.asc()).limit(limit)
+    with get_engine().connect() as conn:
+        rows = conn.execute(stmt).mappings().all()
+    return [
+        {key: _encode_value(value) for key, value in row.items()}
+        for row in rows
+    ]
+
+
+def create_table_row(table_name: str, values: Dict[str, Any]) -> Dict[str, Any]:
+    table = _get_table(table_name)
+    prepared: Dict[str, Any] = {}
+    for column in table.c:
+        if column.name in values and not column.primary_key:
+            prepared[column.name] = _decode_value(column, values[column.name])
+    if not prepared:
+        raise ValueError("Inga giltiga kolumner angavs")
+    with get_engine().begin() as conn:
+        result = conn.execute(insert(table).values(**prepared))
+        new_id = None
+        if "id" in table.c:
+            new_id = result.inserted_primary_key[0]
+        if new_id is None:
+            return prepared
+        row = conn.execute(
+            select(table).where(table.c.id == new_id)
+        ).mappings().first()
+    return {key: _encode_value(value) for key, value in row.items()}
+
+
+def update_table_row(table_name: str, row_id: int, values: Dict[str, Any]) -> bool:
+    table = _get_table(table_name)
+    assignments: Dict[str, Any] = {}
+    for column in table.c:
+        if column.primary_key:
+            continue
+        if column.name in values:
+            assignments[column.name] = _decode_value(column, values[column.name])
+    if not assignments:
+        raise ValueError("Inga fält att uppdatera")
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(table).where(table.c.id == row_id).values(**assignments)
+        )
+    return result.rowcount > 0
+
+
+def delete_table_row(table_name: str, row_id: int) -> bool:
+    table = _get_table(table_name)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(table).where(table.c.id == row_id)
+        )
+    return result.rowcount > 0
 
 
 def create_test_user() -> None:
