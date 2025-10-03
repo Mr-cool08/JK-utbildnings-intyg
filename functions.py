@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import base64
-from email import policy
-from email.utils import make_msgid
 import hashlib
 import importlib.util
 import logging
@@ -17,8 +15,6 @@ from functools import lru_cache
 import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
-from email.message import EmailMessage
-from app import ALLOWED_LOCAL_CHARSfrom cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -46,6 +42,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger, mask_hash
+from services import email as email_service
 
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.DEBUG)  # or INFO in production
@@ -54,6 +51,8 @@ load_environment()
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 logger.debug("Application root directory: %s", APP_ROOT)
+
+_normalize_valid_email = email_service.normalize_valid_email
 
 SALT = os.getenv("HASH_SALT", "static_salt")
 if SALT == "static_salt":
@@ -65,83 +64,6 @@ DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
 TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
-
-_PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
-
-
-def reset_pdf_encryption_cache() -> None:
-    # Clear cached AES-inställningar så att miljöförändringar får effekt.
-    global _PDF_AES_KEY
-    global _PDF_AES_CIPHER
-    _PDF_AES_KEY = None
-    _PDF_AES_CIPHER = None
-
-
-def _load_pdf_encryption_keys() -> List[str]:
-    raw_keys = os.getenv("PDF_ENCRYPTION_KEYS")
-    if not raw_keys:
-        raw_keys = os.getenv("PDF_ENCRYPTION_KEY")
-
-    if not raw_keys:
-        raise RuntimeError(
-            "PDF_ENCRYPTION_KEYS/PDF_ENCRYPTION_KEY måste vara satt för att lagra PDF:er."
-        )
-
-    parts = [
-        segment.strip()
-        for segment in re.split(r"[,;\n]", raw_keys)
-        if segment.strip()
-    ]
-    if not parts:
-        raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
-
-    return parts
-
-
-def _get_pdf_fernets() -> Tuple[Fernet, ...]:
-    global _PDF_FERNET_CACHE
-
-    keys = _load_pdf_encryption_keys()
-    normalized = "|".join(keys)
-
-    if _PDF_FERNET_CACHE and _PDF_FERNET_CACHE[0] == normalized:
-        return _PDF_FERNET_CACHE[1]
-
-    fernets: List[Fernet] = []
-    for index, key in enumerate(keys):
-        try:
-            fernets.append(Fernet(key.encode("ascii")))
-        except Exception:  # pragma: no cover - defensive logging
-            logger.exception(
-                "Ogiltig PDF-krypteringsnyckel på position %s, hoppar över.", index
-            )
-
-    if not fernets:
-        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde läsas in.")
-
-    cached = (normalized, tuple(fernets))
-    _PDF_FERNET_CACHE = cached
-    return cached[1]
-
-
-def _encrypt_pdf_content(content: bytes) -> bytes:
-    return _encrypt_pdf_content_with_aes(content)
-
-
-def _decrypt_pdf_content(content: bytes) -> bytes:
-    if content.startswith(_PDF_ENCRYPTION_PREFIX) and len(content) > len(_PDF_ENCRYPTION_PREFIX) + 12:
-        nonce = content[len(_PDF_ENCRYPTION_PREFIX) : len(_PDF_ENCRYPTION_PREFIX) + 12]
-        ciphertext = content[len(_PDF_ENCRYPTION_PREFIX) + 12 :]
-        try:
-            cipher = _get_pdf_aes_cipher()
-            return cipher.decrypt(nonce, ciphertext, associated_data=None)
-        except Exception:  # pragma: no cover - defensiv loggning
-            logger.exception("Misslyckades med att dekryptera PDF med nuvarande AES-nyckel.")
-
-    logger.warning(
-        "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
-    )
-    return content
 
 pending_users_table = Table(
     "pending_users",
@@ -411,25 +333,6 @@ def _pbkdf2_iterations() -> int:
 def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
     # Cacheable helper for PBKDF2 hashing.
     return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
-
-def _load_smtp_settings() -> SMTPSettings:
-    smtp_server = os.getenv("smtp_server")
-    smtp_port = int(os.getenv("smtp_port", "587"))
-    smtp_user = os.getenv("smtp_user")
-    smtp_password = os.getenv("smtp_password")
-    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
-
-    if not (smtp_server and smtp_user and smtp_password):
-        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
-
-    return SMTPSettings(
-        server=smtp_server,
-        port=smtp_port,
-        user=smtp_user,
-        password=smtp_password,
-        timeout=smtp_timeout,
-    )
-
 
 
 
@@ -1132,13 +1035,12 @@ def store_pdf_blob(
     categories: Sequence[str] | None = None,
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
-    encrypted_content = _encrypt_pdf_content(content)
     with get_engine().begin() as conn:
         result = conn.execute(
             insert(user_pdfs_table).values(
                 personnummer=personnummer_hash,
                 filename=filename,
-                content=encrypted_content,
+                content=content,
                 categories=_serialize_categories(categories),
             )
         )
@@ -1271,8 +1173,7 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
         ).first()
     if not row:
         return None
-    decrypted = _decrypt_pdf_content(row.content)
-    return row.filename, decrypted
+    return row.filename, row.content
 
 
 def _hash_token(token: str) -> str:
@@ -1501,52 +1402,6 @@ def create_test_user() -> None:
         user_create_user("password", pnr_hash)
 
 
-def send_mail(SMTPSettings, ):
-    # Skicka e-post via den konfigurerade SMTP-servern.
-    if not SMTP_HOST or not SMTP_PORT:
-        raise RuntimeError("SMTP är inte konfigurerat")
-
-    msg = EmailMessage()
-    msg["From"] = SMTP_SENDER or "
-    
-    
-    
-    
-    
-def send_creation_email(to_email: str, link: str) -> None:
-    # Send a password creation link via SMTP.
-
-    # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-
-    normalized_email = _normalize_valid_email(to_email)
-    if normalized_email != to_email:
-        logger.debug(
-            "Normalized recipient email from %r to %s", to_email, normalized_email
-        )
-
-    settings = _load_smtp_settings()
-
-    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = "Skapa ditt konto"
-    msg["From"] = settings.user
-    msg["To"] = normalized_email
-    msg["Message-ID"] = make_msgid()
-    msg["Date"] = format_datetime(datetime.now(timezone.utc))
-    msg.set_content(
-        f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Skapa ditt konto genom att besöka denna länk:</p>
-                <p><a href="{link}">{link}</a></p>
-                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
-            </body>
-        </html>
-        """,
-        subtype="html",
-    )
-
-    _send_email_message(msg, normalized_email, settings)
     
     
     
