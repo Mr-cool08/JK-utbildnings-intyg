@@ -15,8 +15,6 @@ from functools import lru_cache
 import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -64,132 +62,6 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
 
-_PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
-_PDF_ENCRYPTION_PREFIX = b"PDF2"
-_PDF_AES_KEY: bytes | None = None
-_PDF_AES_CIPHER: AESGCM | None = None
-
-
-def reset_pdf_encryption_cache() -> None:
-    # Clear cached AES-inställningar så att miljöförändringar får effekt.
-    global _PDF_AES_KEY
-    global _PDF_AES_CIPHER
-    _PDF_AES_KEY = None
-    _PDF_AES_CIPHER = None
-
-
-def _load_pdf_encryption_keys() -> List[str]:
-    raw_keys = os.getenv("PDF_ENCRYPTION_KEYS")
-    if not raw_keys:
-        raw_keys = os.getenv("PDF_ENCRYPTION_KEY")
-
-    if not raw_keys:
-        raise RuntimeError(
-            "PDF_ENCRYPTION_KEYS/PDF_ENCRYPTION_KEY måste vara satt för att lagra PDF:er."
-        )
-
-    parts = [
-        segment.strip()
-        for segment in re.split(r"[,;\n]", raw_keys)
-        if segment.strip()
-    ]
-    if not parts:
-        raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
-
-    return parts
-
-
-def _get_pdf_fernets() -> Tuple[Fernet, ...]:
-    global _PDF_FERNET_CACHE
-
-    keys = _load_pdf_encryption_keys()
-    normalized = "|".join(keys)
-
-    if _PDF_FERNET_CACHE and _PDF_FERNET_CACHE[0] == normalized:
-        return _PDF_FERNET_CACHE[1]
-
-    fernets: List[Fernet] = []
-    for index, key in enumerate(keys):
-        try:
-            fernets.append(Fernet(key.encode("ascii")))
-        except Exception:  # pragma: no cover - defensive logging
-            logger.exception(
-                "Ogiltig PDF-krypteringsnyckel på position %s, hoppar över.", index
-            )
-
-    if not fernets:
-        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde läsas in.")
-
-    cached = (normalized, tuple(fernets))
-    _PDF_FERNET_CACHE = cached
-    return cached[1]
-
-
-def _get_pdf_aes_key() -> bytes:
-    global _PDF_AES_KEY
-
-    if _PDF_AES_KEY is not None:
-        return _PDF_AES_KEY
-
-    keys = _load_pdf_encryption_keys()
-    first = keys[0]
-    try:
-        key_bytes = base64.urlsafe_b64decode(first)
-    except Exception as exc:  # pragma: no cover - defensiv loggning
-        logger.error("Ogiltig PDF-krypteringsnyckel: %s", exc)
-        raise RuntimeError("Ogiltig PDF-krypteringsnyckel") from exc
-
-    if len(key_bytes) not in (16, 24, 32):
-        raise RuntimeError(
-            "PDF-krypteringsnyckeln måste vara 128, 192 eller 256 bitar lång."
-        )
-
-    _PDF_AES_KEY = key_bytes
-    return key_bytes
-
-
-def _get_pdf_aes_cipher() -> AESGCM:
-    global _PDF_AES_CIPHER
-
-    if _PDF_AES_CIPHER is None:
-        key = _get_pdf_aes_key()
-        _PDF_AES_CIPHER = AESGCM(key)
-
-    return _PDF_AES_CIPHER
-
-
-def _encrypt_pdf_content(content: bytes) -> bytes:
-    return _encrypt_pdf_content_with_aes(content)
-
-
-def _decrypt_pdf_content(content: bytes) -> bytes:
-    if content.startswith(_PDF_ENCRYPTION_PREFIX) and len(content) > len(_PDF_ENCRYPTION_PREFIX) + 12:
-        nonce = content[len(_PDF_ENCRYPTION_PREFIX) : len(_PDF_ENCRYPTION_PREFIX) + 12]
-        ciphertext = content[len(_PDF_ENCRYPTION_PREFIX) + 12 :]
-        try:
-            cipher = _get_pdf_aes_cipher()
-            return cipher.decrypt(nonce, ciphertext, associated_data=None)
-        except Exception:  # pragma: no cover - defensiv loggning
-            logger.exception("Misslyckades med att dekryptera PDF med nuvarande AES-nyckel.")
-
-    logger.warning(
-        "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
-    )
-    return content
-
-
-def _encrypt_pdf_content_with_aes(content: bytes) -> bytes:
-    try:
-        cipher = _get_pdf_aes_cipher()
-    except RuntimeError:
-        logger.warning(
-            "PDF-krypteringsnyckel saknas, lagrar okrypterat innehåll."
-        )
-        return content
-
-    nonce = os.urandom(12)
-    ciphertext = cipher.encrypt(nonce, content, associated_data=None)
-    return _PDF_ENCRYPTION_PREFIX + nonce + ciphertext
 
 pending_users_table = Table(
     "pending_users",
@@ -1161,13 +1033,12 @@ def store_pdf_blob(
     categories: Sequence[str] | None = None,
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
-    encrypted_content = _encrypt_pdf_content(content)
     with get_engine().begin() as conn:
         result = conn.execute(
             insert(user_pdfs_table).values(
                 personnummer=personnummer_hash,
                 filename=filename,
-                content=encrypted_content,
+                content=content,
                 categories=_serialize_categories(categories),
             )
         )
@@ -1300,8 +1171,7 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
         ).first()
     if not row:
         return None
-    decrypted = _decrypt_pdf_content(row.content)
-    return row.filename, decrypted
+    return row.filename, row.content
 
 
 def _hash_token(token: str) -> str:

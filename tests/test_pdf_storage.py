@@ -70,16 +70,15 @@ def test_get_pdf_metadata_handles_missing_entries(empty_db):
     assert functions.get_pdf_metadata(primary_hash, pdf_id + 100) is None
 
 
-def test_pdf_content_is_encrypted_at_rest(empty_db):
-    """Stored PDF-data ska krypteras men dekrypteras vid hämtning."""
+def test_pdf_content_is_stored_plainly(empty_db):
+    """PDF-data ska lagras och hämtas oförändrat."""
 
     _ = empty_db
 
-    functions.reset_pdf_encryption_cache()
     pnr_hash = _personnummer_hash("9001011234")
-    original_content = b"%PDF-1.4 encrypted"
+    original_content = b"%PDF-1.4 utan kryptering"
     pdf_id = functions.store_pdf_blob(
-        pnr_hash, "encrypted.pdf", original_content, [COURSE_CATEGORIES[0][0]]
+        pnr_hash, "okrypterad.pdf", original_content, [COURSE_CATEGORIES[0][0]]
     )
 
     with functions.get_engine().connect() as conn:
@@ -88,16 +87,8 @@ def test_pdf_content_is_encrypted_at_rest(empty_db):
         )
         stored_blob = conn.execute(query).scalar_one()
 
-    assert stored_blob != original_content
-    assert stored_blob[:4] == b"PDF2"
-    assert len(stored_blob) > 4 + 12
+    assert stored_blob == original_content
 
-    nonce = stored_blob[4:16]
-    ciphertext = stored_blob[16:]
-    aes_cipher = functions._get_pdf_aes_cipher()
-    manually_decrypted = aes_cipher.decrypt(nonce, ciphertext, None)
-    assert manually_decrypted == original_content
-
-    filename, decrypted = functions.get_pdf_content(pnr_hash, pdf_id)
-    assert filename == "encrypted.pdf"
-    assert decrypted == original_content
+    filename, fetched = functions.get_pdf_content(pnr_hash, pdf_id)
+    assert filename == "okrypterad.pdf"
+    assert fetched == original_content
