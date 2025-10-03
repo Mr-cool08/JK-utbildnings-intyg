@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+from email import policy
+from email.utils import make_msgid
 import hashlib
 import importlib.util
 import logging
@@ -12,9 +14,11 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from functools import lru_cache
+import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
-
+from email.message import EmailMessage
+from app import ALLOWED_LOCAL_CHARS
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import (
     Column,
@@ -64,6 +68,19 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 metadata = MetaData()
 
 _PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
+ALLOWED_LOCAL_CHARS = frozenset(
+    string.ascii_letters
+    + string.digits
+    + "!#$%&'*+/=?^_`{|}~.-"
+)
+
+
+
+def _is_ascii_printable(value: str) -> bool:
+    return all(32 <= ord(ch) <= 126 for ch in value)
+
+
+
 
 
 def reset_pdf_encryption_cache() -> None:
@@ -91,6 +108,47 @@ def _load_pdf_encryption_keys() -> List[str]:
         raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
 
     return parts
+
+
+
+
+def _normalize_valid_email(address: str) -> str:
+    normalized = normalize_email(address)
+    if not normalized or "@" not in normalized or normalized.count("@") != 1:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if len(normalized) > 320 or not _is_ascii_printable(normalized):
+        raise ValueError("Ogiltig e-postadress.")
+
+    local_part, domain = normalized.split("@", 1)
+    if not local_part or not domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if local_part.startswith(".") or local_part.endswith("."):
+        raise ValueError("Ogiltig e-postadress.")
+
+    if ".." in local_part or ".." in domain:
+        raise ValueError("Ogiltig e-postadress.")
+
+    if any(ch not in ALLOWED_LOCAL_CHARS for ch in local_part):
+        raise ValueError("Ogiltig e-postadress.")
+
+    labels = domain.split(".")
+    if len(labels) < 2 or any(not label for label in labels):
+        raise ValueError("Ogiltig e-postadress.")
+
+    for label in labels:
+        if label.startswith("-") or label.endswith("-"):
+            raise ValueError("Ogiltig e-postadress.")
+        if not all(ch.isalnum() or ch == "-" for ch in label):
+            raise ValueError("Ogiltig e-postadress.")
+
+    return normalized
+
+
+
+
+
 
 
 def _get_pdf_fernets() -> Tuple[Fernet, ...]:
@@ -404,6 +462,45 @@ def _pbkdf2_iterations() -> int:
 def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
     # Cacheable helper for PBKDF2 hashing.
     return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
+
+def _load_smtp_settings() -> SMTPSettings:
+    smtp_server = os.getenv("smtp_server")
+    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_user = os.getenv("smtp_user")
+    smtp_password = os.getenv("smtp_password")
+    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+
+    if not (smtp_server and smtp_user and smtp_password):
+        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
+
+    return SMTPSettings(
+        server=smtp_server,
+        port=smtp_port,
+        user=smtp_user,
+        password=smtp_password,
+        timeout=smtp_timeout,
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def hash_value(value: str) -> str:
@@ -1453,3 +1550,55 @@ def create_test_user() -> None:
         admin_create_user(email, username, personnummer)
         pnr_hash = _hash_personnummer(personnummer)
         user_create_user("password", pnr_hash)
+
+
+def send_mail(SMTPSettings, ):
+    # Skicka e-post via den konfigurerade SMTP-servern.
+    if not SMTP_HOST or not SMTP_PORT:
+        raise RuntimeError("SMTP är inte konfigurerat")
+
+    msg = EmailMessage()
+    msg["From"] = SMTP_SENDER or "
+    
+    
+    
+    
+    
+def send_creation_email(to_email: str, link: str) -> None:
+    # Send a password creation link via SMTP.
+
+    # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
+
+    normalized_email = _normalize_valid_email(to_email)
+    if normalized_email != to_email:
+        logger.debug(
+            "Normalized recipient email from %r to %s", to_email, normalized_email
+        )
+
+    settings = _load_smtp_settings()
+
+    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
+    msg["Subject"] = "Skapa ditt konto"
+    msg["From"] = settings.user
+    msg["To"] = normalized_email
+    msg["Message-ID"] = make_msgid()
+    msg["Date"] = format_datetime(datetime.now(timezone.utc))
+    msg.set_content(
+        f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Skapa ditt konto genom att besöka denna länk:</p>
+                <p><a href="{link}">{link}</a></p>
+                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
+            </body>
+        </html>
+        """,
+        subtype="html",
+    )
+
+    _send_email_message(msg, normalized_email, settings)
+    
+    
+    
+    
