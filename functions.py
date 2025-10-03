@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import base64
-from email import policy
-from email.utils import make_msgid
 import hashlib
 import importlib.util
 import logging
@@ -17,7 +15,7 @@ from functools import lru_cache
 import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
-from email.message import EmailMessage
+from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
@@ -67,6 +65,9 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 metadata = MetaData()
 
 _PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
+_PDF_ENCRYPTION_PREFIX = b"PDF2"
+_PDF_AES_KEY: bytes | None = None
+_PDF_AES_CIPHER: AESGCM | None = None
 
 
 def reset_pdf_encryption_cache() -> None:
@@ -124,6 +125,39 @@ def _get_pdf_fernets() -> Tuple[Fernet, ...]:
     return cached[1]
 
 
+def _get_pdf_aes_key() -> bytes:
+    global _PDF_AES_KEY
+
+    if _PDF_AES_KEY is not None:
+        return _PDF_AES_KEY
+
+    keys = _load_pdf_encryption_keys()
+    first = keys[0]
+    try:
+        key_bytes = base64.urlsafe_b64decode(first)
+    except Exception as exc:  # pragma: no cover - defensiv loggning
+        logger.error("Ogiltig PDF-krypteringsnyckel: %s", exc)
+        raise RuntimeError("Ogiltig PDF-krypteringsnyckel") from exc
+
+    if len(key_bytes) not in (16, 24, 32):
+        raise RuntimeError(
+            "PDF-krypteringsnyckeln måste vara 128, 192 eller 256 bitar lång."
+        )
+
+    _PDF_AES_KEY = key_bytes
+    return key_bytes
+
+
+def _get_pdf_aes_cipher() -> AESGCM:
+    global _PDF_AES_CIPHER
+
+    if _PDF_AES_CIPHER is None:
+        key = _get_pdf_aes_key()
+        _PDF_AES_CIPHER = AESGCM(key)
+
+    return _PDF_AES_CIPHER
+
+
 def _encrypt_pdf_content(content: bytes) -> bytes:
     return _encrypt_pdf_content_with_aes(content)
 
@@ -142,6 +176,20 @@ def _decrypt_pdf_content(content: bytes) -> bytes:
         "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
     )
     return content
+
+
+def _encrypt_pdf_content_with_aes(content: bytes) -> bytes:
+    try:
+        cipher = _get_pdf_aes_cipher()
+    except RuntimeError:
+        logger.warning(
+            "PDF-krypteringsnyckel saknas, lagrar okrypterat innehåll."
+        )
+        return content
+
+    nonce = os.urandom(12)
+    ciphertext = cipher.encrypt(nonce, content, associated_data=None)
+    return _PDF_ENCRYPTION_PREFIX + nonce + ciphertext
 
 pending_users_table = Table(
     "pending_users",
@@ -411,25 +459,6 @@ def _pbkdf2_iterations() -> int:
 def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
     # Cacheable helper for PBKDF2 hashing.
     return hashlib.pbkdf2_hmac("sha256", value.encode(), salt.encode(), iterations).hex()
-
-def _load_smtp_settings() -> SMTPSettings:
-    smtp_server = os.getenv("smtp_server")
-    smtp_port = int(os.getenv("smtp_port", "587"))
-    smtp_user = os.getenv("smtp_user")
-    smtp_password = os.getenv("smtp_password")
-    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
-
-    if not (smtp_server and smtp_user and smtp_password):
-        raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
-
-    return SMTPSettings(
-        server=smtp_server,
-        port=smtp_port,
-        user=smtp_user,
-        password=smtp_password,
-        timeout=smtp_timeout,
-    )
-
 
 
 
@@ -1502,45 +1531,6 @@ def create_test_user() -> None:
 
 
 
-    
-    
-    
-    
-def send_creation_email(to_email: str, link: str) -> None:
-    # Send a password creation link via SMTP.
-
-    # Uses STARTTLS for port 587 and connects with SSL when port 465 is specified.
-
-    normalized_email = _normalize_valid_email(to_email)
-    if normalized_email != to_email:
-        logger.debug(
-            "Normalized recipient email from %r to %s", to_email, normalized_email
-        )
-
-    settings = _load_smtp_settings()
-
-    msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
-    msg["Subject"] = "Skapa ditt konto"
-    msg["From"] = settings.user
-    msg["To"] = normalized_email
-    msg["Message-ID"] = make_msgid()
-    msg["Date"] = format_datetime(datetime.now(timezone.utc))
-    msg.set_content(
-        f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Skapa ditt konto genom att besöka denna länk:</p>
-                <p><a href="{link}">{link}</a></p>
-                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
-            </body>
-        </html>
-        """,
-        subtype="html",
-    )
-
-    _send_email_message(msg, normalized_email, settings)
-    
     
     
     

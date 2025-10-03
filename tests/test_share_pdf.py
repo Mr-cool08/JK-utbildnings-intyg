@@ -3,6 +3,7 @@ import functions
 import pytest
 
 from course_categories import COURSE_CATEGORIES
+from services import email as email_service
 
 
 def _login_default_user(client):
@@ -54,7 +55,7 @@ def test_share_pdf_sends_email(monkeypatch, user_db):
         sent["recipient"] = recipient
         sent["settings"] = settings
 
-    monkeypatch.setattr(app, "_send_email_message", fake_sender)
+    monkeypatch.setattr(email_service, "send_email_message", fake_sender)
 
     with app.app.test_client() as client:
         _login_default_user(client)
@@ -92,7 +93,7 @@ def test_share_pdf_rejects_invalid_email(monkeypatch, user_db):
     _set_mail_env(monkeypatch)
     pdf_id = _store_sample_pdf()
 
-    monkeypatch.setattr(app, "_send_email_message", lambda *args, **kwargs: None)
+    monkeypatch.setattr(email_service, "send_email_message", lambda *args, **kwargs: None)
 
     with app.app.test_client() as client:
         _login_default_user(client)
@@ -108,7 +109,7 @@ def test_share_pdf_rejects_invalid_email(monkeypatch, user_db):
 
 def test_share_pdf_missing_document(monkeypatch, user_db):
     _set_mail_env(monkeypatch)
-    monkeypatch.setattr(app, "_send_email_message", lambda *args, **kwargs: None)
+    monkeypatch.setattr(email_service, "send_email_message", lambda *args, **kwargs: None)
 
     with app.app.test_client() as client:
         _login_default_user(client)
@@ -134,7 +135,7 @@ def test_share_multiple_pdfs(monkeypatch, user_db):
         sent["recipient"] = recipient
         sent["settings"] = settings
 
-    monkeypatch.setattr(app, "_send_email_message", fake_sender)
+    monkeypatch.setattr(email_service, "send_email_message", fake_sender)
 
     with app.app.test_client() as client:
         _login_default_user(client)
