@@ -1,4 +1,4 @@
- # Utilities for loading environment variables from configuration files.
+# Utilities for loading environment variables from configuration files.
 
 from __future__ import annotations
 
