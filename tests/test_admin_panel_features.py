@@ -82,7 +82,7 @@ def test_password_reset_flow(empty_db, monkeypatch):
         captured["email"] = to_email
         captured["link"] = link
 
-    monkeypatch.setattr(app, "send_password_reset_email", _fake_send)
+    monkeypatch.setattr(app.email_service, "send_password_reset_email", _fake_send)
 
     with _admin_client() as client:
         response = client.post(

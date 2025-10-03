@@ -90,7 +90,7 @@ def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
         captured["sender"] = sender
         captured["owner"] = owner_name
 
-    monkeypatch.setattr(app, "send_pdf_share_email", fake_send)
+    monkeypatch.setattr(app.email_service, "send_pdf_share_email", fake_send)
 
     client = _supervisor_client(
         supervisor_setup["email_hash"], supervisor_setup["name"]
@@ -129,7 +129,7 @@ def test_admin_create_supervisor_api(empty_db, monkeypatch):
         sent["email"] = email
         sent["link"] = link
 
-    monkeypatch.setattr(app, "send_creation_email", fake_send)
+    monkeypatch.setattr(app.email_service, "send_creation_email", fake_send)
 
     client = _admin_client()
     response = client.post(

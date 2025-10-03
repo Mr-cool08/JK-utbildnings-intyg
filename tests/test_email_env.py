@@ -1,10 +1,11 @@
 import pytest
 
+from services import email as email_service
+
 
 def test_send_creation_email_uses_env_credentials(monkeypatch):
     """Säkerställ att send_creation_email använder uppgifterna från .env och skickar korrekt EmailMessage via STARTTLS."""
     from dotenv import dotenv_values
-    import app
 
     # Läs in exempel-credentials
     env_values = dotenv_values(".example.env")
@@ -42,12 +43,12 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    # Peta in vår dummy i app-modulen
-    monkeypatch.setattr(app, "SMTP", DummySMTP)
+    # Peta in vår dummy i e-postmodulen
+    monkeypatch.setattr(email_service, "SMTP", DummySMTP)
 
     # Kör funktionen
     link = "https://example.com/create"
-    app.send_creation_email("liamsuorsa08@gmail.com", link)
+    email_service.send_creation_email("liamsuorsa08@gmail.com", link)
 
     # Assertions: inloggning via env
     assert sent["login"] == (env_values["smtp_user"], env_values["smtp_password"])
@@ -72,7 +73,6 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
 def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     """Om port 465 anges ska funktionen använda SMTP_SSL utan STARTTLS."""
     from dotenv import dotenv_values
-    import app
 
     env_values = dotenv_values(".example.env")
     for key in ("smtp_server", "smtp_user", "smtp_password", "smtp_timeout"):
@@ -107,11 +107,11 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
         def __init__(self, *args, **kwargs):
             raise AssertionError("SMTP should not be used for port 465")
 
-    monkeypatch.setattr(app, "SMTP_SSL", DummySMTPSSL)
-    monkeypatch.setattr(app, "SMTP", FailSMTP)
+    monkeypatch.setattr(email_service, "SMTP_SSL", DummySMTPSSL)
+    monkeypatch.setattr(email_service, "SMTP", FailSMTP)
 
     link = "https://example.com/create"
-    app.send_creation_email("liamsuorsa08@gmail.com", link)
+    email_service.send_creation_email("liamsuorsa08@gmail.com", link)
 
     assert sent["login"] == (env_values["smtp_user"], env_values["smtp_password"])
     assert sent["server"] == env_values["smtp_server"]
@@ -128,7 +128,6 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
 def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
     """Ett avvisat mottagarsvar från SMTP ska ge ett fel."""
     from dotenv import dotenv_values
-    import app
 
     env_values = dotenv_values(".example.env")
     for key in ("smtp_server", "smtp_port", "smtp_user", "smtp_password"):
@@ -156,9 +155,11 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(app, "SMTP", RefusingSMTP)
+    monkeypatch.setattr(email_service, "SMTP", RefusingSMTP)
 
     with pytest.raises(RuntimeError) as exc:
-        app.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
+        email_service.send_creation_email(
+            "liamsuorsa08@gmail.com", "https://example.com/create"
+        )
 
     assert "accepterade inte mottagaren" in str(exc.value)
