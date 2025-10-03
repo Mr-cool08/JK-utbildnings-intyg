@@ -18,8 +18,7 @@ import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 from email.message import EmailMessage
-from app import ALLOWED_LOCAL_CHARS
-from cryptography.fernet import Fernet, InvalidToken
+from app import ALLOWED_LOCAL_CHARSfrom cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -68,25 +67,14 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 metadata = MetaData()
 
 _PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
-ALLOWED_LOCAL_CHARS = frozenset(
-    string.ascii_letters
-    + string.digits
-    + "!#$%&'*+/=?^_`{|}~.-"
-)
-
-
-
-def _is_ascii_printable(value: str) -> bool:
-    return all(32 <= ord(ch) <= 126 for ch in value)
-
-
-
 
 
 def reset_pdf_encryption_cache() -> None:
-    # Clear cached Fernet instances so environment changes take effect.
-    global _PDF_FERNET_CACHE
-    _PDF_FERNET_CACHE = None
+    # Clear cached AES-inställningar så att miljöförändringar får effekt.
+    global _PDF_AES_KEY
+    global _PDF_AES_CIPHER
+    _PDF_AES_KEY = None
+    _PDF_AES_CIPHER = None
 
 
 def _load_pdf_encryption_keys() -> List[str]:
@@ -108,47 +96,6 @@ def _load_pdf_encryption_keys() -> List[str]:
         raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
 
     return parts
-
-
-
-
-def _normalize_valid_email(address: str) -> str:
-    normalized = normalize_email(address)
-    if not normalized or "@" not in normalized or normalized.count("@") != 1:
-        raise ValueError("Ogiltig e-postadress.")
-
-    if len(normalized) > 320 or not _is_ascii_printable(normalized):
-        raise ValueError("Ogiltig e-postadress.")
-
-    local_part, domain = normalized.split("@", 1)
-    if not local_part or not domain:
-        raise ValueError("Ogiltig e-postadress.")
-
-    if local_part.startswith(".") or local_part.endswith("."):
-        raise ValueError("Ogiltig e-postadress.")
-
-    if ".." in local_part or ".." in domain:
-        raise ValueError("Ogiltig e-postadress.")
-
-    if any(ch not in ALLOWED_LOCAL_CHARS for ch in local_part):
-        raise ValueError("Ogiltig e-postadress.")
-
-    labels = domain.split(".")
-    if len(labels) < 2 or any(not label for label in labels):
-        raise ValueError("Ogiltig e-postadress.")
-
-    for label in labels:
-        if label.startswith("-") or label.endswith("-"):
-            raise ValueError("Ogiltig e-postadress.")
-        if not all(ch.isalnum() or ch == "-" for ch in label):
-            raise ValueError("Ogiltig e-postadress.")
-
-    return normalized
-
-
-
-
-
 
 
 def _get_pdf_fernets() -> Tuple[Fernet, ...]:
@@ -178,16 +125,18 @@ def _get_pdf_fernets() -> Tuple[Fernet, ...]:
 
 
 def _encrypt_pdf_content(content: bytes) -> bytes:
-    active_fernet = _get_pdf_fernets()[0]
-    return active_fernet.encrypt(content)
+    return _encrypt_pdf_content_with_aes(content)
 
 
 def _decrypt_pdf_content(content: bytes) -> bytes:
-    for fernet in _get_pdf_fernets():
+    if content.startswith(_PDF_ENCRYPTION_PREFIX) and len(content) > len(_PDF_ENCRYPTION_PREFIX) + 12:
+        nonce = content[len(_PDF_ENCRYPTION_PREFIX) : len(_PDF_ENCRYPTION_PREFIX) + 12]
+        ciphertext = content[len(_PDF_ENCRYPTION_PREFIX) + 12 :]
         try:
-            return fernet.decrypt(content)
-        except InvalidToken:
-            continue
+            cipher = _get_pdf_aes_cipher()
+            return cipher.decrypt(nonce, ciphertext, associated_data=None)
+        except Exception:  # pragma: no cover - defensiv loggning
+            logger.exception("Misslyckades med att dekryptera PDF med nuvarande AES-nyckel.")
 
     logger.warning(
         "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."

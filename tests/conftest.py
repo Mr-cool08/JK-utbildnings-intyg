@@ -7,11 +7,6 @@ import werkzeug
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault(
-    "PDF_ENCRYPTION_KEYS",
-    "dLw8JfQULF4tSHzxU_KgQPXujR5Ph9l9-Vw2hHkPnnI=",
-)
-
 import app  # noqa: E402
 import functions  # noqa: E402
 

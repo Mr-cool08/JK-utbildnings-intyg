@@ -26,10 +26,4 @@ Tillsammans kan vi skapa en tryggare digital miljö.
 
 ## Kryptering av lagrade PDF:er
 
-Alla PDF-intyg krypteras med Fernet innan de sparas i databasen. Spara nyckelvärdet i din permanenta `.env`-fil så att samma nyckel används även efter en omstart. Du måste konfigurera miljövariabeln `PDF_ENCRYPTION_KEYS` med minst en giltig Fernet-nyckel (till exempel genererad via `python -m cryptography.fernet`). Vid nyckelrotation lägger du till den nya nyckeln först i listan och behåller tidigare nycklar efteråt:
-
-```
-PDF_ENCRYPTION_KEYS="<ny primär nyckel>,<gammal nyckel>"
-```
-
-Starta om applikationen efter att variabeln har uppdaterats så att den nya nyckelordningen börjar användas. Systemet testar samtliga nycklar i ordning när ett dokument dekrypteras, vilket gör att äldre filer fortsätter att vara läsbara tills du tar bort deras nycklar från listan.
+Alla PDF-intyg krypteras nu med AES-GCM innan de sparas i databasen. Krypteringsnyckeln härleds via samma PBKDF2-baserade hashfunktion och `HASH_SALT` som används för att skydda lösenord, personnummer och e-postadresser. Säkerställ därför att `HASH_SALT` är satt i din `.env`-fil och håll värdet oförändrat så länge du behöver komma åt befintliga intyg.
