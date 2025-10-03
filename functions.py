@@ -18,7 +18,8 @@ import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 from email.message import EmailMessage
-from app import ALLOWED_LOCAL_CHARSfrom cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from app import ALLOWED_LOCAL_CHARSfrom cryptography.hazmat.primitives.ciphers.aead 
+import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
