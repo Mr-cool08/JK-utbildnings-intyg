@@ -55,7 +55,7 @@ load_environment()
 import functions
 
 
-sendmail = partial(functions.send_mail, SMTPSettings=_load_smtp_settings())
+#sendmail = partial(functions.send_mail, SMTPSettings=_load_smtp_settings())
 
 
 

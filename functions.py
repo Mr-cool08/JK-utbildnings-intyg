@@ -18,8 +18,7 @@ import string
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 from email.message import EmailMessage
-from app import ALLOWED_LOCAL_CHARSfrom cryptography.hazmat.primitives.ciphers.aead 
-import AESGCM
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -1502,14 +1501,7 @@ def create_test_user() -> None:
         user_create_user("password", pnr_hash)
 
 
-def send_mail(SMTPSettings, ):
-    # Skicka e-post via den konfigurerade SMTP-servern.
-    if not SMTP_HOST or not SMTP_PORT:
-        raise RuntimeError("SMTP är inte konfigurerat")
 
-    msg = EmailMessage()
-    msg["From"] = SMTP_SENDER or "
-    
     
     
     
