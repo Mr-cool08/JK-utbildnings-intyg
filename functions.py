@@ -14,8 +14,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
-
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import (
     Column,
     DateTime,
@@ -63,73 +62,56 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 metadata = MetaData()
 
-_PDF_FERNET_CACHE: Tuple[str, Tuple[Fernet, ...]] | None = None
+_PDF_AES_KEY: bytes | None = None
+_PDF_AES_CIPHER: AESGCM | None = None
+_PDF_ENCRYPTION_PREFIX = b"PDF2"
 
 
 def reset_pdf_encryption_cache() -> None:
-    # Clear cached Fernet instances so environment changes take effect.
-    global _PDF_FERNET_CACHE
-    _PDF_FERNET_CACHE = None
+    # Clear cached AES-inställningar så att miljöförändringar får effekt.
+    global _PDF_AES_KEY
+    global _PDF_AES_CIPHER
+    _PDF_AES_KEY = None
+    _PDF_AES_CIPHER = None
 
 
-def _load_pdf_encryption_keys() -> List[str]:
-    raw_keys = os.getenv("PDF_ENCRYPTION_KEYS")
-    if not raw_keys:
-        raw_keys = os.getenv("PDF_ENCRYPTION_KEY")
+def _get_pdf_aes_cipher() -> AESGCM:
+    global _PDF_AES_KEY
+    global _PDF_AES_CIPHER
 
-    if not raw_keys:
-        raise RuntimeError(
-            "PDF_ENCRYPTION_KEYS/PDF_ENCRYPTION_KEY måste vara satt för att lagra PDF:er."
-        )
+    if _PDF_AES_CIPHER is not None and _PDF_AES_KEY is not None:
+        return _PDF_AES_CIPHER
 
-    parts = [
-        segment.strip()
-        for segment in re.split(r"[,;\n]", raw_keys)
-        if segment.strip()
-    ]
-    if not parts:
-        raise RuntimeError("Minst en PDF-krypteringsnyckel krävs i PDF_ENCRYPTION_KEYS.")
+    key_material_hex = hash_value("pdf_encryption_key")
+    key_material = bytes.fromhex(key_material_hex)
+    if len(key_material) not in (16, 24, 32):
+        raise RuntimeError("Ogiltig nyckellängd för PDF-kryptering genererad från hashvärdet.")
 
-    return parts
+    _PDF_AES_KEY = key_material
+    _PDF_AES_CIPHER = AESGCM(key_material)
+    return _PDF_AES_CIPHER
 
 
-def _get_pdf_fernets() -> Tuple[Fernet, ...]:
-    global _PDF_FERNET_CACHE
-
-    keys = _load_pdf_encryption_keys()
-    normalized = "|".join(keys)
-
-    if _PDF_FERNET_CACHE and _PDF_FERNET_CACHE[0] == normalized:
-        return _PDF_FERNET_CACHE[1]
-
-    fernets: List[Fernet] = []
-    for index, key in enumerate(keys):
-        try:
-            fernets.append(Fernet(key.encode("ascii")))
-        except Exception:  # pragma: no cover - defensive logging
-            logger.exception(
-                "Ogiltig PDF-krypteringsnyckel på position %s, hoppar över.", index
-            )
-
-    if not fernets:
-        raise RuntimeError("Inga giltiga PDF-krypteringsnycklar kunde läsas in.")
-
-    cached = (normalized, tuple(fernets))
-    _PDF_FERNET_CACHE = cached
-    return cached[1]
+def _encrypt_pdf_content_with_aes(content: bytes) -> bytes:
+    cipher = _get_pdf_aes_cipher()
+    nonce = secrets.token_bytes(12)
+    encrypted = cipher.encrypt(nonce, content, associated_data=None)
+    return _PDF_ENCRYPTION_PREFIX + nonce + encrypted
 
 
 def _encrypt_pdf_content(content: bytes) -> bytes:
-    active_fernet = _get_pdf_fernets()[0]
-    return active_fernet.encrypt(content)
+    return _encrypt_pdf_content_with_aes(content)
 
 
 def _decrypt_pdf_content(content: bytes) -> bytes:
-    for fernet in _get_pdf_fernets():
+    if content.startswith(_PDF_ENCRYPTION_PREFIX) and len(content) > len(_PDF_ENCRYPTION_PREFIX) + 12:
+        nonce = content[len(_PDF_ENCRYPTION_PREFIX) : len(_PDF_ENCRYPTION_PREFIX) + 12]
+        ciphertext = content[len(_PDF_ENCRYPTION_PREFIX) + 12 :]
         try:
-            return fernet.decrypt(content)
-        except InvalidToken:
-            continue
+            cipher = _get_pdf_aes_cipher()
+            return cipher.decrypt(nonce, ciphertext, associated_data=None)
+        except Exception:  # pragma: no cover - defensiv loggning
+            logger.exception("Misslyckades med att dekryptera PDF med nuvarande AES-nyckel.")
 
     logger.warning(
         "Kunde inte dekryptera PDF-innehåll med konfigurerade nycklar; returnerar ursprungliga data."
