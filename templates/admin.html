@@ -167,7 +167,7 @@
 
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 <script>
-    window.APP_CATEGORIES = {{ categories|tojson }};
+    window.APP_CATEGORIES = {{ categories|tojson }}
 </script>
 <script src="{{ url_for('static', filename='js/admin_panel.js') }}"></script>
 {% endblock %}
