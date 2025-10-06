@@ -1,9 +1,31 @@
 version: '3.9'
 
 services:
+  postgres:
+    image: postgres:16
+    # container_name: pg-main              # (valfritt – undvik för att slippa namn-krockar)
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-liam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Masbo124}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"                       # bara om du vill nå DB från din värdmaskin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liam} -d ${POSTGRES_DB:-appdb} -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks:
+      - Postgress_DB
+      - pg_pub
+    restart: always
+
   app:
     build: .
-    container_name: app
+    # container_name: app                  # (valfritt – kan utelämnas)
     ports:
       - "80:80"
       - "443:443"
@@ -11,32 +33,18 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"   # pekar mot postgres-tjänsten
+      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER in .env}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
       POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy        # <-- vänta tills Postgres är redo
     networks:
       - Postgress_DB
       - pg_pub
-
-  postgres:
-    image: postgres:16
-    container_name: pg-main
-    environment:
-      POSTGRES_USER: liam
-      POSTGRES_PASSWORD: Masbo124
-      POSTGRES_DB: appdb
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "15432:5432"   # host:container
-    networks:
-      - Postgress_DB
-      - pg_pub
-    restart: always
+    restart: unless-stopped
 
 networks:
   Postgress_DB:
