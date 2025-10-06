@@ -30,8 +30,6 @@ services:
       - "80:80"
       - "443:443"
     user: "101:102"
-    env_file:
-      - .env
     environment:
       POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
