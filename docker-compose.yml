@@ -3,7 +3,6 @@ version: '3.9'
 services:
   postgres:
     image: postgres:16
-    # container_name: pg-main              # (valfritt – undvik för att slippa namn-krockar)
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-liam}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Masbo124}
@@ -11,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "15432:5432"                       # bara om du vill nå DB från din värdmaskin
+      - "15432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liam} -d ${POSTGRES_DB:-appdb} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -25,20 +24,45 @@ services:
 
   app:
     build: .
-    # container_name: app                  # (valfritt – kan utelämnas)
+    user: "0:0"
     ports:
       - "80:80"
       - "443:443"
-    user: "0:0"
     environment:
-      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
-      POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
-      POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER in .env}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
-      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+      # --- Flask / App settings ---
+      FLASK_DEBUG: ${FLASK_DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-hemligt_session_varde}
+      HASH_SALT: ${HASH_SALT:-extra_salt_for_hash}
+
+      # --- Admin credentials ---
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-utbildningsadmin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-SakertLosen123!}
+
+      # --- SMTP settings ---
+      SMTP_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-utbildning.demo@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-bytMig123!}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10}
+
+      # --- Database config ---
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-utbildningsintyg}
+      POSTGRES_USER: ${POSTGRES_USER:-jk_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-BytMigDirekt}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://jk_admin:BytMigDirekt@postgres:5432/utbildningsintyg}
+
+      ENABLE_LOCAL_TEST_DB: ${ENABLE_LOCAL_TEST_DB:-False}
+      LOCAL_TEST_DB_PATH: ${LOCAL_TEST_DB_PATH:-instance/test.db}
+
+      # --- TLS cert (valfritt, för HTTPS) ---
+      TLS_CERT: ${TLS_CERT:------BEGIN CERTIFICATE-----\\nMIIDgzCCAmugAwIBAgIUVdDemoCert1234567890\\n-----END CERTIFICATE-----}
+      TLS_KEY: ${TLS_KEY:------BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcw\\n-----END PRIVATE KEY-----}
+
     depends_on:
       postgres:
-        condition: service_healthy        # <-- vänta tills Postgres är redo
+        condition: service_healthy
     networks:
       - Postgress_DB
       - pg_pub
