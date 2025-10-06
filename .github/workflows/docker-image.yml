@@ -13,18 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set lower-case repository owner
         run: echo "REPOSITORY_OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -32,3 +37,8 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPOSITORY_OWNER_LC }}/jk-utbildnings-intyg:latest
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/jk-utbildnings-intyg:latest
+
+      - name: Trigger deployment webhook
+        run: |
+          echo "Triggering deployment via webhook..."
+          curl -X POST https://185.154.110.57:9443/api/stacks/webhooks/0d69635c-914c-4466-81c9-fbc2b8a24990 --insecure
