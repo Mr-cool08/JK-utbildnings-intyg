@@ -22,10 +22,10 @@ services:
 
   app:
     build: .
-    user: "0:0"                 # krävs för att lyssna på <1024 portar i containern
+    user: "0:0"
     ports:
-      - "80:80"                 # publikt till internet (0.0.0.0:80)
-      - "443:443"               # publikt till internet (0.0.0.0:443)
+      - "80:80"
+      - "443:443"
     env_file:
       - stack.env
     depends_on:
@@ -34,6 +34,7 @@ services:
     networks:
       Postgress_DB:
         ipv4_address: 172.28.0.20
+      public_net: {}
     restart: unless-stopped
 
 networks:
@@ -45,6 +46,9 @@ networks:
       config:
         - subnet: 172.28.0.0/24
           gateway: 172.28.0.1
+
+  public_net:
+    driver: bridge
 
 volumes:
   pgdata:
