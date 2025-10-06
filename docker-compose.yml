@@ -10,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "15432:5432"
+      - "15432:5432"       # valfritt, ta bort om du inte behöver nå DB från host
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liam} -d ${POSTGRES_DB:-appdb} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -29,7 +29,7 @@ services:
       - "80:80"
       - "443:443"
     env_file:
-      - stack.env                    #  this loads all your vars automatically
+      - stack.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,10 +39,14 @@ services:
     restart: unless-stopped
 
 networks:
+  #  internt nätverk (syns inte utåt)
   Postgress_DB:
-    external: true
+    driver: bridge
+    internal: true
+
+
   pg_pub:
-    external: true
+    driver: bridge
 
 volumes:
   pgdata:
