@@ -9,8 +9,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-appdb}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "15432:5432"       # valfritt, ta bort om du inte behöver nå DB från host
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liam} -d ${POSTGRES_DB:-appdb} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -18,13 +16,13 @@ services:
       retries: 20
       start_period: 5s
     networks:
-      - Postgress_DB
-      - pg_pub
+      Postgress_DB:
+        ipv4_address: 172.28.0.10
     restart: always
 
   app:
     build: .
-    user: "0:0"
+    user: "0:0"                 # behövs om processen lyssnar direkt på port <1024
     ports:
       - "80:80"
       - "443:443"
@@ -34,19 +32,20 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - Postgress_DB
-      - pg_pub
+      Postgress_DB:
+        ipv4_address: 172.28.0.20  # fast IP internt
+      bridge: {}                   # för extern åtkomst via portmappningen
     restart: unless-stopped
 
 networks:
-  #  internt nätverk (syns inte utåt)
   Postgress_DB:
+    name: postgress_db            # stabilt namn (valfritt)
     driver: bridge
     internal: true
-
-
-  pg_pub:
-    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
 
 volumes:
   pgdata:
