@@ -1,7 +1,9 @@
 version: '3.9'
+
 services:
   app:
     build: .
+    container_name: app
     ports:
       - "80:80"
       - "443:443"
@@ -9,8 +11,38 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: "${POSTGRES_HOST:?Set POSTGRES_HOST in .env}"
+      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"   # pekar mot postgres-tjänsten
       POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER in .env}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
       POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+    depends_on:
+      - postgres
+    networks:
+      - Postgress_DB
+      - pg_pub
+
+  postgres:
+    image: postgres:16
+    container_name: pg-main
+    environment:
+      POSTGRES_USER: liam
+      POSTGRES_PASSWORD: Masbo124
+      POSTGRES_DB: appdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"   # host:container
+    networks:
+      - Postgress_DB
+      - pg_pub
+    restart: always
+
+networks:
+  Postgress_DB:
+    external: true
+  pg_pub:
+    external: true
+
+volumes:
+  pgdata:
