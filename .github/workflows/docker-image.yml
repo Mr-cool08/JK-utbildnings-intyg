@@ -50,24 +50,28 @@ jobs:
       - name: SSH into server and deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}       # ex: 185.154.110.57
-          username: ${{ secrets.SSH_USER }}   # ex: ubuntu
-          key: ${{ secrets.SSH_KEY }}         # privat nyckel (PEM)
-          port: ${{ secrets.SSH_PORT }}       # valfritt, annars 22
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
           script_stop: true
           script: |
             set -euo pipefail
-
-            # Logga in mot registry(erna) så servern kan pulla
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Logga in så servern kan pulla bilder
+            echo "${{ secrets.GHCR_TOKEN || github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            # Gå till mappen där din docker-compose.yml ligger
-            cd ${{ secrets.DEPLOY_DIR }}      # t.ex. /opt/jk/jk-utbildnings-intyg
-
-            # Hämta senaste images och starta/uppdatera stacken
+            
+            # Gå till din deploy-katalog
+            cd "${{ secrets.DEPLOY_DIR }}"
+            
+            # Säkerställ att compose-filen finns
+            test -f docker-compose.yml -o -f compose.yml -o -f compose.yaml || { echo "Hittar ingen docker-compose-fil i $PWD"; exit 1; }
+            
+            # Kör deployment
+            docker compose version
             docker compose pull
             docker compose up -d --remove-orphans
-
-            # (valfritt) rensa gamla dangling images
+            
+            # (valfritt) städa dangling images
             docker image prune -f
