@@ -217,6 +217,7 @@ GUNICORN_CMD="gunicorn --bind 127.0.0.1:${FLASK_PORT} \
     --access-logfile - --error-logfile - \
     --timeout 60 \
     --user app --group app \
+    --preload \
     wsgi:app"
 
 echo "Starting Gunicorn: $GUNICORN_CMD"
