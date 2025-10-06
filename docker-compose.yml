@@ -22,10 +22,10 @@ services:
 
   app:
     build: .
-    user: "0:0"                 # behövs om processen lyssnar direkt på port <1024
+    user: "0:0"                 # krävs för att lyssna på <1024 portar i containern
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80"                 # publikt till internet (0.0.0.0:80)
+      - "443:443"               # publikt till internet (0.0.0.0:443)
     env_file:
       - stack.env
     depends_on:
@@ -33,13 +33,12 @@ services:
         condition: service_healthy
     networks:
       Postgress_DB:
-        ipv4_address: 172.28.0.20  # fast IP internt
-      bridge: {}                   # för extern åtkomst via portmappningen
+        ipv4_address: 172.28.0.20
     restart: unless-stopped
 
 networks:
   Postgress_DB:
-    name: postgress_db            # stabilt namn (valfritt)
+    name: postgress_db
     driver: bridge
     internal: true
     ipam:
