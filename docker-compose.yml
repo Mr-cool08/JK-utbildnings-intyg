@@ -29,7 +29,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    user: "101:102"
+    user: "0:0"
     environment:
       POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}"
