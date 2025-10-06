@@ -1,30 +1,39 @@
-name: Build and Push Docker image
+name: Build, Push and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set lower-case repository owner
         run: echo "REPOSITORY_OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -32,3 +41,33 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPOSITORY_OWNER_LC }}/jk-utbildnings-intyg:latest
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/jk-utbildnings-intyg:latest
+
+  deploy:
+    name: Deploy to server (docker compose up)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into server and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}       # ex: 185.154.110.57
+          username: ${{ secrets.SSH_USER }}   # ex: ubuntu
+          key: ${{ secrets.SSH_KEY }}         # privat nyckel (PEM)
+          port: ${{ secrets.SSH_PORT }}       # valfritt, annars 22
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            # Logga in mot registry(erna) så servern kan pulla
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Gå till mappen där din docker-compose.yml ligger
+            cd ${{ secrets.DEPLOY_DIR }}      # t.ex. /opt/jk/jk-utbildnings-intyg
+
+            # Hämta senaste images och starta/uppdatera stacken
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # (valfritt) rensa gamla dangling images
+            docker image prune -f
