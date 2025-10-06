@@ -29,7 +29,7 @@ services:
       - "80:80"
       - "443:443"
     env_file:
-      - .env                     #  this loads all your vars automatically
+      - stack.env                    #  this loads all your vars automatically
     depends_on:
       postgres:
         condition: service_healthy
