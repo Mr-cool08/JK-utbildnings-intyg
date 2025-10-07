@@ -280,6 +280,8 @@ def supervisor_login():
 
 @app.route('/handledare', methods=['GET'])
 def supervisor_dashboard():
+    if not session.get('supervisor_logged_in'):
+            return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
     connections = functions.list_supervisor_connections(email_hash)
     users = []
