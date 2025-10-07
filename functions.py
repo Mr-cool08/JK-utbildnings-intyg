@@ -205,6 +205,7 @@ def _is_truthy(value: Optional[str]) -> bool:
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
+    sqlite_database_path: Optional[str] = None
     if not db_url:
         if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB")):
             test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
@@ -217,6 +218,7 @@ def _build_engine() -> Engine:
                     raw_path = Path(APP_ROOT) / raw_path
                 raw_path.parent.mkdir(parents=True, exist_ok=True)
                 resolved = raw_path.resolve()
+                sqlite_database_path = str(resolved)
                 db_url = f"sqlite:///{resolved.as_posix()}"
                 logger.info("Using local SQLite test database at %s", resolved)
         else:
@@ -257,6 +259,8 @@ def _build_engine() -> Engine:
             port_segment = f":{port}" if port else ""
             db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
     url = make_url(db_url)
+    if sqlite_database_path and url.get_backend_name() == "sqlite":
+        url = url.set(database=sqlite_database_path)
     logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 
     if url.get_backend_name() == "postgresql":
