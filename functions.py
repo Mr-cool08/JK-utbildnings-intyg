@@ -217,8 +217,9 @@ def _build_engine() -> Engine:
                     raw_path = Path(APP_ROOT) / raw_path
                 raw_path.parent.mkdir(parents=True, exist_ok=True)
                 resolved = raw_path.resolve()
-                db_url = f"sqlite:///{resolved.as_posix()}"
-                logger.info("Using local SQLite test database at %s", resolved)
+                resolved_str = str(resolved)
+                db_url = f"sqlite:///{resolved_str}"
+                logger.info("Using local SQLite test database at %s", resolved_str)
         else:
             host = os.getenv("POSTGRES_HOST")
             if not host:
