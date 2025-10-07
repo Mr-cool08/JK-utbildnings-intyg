@@ -726,7 +726,7 @@ def admin():
     if request.method == 'POST':
         if not session.get('admin_logged_in'):
             logger.warning("Unauthorized admin POST")
-            return redirect('/login_admin')
+            return redirect('/error', code=401)
 
         try:
             # --- Grab form data ---
@@ -1206,16 +1206,14 @@ def verify_certificate_route(personnummer):
         return redirect('/login_admin')
 
     if functions.verify_certificate(personnummer):
+        logger.info("Certificate for %s is verified", mask_hash(functions.hash_value(personnummer)))
         return jsonify({'status': 'success', 'verified': True})
     return jsonify({
         'status': 'error',
         'message': "Användarens certifikat är inte verifierat",
     }), 404
-@app.route("/error")
-def error():
-    # Intentionally raise an error to test the 500 page.
-    # This will cause a 500 Internal Server Error
-    raise Exception("Testing 500 error page")
+    logger.info("Certificate for %s is NOT verified", mask_hash(functions.hash_value(personnummer)))
+
 
 @app.route('/login_admin', methods=['POST', 'GET'])
 def login_admin():
@@ -1232,6 +1230,7 @@ def login_admin():
         else:
             logger.warning("Invalid admin login attempt for %s", request.form['username'])
             return jsonify({'status': 'error', 'message': 'Ogiltiga inloggningsuppgifter'})
+
     elif request.method == 'GET':
         logger.debug("Rendering admin login page")
         return render_template('admin_login.html')
@@ -1253,24 +1252,48 @@ def logout():
     session.pop('supervisor_name', None)
     return redirect('/')
 
+
+## -------------------------Error Handlers -------------------------##
+@app.route("/error")
+def error():
+    # Intentionally raise an error to test the 500 page.
+    # This will cause a 500 Internal Server Error
+    raise Exception("Testing 500 error page")
 @app.errorhandler(500)
 def internal_server_error(_):
     logger.error("500 Internal Server Error: %s", request.path)
     # Visa en användarvänlig 500-sida när ett serverfel inträffar.
-    return render_template('500.html', time=time.time()), 500
+    error_code = 500
+    error_message = "Ett internt serverfel har inträffat. Vänligen försök igen senare."
+    return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 500
 
+@app.errorhandler(401)
+def unauthorized_error(_):
+    # Visa en användarvänlig 401-sida vid obehörig åtkomst.
+    logger.warning("401 Unauthorized: %s", request.path)
+    error_code = 401
+    error_message = "Du måste vara inloggad för att se denna sida."
+    return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 401
 
 @app.errorhandler(409)
 def conflict_error(_):
     # Visa en användarvänlig 409-sida vid konflikt.
     logger.error("409 Conflict: %s", request.path)
-    return render_template('409.html'), 409
+    error_code = 409
+    error_message = "Det uppstod en konflikt vid hantering av din begäran."
+    return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 409
 
 @app.errorhandler(404)
 def page_not_found(_):
     # Visa en användarvänlig 404-sida när en sida saknas.
     logger.warning("Page not found: %s", request.path)
-    return render_template('404.html'), 404
+    error_code = 404
+    error_message = "Sidan du söker kunde inte hittas."
+    return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 404
+##----------------------------------------##
+
+
+
 
 @app.template_filter('datetimeformat')
 def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
