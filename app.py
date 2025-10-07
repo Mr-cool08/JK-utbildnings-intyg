@@ -1288,7 +1288,7 @@ def page_not_found(_):
     # Visa en användarvänlig 404-sida när en sida saknas.
     logger.warning("Page not found: %s", request.path)
     error_code = 404
-    error_message = "Sidan du söker kunde inte hittas."
+    error_message = "Sidan du letade efter kunde inte hittas."
     return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 404
 ##----------------------------------------##
 

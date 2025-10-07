@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Serverfel (500){% endblock %}
+{% block title %}Serverfel ({{error_code}}){% endblock %}
 {% block content %}
 	<div class="error-container">
 		<h1>{{error_code}}</h1>
