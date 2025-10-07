@@ -603,6 +603,7 @@ def share_pdf() -> tuple[Response, int]:
 
     payload = request.get_json(silent=True) or request.form
     if not payload:
+        logger.error(f"Empty payload in share_pdf:{payload!r}")
         return jsonify({'fel': 'Ogiltig begäran.'}), 400
 
     pdf_ids_raw = payload.get('pdf_ids') if hasattr(payload, 'get') else None
@@ -614,6 +615,7 @@ def share_pdf() -> tuple[Response, int]:
             pdf_ids_raw = [pdf_id_raw]
 
     if pdf_ids_raw is None:
+        logger.debug(f"No pdf_ids provided in share_pdf: {payload!r}")
         return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
 
     if isinstance(pdf_ids_raw, (str, bytes)):
@@ -637,14 +639,16 @@ def share_pdf() -> tuple[Response, int]:
         pdf_ids.append(pdf_id)
 
     if not pdf_ids:
+        logger.debug(f"Empty pdf_ids after processing in share_pdf: {payload!r}")
         return jsonify({'fel': 'Ogiltigt intyg angivet.'}), 400
 
     if not recipient_email:
+        logger.debug("Empty recipient_email in share_pdf: %r", payload)
         return jsonify({'fel': 'Ange en e-postadress.'}), 400
 
     pnr_hash = session.get('personnummer')
     if not pnr_hash:
-        logger.error("Share request missing personnummer in session")
+        logger.error("Share request missing personnummer in session: %r", session)
         return jsonify({'fel': 'Saknar användaruppgifter.'}), 400
 
     attachments: list[tuple[str, bytes]] = []
@@ -652,7 +656,7 @@ def share_pdf() -> tuple[Response, int]:
     for pdf_id in pdf_ids:
         pdf = functions.get_pdf_content(pnr_hash, pdf_id)
         if not pdf:
-            logger.warning("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
+            logger.debug("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
             return jsonify({'fel': 'Intyget kunde inte hittas.'}), 404
         filename, content = pdf
         attachments.append((filename, content))
@@ -668,6 +672,7 @@ def share_pdf() -> tuple[Response, int]:
     try:
         normalized_recipient = email_service.normalize_valid_email(recipient_email)
     except ValueError:
+        logger.debug("Invalid recipient_email in share_pdf: %r", recipient_email)
         return jsonify({'fel': 'Ogiltig e-postadress.'}), 400
 
     if normalized_recipient != recipient_email:
@@ -823,7 +828,7 @@ def admin():
             logger.error("Value error during admin upload: %s", ve)
             return jsonify({'status': 'error', 'message': 'Felaktiga användardata.'}), 400
         except Exception as e:
-            logger.exception("Server error during admin upload")
+            logger.exception("Server error during admin upload", exc_info=e)
             return jsonify({'status': 'error', 'message': 'Serverfel'}), 500
 
     # --- GET request ---
@@ -844,10 +849,12 @@ def admin_user_overview():
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get('personnummer') or '').strip()
     if not personnummer:
+        logging.debug("Admin overview without personnummer: ", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        logging.debug("Admin overview with invalid personnummer: %s", personnummer, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
 
     pnr_hash = functions.hash_value(normalized_personnummer)
@@ -887,6 +894,7 @@ def admin_user_overview():
         'visade användaröversikt',
         f'personnummer_hash={pnr_hash}',
     )
+    logging.debug("Admin overview for %s with %d pdfs", mask_hash(pnr_hash), len(pdfs), extra={'admin': admin_name})
     return jsonify(response)
 
 
@@ -897,15 +905,18 @@ def admin_delete_pdf():
     personnummer = (payload.get('personnummer') or '').strip()
     pdf_id = payload.get('pdf_id')
     if not personnummer or pdf_id is None:
+        logging.debug("Admin delete_pdf without personnummer or pdf_id", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange personnummer och PDF-id.'}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        logging.debug("Admin delete_pdf with invalid personnummer: %s", personnummer, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
 
     try:
         pdf_id_int = int(pdf_id)
     except (ValueError, TypeError):
+        logging.debug("Admin delete_pdf with invalid pdf_id: %s", pdf_id, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-id.'}), 400
 
     if not functions.delete_user_pdf(normalized_personnummer, pdf_id_int):
@@ -920,6 +931,7 @@ def admin_delete_pdf():
         'raderade PDF',
         f'personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}',
     )
+    logging.info("Admin deleted pdf %s for %s", pdf_id_int, mask_hash(pnr_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
 
 
@@ -931,21 +943,26 @@ def admin_update_pdf():
     pdf_id = payload.get('pdf_id')
     categories = payload.get('categories')
     if not isinstance(categories, list):
+        logging.debug("Admin update_pdf with invalid categories: %r", categories, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Kategorier måste vara en lista.'}), 400
     if not personnummer or pdf_id is None:
+        logging.debug("Admin update_pdf without personnummer or pdf_id", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange personnummer och PDF-id.'}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        logging.debug("Admin update_pdf with invalid personnummer: %s", personnummer, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
     try:
         pdf_id_int = int(pdf_id)
     except (ValueError, TypeError):
+        logging.debug("Admin update_pdf with invalid pdf_id: %s", pdf_id, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt PDF-id.'}), 400
 
     try:
         normalized_categories = normalize_category_slugs(categories)
     except ValueError:
+        logging.debug("Admin update_pdf with invalid categories: %r", categories, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltig kategori vald.'}), 400
 
     if not functions.update_pdf_categories(
@@ -962,6 +979,7 @@ def admin_update_pdf():
         'uppdaterade PDF-kategorier',
         f'personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}, kategorier={";".join(normalized_categories)}',
     )
+    logging.info("Admin updated categories for pdf %s for %s", pdf_id_int, mask_hash(pnr_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'Kategorier uppdaterade.'})
 
 
@@ -972,26 +990,28 @@ def admin_send_password_reset():
     personnummer = (payload.get('personnummer') or '').strip()
     email = (payload.get('email') or '').strip()
     if not personnummer or not email:
+        logging.debug("Admin send_password_reset without personnummer or email", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange både personnummer och e-post.'}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        logging.debug("Admin send_password_reset with invalid personnummer: %s", personnummer, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
 
     try:
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
-        logger.exception("Misslyckades att skapa återställningstoken (ValueError)")
+        logger.exception(f"Misslyckades att skapa återställningstoken ({ValueError)}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 404
-    except Exception:
-        logger.exception("Misslyckades att skapa återställningstoken")
+    except Exception as e:
+        logger.exception(f"Misslyckades att skapa återställningstoken: {e}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
 
     link = url_for('password_reset', token=token, _external=True)
     try:
         email_service.send_password_reset_email(email, link)
     except RuntimeError as exc:
-        logger.exception("Misslyckades att skicka återställningsmejl")
+        logger.exception(f"Misslyckades att skicka återställningsmejl: {exc}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skicka återställningsmejl.'}), 500
 
     pnr_hash = functions.hash_value(normalized_personnummer)
@@ -1001,6 +1021,7 @@ def admin_send_password_reset():
         'skickade lösenordsåterställning',
         f'personnummer_hash={pnr_hash}, email_hash={email_hash}',
     )
+    logging.info("Admin sent password reset for %s to %s", mask_hash(pnr_hash), mask_hash(email_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat.', 'link': link})
 
 
@@ -1011,11 +1032,13 @@ def admin_create_supervisor_route():
     email = (payload.get('email') or '').strip()
     name = (payload.get('name') or '').strip()
     if not email or not name:
+        logging.debug("Admin create_supervisor without email or name", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange namn och e-post.'}), 400
 
     try:
         normalized_email = functions.normalize_email(email)
     except ValueError:
+        logging.debug("Admin create_supervisor with invalid email: %s", email, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
 
     if not functions.admin_create_supervisor(normalized_email, name):
@@ -1041,6 +1064,7 @@ def admin_create_supervisor_route():
         'skapade handledare',
         f'email_hash={email_hash}',
     )
+    logging.info("Admin created supervisor %s", mask_hash(email_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'Handledare skapad.', 'link': link})
 
 
@@ -1051,11 +1075,13 @@ def admin_link_supervisor_route():
     email = (payload.get('email') or '').strip()
     personnummer = (payload.get('personnummer') or '').strip()
     if not email or not personnummer:
+        logging.debug("Admin link_supervisor without email or personnummer", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange handledarens e-post och personnummer.'}), 400
 
     try:
         success, reason = functions.admin_link_supervisor_to_user(email, personnummer)
     except ValueError:
+        logging.debug("Admin link_supervisor with invalid email or personnummer: %s, %s", email, personnummer, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltiga användaruppgifter.'}), 400
 
     if not success:
@@ -1070,6 +1096,7 @@ def admin_link_supervisor_route():
         elif reason == 'exists':
             status_code = 409
             message = 'Kopplingen finns redan.'
+        logging.debug("Admin link_supervisor failed: %s", reason, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': message}), status_code
 
     normalized_email = functions.normalize_email(email)
@@ -1081,6 +1108,7 @@ def admin_link_supervisor_route():
         'kopplade handledare',
         f'email_hash={email_hash}, personnummer_hash={personnummer_hash}',
     )
+    logging.info("Admin linked supervisor %s to user %s", mask_hash(email_hash), mask_hash(personnummer_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'Handledaren har kopplats till användaren.'})
 
 
@@ -1090,15 +1118,18 @@ def admin_supervisor_overview():
     payload = request.get_json(silent=True) or {}
     email = (payload.get('email') or '').strip()
     if not email:
+        logging.debug("Admin supervisor_overview without email", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange handledarens e-post.'}), 400
 
     try:
         email_hash = functions.get_supervisor_email_hash(email)
     except ValueError:
+        logging.debug("Admin supervisor_overview with invalid email: %s", email, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
 
     overview = functions.get_supervisor_overview(email_hash)
     if not overview:
+        logging.debug("Admin supervisor_overview not found for email: %s", email, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Handledaren hittades inte.'}), 404
 
     normalized_email = functions.normalize_email(email)
@@ -1107,6 +1138,7 @@ def admin_supervisor_overview():
         'visade handledaröversikt',
         f'email_hash={functions.hash_value(normalized_email)}',
     )
+    logging.debug("Admin supervisor_overview for %s with %d users", mask_hash(functions.hash_value(normalized_email)), len(overview.get('users', [])), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'data': overview})
 
 @app.get('/admin/avancerat')
@@ -1124,7 +1156,9 @@ def admin_advanced_schema(table_name: str):
     try:
         schema = functions.get_table_schema(table_name)
     except ValueError:
+        logging.debug("Admin advanced schema with unknown table: %s", table_name)
         return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
+    logging.debug("Admin advanced schema for table: %s", table_name)
     return jsonify({'status': 'success', 'schema': schema})
 
 
@@ -1136,7 +1170,9 @@ def admin_advanced_rows(table_name: str):
     try:
         rows = functions.fetch_table_rows(table_name, search_term, limit)
     except ValueError:
+        logging.debug("Admin advanced rows with unknown table: %s", table_name)
         return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
+    logging.debug("Admin advanced rows for table: %s, search: %r, limit: %d", table_name, search_term, limit)
     return jsonify({'status': 'success', 'rows': rows})
 
 
@@ -1154,6 +1190,7 @@ def admin_advanced_create(table_name: str):
         'skapade post',
         f'tabell={table_name}',
     )
+    logging.info("Admin created row in table %s: %s", table_name, row, extra={'admin': admin_name})
     return jsonify({'status': 'success', 'row': row}), 201
 
 
@@ -1167,12 +1204,14 @@ def admin_advanced_update(table_name: str, row_id: int):
         logger.exception(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
         return jsonify({'status': 'error', 'message': 'Felaktiga data.'}), 400
     if not updated:
+        logging.debug("Admin advanced update with missing row: table=%s, id=%d", table_name, row_id)
         return jsonify({'status': 'error', 'message': 'Posten hittades inte.'}), 404
     functions.log_admin_action(
         admin_name,
         'uppdaterade post',
         f'tabell={table_name}, id={row_id}',
     )
+    logging.info("Admin updated row in table %s, id=%d: %s", table_name, row_id, values, extra={'admin': admin_name})
     return jsonify({'status': 'success'})
 
 
@@ -1182,14 +1221,17 @@ def admin_advanced_delete(table_name: str, row_id: int):
     try:
         deleted = functions.delete_table_row(table_name, row_id)
     except ValueError:
+        logging.debug("Admin advanced delete with unknown table: %s", table_name)
         return jsonify({'status': 'error', 'message': 'Okänd tabell.'}), 404
     if not deleted:
+        logging.debug("Admin advanced delete with missing row: table=%s, id=%d", table_name, row_id)
         return jsonify({'status': 'error', 'message': 'Posten hittades inte.'}), 404
     functions.log_admin_action(
         admin_name,
         'raderade post',
         f'tabell={table_name}, id={row_id}',
     )
+    logging.info("Admin deleted row in table %s, id=%d", table_name, row_id, extra={'admin': admin_name})
     return jsonify({'status': 'success'})
 
 
