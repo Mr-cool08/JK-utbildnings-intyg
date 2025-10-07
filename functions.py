@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from functools import lru_cache
 import string
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 from urllib.parse import quote_plus
 from sqlalchemy import (
     Column,
@@ -34,7 +34,7 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, URL
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
@@ -204,7 +204,7 @@ def _is_truthy(value: Optional[str]) -> bool:
 
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
-    db_url = os.getenv("DATABASE_URL")
+    db_url: Union[str, URL, None] = os.getenv("DATABASE_URL")
     if not db_url:
         if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB")):
             test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
@@ -217,7 +217,7 @@ def _build_engine() -> Engine:
                     raw_path = Path(APP_ROOT) / raw_path
                 raw_path.parent.mkdir(parents=True, exist_ok=True)
                 resolved = raw_path.resolve()
-                db_url = f"sqlite:///{resolved.as_posix()}"
+                db_url = URL.create("sqlite", database=str(resolved))
                 logger.info("Using local SQLite test database at %s", resolved)
         else:
             host = os.getenv("POSTGRES_HOST")
@@ -256,7 +256,7 @@ def _build_engine() -> Engine:
             )
             port_segment = f":{port}" if port else ""
             db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
-    url = make_url(db_url)
+    url = db_url if isinstance(db_url, URL) else make_url(db_url)
     logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
 
     if url.get_backend_name() == "postgresql":
