@@ -1,25 +1,23 @@
 :root {
     --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --color-primary: #FF9013; /* Orange (primary) */
-    --color-primary-dark: #E67C00; /* Darker orange */
-    --color-secondary: #0046FF; /* Deep blue */
-    --color-accent: #73C8D2; /* Light teal */
-    --color-bg: #F5F1DC; /* Light cream background */
-    --color-primary-soft: #FFE5C2; /* Light orange */
-    --color-surface: #ffffff;
-    --color-surface-soft: #f8fafc;
+    --color-primary: #F4CE14; /* Yellow (primary/accent) */
+    --color-primary-dark: #E3BA0F; /* Slightly darker yellow */
+    --color-secondary: #495E57; /* Dark greenish */
+    --color-bg: #F5F7F8; /* Very light gray background */
+    --color-surface: #fff;
+    --color-surface-soft: #F5F7F8;
+    --color-text: #45474B; /* Dark gray for text */
+    --color-footer: #45474B; /* Dark gray for footer */
+    --color-primary-soft: #FFF9E3; /* Very light yellow for highlights */
     --color-border: #d0d7e2;
     --color-border-strong: #b4becd;
-    --color-text: #1f2937;
-    --color-text-muted: #4b5563;
     --color-success-bg: #e7f8ed;
     --color-success-border: #9bd4ac;
     --color-success-text: #256c3a;
     --color-error-bg: #fbeaea;
     --color-error-border: #f0a1a1;
     --color-error-text: #8f1a1a;
-    --color-footer: #111827;
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
