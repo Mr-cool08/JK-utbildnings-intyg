@@ -1,15 +1,16 @@
 :root {
     --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --color-primary: #3F72AF; /* Blue (main accent) */
-    --color-primary-dark: #112D4E; /* Dark blue for hover/focus */
-    --color-secondary: #DBE2EF; /* Light blue-gray */
-    --color-bg: #F9F7F7; /* Very light gray background */
-    --color-surface: #fff;
-    --color-surface-soft: #DBE2EF;
-    --color-text: #112D4E; /* Dark blue for text */
-    --color-footer: #112D4E; /* Dark blue for footer */
-    --color-primary-soft: #EAF0FB; /* Very light blue for highlights */
+    --color-primary: #FF8C42; /* Orange-like primary */
+    --color-primary-dark: #E6762B; /* Darker orange for hover/focus */
+    --color-secondary: #3A6EA5; /* Muted blue, complements orange */
+    --color-accent: #F7C873; /* Soft yellow accent */
+    --color-bg: #F6F4F0; /* Light neutral background */
+    --color-surface: #FFFFFF; /* Card/panel surface */
+    --color-surface-soft: #F6F4F0; /* Soft surface */
+    --color-text: #2D2D2D; /* Dark gray text */
+    --color-footer: #2D2D2D; /* Footer color */
+    --color-primary-soft: #FFE3C2; /* Very light orange for highlights */
     --color-border: #d0d7e2;
     --color-border-strong: #b4becd;
     --color-success-bg: #e7f8ed;
