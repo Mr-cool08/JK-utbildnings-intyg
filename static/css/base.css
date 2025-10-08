@@ -1,10 +1,10 @@
 :root {
     --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --color-primary: #0d6efd;
-    --color-primary-dark: #0b5ed7;
-    --color-secondary: #4b1a7a;
-    --color-primary-soft: #e8f0ff;
+    --color-primary: #FF9800; /* Vibrant orange */
+    --color-primary-dark: #F57C00; /* Deep orange */
+    --color-secondary: #1976D2; /* Strong blue */
+    --color-primary-soft: #FFF3E0; /* Light orange */
     --color-bg: #f3f4f6;
     --color-surface: #ffffff;
     --color-surface-soft: #f8fafc;
