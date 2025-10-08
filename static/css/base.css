@@ -1,15 +1,15 @@
 :root {
     --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --color-primary: #F4CE14; /* Yellow (primary/accent) */
-    --color-primary-dark: #E3BA0F; /* Slightly darker yellow */
-    --color-secondary: #495E57; /* Dark greenish */
-    --color-bg: #F5F7F8; /* Very light gray background */
+    --color-primary: #3F72AF; /* Blue (main accent) */
+    --color-primary-dark: #112D4E; /* Dark blue for hover/focus */
+    --color-secondary: #DBE2EF; /* Light blue-gray */
+    --color-bg: #F9F7F7; /* Very light gray background */
     --color-surface: #fff;
-    --color-surface-soft: #F5F7F8;
-    --color-text: #45474B; /* Dark gray for text */
-    --color-footer: #45474B; /* Dark gray for footer */
-    --color-primary-soft: #FFF9E3; /* Very light yellow for highlights */
+    --color-surface-soft: #DBE2EF;
+    --color-text: #112D4E; /* Dark blue for text */
+    --color-footer: #112D4E; /* Dark blue for footer */
+    --color-primary-soft: #EAF0FB; /* Very light blue for highlights */
     --color-border: #d0d7e2;
     --color-border-strong: #b4becd;
     --color-success-bg: #e7f8ed;
