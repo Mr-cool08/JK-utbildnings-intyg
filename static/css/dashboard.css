@@ -73,12 +73,12 @@
     border-radius: var(--radius-pill);
     background: var(--color-primary-soft);
     color: var(--color-primary);
-    border: 1px solid rgba(13, 110, 253, 0.25);
+    border: 1px solid rgba(233, 59, 86, 0.25);
     font-weight: 600;
 }
 
 .category-count-badge {
-    background: rgba(13, 110, 253, 0.12);
+    background: rgba(233, 59, 86, 0.12);
     padding: 0.25rem 0.6rem;
     border-radius: var(--radius-pill);
     font-size: 0.85rem;
@@ -93,7 +93,7 @@
 .category-group {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(208, 215, 226, 0.6);
+    border: 1px solid var(--color-border-strong);
     box-shadow: var(--shadow-sm);
     padding: 1.5rem;
     display: flex;
@@ -179,7 +179,7 @@
 
 .share-selection {
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(208, 215, 226, 0.6);
+    border: 1px solid var(--color-border-strong);
     background: var(--color-surface);
     padding: 1.2rem 1.5rem;
     display: flex;
@@ -220,7 +220,7 @@
 }
 
 .share-modal::backdrop {
-    background: rgba(15, 23, 42, 0.45);
+    background: rgba(55, 55, 55, 0.45);
 }
 
 .share-modal__dialog {

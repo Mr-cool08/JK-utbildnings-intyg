@@ -1,24 +1,25 @@
 :root {
     --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --color-primary: #FF7F50; /* Coral Orange primary */
-    --color-primary-dark: #D95D39; /* Deeper orange for hover/focus */
-    --color-secondary: #D27D2D; /* Dusty purple, muted and elegant */
-    --color-accent: #F9DC5C; /* Soft yellow accent */
-    --color-bg: #F4F4F9; /* Very light lavender-gray background */
-    --color-surface: #FFFFFF; /* Card/panel surface */
-    --color-surface-soft: #F4F4F9; /* Soft surface */
-    --color-text: #2E2E2E; /* Dark gray text */
-    --color-footer: #2E2E2E; /* Footer color */
-    --color-primary-soft: #FFD8C2; /* Very light orange for highlights */
-    --color-border: #d0d7e2;
-    --color-border-strong: #b4becd;
-    --color-success-bg: #e7f8ed;
-    --color-success-border: #9bd4ac;
-    --color-success-text: #256c3a;
-    --color-error-bg: #fbeaea;
-    --color-error-border: #f0a1a1;
-    --color-error-text: #8f1a1a;
+    --color-primary: #E93B56; /* Livlig primärton */
+    --color-primary-dark: #E33E26; /* Mörkare ton för hovring */
+    --color-secondary: #9C1E0A; /* Djup sekundärton */
+    --color-accent: #E6DE0B; /* Kontrasterande accent */
+    --color-bg: #F7F8EA; /* Ljust bakgrundsfält */
+    --color-surface: #FFFFFF; /* Neutral kortyta */
+    --color-surface-soft: #F7F8EA; /* Mjuk yta */
+    --color-text: #373737; /* Primär textfärg */
+    --color-text-muted: rgba(55, 55, 55, 0.75); /* Dämpad text */
+    --color-footer: #373737; /* Sidfotsfärg */
+    --color-primary-soft: rgba(233, 59, 86, 0.15); /* Mjuk primärton */
+    --color-border: rgba(55, 55, 55, 0.15);
+    --color-border-strong: rgba(55, 55, 55, 0.3);
+    --color-success-bg: rgba(230, 222, 11, 0.2);
+    --color-success-border: rgba(230, 222, 11, 0.6);
+    --color-success-text: #373737;
+    --color-error-bg: rgba(233, 59, 86, 0.15);
+    --color-error-border: rgba(227, 62, 38, 0.5);
+    --color-error-text: #9C1E0A;
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
@@ -272,7 +273,7 @@ li + li {
 }
 
 .btn:focus-visible {
-    outline: 3px solid rgba(13, 110, 253, 0.35);
+    outline: 3px solid rgba(233, 59, 86, 0.35);
     outline-offset: 2px;
 }
 
@@ -287,13 +288,13 @@ li + li {
 .btn-secondary {
     background: var(--color-primary-soft);
     color: var(--color-primary);
-    border-color: rgba(13, 110, 253, 0.35);
+    border-color: rgba(233, 59, 86, 0.35);
     box-shadow: none;
 }
 
 .btn-secondary:hover,
 .btn-secondary:focus-visible {
-    background: rgba(13, 110, 253, 0.18);
+    background: rgba(233, 59, 86, 0.18);
     color: var(--color-primary);
     box-shadow: var(--shadow-xs);
 }
@@ -327,14 +328,14 @@ li + li {
 }
 
 .btn-danger {
-    background: #c62828;
-    border-color: #c62828;
+    background: #E33E26;
+    border-color: #E33E26;
 }
 
 .btn-danger:hover,
 .btn-danger:focus-visible {
-    background: #a02020;
-    border-color: #a02020;
+    background: #9C1E0A;
+    border-color: #9C1E0A;
 }
 
 form {
@@ -348,7 +349,7 @@ form {
     padding: clamp(1.5rem, 3vw, 2rem);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    border: 1px solid rgba(208, 215, 226, 0.6);
+    border: 1px solid var(--color-border-strong);
     max-width: 460px;
 }
 
@@ -370,7 +371,7 @@ textarea {
     border: 1px solid var(--color-border);
     font: inherit;
     color: var(--color-text);
-    background: #fff;
+    background: var(--color-surface);
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
@@ -411,7 +412,7 @@ select:focus,
 textarea:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2);
+    box-shadow: 0 0 0 3px rgba(233, 59, 86, 0.2);
 }
 
 .row {
@@ -430,7 +431,7 @@ textarea:focus {
     border-radius: var(--radius-lg);
     padding: clamp(1.5rem, 3vw, 2rem);
     box-shadow: var(--shadow-sm);
-    border: 1px solid rgba(208, 215, 226, 0.6);
+    border: 1px solid var(--color-border-strong);
 }
 
 .panel > p,
@@ -587,7 +588,7 @@ small.hint {
     padding: clamp(3rem, 5vw, 4rem) clamp(2rem, 6vw, 3.5rem);
     border-radius: calc(var(--radius-lg) * 1.2);
     text-align: center;
-    box-shadow: 0 18px 40px rgba(13, 110, 253, 0.25);
+    box-shadow: 0 18px 40px rgba(233, 59, 86, 0.25);
 }
 
 .hero-eyebrow {
