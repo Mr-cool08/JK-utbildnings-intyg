@@ -98,6 +98,7 @@ img {
     box-shadow: var(--shadow-sm);
 }
 
+
 .nav-inner {
     width: min(100%, var(--container-max));
     margin: 0 auto;
@@ -114,11 +115,63 @@ img {
     font-size: 1.25rem;
     letter-spacing: 0.02em;
     color: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.brand-logo {
+    width: 2.5rem;
+    height: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
 .brand:hover,
 .brand:focus {
     opacity: 0.85;
+}
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.55rem;
+    cursor: pointer;
+    transition: background var(--transition-base), transform var(--transition-base);
+}
+
+.nav-toggle:focus-visible,
+.nav-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-toggle:active {
+    transform: scale(0.96);
+}
+
+.nav-toggle-bar {
+    width: 1.4rem;
+    height: 0.16rem;
+    background: #fff;
+    border-radius: var(--radius-pill);
+    transition: transform var(--transition-base), opacity var(--transition-base);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(1) {
+    transform: translateY(0.52rem) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(3) {
+    transform: translateY(-0.52rem) rotate(-45deg);
 }
 
 .nav-links {
@@ -127,6 +180,10 @@ img {
     gap: 1rem;
     flex-wrap: wrap;
     justify-content: flex-end;
+}
+
+.nav-links.nav-links-open {
+    display: flex;
 }
 
 .nav-links a {
@@ -140,6 +197,15 @@ img {
 .nav-links a:hover,
 .nav-links a:focus {
     background: rgba(255, 255, 255, 0.18);
+}
+
+.nav-external {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.nav-external:hover,
+.nav-external:focus {
+    background: rgba(255, 255, 255, 0.28);
 }
 
 .flash-container {
@@ -199,6 +265,50 @@ h3 {
     font-family: var(--font-heading);
     font-size: clamp(1.2rem, 2.5vw, 1.4rem);
     margin: 0 0 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .nav-inner {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .nav-toggle {
+        display: inline-flex;
+        margin-left: auto;
+    }
+
+    .nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+        order: 3;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .nav-links.nav-links-open {
+        display: flex;
+    }
+
+    .nav-links a {
+        background: rgba(255, 255, 255, 0.12);
+        justify-content: flex-start;
+        padding: 0.7rem 0.85rem;
+        border-radius: var(--radius-md);
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus {
+        background: rgba(255, 255, 255, 0.24);
+    }
+
+    .nav-external {
+        border-color: rgba(255, 255, 255, 0.45);
+    }
 }
 
 p {
