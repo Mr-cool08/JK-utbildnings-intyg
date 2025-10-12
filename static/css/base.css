@@ -14,6 +14,11 @@
     --color-primary-soft: rgba(233, 59, 86, 0.15); /* Mjuk primärton */
     --color-border: rgba(55, 55, 55, 0.15);
     --color-border-strong: rgba(55, 55, 55, 0.3);
+    --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    --gradient-primary-strong: linear-gradient(135deg, var(--color-primary-dark), var(--color-secondary));
+    --gradient-primary-soft: linear-gradient(135deg, rgba(233, 59, 86, 0.85), rgba(156, 30, 10, 0.85));
+    --color-nav-border: rgba(255, 255, 255, 0.28);
+    --color-nav-hover: rgba(255, 255, 255, 0.16);
     --color-success-bg: rgba(230, 222, 11, 0.2);
     --color-success-border: rgba(230, 222, 11, 0.6);
     --color-success-text: #373737;
@@ -93,7 +98,7 @@ img {
 }
 
 .site-nav {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    background: var(--gradient-primary);
     color: #fff;
     box-shadow: var(--shadow-sm);
 }
@@ -285,9 +290,12 @@ h3 {
         align-items: stretch;
         gap: 0.5rem;
         order: 3;
-        padding-top: 0.75rem;
+        padding: 0.75rem;
         margin-top: 0.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        border-top: 1px solid var(--color-nav-border);
+        background: var(--gradient-primary-soft);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
     }
 
     .nav-links.nav-links-open {
@@ -295,19 +303,23 @@ h3 {
     }
 
     .nav-links a {
-        background: rgba(255, 255, 255, 0.12);
+        background: var(--color-nav-hover);
         justify-content: flex-start;
         padding: 0.7rem 0.85rem;
         border-radius: var(--radius-md);
+        border: 1px solid var(--color-nav-border);
+        color: #fff;
     }
 
     .nav-links a:hover,
     .nav-links a:focus {
-        background: rgba(255, 255, 255, 0.24);
+        background: var(--gradient-primary-strong);
+        border-color: rgba(255, 255, 255, 0.45);
+        box-shadow: var(--shadow-xs);
     }
 
     .nav-external {
-        border-color: rgba(255, 255, 255, 0.45);
+        border-color: rgba(255, 255, 255, 0.6);
     }
 }
 
