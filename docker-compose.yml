@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 
 services:
   postgres:
@@ -62,37 +62,34 @@ services:
       - "80"
     restart: unless-stopped
 
-proxy:
-  image: nginx:alpine
-  depends_on:
-    - app
-    - app_demo
-  ports:
-    - "80:80"
-    - "443:443"
-  env_file:
-    - stack.env
-  # Skapa cert/nyckel-filer från miljövariablerna (med äkta radbrytningar)
-  command: ["/bin/sh","-c","set -eu;
-    mkdir -p /run/secrets;
-    umask 077;
-    # skriv ut exakt som i env (med riktiga radbrytningar)
-    cat > /run/secrets/tls.crt << 'EOFCRT'
+  proxy:
+    image: nginx:alpine
+    depends_on:
+      - app
+      - app_demo
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - stack.env
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    command: ["/bin/sh","-c","set -eu;
+      mkdir -p /run/secrets;
+      umask 077;
+      cat > /run/secrets/tls.crt << 'EOFCRT'
 $TLS_CERT
 EOFCRT
-    cat > /run/secrets/tls.key << 'EOFKEY'
+      cat > /run/secrets/tls.key << 'EOFKEY'
 $TLS_KEY
 EOFKEY
-    # validera att filerna går att läsa av OpenSSL (valfritt men bra)
-    openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
-    openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
-    exec nginx -g 'daemon off;'
-  "]
-  volumes:
-    - ./nginx/conf.d:/etc/nginx/conf.d:ro
-  networks:
-    public_net: {}
-  restart: unless-stopped
+      openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
+      openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
+      exec nginx -g 'daemon off;'
+    "]
+    networks:
+      public_net: {}
+    restart: unless-stopped
 
 networks:
   Postgress_DB:
