@@ -16,6 +16,14 @@ docker compose up --build
 
 The app will be available on <https://localhost> and <http://localhost>.
 
+To launch only the demo environment with its temporary SQLite database run:
+
+```bash
+docker compose up --build app_demo
+```
+
+The demoversion listens on <http://localhost:8080> and resets its data on every restart.
+
 ## Production deployment
 
 Images are built and pushed to GHCR and Docker Hub on every push to the `main` branch. Run the latest image as follows:

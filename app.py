@@ -45,6 +45,13 @@ import functions
 
 ALLOWED_MIMES = {'application/pdf'}
 
+
+def _as_bool(value: str | None) -> bool:
+    # Tolka strängar som booleska värden.
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "on", "ja", "yes"}
+
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
@@ -83,6 +90,37 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.secret_key = os.getenv('secret_key')
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
+
+    demo_defaults = {
+        "user_email": os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
+        "user_name": os.getenv("DEMO_USER_NAME", "Demoanvändare"),
+        "user_personnummer": os.getenv("DEMO_USER_PERSONNUMMER", "199001011234"),
+        "user_password": os.getenv("DEMO_USER_PASSWORD", "DemoLösenord1!"),
+        "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.handledare@example.com"),
+        "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demohandledare"),
+        "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoHandledare1!"),
+    }
+
+    app.config["IS_DEMO"] = _as_bool(os.getenv("ENABLE_DEMO_MODE"))
+    app.config["DEMO_SITE_URL"] = os.getenv("DEMO_SITE_URL", "").strip()
+    app.config["DEMO_CREDENTIALS"] = {
+        "user_personnummer": demo_defaults["user_personnummer"],
+        "user_password": demo_defaults["user_password"],
+        "supervisor_email": demo_defaults["supervisor_email"],
+        "supervisor_password": demo_defaults["supervisor_password"],
+    }
+
+    if app.config["IS_DEMO"]:
+        logger.info("Demoläge aktiverat – initierar exempeldata")
+        functions.ensure_demo_data(
+            user_email=demo_defaults["user_email"],
+            user_name=demo_defaults["user_name"],
+            user_personnummer=demo_defaults["user_personnummer"],
+            user_password=demo_defaults["user_password"],
+            supervisor_email=demo_defaults["supervisor_email"],
+            supervisor_name=demo_defaults["supervisor_name"],
+            supervisor_password=demo_defaults["supervisor_password"],
+        )
 
     with app.app_context():
         if app.debug:
@@ -125,9 +163,13 @@ def _require_supervisor() -> tuple[str, str]:
 
 @app.context_processor
 def inject_flags():
-    # Expose flags indicating debug mode to Jinja templates.
-    # return {"IS_DEV": current_app.debug}  # funkar också
-    return {"IS_DEV": app.debug}
+    # Expose flags indicating debug and demo-läge to Jinja templates.
+    return {
+        "IS_DEV": current_app.debug,
+        "IS_DEMO": current_app.config.get("IS_DEMO", False),
+        "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
+        "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
+    }
 
 
 

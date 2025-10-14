@@ -53,6 +53,11 @@
             </div>
         </div>
     </nav>
+    {% if IS_DEMO %}
+        <div class="demo-banner" role="status">
+            <strong>Demomiljö:</strong> Denna sajt använder en tillfällig databas och är endast avsedd för visning.
+        </div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flash-container">
