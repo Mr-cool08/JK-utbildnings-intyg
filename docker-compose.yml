@@ -106,16 +106,29 @@ services:
 
           # Bygg SAN-lista utan awk (komma-separerat → DNS:a,DNS:b,...)
           SAN=""
+          CN=""
           OLD_IFS="$IFS"; IFS=,
           for d in $DOMAINS; do
+            d="$(printf '%s' "$d" | tr -d '[:space:]')"
+            if [ -z "$d" ]; then
+              continue
+            fi
             if [ -z "$SAN" ]; then
               SAN="DNS:$d"
             else
               SAN="$SAN,DNS:$d"
             fi
+            if [ -z "$CN" ]; then
+              CN="$d"
+            fi
           done
           IFS="$OLD_IFS"
-          CN="$(printf '%s' "$DOMAINS" | cut -d',' -f1)"  # första domänen som CN
+          if [ -z "$SAN" ]; then
+            SAN="DNS:localhost"
+          fi
+          if [ -z "$CN" ]; then
+            CN="localhost"
+          fi  # första domänen (eller fallback) som CN
 
           # Skapa minimal openssl.cnf med SAN
           cat > /tmp/openssl.cnf << 'EOFCNF'
