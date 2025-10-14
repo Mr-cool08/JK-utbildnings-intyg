@@ -1553,7 +1553,60 @@ def ensure_demo_data(
     if linked:
         logger.info("Demodata: kopplade handledare och demoanvändare")
     elif reason != "exists":
-        logger.warning("Demodata: kunde inte koppla handledare och demoanvändare (%s)", reason)
+        logger.warning(
+            "Demodata: kunde inte koppla handledare och demoanvändare (%s)", reason
+        )
+
+    _ensure_demo_pdfs(pnr_hash)
+
+
+DEMO_PDF_DEFINITIONS = [
+    {
+        "filename": "Kompetensintyg_Demoanvandare.pdf",
+        "path": Path(APP_ROOT) / "demo_assets" / "pdfs" / "Kompetensintyg_Demoanvandare.pdf",
+        "categories": ["fallskydd", "heta-arbeten"],
+    },
+    {
+        "filename": "Utbildningsbevis_Demoanvandare.pdf",
+        "path": Path(APP_ROOT) / "demo_assets" / "pdfs" / "Utbildningsbevis_Demoanvandare.pdf",
+        "categories": ["lift"],
+    },
+]
+
+
+def _ensure_demo_pdfs(personnummer_hash: str) -> None:
+    """Säkerställ att demoanvändaren har exempel-PDF:er uppladdade."""
+
+    with get_engine().begin() as conn:
+        existing = conn.execute(
+            select(user_pdfs_table.c.filename).where(
+                user_pdfs_table.c.personnummer == personnummer_hash
+            )
+        )
+        existing_filenames = {row.filename for row in existing}
+
+    for pdf in DEMO_PDF_DEFINITIONS:
+        path = pdf["path"]
+        filename = pdf["filename"]
+        if not path.is_file():
+            logger.warning("Demodata: kunde inte hitta demopdf %s", path)
+            continue
+
+        content = path.read_bytes()
+        categories_serialized = _serialize_categories(pdf.get("categories"))
+
+        if filename in existing_filenames:
+            with get_engine().begin() as conn:
+                conn.execute(
+                    update(user_pdfs_table)
+                    .where(user_pdfs_table.c.personnummer == personnummer_hash)
+                    .where(user_pdfs_table.c.filename == filename)
+                    .values(content=content, categories=categories_serialized)
+                )
+            logger.info("Demodata: uppdaterade demopdf %s", filename)
+        else:
+            store_pdf_blob(personnummer_hash, filename, content, pdf.get("categories"))
+            existing_filenames.add(filename)
 
 
 
