@@ -62,34 +62,83 @@ services:
       - "80"
     restart: unless-stopped
 
-  proxy:
-    image: nginx:alpine
-    depends_on:
-      - app
-      - app_demo
-    ports:
-      - "80:80"
-      - "443:443"
-    env_file:
-      - stack.env
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    command: ["/bin/sh","-c","set -eu;
-      mkdir -p /run/secrets;
-      umask 077;
+proxy:
+  image: nginx:alpine
+  depends_on:
+    - app
+    - app_demo
+  ports:
+    - "80:80"
+    - "443:443"
+  env_file:
+    - stack.env
+  environment:
+    # Valfritt: ange domäner kommaseparerat (utan mellanslag)
+    # Används om självsignerat måste genereras.
+    TLS_DOMAINS: ${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
+  volumes:
+    - ./nginx/conf.d:/etc/nginx/conf.d:ro
+  command: ["/bin/sh","-c","set -eu
+    mkdir -p /run/secrets
+    umask 077
+
+    have_cert=0
+    if [ \"${TLS_CERT:-}\" != \"\" ] && [ \"${TLS_KEY:-}\" != \"\" ]; then
+      have_cert=1
+    fi
+
+    if [ \"$have_cert\" = 1 ]; then
+      # Skriv cert/nyckel från env exakt som de är (fler-radigt)
       cat > /run/secrets/tls.crt << 'EOFCRT'
 $TLS_CERT
 EOFCRT
       cat > /run/secrets/tls.key << 'EOFKEY'
 $TLS_KEY
 EOFKEY
-      openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
-      openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
-      exec nginx -g 'daemon off;'
-    "]
-    networks:
-      public_net: {}
-    restart: unless-stopped
+    else
+      echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
+
+      # Bygg SAN från TLS_DOMAINS (komma-separerat -> DNS:... lista)
+      DOMAINS=${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
+      CN=$(printf '%s' \"$DOMAINS\" | awk -F, '{print $1}')
+      SAN=$(printf '%s' \"$DOMAINS\" | awk -F, '{for(i=1;i<=NF;i++) printf \"%sDNS:%s\", (i>1?\",\":\"\"), $i}')
+
+      # Skapa temporär openssl.cnf med SAN
+      cat > /tmp/openssl.cnf << 'EOFCNF'
+[ req ]
+distinguished_name = dn
+prompt = no
+x509_extensions = v3_req
+
+[ dn ]
+CN = __CN__
+
+[ v3_req ]
+subjectAltName = __SAN__
+EOFCNF
+
+      sed -i \"s/__CN__/$CN/\" /tmp/openssl.cnf
+      sed -i \"s/__SAN__/$SAN/\" /tmp/openssl.cnf
+
+      # Generera nyckel + självsignerat cert (1 år)
+      openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout /run/secrets/tls.key \
+        -out /run/secrets/tls.crt \
+        -days 365 \
+        -config /tmp/openssl.cnf
+
+      echo 'Self-signed certificate generated.'
+    fi
+
+    # Snabb validering
+    openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
+    openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
+
+    exec nginx -g \"daemon off;\"
+  "]
+  networks:
+    public_net: {}
+  restart: unless-stopped
 
 networks:
   Postgress_DB:
