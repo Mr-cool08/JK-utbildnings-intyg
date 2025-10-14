@@ -96,10 +96,10 @@ services:
         if [ "$have_cert" = 1 ]; then
           # skriv env → filer (fler-radigt)
           cat > /run/secrets/tls.crt << 'EOFCRT'
-        ${TLS_CERT}
+        $${TLS_CERT}
         EOFCRT
           cat > /run/secrets/tls.key << 'EOFKEY'
-        ${TLS_KEY}
+        $${TLS_KEY}
         EOFKEY
         else
           echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
