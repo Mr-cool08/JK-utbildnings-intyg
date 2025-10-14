@@ -111,7 +111,7 @@ services:
           for d in $DOMAINS; do
             # BusyBox-tr i nginx:alpine saknar stöd för [:space:] så vi tar bort
             # whitespace-tecken explicit (mellanslag, tab, CR, LF).
-            d="$(printf '%s' "$d" | tr -d ' \t\r\n')"
+            d="$(printf '%s' "$d" | tr -d "$(printf ' \t\r\n')")"
             if [ -z "$d" ]; then
               continue
             fi
