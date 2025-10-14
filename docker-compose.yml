@@ -109,7 +109,9 @@ services:
           CN=""
           OLD_IFS="$IFS"; IFS=,
           for d in $DOMAINS; do
-            d="$(printf '%s' "$d" | tr -d '[:space:]')"
+            # BusyBox-tr i nginx:alpine saknar stöd för [:space:] så vi tar bort
+            # whitespace-tecken explicit (mellanslag, tab, CR, LF).
+            d="$(printf '%s' "$d" | tr -d ' \t\r\n')"
             if [ -z "$d" ]; then
               continue
             fi
