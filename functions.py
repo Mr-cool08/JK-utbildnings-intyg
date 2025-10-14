@@ -43,7 +43,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger, mask_hash
-
+# --- SQLite shim for platforms without stdlib _sqlite3 ---
+try:
+    import sys
+    import pysqlite3 as sqlite3  # comes from pysqlite3-binary
+    sys.modules["sqlite3"] = sqlite3
+except Exception:
+    # Om pysqlite3 inte är installerat fortsätter vi – på miljöer där stdlib sqlite3 finns.
+    pass
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.DEBUG)  # or INFO in production
 
