@@ -24,6 +24,7 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    bindparam,
     create_engine,
     delete,
     func,
@@ -1330,11 +1331,22 @@ def fetch_table_rows(table_name: str, search: Optional[str] = None, limit: int =
     table = _get_table(table_name)
     stmt = select(table)
     if search:
-        search_term = f"%{search.lower()}%"
+        # Skydda mot SQL-injektion genom att behandla wildcard-tecken som
+        # vanliga tecken och använda parametrar.
+        escaped = (
+            search.lower()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        pattern = f"%{escaped}%"
+        parameter = bindparam("search_term", value=pattern)
         conditions = []
         for column in table.c:
             if isinstance(column.type, String):
-                conditions.append(func.lower(column).like(search_term))
+                conditions.append(
+                    func.lower(column).like(parameter, escape="\\")
+                )
         if conditions:
             stmt = stmt.where(or_(*conditions))
     stmt = stmt.order_by(table.c.id.asc()).limit(limit)

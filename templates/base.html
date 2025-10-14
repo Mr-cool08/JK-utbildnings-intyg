@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <title>{% block title %}Utbildningsintyg{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#E93B56">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block head %}{% endblock %}
 </head>
@@ -12,21 +14,31 @@
     <a class="skip-link" href="#main-content">Hoppa till innehåll</a>
     <nav class="site-nav">
         <div class="nav-inner">
-            <a class="brand" href="/">Hem</a>
+            <a class="brand" href="/">
+                <img class="brand-logo" src="{{ url_for('static', filename='pictures/logo.svg') }}" alt="JK Utbildnings logotyp">
+                <span>Hem</span>
+            </a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Växla navigering">
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+            </button>
             <div class="nav-links">
-            {% if session.get('supervisor_logged_in') %}
-                <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
-                <a href="/logout">Logga ut</a>
-            {% elif session.get('user_logged_in') %}
-                <a href="/dashboard">Intyg</a>
-                <a href="/logout">Logga ut</a>
-            {% elif session.get('admin_logged_in') %}
-                <a href="/admin">Admin</a>
-                <a href="/logout">Logga ut</a>
-            {% else %}
-                <a href="/login">Logga in</a>
-                <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
-            {% endif %}
+                {% if session.get('supervisor_logged_in') %}
+                    <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
+                    <a href="/logout">Logga ut</a>
+                {% elif session.get('user_logged_in') %}
+                    <a href="/dashboard">Intyg</a>
+                    <a href="/logout">Logga ut</a>
+                {% elif session.get('admin_logged_in') %}
+                    <a href="/admin">Admin</a>
+                    <a href="/logout">Logga ut</a>
+                {% else %}
+                    <a href="/login">Logga in</a>
+                    <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
+                {% endif %}
+                <a href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener" class="nav-external">Järnvägskonsulterna</a>
+                <a href="https://www.sakerhetsutbildarna.se" target="_blank" rel="noopener" class="nav-external">Säkerhetsutbildarna</a>
             </div>
         </div>
     </nav>
@@ -48,5 +60,6 @@
         </div>
     </footer>
 
+    <script src="{{ url_for('static', filename='js/nav.js') }}" defer></script>
 </body>
 </html>
