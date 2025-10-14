@@ -28,12 +28,38 @@ services:
       - "443:443"
     env_file:
       - stack.env
+    environment:
+      DEMO_SITE_URL: ${DEMO_SITE_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       Postgress_DB:
         ipv4_address: 172.28.0.20
+      public_net: {}
+    restart: unless-stopped
+
+  app_demo:
+    build: .
+    user: "0:0"
+    ports:
+      - "8080:80"
+    env_file:
+      - stack.env
+    environment:
+      ENABLE_DEMO_MODE: "true"
+      ENABLE_LOCAL_TEST_DB: "true"
+      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
+      secret_key: ${DEMO_SECRET_KEY:-demo-hemligt}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo.anvandare@example.com}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-Demoanvändare}
+      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER:-199001011234}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-DemoLösenord1!}
+      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL:-demo.handledare@example.com}
+      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME:-Demohandledare}
+      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD:-DemoHandledare1!}
+      HASH_SALT: ${DEMO_HASH_SALT:-demo_salt}
+    networks:
       public_net: {}
     restart: unless-stopped
 

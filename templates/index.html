@@ -10,6 +10,20 @@
     <meta property="og:url" content="{{ request.url }}">
 {% endblock %}
 {% block content %}
+{% if IS_DEMO %}
+<section class="demo-info" aria-labelledby="demo-title">
+    <h1 id="demo-title">Demoversion av JK Utbildnings Intyg</h1>
+    <p>Denna miljö använder en tillfällig databas och återställs automatiskt. Allt innehåll är exempeldata.</p>
+    <div class="demo-credentials">
+        <h2>Förinställda konton</h2>
+        <ul>
+            <li><strong>Handledare:</strong> {{ DEMO_CREDENTIALS.supervisor_email }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
+            <li><strong>Användare:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
+        </ul>
+        <p class="demo-hint">Använd uppgifterna ovan för att logga in som handledare eller kursdeltagare.</p>
+    </div>
+</section>
+{% endif %}
 <div class="hero">
     <p class="hero-eyebrow">Digitalt arkiv för utbildningsintyg</p>
     <h1>Trygg hantering av utbildningsintyg</h1>
@@ -18,6 +32,9 @@
 
         <a class="btn" href="/login">Logga in</a>
         <a class="btn btn-outline" href="#sa-fungerar">Utforska tjänsten</a>
+        {% if not IS_DEMO and DEMO_SITE_URL %}
+            <a class="btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demomiljön</a>
+        {% endif %}
         <a class="btn btn-secondary" href="/handledare/login">Handledarinloggning</a>
     </div>
     <ul class="hero-highlights">

@@ -1423,6 +1423,139 @@ def create_test_user() -> None:
         user_create_user("password", pnr_hash)
 
 
+def ensure_demo_data(
+    *,
+    user_email: str,
+    user_name: str,
+    user_personnummer: str,
+    user_password: str,
+    supervisor_email: str,
+    supervisor_name: str,
+    supervisor_password: str,
+) -> None:
+    """Skapa eller uppdatera demodata för handledare och användare."""
+
+    try:
+        normalized_pnr = normalize_personnummer(user_personnummer)
+    except ValueError:
+        logger.error("Ogiltigt personnummer för demoanvändare: %s", user_personnummer)
+        return
+
+    try:
+        normalized_user_email = normalize_email(user_email)
+    except ValueError:
+        logger.error("Ogiltig e-postadress för demoanvändare: %s", user_email)
+        return
+
+    try:
+        normalized_supervisor_email = normalize_email(supervisor_email)
+    except ValueError:
+        logger.error("Ogiltig e-postadress för demohandledare: %s", supervisor_email)
+        return
+
+    pnr_hash = _hash_personnummer(normalized_pnr)
+    user_email_hash = hash_value(normalized_user_email)
+    supervisor_email_hash = hash_value(normalized_supervisor_email)
+
+    engine = get_engine()
+
+    user_created = False
+    user_updated = False
+    with engine.begin() as conn:
+        existing_user = conn.execute(
+            select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+        ).first()
+        if existing_user:
+            conn.execute(
+                update(users_table)
+                .where(users_table.c.personnummer == pnr_hash)
+                .values(
+                    username=user_name,
+                    email=user_email_hash,
+                    password=hash_password(user_password),
+                )
+            )
+            user_updated = True
+            logger.info("Demodata: uppdaterade demoanvändare")
+        else:
+            conn.execute(
+                delete(pending_users_table).where(
+                    pending_users_table.c.personnummer == pnr_hash
+                )
+            )
+            conn.execute(
+                delete(pending_users_table).where(
+                    pending_users_table.c.email == user_email_hash
+                )
+            )
+            conn.execute(
+                insert(pending_users_table).values(
+                    username=user_name,
+                    email=user_email_hash,
+                    personnummer=pnr_hash,
+                )
+            )
+            user_created = True
+            logger.info("Demodata: skapade pending-demoanvändare")
+
+    if user_created:
+        if user_create_user(user_password, pnr_hash):
+            logger.info("Demodata: demoanvändare aktiverad")
+        else:
+            logger.warning("Demodata: demoanvändare kunde inte aktiveras")
+    elif user_updated:
+        verify_certificate.cache_clear()
+
+    supervisor_created = False
+    with engine.begin() as conn:
+        existing_supervisor = conn.execute(
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email == supervisor_email_hash
+            )
+        ).first()
+        if existing_supervisor:
+            conn.execute(
+                update(supervisors_table)
+                .where(supervisors_table.c.email == supervisor_email_hash)
+                .values(
+                    name=supervisor_name,
+                    password=hash_password(supervisor_password),
+                )
+            )
+            logger.info("Demodata: uppdaterade demohandledare")
+        else:
+            conn.execute(
+                delete(pending_supervisors_table).where(
+                    pending_supervisors_table.c.email == supervisor_email_hash
+                )
+            )
+            conn.execute(
+                insert(pending_supervisors_table).values(
+                    name=supervisor_name,
+                    email=supervisor_email_hash,
+                )
+            )
+            supervisor_created = True
+            logger.info("Demodata: skapade pending-demohandledare")
+
+    if supervisor_created:
+        try:
+            if supervisor_activate_account(supervisor_email_hash, supervisor_password):
+                logger.info("Demodata: demohandledare aktiverad")
+            else:
+                logger.warning("Demodata: demohandledare kunde inte aktiveras")
+        except ValueError:
+            logger.error("Demodata: lösenordet för demohandledaren är ogiltigt")
+
+    linked, reason = admin_link_supervisor_to_user(
+        normalized_supervisor_email, normalized_pnr
+    )
+    if linked:
+        logger.info("Demodata: kopplade handledare och demoanvändare")
+    elif reason != "exists":
+        logger.warning("Demodata: kunde inte koppla handledare och demoanvändare (%s)", reason)
+
+
 
     
     
