@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VDVK18WVGT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-VDVK18WVGT');
+    </script>
+
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='pictures/favicon_smaller.png') }}">
     <meta charset="UTF-8">
     <title>{% block title %}Utbildningsintyg{% endblock %}</title>
