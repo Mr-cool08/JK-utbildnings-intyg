@@ -23,13 +23,10 @@ services:
   app:
     build: .
     user: "0:0"
-    ports:
-      - "80:80"
-      - "443:443"
     env_file:
       - stack.env
     environment:
-      DEMO_SITE_URL: ${DEMO_SITE_URL:-http://localhost:8080}
+      DEMO_SITE_URL: ${DEMO_SITE_URL:-https://demo.utbildningsintyg.se}
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,13 +34,13 @@ services:
       Postgress_DB:
         ipv4_address: 172.28.0.20
       public_net: {}
+    expose:
+      - "80"
     restart: unless-stopped
 
   app_demo:
     build: .
     user: "0:0"
-    ports:
-      - "8080:80"
     env_file:
       - stack.env
     environment:
@@ -61,6 +58,34 @@ services:
       HASH_SALT: ${DEMO_HASH_SALT:-demo_salt}
     networks:
       public_net: {}
+    expose:
+      - "80"
+    restart: unless-stopped
+
+ proxy:
+    image: nginx:alpine
+    depends_on:
+      - app
+      - app_demo
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - stack.env
+    environment:
+      TLS_CERT: ${TLS_CERT}
+      TLS_KEY: ${TLS_KEY}
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    command: >
+      /bin/sh -c "
+        mkdir -p /run/secrets &&
+        echo -e \"$TLS_CERT\" > /run/secrets/tls.crt &&
+        echo -e \"$TLS_KEY\" > /run/secrets/tls.key &&
+        exec nginx -g 'daemon off;'
+      "
+    networks:
+      public_net: {}
     restart: unless-stopped
 
 networks:
@@ -72,7 +97,6 @@ networks:
       config:
         - subnet: 172.28.0.0/24
           gateway: 172.28.0.1
-
   public_net:
     driver: bridge
 
