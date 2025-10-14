@@ -88,23 +88,21 @@ services:
         # (valfritt) se till att openssl finns i nginx:alpine
         command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
 
-        have_cert=0
-        if [ "${TLS_CERT:-}" != "" ] && [ "${TLS_KEY:-}" != "" ]; then
-          have_cert=1
-        fi
+        TLS_CERT_VALUE="$(printenv TLS_CERT 2>/dev/null || true)"
+        TLS_KEY_VALUE="$(printenv TLS_KEY 2>/dev/null || true)"
 
-        if [ "$have_cert" = 1 ]; then
+        if [ -n "$TLS_CERT_VALUE" ] && [ -n "$TLS_KEY_VALUE" ]; then
           # skriv env → filer (fler-radigt)
-          cat > /run/secrets/tls.crt << 'EOFCRT'
-        $${TLS_CERT}
-        EOFCRT
-          cat > /run/secrets/tls.key << 'EOFKEY'
-        $${TLS_KEY}
-        EOFKEY
+          printf '%s' "$TLS_CERT_VALUE" > /run/secrets/tls.crt
+          printf '%s' "$TLS_KEY_VALUE" > /run/secrets/tls.key
         else
           echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
 
-          DOMAINS=${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
+          if TLS_DOMAINS_VALUE="$(printenv TLS_DOMAINS 2>/dev/null)"; then
+            DOMAINS="$TLS_DOMAINS_VALUE"
+          else
+            DOMAINS="utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se"
+          fi
 
           # Bygg SAN-lista utan awk (komma-separerat → DNS:a,DNS:b,...)
           SAN=""
@@ -117,7 +115,7 @@ services:
             fi
           done
           IFS="$OLD_IFS"
-          CN="${DOMAINS%%,*}"  # första domänen som CN
+          CN="$(printf '%s' "$DOMAINS" | cut -d',' -f1)"  # första domänen som CN
 
           # Skapa minimal openssl.cnf med SAN
           cat > /tmp/openssl.cnf << 'EOFCNF'
