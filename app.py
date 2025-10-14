@@ -95,7 +95,7 @@ def _configure_proxy_fix(app: Flask) -> None:
             x_host=hops,
             x_port=hops,
         )
-        logger.info("Aktiverar ProxyFix med %d betrodda proxyhopp", hops)
+        logger.info("Aktiverar ProxyFix med %s betrodda proxyhopp", mask_hash(str(hops)))
     else:
         logger.info("ProxyFix är inaktiverad (TRUSTED_PROXY_COUNT=%s)", os.getenv("TRUSTED_PROXY_COUNT", "0"))
 
