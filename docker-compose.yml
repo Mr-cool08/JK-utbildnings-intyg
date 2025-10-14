@@ -4,19 +4,19 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-liam}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Masbo124}
-      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liam} -d ${POSTGRES_DB:-appdb} -h 127.0.0.1 -p 5432"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
       interval: 5s
       timeout: 3s
       retries: 20
       start_period: 5s
     networks:
-      Postgress_DB:
+      postgres_db:
         ipv4_address: 172.28.0.10
     restart: always
 
@@ -26,12 +26,12 @@ services:
     env_file:
       - stack.env
     environment:
-      DEMO_SITE_URL: ${DEMO_SITE_URL:-https://demo.utbildningsintyg.se}
+      DEMO_SITE_URL: ${DEMO_SITE_URL}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      Postgress_DB:
+      postgres_db:
         ipv4_address: 172.28.0.20
       public_net: {}
     expose:
@@ -47,15 +47,15 @@ services:
       ENABLE_DEMO_MODE: "true"
       ENABLE_LOCAL_TEST_DB: "true"
       LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
-      secret_key: ${DEMO_SECRET_KEY:-demo-hemligt}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo.anvandare@example.com}
-      DEMO_USER_NAME: ${DEMO_USER_NAME:-Demoanvändare}
-      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER:-199001011234}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-DemoLösenord1!}
-      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL:-demo.handledare@example.com}
-      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME:-Demohandledare}
-      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD:-DemoHandledare1!}
-      HASH_SALT: ${DEMO_HASH_SALT:-demo_salt}
+      secret_key: ${DEMO_SECRET_KEY}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
+      DEMO_USER_NAME: ${DEMO_USER_NAME}
+      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
+      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
+      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
+      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
+      HASH_SALT: ${DEMO_HASH_SALT}
     networks:
       public_net: {}
     expose:
@@ -73,8 +73,7 @@ services:
     env_file:
       - stack.env
     environment:
-      # används om vi måste generera självsignerat
-      TLS_DOMAINS: ${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
+      TLS_DOMAINS: ${TLS_DOMAINS}
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     command:
@@ -84,33 +83,23 @@ services:
         set -eu
         mkdir -p /run/secrets
         umask 077
-
-        # (valfritt) se till att openssl finns i nginx:alpine
         command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
-
         TLS_CERT_VALUE="$(printenv TLS_CERT 2>/dev/null || true)"
         TLS_KEY_VALUE="$(printenv TLS_KEY 2>/dev/null || true)"
-
         if [ -n "$TLS_CERT_VALUE" ] && [ -n "$TLS_KEY_VALUE" ]; then
-          # skriv env → filer (fler-radigt)
           printf '%s' "$TLS_CERT_VALUE" > /run/secrets/tls.crt
           printf '%s' "$TLS_KEY_VALUE" > /run/secrets/tls.key
         else
           echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
-
           if TLS_DOMAINS_VALUE="$(printenv TLS_DOMAINS 2>/dev/null)"; then
             DOMAINS="$TLS_DOMAINS_VALUE"
           else
             DOMAINS="utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se"
           fi
-
-          # Bygg SAN-lista utan awk (komma-separerat → DNS:a,DNS:b,...)
           SAN=""
           CN=""
           OLD_IFS="$IFS"; IFS=,
           for d in $DOMAINS; do
-            # BusyBox-tr i nginx:alpine saknar stöd för [:space:] så vi tar bort
-            # whitespace-tecken explicit (mellanslag, tab, CR, LF).
             d="$(printf '%s' "$d" | tr -d "$(printf ' \t\r\n')")"
             if [ -z "$d" ]; then
               continue
@@ -130,9 +119,7 @@ services:
           fi
           if [ -z "$CN" ]; then
             CN="localhost"
-          fi  # första domänen (eller fallback) som CN
-
-          # Skapa minimal openssl.cnf med SAN
+          fi
           cat > /tmp/openssl.cnf <<EOFCNF
 [ req ]
 distinguished_name = dn
@@ -145,30 +132,23 @@ CN = $CN
 [ v3_req ]
 subjectAltName = $SAN
 EOFCNF
-
-          # Generera nyckel + självsignerat cert (1 år)
           openssl req -x509 -newkey rsa:2048 -nodes \
             -keyout /run/secrets/tls.key \
             -out /run/secrets/tls.crt \
             -days 365 \
             -config /tmp/openssl.cnf
-
           echo 'Self-signed certificate generated.'
         fi
-
-        # validera
         openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
         openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
-
         exec nginx -g 'daemon off;'
-
     networks:
       public_net: {}
     restart: unless-stopped
 
 networks:
-  Postgress_DB:
-    name: postgress_db
+  postgres_db:
+    name: postgres_db
     driver: bridge
     internal: true
     ipam:
@@ -176,7 +156,7 @@ networks:
         - subnet: 172.28.0.0/24
           gateway: 172.28.0.1
   public_net:
-    name: ${PUBLIC_NETWORK_NAME:-public_net}
+    name: public_net
     driver: bridge
 
 volumes:
