@@ -131,21 +131,18 @@ services:
           fi  # första domänen (eller fallback) som CN
 
           # Skapa minimal openssl.cnf med SAN
-          cat > /tmp/openssl.cnf << 'EOFCNF'
-        [ req ]
-        distinguished_name = dn
-        prompt = no
-        x509_extensions = v3_req
+          cat > /tmp/openssl.cnf <<EOFCNF
+[ req ]
+distinguished_name = dn
+prompt = no
+x509_extensions = v3_req
 
-        [ dn ]
-        CN = __CN__
+[ dn ]
+CN = $CN
 
-        [ v3_req ]
-        subjectAltName = __SAN__
-        EOFCNF
-
-          sed -i "s|__CN__|$CN|" /tmp/openssl.cnf
-          sed -i "s|__SAN__|$SAN|" /tmp/openssl.cnf
+[ v3_req ]
+subjectAltName = $SAN
+EOFCNF
 
           # Generera nyckel + självsignerat cert (1 år)
           openssl req -x509 -newkey rsa:2048 -nodes \
