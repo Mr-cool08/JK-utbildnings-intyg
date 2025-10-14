@@ -16,6 +16,11 @@ docker compose up --build
 
 The app will be available on <https://localhost> and <http://localhost>.
 
+Behöver du att proxyn ansluter till ett redan existerande Docker-nätverk med en
+specifik adresspool kan du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan du
+kör `docker compose up`. Då används det angivna nätverkets namn i stället för
+standardnamnet och containern får en adress från rätt nät.
+
 To launch only the demo environment with its temporary SQLite database run:
 
 ```bash

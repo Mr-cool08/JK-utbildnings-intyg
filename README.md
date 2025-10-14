@@ -58,6 +58,12 @@ These volumes have fixed names so existing data is reused across container rebui
 
 Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values for the external PostgreSQL server.
 
+### Anpassa publikt nätverk
+
+Om din infrastruktur redan har ett Docker-nätverk som ska delas med proxyn kan
+du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan du kör `docker compose`
+så att stacken återanvänder det angivna nätverket och ger proxyn en adress därifrån.
+
 ## Running tests
 
 ```bash
