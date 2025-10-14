@@ -85,13 +85,16 @@ services:
         mkdir -p /run/secrets
         umask 077
 
+        # (valfritt) se till att openssl finns i nginx:alpine
+        command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
+
         have_cert=0
         if [ "${TLS_CERT:-}" != "" ] && [ "${TLS_KEY:-}" != "" ]; then
           have_cert=1
         fi
 
         if [ "$have_cert" = 1 ]; then
-          # skriv in cert/nyckel exakt som i env (fler-radigt)
+          # skriv env → filer (fler-radigt)
           cat > /run/secrets/tls.crt << 'EOFCRT'
         ${TLS_CERT}
         EOFCRT
@@ -100,10 +103,23 @@ services:
         EOFKEY
         else
           echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
-          DOMAINS=${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
-          CN=$(printf '%s' "$DOMAINS" | awk -F, '{print $1}')
-          SAN=$(printf '%s' "$DOMAINS" | awk -F, '{for(i=1;i<=NF;i++) printf "%sDNS:%s", (i>1?",":""), $i}')
 
+          DOMAINS=${TLS_DOMAINS:-utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se}
+
+          # Bygg SAN-lista utan awk (komma-separerat → DNS:a,DNS:b,...)
+          SAN=""
+          OLD_IFS="$IFS"; IFS=,
+          for d in $DOMAINS; do
+            if [ -z "$SAN" ]; then
+              SAN="DNS:$d"
+            else
+              SAN="$SAN,DNS:$d"
+            fi
+          done
+          IFS="$OLD_IFS"
+          CN="${DOMAINS%%,*}"  # första domänen som CN
+
+          # Skapa minimal openssl.cnf med SAN
           cat > /tmp/openssl.cnf << 'EOFCNF'
         [ req ]
         distinguished_name = dn
@@ -117,9 +133,10 @@ services:
         subjectAltName = __SAN__
         EOFCNF
 
-          sed -i "s/__CN__/$CN/" /tmp/openssl.cnf
-          sed -i "s/__SAN__/$SAN/" /tmp/openssl.cnf
+          sed -i "s|__CN__|$CN|" /tmp/openssl.cnf
+          sed -i "s|__SAN__|$SAN|" /tmp/openssl.cnf
 
+          # Generera nyckel + självsignerat cert (1 år)
           openssl req -x509 -newkey rsa:2048 -nodes \
             -keyout /run/secrets/tls.key \
             -out /run/secrets/tls.crt \
@@ -134,6 +151,7 @@ services:
         openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
 
         exec nginx -g 'daemon off;'
+
     networks:
       public_net: {}
     restart: unless-stopped
