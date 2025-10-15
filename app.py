@@ -24,6 +24,7 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
 from logging_utils import configure_module_logger, mask_hash
@@ -59,6 +60,46 @@ logger.setLevel(logging.INFO)
 
 
 
+def _trusted_proxy_hops(raw_value: str | None) -> int:
+    # Tolka TRUSTED_PROXY_COUNT och hantera ogiltiga värden på ett säkert sätt.
+    default_hops = 1
+    if raw_value is None or raw_value.strip() == "":
+        return default_hops
+
+    try:
+        hops = int(raw_value)
+    except ValueError:
+        logger.warning(
+            "Ogiltigt värde för TRUSTED_PROXY_COUNT (%s) – använder standardvärdet 1.",
+            raw_value,
+        )
+        return default_hops
+
+    if hops < 0:
+        logger.warning(
+            "TRUSTED_PROXY_COUNT kan inte vara negativt – proxystödet stängs av.",
+        )
+        return 0
+
+    return hops
+
+
+def _configure_proxy_fix(app: Flask) -> None:
+    # Aktivera ProxyFix så att Flask litar på headers från den externa proxyn.
+    hops = _trusted_proxy_hops(os.getenv("TRUSTED_PROXY_COUNT"))
+    if hops > 0:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=hops,
+            x_proto=hops,
+            x_host=hops,
+            x_port=hops,
+        )
+        logger.info("Aktiverar ProxyFix med %s betrodda proxyhopp", mask_hash(str(hops)))
+    else:
+        logger.info("ProxyFix är inaktiverad (TRUSTED_PROXY_COUNT=%s)", os.getenv("TRUSTED_PROXY_COUNT", "0"))
+
+
 def _enable_debug_mode(app: Flask) -> None:
     # Aktivera extra loggning och ev. testdata i debug-läge.
     stream = logging.StreamHandler()
@@ -88,6 +129,7 @@ def create_app() -> Flask:
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
     app = Flask(__name__)
+    _configure_proxy_fix(app)
     app.secret_key = os.getenv('secret_key')
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
