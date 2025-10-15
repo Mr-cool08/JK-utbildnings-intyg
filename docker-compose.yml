@@ -87,13 +87,6 @@ services:
         mkdir -p /etc/caddy
         : > /etc/caddy/Caddyfile
         
-        # WWW -> apex redirect (bara om båda är satta)
-          cat >> /etc/caddy/Caddyfile <<EOF
-          redir https://$${DOMAIN_MAIN}{uri}
-        }
-        EOF
-        fi
-        
         # Apex -> app
         if [ -n "$${DOMAIN_MAIN}" ]; then
           cat >> /etc/caddy/Caddyfile <<EOF
