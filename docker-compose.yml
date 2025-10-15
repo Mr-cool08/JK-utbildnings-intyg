@@ -1,4 +1,4 @@
-# OBS: "version"-nyckeln är föråldrad i Compose V2 och ger varning – därför utelämnad.
+# OBS: "version" utelämnad (Compose V2).
 services:
   postgres:
     image: postgres:16
@@ -25,8 +25,9 @@ services:
     env_file:
       - stack.env
     environment:
-      # Sätt ev. app-specifika variabler här om de inte redan kommer från stack.env
       DEMO_SITE_URL: ${DEMO_SITE_URL}
+      # Viktigt: Om din Flask-app läser "secret_key" (gemener), sätt den här eller i stack.env:
+      # secret_key: ${SECRET_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,16 +63,33 @@ services:
       - "80"
     restart: unless-stopped
 
-  proxy:
-    image: nginx:alpine
+  caddy:
+    image: caddy:2
     depends_on:
       - app
       - app_demo
     ports:
       - "80:80"
+      - "443:443"
+    networks:
+      - public_net
+    environment:
+      # Sätt dina domäner (kan även läggas i .env/stack.env)
+      DOMAIN_MAIN: "utbildningsintyg.se"
+      DOMAIN_WWW: "www.utbildningsintyg.se"
+      DOMAIN_DEMO: "demo.utbildningsintyg.se"
+      # (valfritt) ACME-kontoadress:
+      ACME_EMAIL: "liam@utbildningsintyg.se"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
 
 networks:
   postgres_db:
