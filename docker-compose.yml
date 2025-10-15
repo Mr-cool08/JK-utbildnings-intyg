@@ -1,4 +1,3 @@
-# OBS: "version" utelämnad (Compose V2).
 services:
   postgres:
     image: postgres:16
@@ -26,7 +25,7 @@ services:
       - stack.env
     environment:
       DEMO_SITE_URL: ${DEMO_SITE_URL}
-      # Viktigt: Om din Flask-app läser "secret_key" (gemener), sätt den här eller i stack.env:
+      # OBS: Om din Flask-app läser "secret_key" (gemener), sätt den i stack.env eller här:
       # secret_key: ${SECRET_KEY}
     depends_on:
       postgres:
@@ -74,22 +73,51 @@ services:
     networks:
       - public_net
     environment:
-      # Sätt dina domäner (kan även läggas i .env/stack.env)
       DOMAIN_MAIN: "utbildningsintyg.se"
       DOMAIN_WWW: "www.utbildningsintyg.se"
       DOMAIN_DEMO: "demo.utbildningsintyg.se"
-      # (valfritt) ACME-kontoadress:
-      ACME_EMAIL: "liam@utbildningsintyg.se"
-    volumes:
-      - ./caddy:/etc/caddy:ro   # <— hela mappen (robustare än fil-bind)
-      - caddy_data:/data
-      - caddy_config:/config
+      ACME_EMAIL: "admin@utbildningsintyg.se"
+    # Inget volumes-bind här!
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mkdir -p /etc/caddy
+        cat > /etc/caddy/Caddyfile <<'EOF'
+        {
+          # email {$ACME_EMAIL}
+        }
+
+        {$DOMAIN_WWW} {
+          redir https://{$DOMAIN_MAIN}{uri}
+        }
+
+        {$DOMAIN_MAIN} {
+          encode zstd gzip
+          header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "strict-origin-when-cross-origin"
+          }
+          reverse_proxy app:80
+        }
+
+        {$DOMAIN_DEMO} {
+          encode zstd gzip
+          header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "strict-origin-when-cross-origin"
+          }
+          reverse_proxy app_demo:80
+        }
+        EOF
+        exec caddy run --environ --config /etc/caddy/Caddyfile
     restart: unless-stopped
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
 
 networks:
   postgres_db:
