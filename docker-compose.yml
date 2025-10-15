@@ -99,8 +99,8 @@ services:
         
         # Apex -> app
         if [ -n "$${DOMAIN_MAIN}" ]; then
-          cat >> /etc/caddy/Caddyfile <<'EOF'
-        {$DOMAIN_MAIN} {
+          cat >> /etc/caddy/Caddyfile <<EOF
+        $${DOMAIN_MAIN} {
           encode zstd gzip
           header {
             Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
@@ -114,8 +114,8 @@ services:
         
         # Demo -> app_demo
         if [ -n "$${DOMAIN_DEMO}" ]; then
-          cat >> /etc/caddy/Caddyfile <<'EOF'
-        {$DOMAIN_DEMO} {
+          cat >> /etc/caddy/Caddyfile <<EOF
+        $${DOMAIN_DEMO} {
           encode zstd gzip
           header {
             Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
