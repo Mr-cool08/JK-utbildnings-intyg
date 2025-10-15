@@ -1,5 +1,4 @@
-version: "3.9"
-
+# OBS: "version"-nyckeln är föråldrad i Compose V2 och ger varning – därför utelämnad.
 services:
   postgres:
     image: postgres:16
@@ -21,41 +20,55 @@ services:
     restart: always
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: jkintyg-app
+    build: .
+    user: "0:0"
+    env_file:
+      - stack.env
     environment:
-      - FLASK_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    volumes:
-      - .:/app
+      # Sätt ev. app-specifika variabler här om de inte redan kommer från stack.env
+      DEMO_SITE_URL: ${DEMO_SITE_URL}
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "5000:5000"
     networks:
       postgres_db:
         ipv4_address: 172.28.0.20
-    restart: always
+      public_net: {}
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  app_demo:
+    build: .
+    user: "0:0"
+    env_file:
+      - stack.env
+    environment:
+      ENABLE_DEMO_MODE: "true"
+      ENABLE_LOCAL_TEST_DB: "true"
+      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
+      SECRET_KEY: ${DEMO_SECRET_KEY}
+      HASH_SALT: ${DEMO_HASH_SALT}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
+      DEMO_USER_NAME: ${DEMO_USER_NAME}
+      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
+      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
+      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
+      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
+    networks:
+      public_net: {}
+    expose:
+      - "80"
+    restart: unless-stopped
 
   proxy:
-    image: nginx:latest
-    container_name: jkintyg-proxy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./certs:/etc/nginx/certs:ro
-      - ./static:/usr/share/nginx/html:ro
+    image: nginx:alpine
     depends_on:
       - app
-    networks:
-      postgres_db:
-        ipv4_address: 172.28.0.30
-    restart: always
+      - app_demo
+    ports:
+      - "80:80"
 
 volumes:
   pgdata:
@@ -66,3 +79,5 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
+  public_net:
+    driver: bridge
