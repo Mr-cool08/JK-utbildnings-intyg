@@ -74,9 +74,9 @@ services:
       - public_net
     environment:
       DOMAIN_MAIN: "utbildningsintyg.se"
-      DOMAIN_WWW: "www.utbildningsintyg.se"
       DOMAIN_DEMO: "demo.utbildningsintyg.se"
-      ACME_EMAIL: "admin@utbildningsintyg.se"
+      ACME_EMAIL: "liam@utbildningsintyg.se"
+
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -84,14 +84,11 @@ services:
       - /bin/sh
       - -c
       - |
-        : "$${DOMAIN_MAIN:=}" ; : "$${DOMAIN_WWW:=}" ; : "$${DOMAIN_DEMO:=}"
         mkdir -p /etc/caddy
         : > /etc/caddy/Caddyfile
         
         # WWW -> apex redirect (bara om båda är satta)
-        if [ -n "$${DOMAIN_WWW}" ] && [ -n "$${DOMAIN_MAIN}" ]; then
           cat >> /etc/caddy/Caddyfile <<EOF
-        $${DOMAIN_WWW} {
           redir https://$${DOMAIN_MAIN}{uri}
         }
         EOF
