@@ -17,134 +17,52 @@ services:
       start_period: 5s
     networks:
       postgres_db:
-        ipv4_address: "172.28.0.10"
+        ipv4_address: 172.28.0.10
     restart: always
 
   app:
-    build: .
-    user: "0:0"
-    env_file:
-      - stack.env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jkintyg-app
     environment:
-      DEMO_SITE_URL: ${DEMO_SITE_URL}
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "5000:5000"
     networks:
       postgres_db:
-        ipv4_address: "172.28.0.20"
-      public_net: {}
-    expose:
-      - "80"
-    restart: unless-stopped
-
-  app_demo:
-    build: .
-    user: "0:0"
-    env_file:
-      - stack.env
-    environment:
-      ENABLE_DEMO_MODE: "true"
-      ENABLE_LOCAL_TEST_DB: "true"
-      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
-      secret_key: ${DEMO_SECRET_KEY}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
-      DEMO_USER_NAME: ${DEMO_USER_NAME}
-      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
-      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
-      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
-      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
-      HASH_SALT: ${DEMO_HASH_SALT}
-    networks:
-      public_net: {}
-    expose:
-      - "80"
-    restart: unless-stopped
+        ipv4_address: 172.28.0.20
+    restart: always
 
   proxy:
-    image: nginx:alpine
-    depends_on:
-      - app
-      - app_demo
+    image: nginx:latest
+    container_name: jkintyg-proxy
     ports:
       - "80:80"
       - "443:443"
-    env_file:
-      - stack.env
-    environment:
-      TLS_DOMAINS: ${TLS_DOMAINS}
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    command: >-
-      /bin/sh -c '
-      set -eu
-      mkdir -p /run/secrets
-      umask 077
-      command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
-      TLS_CERT_VALUE="$(printenv TLS_CERT 2>/dev/null || true)"
-      TLS_KEY_VALUE="$(printenv TLS_KEY 2>/dev/null || true)"
-      if [ -n "$TLS_CERT_VALUE" ] && [ -n "$TLS_KEY_VALUE" ]; then
-        printf "%s" "$TLS_CERT_VALUE" > /run/secrets/tls.crt
-        printf "%s" "$TLS_KEY_VALUE" > /run/secrets/tls.key
-      else
-        echo "No TLS_CERT/TLS_KEY provided – generating self-signed certificate..."
-        if TLS_DOMAINS_VALUE="$(printenv TLS_DOMAINS 2>/dev/null)"; then
-          DOMAINS="$TLS_DOMAINS_VALUE"
-        else
-          DOMAINS="utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se"
-        fi
-        SAN=""
-        CN=""
-        OLD_IFS="$IFS"; IFS=,
-        for d in $DOMAINS; do
-          d="$(printf "%s" "$d" | tr -d "$(printf " \t\r\n")")"
-          [ -z "$d" ] && continue
-          [ -z "$SAN" ] && SAN="DNS:$d" || SAN="$SAN,DNS:$d"
-          [ -z "$CN" ] && CN="$d" || true
-        done
-        IFS="$OLD_IFS"
-        [ -z "$SAN" ] && SAN="DNS:localhost"
-        [ -z "$CN" ] && CN="localhost"
-        cat > /tmp/openssl.cnf <<EOFCNF
-[ req ]
-distinguished_name = dn
-prompt = no
-x509_extensions = v3_req
-
-[ dn ]
-CN = $CN
-
-[ v3_req ]
-subjectAltName = $SAN
-EOFCNF
-        openssl req -x509 -newkey rsa:2048 -nodes \
-          -keyout /run/secrets/tls.key \
-          -out /run/secrets/tls.crt \
-          -days 365 \
-          -config /tmp/openssl.cnf
-        echo "Self-signed certificate generated."
-      fi
-      openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo "Invalid TLS cert"; exit 1; }
-      openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo "Invalid TLS key"; exit 1; }
-      exec nginx -g "daemon off;"
-      '
+      - ./certs:/etc/nginx/certs:ro
+      - ./static:/usr/share/nginx/html:ro
+    depends_on:
+      - app
     networks:
-      public_net: {}
-    restart: unless-stopped
-
-networks:
-  postgres_db:
-    name: postgres_db
-    driver: bridge
-    internal: true
-    ipam:
-      config:
-        - subnet: "172.28.0.0/24"
-          gateway: "172.28.0.1"
-  public_net:
-    name: public_net
-    driver: bridge
+      postgres_db:
+        ipv4_address: 172.28.0.30
+    restart: always
 
 volumes:
   pgdata:
+
+networks:
+  postgres_db:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
