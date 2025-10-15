@@ -17,7 +17,7 @@ services:
       start_period: 5s
     networks:
       postgres_db:
-        ipv4_address: 172.28.0.10
+        ipv4_address: "172.28.0.10"
     restart: always
 
   app:
@@ -32,7 +32,7 @@ services:
         condition: service_healthy
     networks:
       postgres_db:
-        ipv4_address: 172.28.0.20
+        ipv4_address: "172.28.0.20"
       public_net: {}
     expose:
       - "80"
@@ -76,51 +76,37 @@ services:
       TLS_DOMAINS: ${TLS_DOMAINS}
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    command:
-      - /bin/sh
-      - -c
-      - |
-        set -eu
-        mkdir -p /run/secrets
-        umask 077
-        command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
-        TLS_CERT_VALUE="$(printenv TLS_CERT 2>/dev/null || true)"
-        TLS_KEY_VALUE="$(printenv TLS_KEY 2>/dev/null || true)"
-        if [ -n "$TLS_CERT_VALUE" ] && [ -n "$TLS_KEY_VALUE" ]; then
-          printf '%s' "$TLS_CERT_VALUE" > /run/secrets/tls.crt
-          printf '%s' "$TLS_KEY_VALUE" > /run/secrets/tls.key
+    command: >-
+      /bin/sh -c '
+      set -eu
+      mkdir -p /run/secrets
+      umask 077
+      command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null
+      TLS_CERT_VALUE="$(printenv TLS_CERT 2>/dev/null || true)"
+      TLS_KEY_VALUE="$(printenv TLS_KEY 2>/dev/null || true)"
+      if [ -n "$TLS_CERT_VALUE" ] && [ -n "$TLS_KEY_VALUE" ]; then
+        printf "%s" "$TLS_CERT_VALUE" > /run/secrets/tls.crt
+        printf "%s" "$TLS_KEY_VALUE" > /run/secrets/tls.key
+      else
+        echo "No TLS_CERT/TLS_KEY provided – generating self-signed certificate..."
+        if TLS_DOMAINS_VALUE="$(printenv TLS_DOMAINS 2>/dev/null)"; then
+          DOMAINS="$TLS_DOMAINS_VALUE"
         else
-          echo 'No TLS_CERT/TLS_KEY provided – generating self-signed certificate...'
-          if TLS_DOMAINS_VALUE="$(printenv TLS_DOMAINS 2>/dev/null)"; then
-            DOMAINS="$TLS_DOMAINS_VALUE"
-          else
-            DOMAINS="utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se"
-          fi
-          SAN=""
-          CN=""
-          OLD_IFS="$IFS"; IFS=,
-          for d in $DOMAINS; do
-            d="$(printf '%s' "$d" | tr -d "$(printf ' \t\r\n')")"
-            if [ -z "$d" ]; then
-              continue
-            fi
-            if [ -z "$SAN" ]; then
-              SAN="DNS:$d"
-            else
-              SAN="$SAN,DNS:$d"
-            fi
-            if [ -z "$CN" ]; then
-              CN="$d"
-            fi
-          done
-          IFS="$OLD_IFS"
-          if [ -z "$SAN" ]; then
-            SAN="DNS:localhost"
-          fi
-          if [ -z "$CN" ]; then
-            CN="localhost"
-          fi
-          cat > /tmp/openssl.cnf <<EOFCNF
+          DOMAINS="utbildningsintyg.se,www.utbildningsintyg.se,demo.utbildningsintyg.se"
+        fi
+        SAN=""
+        CN=""
+        OLD_IFS="$IFS"; IFS=,
+        for d in $DOMAINS; do
+          d="$(printf "%s" "$d" | tr -d "$(printf " \t\r\n")")"
+          [ -z "$d" ] && continue
+          [ -z "$SAN" ] && SAN="DNS:$d" || SAN="$SAN,DNS:$d"
+          [ -z "$CN" ] && CN="$d" || true
+        done
+        IFS="$OLD_IFS"
+        [ -z "$SAN" ] && SAN="DNS:localhost"
+        [ -z "$CN" ] && CN="localhost"
+        cat > /tmp/openssl.cnf <<EOFCNF
 [ req ]
 distinguished_name = dn
 prompt = no
@@ -132,16 +118,17 @@ CN = $CN
 [ v3_req ]
 subjectAltName = $SAN
 EOFCNF
-          openssl req -x509 -newkey rsa:2048 -nodes \
-            -keyout /run/secrets/tls.key \
-            -out /run/secrets/tls.crt \
-            -days 365 \
-            -config /tmp/openssl.cnf
-          echo 'Self-signed certificate generated.'
-        fi
-        openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo 'Invalid TLS cert'; exit 1; }
-        openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo 'Invalid TLS key'; exit 1; }
-        exec nginx -g 'daemon off;'
+        openssl req -x509 -newkey rsa:2048 -nodes \
+          -keyout /run/secrets/tls.key \
+          -out /run/secrets/tls.crt \
+          -days 365 \
+          -config /tmp/openssl.cnf
+        echo "Self-signed certificate generated."
+      fi
+      openssl x509 -in /run/secrets/tls.crt -noout -subject >/dev/null 2>&1 || { echo "Invalid TLS cert"; exit 1; }
+      openssl pkey -in /run/secrets/tls.key -noout >/dev/null 2>&1 || { echo "Invalid TLS key"; exit 1; }
+      exec nginx -g "daemon off;"
+      '
     networks:
       public_net: {}
     restart: unless-stopped
@@ -153,8 +140,8 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.28.0.0/24
-          gateway: 172.28.0.1
+        - subnet: "172.28.0.0/24"
+          gateway: "172.28.0.1"
   public_net:
     name: public_net
     driver: bridge
