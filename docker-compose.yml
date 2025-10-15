@@ -82,25 +82,23 @@ services:
       - caddy_config:/config
     entrypoint:
       - /bin/sh
-      - -eu
       - -c
       - |
-        : "${DOMAIN_MAIN:=}" ; : "${DOMAIN_WWW:=}" ; : "${DOMAIN_DEMO:=}"
+        : "$${DOMAIN_MAIN:=}" ; : "$${DOMAIN_WWW:=}" ; : "$${DOMAIN_DEMO:=}"
         mkdir -p /etc/caddy
-        # Skriv TOM fil först
         : > /etc/caddy/Caddyfile
         
         # WWW -> apex redirect (bara om båda är satta)
-        if [ -n "$DOMAIN_WWW" ] && [ -n "$DOMAIN_MAIN" ]; then
+        if [ -n "$${DOMAIN_WWW}" ] && [ -n "$${DOMAIN_MAIN}" ]; then
           cat >> /etc/caddy/Caddyfile <<EOF
-        ${DOMAIN_WWW} {
-          redir https://${DOMAIN_MAIN}{uri}
+        $${DOMAIN_WWW} {
+          redir https://$${DOMAIN_MAIN}{uri}
         }
         EOF
         fi
         
         # Apex -> app
-        if [ -n "$DOMAIN_MAIN" ]; then
+        if [ -n "$${DOMAIN_MAIN}" ]; then
           cat >> /etc/caddy/Caddyfile <<'EOF'
         {$DOMAIN_MAIN} {
           encode zstd gzip
@@ -115,7 +113,7 @@ services:
         fi
         
         # Demo -> app_demo
-        if [ -n "$DOMAIN_DEMO" ]; then
+        if [ -n "$${DOMAIN_DEMO}" ]; then
           cat >> /etc/caddy/Caddyfile <<'EOF'
         {$DOMAIN_DEMO} {
           encode zstd gzip
