@@ -81,7 +81,7 @@ services:
       # (valfritt) ACME-kontoadress:
       ACME_EMAIL: "liam@utbildningsintyg.se"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy:ro   # <— hela mappen (robustare än fil-bind)
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped

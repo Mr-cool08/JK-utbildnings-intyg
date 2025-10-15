@@ -1,15 +1,11 @@
 {
-	# (valfritt) global e-post för ACME
 	# email {$ACME_EMAIL}
-	# Låt Caddy sköta https-redirects själv
 }
 
-# www -> apex
 {$DOMAIN_WWW} {
 	redir https://{$DOMAIN_MAIN}{uri}
 }
 
-# Apex -> app
 {$DOMAIN_MAIN} {
 	encode zstd gzip
 	header {
@@ -20,7 +16,6 @@
 	reverse_proxy app:80
 }
 
-# Demo-subdomän -> app_demo
 {$DOMAIN_DEMO} {
 	encode zstd gzip
 	header {
