@@ -73,6 +73,6 @@ pytest
 ## Testa ansökningsflödet lokalt
 
 1. Starta applikationen med `python app.py` och öppna <http://localhost/ansok>.
-2. Skicka in formuläret med namn, e-post och organisationsnummer för att skapa en väntande ansökan. Handledare behöver dessutom fylla i företagsnamnet för att vi ska kunna skapa organisationen; vanliga användarkonton kan lämna fältet tomt.
-3. Logga in som administratör och öppna <http://localhost/admin/ansokningar> för att granska, godkänna eller avslå ansökan. Alla ändringar uppdateras direkt och skickar svenska e-postmeddelanden vid godkännande eller avslag.
+2. Skicka in formuläret med namn, e-post och organisationsnummer för att skapa en väntande ansökan. Handledare behöver dessutom fylla i företagsnamn samt fakturaadress, kontaktperson och märkning så att fakturering kan ske korrekt; vanliga användarkonton kan lämna dessa fält tomma.
+3. Logga in som administratör och öppna <http://localhost/admin/ansokningar> för att granska, godkänna eller avslå ansökan. Alla ändringar uppdateras direkt och skickar svenska e-postmeddelanden vid godkännande eller avslag. Efter godkännande visas företaget automatiskt på faktureringssidan <http://localhost/admin/fakturering> tillsammans med de insamlade faktureringsuppgifterna.
 

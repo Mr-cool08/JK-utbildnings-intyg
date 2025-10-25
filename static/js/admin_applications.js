@@ -22,6 +22,9 @@
     email: document.getElementById('detailEmail'),
     company: document.getElementById('detailCompany'),
     orgnr: document.getElementById('detailOrgnr'),
+    invoiceAddress: document.getElementById('detailInvoiceAddress'),
+    invoiceContact: document.getElementById('detailInvoiceContact'),
+    invoiceReference: document.getElementById('detailInvoiceReference'),
     type: document.getElementById('detailType'),
     comment: document.getElementById('detailComment'),
     status: document.getElementById('detailStatus'),
@@ -32,6 +35,11 @@
   };
   const reviewerBlock = document.getElementById('detailReviewers');
   const decisionBlock = document.getElementById('detailDecision');
+  const invoiceWrappers = {
+    address: document.getElementById('detailInvoiceAddressWrapper'),
+    contact: document.getElementById('detailInvoiceContactWrapper'),
+    reference: document.getElementById('detailInvoiceReferenceWrapper'),
+  };
 
   let applications = [];
   let selectedId = null;
@@ -148,6 +156,36 @@
     detailFields.email.textContent = item.email || '–';
     detailFields.company.textContent = item.company_name || '–';
     detailFields.orgnr.textContent = item.orgnr_normalized || '–';
+    if (item.account_type === 'handledare') {
+      if (invoiceWrappers.address && detailFields.invoiceAddress) {
+        const hasAddress = Boolean(item.invoice_address);
+        invoiceWrappers.address.hidden = !hasAddress;
+        detailFields.invoiceAddress.textContent = hasAddress ? item.invoice_address : '';
+      }
+      if (invoiceWrappers.contact && detailFields.invoiceContact) {
+        const hasContact = Boolean(item.invoice_contact);
+        invoiceWrappers.contact.hidden = !hasContact;
+        detailFields.invoiceContact.textContent = hasContact ? item.invoice_contact : '';
+      }
+      if (invoiceWrappers.reference && detailFields.invoiceReference) {
+        const hasReference = Boolean(item.invoice_reference);
+        invoiceWrappers.reference.hidden = !hasReference;
+        detailFields.invoiceReference.textContent = hasReference ? item.invoice_reference : '';
+      }
+    } else {
+      if (invoiceWrappers.address && detailFields.invoiceAddress) {
+        invoiceWrappers.address.hidden = true;
+        detailFields.invoiceAddress.textContent = '';
+      }
+      if (invoiceWrappers.contact && detailFields.invoiceContact) {
+        invoiceWrappers.contact.hidden = true;
+        detailFields.invoiceContact.textContent = '';
+      }
+      if (invoiceWrappers.reference && detailFields.invoiceReference) {
+        invoiceWrappers.reference.hidden = true;
+        detailFields.invoiceReference.textContent = '';
+      }
+    }
     detailFields.type.textContent = formatAccountType(item.account_type);
     detailFields.comment.textContent = item.comment || '–';
     detailFields.status.textContent = formatStatus(item.status);

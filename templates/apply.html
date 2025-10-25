@@ -43,6 +43,19 @@
             <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" autocomplete="organization">
             <small class="hint">Om du ansöker som handledare behöver vi företagets namn för att skapa organisationen.</small>
 
+            <fieldset class="field-group" id="invoiceSection">
+                <legend>Faktureringsuppgifter <span class="optional">(krävs för handledarkonto)</span></legend>
+                <label for="invoice_address">Fakturaadress</label>
+                <textarea id="invoice_address" name="invoice_address" rows="3">{{ form_data.invoice_address }}</textarea>
+                <small class="hint">Ange fullständig adress inklusive eventuellt referensnummer.</small>
+
+                <label for="invoice_contact">Kontaktperson</label>
+                <input id="invoice_contact" name="invoice_contact" type="text" value="{{ form_data.invoice_contact }}">
+
+                <label for="invoice_reference">Märkning</label>
+                <input id="invoice_reference" name="invoice_reference" type="text" value="{{ form_data.invoice_reference }}">
+            </fieldset>
+
             <label for="orgnr">Organisationsnummer</label>
             <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
             <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
@@ -79,3 +92,4 @@
     </ol>
 </section>
 {% endblock %}
+{% block footer %}{{ super() }}<script src="{{ url_for('static', filename='js/apply.js') }}" defer></script>{% endblock %}

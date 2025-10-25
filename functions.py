@@ -25,6 +25,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     bindparam,
+    case,
     create_engine,
     delete,
     func,
@@ -204,6 +205,9 @@ companies_table = Table(
     Column("id", Integer, primary_key=True),
     Column("name", String, nullable=False),
     Column("orgnr", String, nullable=False, unique=True, index=True),
+    Column("invoice_address", String),
+    Column("invoice_contact", String),
+    Column("invoice_reference", String),
     Column(
         "created_at",
         DateTime(timezone=True),
@@ -228,6 +232,9 @@ application_requests_table = Table(
     Column("email", String, nullable=False),
     Column("orgnr_normalized", String, nullable=False, index=True),
     Column("company_name", String, nullable=False),
+    Column("invoice_address", String),
+    Column("invoice_contact", String),
+    Column("invoice_reference", String),
     Column("comment", String),
     Column("status", String, nullable=False, server_default="pending"),
     Column("reviewed_by", String),
@@ -321,9 +328,33 @@ def _migration_0002_remove_phone_columns(conn: Connection) -> None:
         _drop_column_if_exists(conn, company_users_table.name, "phone")
 
 
+def _add_column_if_missing(
+    conn: Connection, table_name: str, column: str, column_type: str
+) -> None:
+    inspector = inspect(conn)
+    existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+    if column in existing_columns:
+        return
+    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {column_type}"))
+
+
+def _migration_0003_add_invoice_fields(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if companies_table.name in existing_tables:
+        _add_column_if_missing(conn, companies_table.name, "invoice_address", "TEXT")
+        _add_column_if_missing(conn, companies_table.name, "invoice_contact", "TEXT")
+        _add_column_if_missing(conn, companies_table.name, "invoice_reference", "TEXT")
+    if application_requests_table.name in existing_tables:
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_address", "TEXT")
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_contact", "TEXT")
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_reference", "TEXT")
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
+    ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
 ]
 
 
@@ -1798,30 +1829,53 @@ def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Option
 
 
 def _ensure_company(
-    conn: Connection, orgnr: str, company_name: Optional[str]
+    conn: Connection,
+    orgnr: str,
+    company_name: Optional[str],
+    invoice_address: Optional[str] = None,
+    invoice_contact: Optional[str] = None,
+    invoice_reference: Optional[str] = None,
 ) -> Tuple[int, bool, str]:
     cleaned_name = (company_name or "").strip()
+    cleaned_invoice_address = (invoice_address or "").strip()
+    cleaned_invoice_contact = (invoice_contact or "").strip()
+    cleaned_invoice_reference = (invoice_reference or "").strip()
+
     existing = conn.execute(
-        select(companies_table.c.id, companies_table.c.name).where(
-            companies_table.c.orgnr == orgnr
-        )
+        select(companies_table).where(companies_table.c.orgnr == orgnr)
     ).first()
     if existing:
+        updates: Dict[str, str] = {}
         existing_name = existing.name
         if cleaned_name and existing_name != cleaned_name:
+            updates["name"] = cleaned_name
+        if cleaned_invoice_address and (existing.invoice_address or "") != cleaned_invoice_address:
+            updates["invoice_address"] = cleaned_invoice_address
+        if cleaned_invoice_contact and (existing.invoice_contact or "") != cleaned_invoice_contact:
+            updates["invoice_contact"] = cleaned_invoice_contact
+        if cleaned_invoice_reference and (existing.invoice_reference or "") != cleaned_invoice_reference:
+            updates["invoice_reference"] = cleaned_invoice_reference
+        if updates:
             conn.execute(
                 update(companies_table)
                 .where(companies_table.c.id == existing.id)
-                .values(name=cleaned_name)
+                .values(**updates)
             )
-            existing_name = cleaned_name
+            if "name" in updates:
+                existing_name = updates["name"]
         return int(existing.id), False, existing_name
 
     if not cleaned_name:
         raise ValueError("Företagsnamn saknas för detta organisationsnummer.")
 
     result = conn.execute(
-        insert(companies_table).values(orgnr=orgnr, name=cleaned_name)
+        insert(companies_table).values(
+            orgnr=orgnr,
+            name=cleaned_name,
+            invoice_address=cleaned_invoice_address or None,
+            invoice_contact=cleaned_invoice_contact or None,
+            invoice_reference=cleaned_invoice_reference or None,
+        )
     )
     company_id = result.inserted_primary_key[0]
     return int(company_id), True, cleaned_name
@@ -1834,6 +1888,9 @@ def create_application_request(
     orgnr: str,
     company_name: Optional[str],
     comment: Optional[str],
+    invoice_address: Optional[str] = None,
+    invoice_contact: Optional[str] = None,
+    invoice_reference: Optional[str] = None,
 ) -> int:
     allowed_types = {"user", "handledare"}
     normalized_type = (account_type or "").strip().lower()
@@ -1851,6 +1908,22 @@ def create_application_request(
         raise ValueError("Företagsnamn krävs för handledarkonton.")
 
     cleaned_comment = _clean_optional_text(comment)
+    cleaned_invoice_address = _clean_optional_text(invoice_address, max_length=1000)
+    cleaned_invoice_contact = _clean_optional_text(invoice_contact, max_length=255)
+    cleaned_invoice_reference = _clean_optional_text(invoice_reference, max_length=255)
+
+    if normalized_type == "handledare":
+        if not cleaned_invoice_address:
+            raise ValueError("Fakturaadress krävs för handledarkonton.")
+        if not cleaned_invoice_contact:
+            raise ValueError("Kontaktperson för fakturering krävs för handledarkonton.")
+        if not cleaned_invoice_reference:
+            raise ValueError("Märkning för fakturering krävs för handledarkonton.")
+    else:
+        cleaned_invoice_address = None
+        cleaned_invoice_contact = None
+        cleaned_invoice_reference = None
+
     stored_company = cleaned_company if cleaned_company else ""
 
     with get_engine().begin() as conn:
@@ -1862,6 +1935,9 @@ def create_application_request(
                 orgnr_normalized=validated_orgnr,
                 company_name=stored_company,
                 comment=cleaned_comment,
+                invoice_address=cleaned_invoice_address,
+                invoice_contact=cleaned_invoice_contact,
+                invoice_reference=cleaned_invoice_reference,
             )
         )
         request_id = result.inserted_primary_key[0]
@@ -1919,7 +1995,12 @@ def approve_application_request(
 
         validated_orgnr = validate_orgnr(application.orgnr_normalized)
         company_id, created, company_display = _ensure_company(
-            conn, validated_orgnr, application.company_name
+            conn,
+            validated_orgnr,
+            application.company_name,
+            application.invoice_address,
+            application.invoice_contact,
+            application.invoice_reference,
         )
 
         normalized_email = normalize_email(application.email)
@@ -1970,6 +2051,9 @@ def approve_application_request(
         "name": application.name,
         "company_name": company_display,
         "company_created": created,
+        "invoice_address": application.invoice_address,
+        "invoice_contact": application.invoice_contact,
+        "invoice_reference": application.invoice_reference,
     }
 
 
@@ -2032,6 +2116,65 @@ def reject_application_request(
         "company_name": company_display,
         "reason": cleaned_reason,
     }
+
+
+def list_companies_for_invoicing() -> List[Dict[str, Any]]:
+    """Returnerar företag med handledarkonton och deras fakturauppgifter."""
+
+    handledare_count_expr = func.sum(
+        case((company_users_table.c.role == "handledare", 1), else_=0)
+    ).label("handledare_count")
+    user_count_expr = func.count(company_users_table.c.id).label("user_count")
+
+    query = (
+        select(
+            companies_table.c.id,
+            companies_table.c.name,
+            companies_table.c.orgnr,
+            companies_table.c.invoice_address,
+            companies_table.c.invoice_contact,
+            companies_table.c.invoice_reference,
+            handledare_count_expr,
+            user_count_expr,
+        )
+        .select_from(
+            companies_table.join(
+                company_users_table,
+                company_users_table.c.company_id == companies_table.c.id,
+            )
+        )
+        .group_by(
+            companies_table.c.id,
+            companies_table.c.name,
+            companies_table.c.orgnr,
+            companies_table.c.invoice_address,
+            companies_table.c.invoice_contact,
+            companies_table.c.invoice_reference,
+        )
+        .having(handledare_count_expr > 0)
+        .order_by(companies_table.c.name)
+    )
+
+    with get_engine().connect() as conn:
+        rows = conn.execute(query).fetchall()
+
+    companies: List[Dict[str, Any]] = []
+    for row in rows:
+        mapping = row._mapping
+        companies.append(
+            {
+                "id": mapping["id"],
+                "name": mapping["name"],
+                "orgnr": mapping["orgnr"],
+                "invoice_address": mapping.get("invoice_address"),
+                "invoice_contact": mapping.get("invoice_contact"),
+                "invoice_reference": mapping.get("invoice_reference"),
+                "handledare_count": int(mapping["handledare_count"] or 0),
+                "user_count": int(mapping["user_count"] or 0),
+            }
+        )
+
+    return companies
 
 
 

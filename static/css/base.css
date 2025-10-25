@@ -730,6 +730,12 @@ textarea:focus {
     word-break: break-word;
 }
 
+.invoice-text {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+}
+
 .application-actions {
     display: flex;
     gap: 0.75rem;

@@ -607,6 +607,9 @@ def apply_account():
         "orgnr": "",
         "company_name": "",
         "comment": "",
+        "invoice_address": "",
+        "invoice_contact": "",
+        "invoice_reference": "",
     }
 
     if request.method == 'POST':
@@ -627,6 +630,9 @@ def apply_account():
                         form_data["orgnr"],
                         form_data["company_name"],
                         form_data["comment"],
+                        form_data["invoice_address"],
+                        form_data["invoice_contact"],
+                        form_data["invoice_reference"],
                     )
                     logger.info("Ny ansökan %s mottagen från %s", request_id, mask_hash(functions.hash_value(form_data["email"].lower())))
                 except ValueError as exc:
@@ -1052,6 +1058,14 @@ def admin_applications():
     return render_template('admin_applications.html', csrf_token=csrf_token)
 
 
+@app.route('/admin/fakturering', methods=['GET'])
+def admin_invoicing():
+    if not session.get('admin_logged_in'):
+        return redirect('/login_admin')
+    companies = functions.list_companies_for_invoicing()
+    return render_template('admin_invoicing.html', companies=companies)
+
+
 def _serialize_application_row(row: dict) -> dict:
     return {
         "id": row.get("id"),
@@ -1060,6 +1074,9 @@ def _serialize_application_row(row: dict) -> dict:
         "email": row.get("email"),
         "orgnr_normalized": row.get("orgnr_normalized"),
         "company_name": row.get("company_name"),
+        "invoice_address": row.get("invoice_address"),
+        "invoice_contact": row.get("invoice_contact"),
+        "invoice_reference": row.get("invoice_reference"),
         "comment": row.get("comment"),
         "status": row.get("status"),
         "reviewed_by": row.get("reviewed_by"),
