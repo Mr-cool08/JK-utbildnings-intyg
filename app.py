@@ -533,6 +533,13 @@ def home():
     return render_template('index.html')
 
 
+@app.route('/ansok', methods=['GET'])
+def apply_account():
+    """Visa sidan för kontoförfrågningar."""
+    logger.debug("Rendering apply account page")
+    return render_template('apply.html')
+
+
 
 @app.route('/license', methods=['GET'])
 def license():

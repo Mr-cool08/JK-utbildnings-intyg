@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Ansök om konto – Utbildnings Intyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Ansök om konto för att hantera utbildningsintyg digitalt.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="apply-title">
+    <h1 id="apply-title">Ansök om konto</h1>
+    <p>Skicka in en kontoansökan så hjälper vi dig och ditt team att få tillgång till hela portalen.</p>
+    <a class="apply-button" href="mailto:support@jarnvagskonsulterna.se?subject=Ans%C3%B6kan%20om%20konto">Ansök om konto</a>
+</section>
+
+<section class="apply-info" aria-labelledby="pricing-title">
+    <h2 id="pricing-title">Vad kostar det?</h2>
+    <p class="apply-price">Användarkonto är gratis.</p>
+    <p class="apply-price">Arbetsgivarkonto med tillgång till företagsportalen kostar 20 kronor per kopplad användare.</p>
+</section>
+
+<section class="apply-steps" aria-labelledby="steps-title">
+    <h2 id="steps-title">Så går ansökan till</h2>
+    <ol class="apply-step-list">
+        <li>
+            <h3>Skicka in uppgifter</h3>
+            <p>Ange företag, kontaktperson och vilka roller som ska ha tillgång.</p>
+        </li>
+        <li>
+            <h3>Verifiering</h3>
+            <p>Vi kontaktar dig för att bekräfta behörigheter och teckna avtal.</p>
+        </li>
+        <li>
+            <h3>Kom igång</h3>
+            <p>Kontot aktiveras och du får en snabb genomgång av portalen.</p>
+        </li>
+    </ol>
+</section>
+{% endblock %}
