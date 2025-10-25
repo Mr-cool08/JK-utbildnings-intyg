@@ -37,13 +37,19 @@
                 <li>Tillgängligt var som helst, när som helst</li>
             </ul>
         </div>
-        <div class="hero-actions" aria-label="Snabbknappar">
-            <a class="btn hero-btn" href="#funktioner">Läs mer om tjänsten</a>
-            {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
-            {% else %}
-                <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
-            {% endif %}
+        <div class="hero-actions" aria-labelledby="hero-actions-title">
+            <div class="hero-card">
+                <p id="hero-actions-title" class="hero-card-title">Välj nästa steg</p>
+                <p class="hero-card-text">Utforska alla funktioner eller prova tjänsten direkt i en demo.</p>
+                <div class="hero-card-actions">
+                    <a class="btn hero-btn" href="#funktioner">Läs mer om tjänsten</a>
+                    {% if not IS_DEMO and DEMO_SITE_URL %}
+                        <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+                    {% else %}
+                        <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </section>
 
