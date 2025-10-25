@@ -31,19 +31,33 @@
             <h1 id="home-hero-title">Alltid uppdaterade utbildningsintyg på en plats</h1>
             <p class="hero-lead">Utbildnings Intyg samlar alla dina intyg i ett säkert arkiv och gör dem redo att delas med bara några klick.</p>
             <ul class="hero-list">
-                <li>Digital lagring av utbildningsintyg</li>
-                <li>Enkel delning med arbetsgivare och kunder</li>
-                <li>Säker och GDPR-anpassad hantering</li>
-                <li>Tillgängligt var som helst, när som helst</li>
+                <li>
+                    <span class="hero-list-icon" aria-hidden="true">✔</span>
+                    <span>Digital lagring av utbildningsintyg</span>
+                </li>
+                <li>
+                    <span class="hero-list-icon" aria-hidden="true">✔</span>
+                    <span>Enkel delning med arbetsgivare och kunder</span>
+                </li>
+                <li>
+                    <span class="hero-list-icon" aria-hidden="true">✔</span>
+                    <span>Säker och GDPR-anpassad hantering</span>
+                </li>
+                <li>
+                    <span class="hero-list-icon" aria-hidden="true">✔</span>
+                    <span>Tillgängligt var som helst, när som helst</span>
+                </li>
             </ul>
         </div>
         <div class="hero-actions" aria-label="Snabbknappar">
-            <a class="btn hero-btn" href="#funktioner">Läs mer om tjänsten</a>
-            {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
-            {% else %}
-                <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
-            {% endif %}
+            <div class="hero-action-card">
+                <a class="btn hero-btn hero-btn-primary" href="#funktioner">Läs mer om tjänsten</a>
+                {% if not IS_DEMO and DEMO_SITE_URL %}
+                    <a class="btn hero-btn hero-btn-secondary" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+                {% else %}
+                    <a class="btn hero-btn hero-btn-secondary" href="/handledare/login">Prova demo</a>
+                {% endif %}
+            </div>
         </div>
     </section>
 
