@@ -11,7 +11,7 @@
 {% endblock %}
 {% block content %}
 {% if IS_DEMO %}
-<section class="demo-info" aria-labelledby="demo-title">
+<section class="demo-info" id="demo-info" aria-labelledby="demo-title">
     <h1 id="demo-title">Demoversion av Utbildnings Intyg</h1>
     <p>Denna miljö använder en tillfällig databas och återställs automatiskt. Allt innehåll är exempeldata.</p>
     <div class="demo-credentials">
@@ -24,82 +24,84 @@
     </div>
 </section>
 {% endif %}
-<div class="hero">
-    <p class="hero-eyebrow">Digitalt arkiv för utbildningsintyg</p>
-    <h1>Trygg hantering av utbildningsintyg</h1>
-    <p>Utbildnings Intyg hjälper utbildningsföretag och kursdeltagare att lagra, verifiera och hitta rätt intyg på några sekunder.</p>
-    <div class="actions">
-
-        <a class="btn" href="/login">Logga in</a>
-        <a class="btn btn-outline" href="#sa-fungerar">Utforska tjänsten</a>
-        {% if not IS_DEMO and DEMO_SITE_URL %}
-            <a class="btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demomiljön</a>
-        {% endif %}
-        <a class="btn btn-secondary" href="/handledare/login">Handledarinloggning</a>
-    </div>
-    <ul class="hero-highlights">
-        <li>GDPR-anpassad lagring inom EU</li>
-        <li>Säker delning av signerade PDF-intyg</li>
-        <li>Stöd för både administratörer och studerande</li>
-    </ul>
+<div class="landing-hero">
+    <section class="hero-card" aria-labelledby="hero-title">
+        <div class="hero-copy">
+            <p class="hero-kicker">DIGITALT ARKIV FÖR UTBILDNINGSINTYG</p>
+            <h1 id="hero-title">Trygg digital lagring med full kontroll</h1>
+            <ul class="hero-points" aria-label="Våra främsta fördelar">
+                <li>Digital lagring av utbildningsintyg</li>
+                <li>Enkel delning med arbetsgivare och kunder</li>
+                <li><span class="hero-accent">Automatisk verifiering av giltighet</span></li>
+                <li>Säker och GDPR-anpassad hantering</li>
+                <li>Tillgängligt var som helst, när som helst</li>
+            </ul>
+        </div>
+        <div class="hero-actions" aria-label="Snabbval">
+            <a class="btn btn-light" href="/#tjansten">Läs mer om tjänsten</a>
+            {% if IS_DEMO %}
+                <a class="btn btn-dark" href="#demo-info">Utforska demomiljön</a>
+            {% elif DEMO_SITE_URL %}
+                <a class="btn btn-dark" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+            {% else %}
+                <a class="btn btn-dark" href="/login">Prova demo</a>
+            {% endif %}
+        </div>
+    </section>
 </div>
 
-<section class="features">
-    <h2>Funktioner som sparar tid</h2>
+<section class="feature-showcase" id="tjansten" aria-labelledby="feature-title">
+    <h2 id="feature-title">Smarta funktioner som sparar tid</h2>
+    <p class="feature-intro">Allt du behöver för att samla, kontrollera och dela utbildningsintyg på ett säkert sätt.</p>
     <div class="feature-grid">
-        <article class="feature">
-            <h3>Organisera smart</h3>
-            <p>Samla alla utbildningsintyg på ett ställe med tydlig struktur.</p>
+        <article class="feature-card">
+            <h3>Organisera smartare</h3>
+            <p>Samla alla utbildningsintyg på ett ställe. <span class="feature-accent">Få påminnelser när förlängsperioder närmar sig.</span></p>
         </article>
-        <article class="feature">
-            <h3>Dela enkelt</h3>
-            <p>Dela enkelt dina utbildningsintyg med andra.</p>
+        <article class="feature-card">
+            <h3>Dela intyg enkelt</h3>
+            <p>Skicka intyg till arbetsgivare och kunder med ett klick. Spåra vilka som tagit emot dokumenten.</p>
         </article>
-        <article class="feature">
+        <article class="feature-card">
             <h3>Åtkomst överallt</h3>
-            <p>Logga in från dator, mobil eller surfplatta och hämta intyg när som helst.</p>
+            <p>Logga in via dator, mobil eller surfplatta. Hämta rätt intyg var du än befinner dig.</p>
         </article>
-    </div>
-</section>
-
-<section id="sa-fungerar" class="process">
-    <h2>Så fungerar det</h2>
-    <ol class="process-steps">
-        <li>
-            <span class="step-title">Gå utbildningen</span>
-            <p>Administratören lägger till nya deltagare och laddar upp deras senaste intyg.</p>
-        </li>
-        <li>
-            <span class="step-title">Aktivera konto</span>
-            <p>Deltagaren får en länk via e-post, väljer lösenord och får tillgång till sitt personliga arkiv.</p>
-        </li>
-        <li>
-            <span class="step-title">Hämta och dela</span>
-            <p>Intygen kan laddas ned på sekunder och delas med arbetsgivare eller myndigheter vid behov.</p>
-        </li>
-    </ol>
-</section>
-
-<section class="trust">
-    <h2>Varför organisationer väljer Utbildnings Intyg</h2>
-    <div class="trust-grid">
-        <article class="trust-card">
-            <h3>Säkerhet först</h3>
-            <p>Krypterade lösenord, kontrollerade filtyper och tydlig loggning skyddar känsliga uppgifter.</p>
+        <article class="feature-card">
+            <h3>Ansök om ett konto</h3>
+            <ul>
+                <li>Arbetsgivarkonto för administratörer</li>
+                <li>Användarkonto för kursdeltagare</li>
+            </ul>
         </article>
-        <article class="trust-card">
+        <article class="feature-card">
+            <h3>Ladda upp dina intyg</h3>
+            <p>Stöd för PDF, JPG, JPEG, PNG och TXT. Kvalitetssäkra varje uppladdning.</p>
+        </article>
+        <article class="feature-card">
+            <h3>Bestäm vilka intyg som delas</h3>
+            <p>Välj mottagare från din kontaktlista och dela endast det som behövs.</p>
+        </article>
+        <article class="feature-card">
+            <h3>Säkerhet först (GDPR)</h3>
+            <p>Krypterad lagring inom EU och loggning av alla aktiviteter skyddar känsliga uppgifter.</p>
+        </article>
+        <article class="feature-card">
             <h3>Enkel administration</h3>
-            <p>Smidiga formulär och tydliga listor gör det lätt att hålla koll på uppladdade intyg.</p>
+            <p>Automatiska statusuppdateringar, tydliga listor och påminnelser minskar dubbelarbete.</p>
         </article>
-        <article class="trust-card">
-            <h3>Support nära till hands</h3>
-            <p>Teamet bakom tjänsten hjälper dig hela vägen från uppstart till löpande drift.</p>
+        <article class="feature-card">
+            <h3>Enkelt att komma igång</h3>
+            <p>Skapa konto, ladda upp dina intyg och bjud in kollegor. Stöd och guider finns alltid tillgängliga.</p>
         </article>
     </div>
 </section>
 
-<section class="cta-banner">
-    <h2>Klara att digitalisera intygen?</h2>
-    <p>Bjud in dina administratörer, logga in och kom igång med en trygg och enkel lösning redan idag.</p>
+<section class="apply-section" id="ansok" aria-labelledby="apply-title">
+    <h2 id="apply-title">Ansök om konto</h2>
+    <a class="btn btn-cta" href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener">Ansök om konto</a>
+    <div class="apply-note">
+        <h3>Vad kostar det?</h3>
+        <p>Användarkonto är gratis. Arbetsgivarkonto med tillgång till företagsportalen kostar 20 kronor per kopplad användare.</p>
+    </div>
 </section>
 {% endblock %}

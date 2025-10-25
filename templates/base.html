@@ -35,21 +35,27 @@
                 <span class="nav-toggle-bar"></span>
             </button>
             <div class="nav-links">
-                {% if session.get('supervisor_logged_in') %}
-                    <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
-                    <a href="/logout">Logga ut</a>
-                {% elif session.get('user_logged_in') %}
-                    <a href="/dashboard">Intyg</a>
-                    <a href="/logout">Logga ut</a>
-                {% elif session.get('admin_logged_in') %}
-                    <a href="/admin">Admin</a>
-                    <a href="/logout">Logga ut</a>
-                {% else %}
-                    <a href="/login">Logga in</a>
-                    <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
-                {% endif %}
-                <a href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener" class="nav-external">Järnvägskonsulterna</a>
-                <a href="https://www.sakerhetsutbildarna.se" target="_blank" rel="noopener" class="nav-external">Säkerhetsutbildarna</a>
+                <div class="nav-groups">
+                    <ul class="nav-menu nav-menu-primary">
+                        <li><a class="nav-link {% if request.endpoint == 'index' %}is-active{% endif %}" href="/">Hem</a></li>
+                        <li><a class="nav-link" href="/#ansok">Ansök om konto</a></li>
+                        <li><a class="nav-link" href="{{ url_for('supervisor_login') }}">Företagsportal</a></li>
+                    </ul>
+                    <ul class="nav-menu nav-menu-secondary">
+                        {% if session.get('supervisor_logged_in') %}
+                            <li><a class="nav-link" href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a></li>
+                            <li><a class="nav-link nav-link-emphasis" href="/logout">Logga ut</a></li>
+                        {% elif session.get('user_logged_in') %}
+                            <li><a class="nav-link" href="/dashboard">Intyg</a></li>
+                            <li><a class="nav-link nav-link-emphasis" href="/logout">Logga ut</a></li>
+                        {% elif session.get('admin_logged_in') %}
+                            <li><a class="nav-link" href="/admin">Admin</a></li>
+                            <li><a class="nav-link nav-link-emphasis" href="/logout">Logga ut</a></li>
+                        {% else %}
+                            <li><a class="nav-link nav-link-emphasis" href="/login">Logga in</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
