@@ -38,11 +38,11 @@
             </ul>
         </div>
         <div class="hero-actions" aria-label="Snabbknappar">
-            <a class="btn hero-btn" href="#funktioner">Läs mer om tjänsten</a>
+            <a class="btn hero-btn hero-btn-primary" href="#funktioner">Läs mer om tjänsten</a>
             {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+                <a class="btn hero-btn hero-btn-secondary" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
             {% else %}
-                <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
+                <a class="btn hero-btn hero-btn-secondary" href="/handledare/login">Prova demo</a>
             {% endif %}
         </div>
     </section>
