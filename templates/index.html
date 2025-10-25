@@ -8,6 +8,7 @@
     <meta property="og:description" content="Utbildnings Intyg hjälper dig att lagra och komma åt intyg var du än är.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 {% endblock %}
 {% block content %}
 {% if IS_DEMO %}
