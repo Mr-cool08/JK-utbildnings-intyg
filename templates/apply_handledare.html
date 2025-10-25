@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Ansök om handledarkonto – Utbildningsintyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Ansök om handledarkonto och få tillgång till Utbildningsintygets företagsportal.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="apply-title">
+    <div class="apply-hero-content">
+        <div class="apply-intro">
+            <h1 id="apply-title">Ansök om handledarkonto</h1>
+            <p>Som handledare får du administrera användare, följa upp intyg och hantera fakturering.</p>
+        </div>
+        <form method="post" class="apply-form" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if form_errors %}
+                <div class="message error" role="alert">
+                    <ul>
+                        {% for error in form_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <label for="name">Fullständigt namn</label>
+            <input id="name" name="name" type="text" value="{{ form_data.name }}" required autocomplete="name">
+
+            <label for="email">E-postadress</label>
+            <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
+
+            <label for="company_name">Företag</label>
+            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" required autocomplete="organization">
+
+            <fieldset class="field-group" id="invoiceSection">
+                <legend>Faktureringsuppgifter</legend>
+                <label for="invoice_address">Fakturaadress</label>
+                <textarea id="invoice_address" name="invoice_address" rows="3" required>{{ form_data.invoice_address }}</textarea>
+                <small class="hint">Ange fullständig adress inklusive eventuell referens.</small>
+
+                <label for="invoice_contact">Kontaktperson</label>
+                <input id="invoice_contact" name="invoice_contact" type="text" value="{{ form_data.invoice_contact }}" required>
+
+                <label for="invoice_reference">Märkning</label>
+                <input id="invoice_reference" name="invoice_reference" type="text" value="{{ form_data.invoice_reference }}" required>
+            </fieldset>
+
+            <label for="orgnr">Organisationsnummer</label>
+            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
+            <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
+
+            <label for="comment">Kommentar <span class="optional">(valfritt)</span></label>
+            <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
+
+            <button type="submit" class="btn">Skicka ansökan</button>
+        </form>
+    </div>
+</section>
+
+<section class="apply-info" aria-labelledby="info-title">
+    <h2 id="info-title">Om handledarkonton</h2>
+    <p class="apply-price">Företagsportalen kostar 20 kronor per ansluten användare.</p>
+    <p>Vid godkänd ansökan skapar vi företaget och kopplar nya användare efter dina instruktioner.</p>
+</section>
+
+<section class="apply-steps" aria-labelledby="steps-title">
+    <h2 id="steps-title">Så går ansökan till</h2>
+    <ol class="apply-step-list">
+        <li>
+            <h3>Skicka in uppgifter</h3>
+            <p>Beskriv företaget, faktureringsuppgifter och vem som ska vara huvudkontakt.</p>
+        </li>
+        <li>
+            <h3>Verifiering</h3>
+            <p>Vi kontrollerar organisationsnumret och förbereder företagsportalen.</p>
+        </li>
+        <li>
+            <h3>Starta upp</h3>
+            <p>När ansökan godkänns skickar vi bekräftelse, avtal och inloggningsinstruktioner.</p>
+        </li>
+    </ol>
+</section>
+{% endblock %}

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections import deque
 from functools import partial
+import hmac
 import logging
 import os
+import secrets
 import time
 from typing import Sequence
 
@@ -45,6 +48,64 @@ import functions
 
 
 ALLOWED_MIMES = {'application/pdf'}
+
+_CSRF_SESSION_KEY = "csrf_token"
+_PUBLIC_FORM_LIMIT = 5
+_PUBLIC_FORM_WINDOW = 60 * 60  # 1 timme
+_public_form_attempts: dict[str, deque[float]] = {}
+
+
+def _ensure_csrf_token() -> str:
+    token = session.get(_CSRF_SESSION_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[_CSRF_SESSION_KEY] = token
+    return token
+
+
+def _extract_csrf_token() -> str | None:
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        token = payload.get("csrf_token")
+        if token:
+            return str(token)
+    token = request.headers.get("X-CSRF-Token")
+    if token:
+        return token
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        form_token = request.form.get("csrf_token")
+        if form_token:
+            return form_token
+    return request.args.get("csrf_token")
+
+
+def _validate_csrf_token() -> bool:
+    expected = session.get(_CSRF_SESSION_KEY)
+    candidate = _extract_csrf_token()
+    if not expected or not candidate:
+        return False
+    try:
+        return hmac.compare_digest(str(candidate), str(expected))
+    except Exception:
+        return False
+
+
+def _get_request_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "0.0.0.0"
+
+
+def _register_public_submission(ip: str) -> bool:
+    now = time.time()
+    bucket = _public_form_attempts.setdefault(ip, deque())
+    while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _PUBLIC_FORM_LIMIT:
+        return False
+    bucket.append(now)
+    return True
 
 
 def _as_bool(value: str | None) -> bool:
@@ -535,9 +596,106 @@ def home():
 
 @app.route('/ansok', methods=['GET'])
 def apply_account():
-    """Visa sidan för kontoförfrågningar."""
-    logger.debug("Rendering apply account page")
+    """Visa val för ansökan om konto."""
+
     return render_template('apply.html')
+
+
+def _render_application_form(account_type: str):
+    """Hjälpfunktion för att visa och hantera ansökningsformulär."""
+
+    if account_type not in {"user", "handledare"}:
+        abort(404)
+
+    form_errors: list[str] = []
+    status_code = 200
+
+    base_form_data = {
+        "name": "",
+        "email": "",
+        "orgnr": "",
+        "comment": "",
+    }
+
+    if account_type == "handledare":
+        base_form_data.update(
+            {
+                "company_name": "",
+                "invoice_address": "",
+                "invoice_contact": "",
+                "invoice_reference": "",
+            }
+        )
+    else:
+        base_form_data.update({"company_name": ""})
+
+    form_data = dict(base_form_data)
+
+    if request.method == 'POST':
+        for key in form_data:
+            form_data[key] = (request.form.get(key, '') or '').strip()
+        if not _validate_csrf_token():
+            form_errors.append("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.")
+        else:
+            client_ip = _get_request_ip()
+            if not _register_public_submission(client_ip):
+                status_code = 429
+                form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
+            else:
+                try:
+                    request_id = functions.create_application_request(
+                        account_type,
+                        form_data["name"],
+                        form_data["email"],
+                        form_data["orgnr"],
+                        form_data.get("company_name"),
+                        form_data.get("comment"),
+                        form_data.get("invoice_address"),
+                        form_data.get("invoice_contact"),
+                        form_data.get("invoice_reference"),
+                    )
+                    logger.info(
+                        "Ny ansökan %s mottagen från %s",
+                        request_id,
+                        mask_hash(functions.hash_value(form_data["email"].lower())),
+                    )
+                except ValueError as exc:
+                    form_errors.append(str(exc))
+                except Exception as exc:  # pragma: no cover - defensiv loggning
+                    logger.exception("Kunde inte spara ansökan")
+                    form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
+                else:
+                    flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
+                    target = 'apply_handledare' if account_type == 'handledare' else 'apply_user'
+                    return redirect(url_for(target))
+
+    csrf_token = _ensure_csrf_token()
+
+    template_name = 'apply_handledare.html' if account_type == 'handledare' else 'apply_user.html'
+
+    return (
+        render_template(
+            template_name,
+            csrf_token=csrf_token,
+            form_data=form_data,
+            form_errors=form_errors,
+        ),
+        status_code,
+    )
+
+
+@app.route('/ansok/anvandare', methods=['GET', 'POST'])
+def apply_user():
+    """Visa och hantera ansökan för användarkonto."""
+
+    return _render_application_form("user")
+
+
+@app.route('/ansok/handledare', methods=['GET', 'POST'])
+def apply_handledare():
+    """Visa och hantera ansökan för handledarkonto."""
+
+    return _render_application_form("handledare")
 
 
 
@@ -932,6 +1090,140 @@ def admin():
         'admin.html',
         categories=COURSE_CATEGORIES,
     )
+
+
+@app.route('/admin/ansokningar', methods=['GET'])
+def admin_applications():
+    if not session.get('admin_logged_in'):
+        return redirect('/login_admin')
+    csrf_token = _ensure_csrf_token()
+    return render_template('admin_applications.html', csrf_token=csrf_token)
+
+
+@app.route('/admin/fakturering', methods=['GET'])
+def admin_invoicing():
+    if not session.get('admin_logged_in'):
+        return redirect('/login_admin')
+    companies = functions.list_companies_for_invoicing()
+    return render_template('admin_invoicing.html', companies=companies)
+
+
+def _serialize_application_row(row: dict) -> dict:
+    return {
+        "id": row.get("id"),
+        "account_type": row.get("account_type"),
+        "name": row.get("name"),
+        "email": row.get("email"),
+        "orgnr_normalized": row.get("orgnr_normalized"),
+        "company_name": row.get("company_name"),
+        "invoice_address": row.get("invoice_address"),
+        "invoice_contact": row.get("invoice_contact"),
+        "invoice_reference": row.get("invoice_reference"),
+        "comment": row.get("comment"),
+        "status": row.get("status"),
+        "reviewed_by": row.get("reviewed_by"),
+        "decision_reason": row.get("decision_reason"),
+        "created_at": row.get("created_at").isoformat() if row.get("created_at") else None,
+        "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
+        "reviewed_at": row.get("reviewed_at").isoformat() if row.get("reviewed_at") else None,
+    }
+
+
+@app.get('/admin/api/ansokningar')
+def admin_list_applications():
+    _require_admin()
+    status = request.args.get('status')
+    try:
+        rows = functions.list_application_requests(status)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+
+    serialized = [_serialize_application_row(row) for row in rows]
+    return jsonify({'status': 'success', 'data': serialized})
+
+
+@app.get('/admin/api/ansokningar/<int:application_id>')
+def admin_get_application(application_id: int):
+    _require_admin()
+    row = functions.get_application_request(application_id)
+    if not row:
+        return jsonify({'status': 'error', 'message': 'Ansökan hittades inte.'}), 404
+    return jsonify({'status': 'success', 'data': _serialize_application_row(row)})
+
+
+@app.post('/admin/api/ansokningar/<int:application_id>/godkann')
+def admin_approve_application(application_id: int):
+    admin_name = _require_admin()
+    if not _validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
+
+    try:
+        result = functions.approve_application_request(application_id, admin_name)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+    except Exception:
+        logger.exception("Misslyckades att godkänna ansökan %s", application_id)
+        return jsonify({'status': 'error', 'message': 'Kunde inte godkänna ansökan.'}), 500
+
+    email_error = None
+    try:
+        email_service.send_application_approval_email(
+            result['email'], result['account_type'], result['company_name']
+        )
+    except RuntimeError as exc:
+        logger.exception("Misslyckades att skicka godkännandemejl för ansökan %s", application_id)
+        email_error = str(exc)
+
+    masked_email = mask_hash(functions.hash_value(result['email']))
+    functions.log_admin_action(
+        admin_name,
+        'godkände ansökan',
+        f'application_id={application_id}, email={masked_email}',
+    )
+
+    payload = {'status': 'success', 'data': result}
+    if email_error:
+        payload['email_warning'] = 'Konto godkänt men e-post kunde inte skickas.'
+    return jsonify(payload)
+
+
+@app.post('/admin/api/ansokningar/<int:application_id>/avslag')
+def admin_reject_application(application_id: int):
+    admin_name = _require_admin()
+    if not _validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
+
+    payload = request.get_json(silent=True) or {}
+    reason = (payload.get('reason') or '').strip()
+
+    try:
+        result = functions.reject_application_request(application_id, admin_name, reason)
+    except ValueError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 400
+    except Exception:
+        logger.exception("Misslyckades att avslå ansökan %s", application_id)
+        return jsonify({'status': 'error', 'message': 'Kunde inte avslå ansökan.'}), 500
+
+    email_error = None
+    try:
+        email_service.send_application_rejection_email(
+            result['email'], result['company_name'], result['reason']
+        )
+    except RuntimeError as exc:
+        logger.exception("Misslyckades att skicka avslag för ansökan %s", application_id)
+        email_error = str(exc)
+
+    masked_email = mask_hash(functions.hash_value(result['email']))
+    functions.log_admin_action(
+        admin_name,
+        'avslog ansökan',
+        f'application_id={application_id}, email={masked_email}',
+    )
+
+    response_payload = {'status': 'success', 'data': result}
+    if email_error:
+        response_payload['email_warning'] = 'Ansökan avslogs men e-post kunde inte skickas.'
+    return jsonify(response_payload)
 
 
 @app.post('/admin/api/oversikt')

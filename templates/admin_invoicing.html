@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Fakturering{% endblock %}
+{% block content %}
+<h1>Admin — Fakturering</h1>
+<p>Den här sidan visar vilka företag som har aktiva handledarkonton och som ska faktureras.</p>
+
+<section class="panel">
+    <h2>Faktureringslista</h2>
+    {% if companies %}
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Företag</th>
+                    <th>Organisationsnummer</th>
+                    <th>Fakturaadress</th>
+                    <th>Kontaktperson</th>
+                    <th>Märkning</th>
+                    <th>Handledare</th>
+                    <th>Användare</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for company in companies %}
+                <tr>
+                    <td>{{ company.name }}</td>
+                    <td>{{ company.orgnr }}</td>
+                    <td>{% if company.invoice_address %}<pre class="invoice-text">{{ company.invoice_address }}</pre>{% else %}–{% endif %}</td>
+                    <td>{{ company.invoice_contact or '–' }}</td>
+                    <td>{{ company.invoice_reference or '–' }}</td>
+                    <td>{{ company.handledare_count }}</td>
+                    <td>{{ company.user_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="message" role="status">Inga företag att fakturera ännu.</p>
+    {% endif %}
+</section>
+
+<a class="btn-link" href="{{ url_for('admin') }}">Tillbaka till adminpanelen</a>
+{% endblock %}
+{% block head %}{{ super() }}<meta name="robots" content="noindex">{% endblock %}

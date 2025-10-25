@@ -290,3 +290,56 @@ def send_pdf_share_email(
         )
 
     send_email(recipient_email, subject, body_html, attachments=attachments)
+
+
+def send_application_approval_email(
+    to_email: str, account_type: str, company_name: str
+) -> None:
+    """Skicka besked om godkänd ansökan."""
+
+    normalized_type = account_type.lower()
+    if normalized_type == "handledare":
+        account_label = "ett handledarkonto"
+    else:
+        account_label = "ett användarkonto"
+
+    safe_company = escape((company_name or "").strip())
+    if not safe_company:
+        safe_company = "företaget"
+    subject = f"Ansökan godkänd för {safe_company}"
+    body = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Din ansökan om {account_label} kopplat till {safe_company} har blivit godkänd.</p>
+                <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
+                <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
+                <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+            </body>
+        </html>
+    """
+    send_email(to_email, subject, body)
+
+
+def send_application_rejection_email(
+    to_email: str, company_name: str, reason: str
+) -> None:
+    """Skicka besked om avslagen ansökan."""
+
+    safe_company = escape((company_name or "").strip())
+    if not safe_company:
+        safe_company = "företaget"
+    safe_reason = escape(reason)
+    subject = f"Ansökan avslogs för {safe_company}"
+    body = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                <p>Hej,</p>
+                <p>Vi har tyvärr inte kunnat godkänna din ansökan om konto kopplat till {safe_company}.</p>
+                <p>Motivering: {safe_reason}</p>
+                <p>Har du frågor är du välkommen att kontakta oss på support@jarnvagskonsulterna.se.</p>
+                <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+            </body>
+        </html>
+    """
+    send_email(to_email, subject, body)
