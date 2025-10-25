@@ -14,7 +14,7 @@ def test_admin_list_applications(empty_db):
     _admin_session(client)
 
     first = functions.create_application_request(
-        'user', 'Test', 'api@example.com', None, '5560160680', 'API Bolaget', 'Hej'
+        'handledare', 'Test', 'api@example.com', '5560160680', 'API Bolaget', 'Hej'
     )
 
     response = client.get('/admin/api/ansokningar')
@@ -38,7 +38,7 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     monkeypatch.setattr(app.email_service, 'send_application_approval_email', fake_send)
 
     application_id = functions.create_application_request(
-        'handledare', 'Handledare', 'handledare@example.com', None, '5560160680', 'Handledarbolaget', 'Test'
+        'handledare', 'Handledare', 'handledare@example.com', '5560160680', 'Handledarbolaget', 'Test'
     )
 
     response = client.post(
@@ -75,7 +75,7 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
     monkeypatch.setattr(app.email_service, 'send_application_rejection_email', fake_send)
 
     application_id = functions.create_application_request(
-        'user', 'Avslag Test', 'reject@example.com', None, '5560160680', 'Avslag AB', None
+        'handledare', 'Avslag Test', 'reject@example.com', '5560160680', 'Avslag AB', None
     )
 
     response = client.post(

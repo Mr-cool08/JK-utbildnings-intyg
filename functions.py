@@ -226,7 +226,6 @@ application_requests_table = Table(
     Column("account_type", String, nullable=False),
     Column("name", String, nullable=False),
     Column("email", String, nullable=False),
-    Column("phone", String),
     Column("orgnr_normalized", String, nullable=False, index=True),
     Column("company_name", String, nullable=False),
     Column("comment", String),
@@ -257,7 +256,6 @@ company_users_table = Table(
     Column("role", String, nullable=False),
     Column("name", String, nullable=False),
     Column("email", String, nullable=False, unique=True),
-    Column("phone", String),
     Column("created_via_application_id", Integer, index=True),
     Column(
         "created_at",
@@ -306,8 +304,26 @@ def _migration_0001_companies(conn: Connection) -> None:
         company_users_table.create(bind=conn)
 
 
+def _drop_column_if_exists(conn: Connection, table_name: str, column: str) -> None:
+    inspector = inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns(table_name)}
+    if column not in columns:
+        return
+    conn.execute(text(f"ALTER TABLE {table_name} DROP COLUMN {column}"))
+
+
+def _migration_0002_remove_phone_columns(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if application_requests_table.name in existing_tables:
+        _drop_column_if_exists(conn, application_requests_table.name, "phone")
+    if company_users_table.name in existing_tables:
+        _drop_column_if_exists(conn, company_users_table.name, "phone")
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
+    ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
 ]
 
 
@@ -1781,39 +1797,42 @@ def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Option
     return cleaned[:max_length]
 
 
-def _ensure_company(conn: Connection, orgnr: str, company_name: str) -> Tuple[int, bool]:
-    cleaned_name = company_name.strip()
-    if not cleaned_name:
-        raise ValueError("Företagsnamn saknas.")
-
+def _ensure_company(
+    conn: Connection, orgnr: str, company_name: Optional[str]
+) -> Tuple[int, bool, str]:
+    cleaned_name = (company_name or "").strip()
     existing = conn.execute(
         select(companies_table.c.id, companies_table.c.name).where(
             companies_table.c.orgnr == orgnr
         )
     ).first()
     if existing:
-        if existing.name != cleaned_name:
+        existing_name = existing.name
+        if cleaned_name and existing_name != cleaned_name:
             conn.execute(
                 update(companies_table)
                 .where(companies_table.c.id == existing.id)
                 .values(name=cleaned_name)
             )
-        return int(existing.id), False
+            existing_name = cleaned_name
+        return int(existing.id), False, existing_name
+
+    if not cleaned_name:
+        raise ValueError("Företagsnamn saknas för detta organisationsnummer.")
 
     result = conn.execute(
         insert(companies_table).values(orgnr=orgnr, name=cleaned_name)
     )
     company_id = result.inserted_primary_key[0]
-    return int(company_id), True
+    return int(company_id), True, cleaned_name
 
 
 def create_application_request(
     account_type: str,
     name: str,
     email: str,
-    phone: Optional[str],
     orgnr: str,
-    company_name: str,
+    company_name: Optional[str],
     comment: Optional[str],
 ) -> int:
     allowed_types = {"user", "handledare"}
@@ -1828,11 +1847,11 @@ def create_application_request(
     normalized_email = normalize_email(email)
     validated_orgnr = validate_orgnr(orgnr)
     cleaned_company = (company_name or "").strip()
-    if not cleaned_company:
-        raise ValueError("Företagsnamn saknas.")
+    if normalized_type == "handledare" and not cleaned_company:
+        raise ValueError("Företagsnamn krävs för handledarkonton.")
 
-    cleaned_phone = _clean_optional_text(phone, max_length=64)
     cleaned_comment = _clean_optional_text(comment)
+    stored_company = cleaned_company if cleaned_company else ""
 
     with get_engine().begin() as conn:
         result = conn.execute(
@@ -1840,9 +1859,8 @@ def create_application_request(
                 account_type=normalized_type,
                 name=cleaned_name,
                 email=normalized_email,
-                phone=cleaned_phone,
                 orgnr_normalized=validated_orgnr,
-                company_name=cleaned_company,
+                company_name=stored_company,
                 comment=cleaned_comment,
             )
         )
@@ -1900,7 +1918,7 @@ def approve_application_request(
             raise ValueError("Ansökan är redan hanterad.")
 
         validated_orgnr = validate_orgnr(application.orgnr_normalized)
-        company_id, created = _ensure_company(
+        company_id, created, company_display = _ensure_company(
             conn, validated_orgnr, application.company_name
         )
 
@@ -1919,7 +1937,6 @@ def approve_application_request(
                 role=application.account_type,
                 name=application.name,
                 email=normalized_email,
-                phone=application.phone,
                 created_via_application_id=application.id,
             )
         )
@@ -1951,7 +1968,7 @@ def approve_application_request(
         "email": normalized_email,
         "account_type": application.account_type,
         "name": application.name,
-        "company_name": application.company_name,
+        "company_name": company_display,
         "company_created": created,
     }
 
@@ -1975,6 +1992,19 @@ def reject_application_request(
         if application.status != "pending":
             raise ValueError("Ansökan är redan hanterad.")
 
+        validated_orgnr = validate_orgnr(application.orgnr_normalized)
+        company_display = (application.company_name or "").strip()
+        if not company_display:
+            existing_company = conn.execute(
+                select(companies_table.c.name).where(
+                    companies_table.c.orgnr == validated_orgnr
+                )
+            ).first()
+            if existing_company and existing_company.name:
+                company_display = existing_company.name
+            else:
+                company_display = f"organisationsnummer {validated_orgnr}"
+
         conn.execute(
             update(application_requests_table)
             .where(application_requests_table.c.id == application.id)
@@ -1995,11 +2025,11 @@ def reject_application_request(
         mask_hash(email_hash),
     )
     return {
-        "orgnr": application.orgnr_normalized,
+        "orgnr": validated_orgnr,
         "email": normalized_email,
         "account_type": application.account_type,
         "name": application.name,
-        "company_name": application.company_name,
+        "company_name": company_display,
         "reason": cleaned_reason,
     }
 

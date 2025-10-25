@@ -8,7 +8,7 @@
     <div class="apply-hero-content">
         <div class="apply-intro">
             <h1 id="apply-title">Ansök om konto</h1>
-            <p>Fyll i uppgifterna nedan så återkommer vi efter att ha granskat din ansökan. Alla fält utom telefonnummer och kommentar är obligatoriska.</p>
+            <p>Fyll i uppgifterna nedan så återkommer vi efter att ha granskat din ansökan. Alla fält utom kommentar är obligatoriska. Företagsnamn behövs endast för handledarkonton.</p>
         </div>
         <form method="post" class="apply-form" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -39,11 +39,9 @@
             <label for="email">E-postadress</label>
             <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
 
-            <label for="phone">Telefonnummer <span class="optional">(valfritt)</span></label>
-            <input id="phone" name="phone" type="tel" value="{{ form_data.phone }}" autocomplete="tel">
-
-            <label for="company_name">Företag</label>
-            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" required autocomplete="organization">
+            <label for="company_name">Företag <span class="optional">(krävs för handledarkonto)</span></label>
+            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" autocomplete="organization">
+            <small class="hint">Om du ansöker som handledare behöver vi företagets namn för att skapa organisationen.</small>
 
             <label for="orgnr">Organisationsnummer</label>
             <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">

@@ -303,7 +303,9 @@ def send_application_approval_email(
     else:
         account_label = "ett användarkonto"
 
-    safe_company = escape(company_name)
+    safe_company = escape((company_name or "").strip())
+    if not safe_company:
+        safe_company = "företaget"
     subject = f"Ansökan godkänd för {safe_company}"
     body = f"""
         <html>
@@ -324,7 +326,9 @@ def send_application_rejection_email(
 ) -> None:
     """Skicka besked om avslagen ansökan."""
 
-    safe_company = escape(company_name)
+    safe_company = escape((company_name or "").strip())
+    if not safe_company:
+        safe_company = "företaget"
     safe_reason = escape(reason)
     subject = f"Ansökan avslogs för {safe_company}"
     body = f"""

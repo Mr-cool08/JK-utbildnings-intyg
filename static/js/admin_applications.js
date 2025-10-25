@@ -20,7 +20,6 @@
   const detailFields = {
     name: document.getElementById('detailName'),
     email: document.getElementById('detailEmail'),
-    phone: document.getElementById('detailPhone'),
     company: document.getElementById('detailCompany'),
     orgnr: document.getElementById('detailOrgnr'),
     type: document.getElementById('detailType'),
@@ -147,7 +146,6 @@
 
     detailFields.name.textContent = item.name || '–';
     detailFields.email.textContent = item.email || '–';
-    detailFields.phone.textContent = item.phone || '–';
     detailFields.company.textContent = item.company_name || '–';
     detailFields.orgnr.textContent = item.orgnr_normalized || '–';
     detailFields.type.textContent = formatAccountType(item.account_type);
