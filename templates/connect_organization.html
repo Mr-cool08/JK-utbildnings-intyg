@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Koppla organisation{% endblock %}
+{% block content %}
+    <h1>Koppla till organisation</h1>
+    <p>Fyll i organisationsnumret för den arbetsgivare du tillhör. En handledare i organisationen behöver godkänna din förfrågan.</p>
+    <form method="post" class="form-card">
+        <label for="org_number">Organisationsnummer</label>
+        <input type="text" id="org_number" name="org_number" required placeholder="ÅÅÅÅMM-XXXX">
+        <button type="submit" class="btn">Skicka förfrågan</button>
+    </form>
+    <section aria-labelledby="requests-title">
+        <h2 id="requests-title">Dina förfrågningar</h2>
+        {% if membership_requests %}
+            {% set labels = {'pending': 'Väntar', 'approved': 'Godkänd', 'denied': 'Avslagen'} %}
+            <ul class="request-list">
+                {% for req in membership_requests %}
+                    <li>
+                        <strong>{{ req.org_number }}</strong>
+                        <span class="status status-{{ req.status }}">{{ labels.get(req.status, req.status) }}</span>
+                        {% if req.created_at %}<small>Skickad {{ req.created_at }}</small>{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Du har inte skickat några förfrågningar ännu.</p>
+        {% endif %}
+    </section>
+{% endblock %}

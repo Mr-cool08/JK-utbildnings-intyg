@@ -3,6 +3,9 @@
 {% block content %}
     <h1>Handledarpanel</h1>
     <p>Välkommen {{ supervisor_name }}. Här ser du alla användare som administratören har kopplat till dig.</p>
+    <p>
+        <a class="btn" href="{{ url_for('supervisor_membership_requests') }}">Hantera organisationsförfrågningar</a>
+    </p>
     {% if users %}
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}">

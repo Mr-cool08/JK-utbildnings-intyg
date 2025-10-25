@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Ansökningar – Admin{% endblock %}
+{% block content %}
+    <h1>Inkomna ansökningar</h1>
+    <p>Här visas konton som väntar på granskning.</p>
+    {% if requests %}
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Namn</th>
+                        <th>E-post</th>
+                        <th>Organisationsnummer</th>
+                        <th>Kontotyp</th>
+                        <th>Skapad</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                        <tr>
+                            <td>{{ req.username }}</td>
+                            <td>{{ req.email }}</td>
+                            <td>{{ req.org_number or 'Ej angivet' }}</td>
+                            <td>{{ 'Handledare' if req.account_type == 'handledare' else 'Användare' }}</td>
+                            <td>{{ req.created_at if req.created_at else '-' }}</td>
+                            <td class="actions">
+                                <form method="post" action="{{ url_for('admin_pending_account_action', account_id=req.id, action='approve') }}">
+                                    <button type="submit" class="btn">Godkänn</button>
+                                </form>
+                                <form method="post" action="{{ url_for('admin_pending_account_action', account_id=req.id, action='deny') }}">
+                                    <button type="submit" class="btn btn-secondary">Avslå</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Det finns inga väntande ansökningar just nu.</p>
+    {% endif %}
+{% endblock %}

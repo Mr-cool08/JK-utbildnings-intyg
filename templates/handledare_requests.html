@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Organisationsförfrågningar{% endblock %}
+{% block content %}
+    <h1>Organisationsförfrågningar</h1>
+    <p>Här hanterar du förfrågningar från användare som vill kopplas till organisationsnummer {{ org_number }}.</p>
+    {% if membership_requests %}
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Användare</th>
+                        <th>Status</th>
+                        <th>Skickad</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in membership_requests %}
+                        <tr>
+                            <td>{{ req.user.username if req.user else 'Okänd användare' }}</td>
+                            <td>{{ 'Väntar' if req.status == 'pending' else ('Godkänd' if req.status == 'approved' else 'Avslagen') }}</td>
+                            <td>{{ req.created_at if req.created_at else '-' }}</td>
+                            <td class="actions">
+                                {% if req.status == 'pending' %}
+                                    <form method="post" action="{{ url_for('supervisor_membership_action', request_id=req.id, action='approve') }}">
+                                        <button type="submit" class="btn">Godkänn</button>
+                                    </form>
+                                    <form method="post" action="{{ url_for('supervisor_membership_action', request_id=req.id, action='deny') }}">
+                                        <button type="submit" class="btn btn-secondary">Avslå</button>
+                                    </form>
+                                {% else %}
+                                    <span class="status status-{{ req.status }}">Ingen åtgärd</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Det finns inga förfrågningar att hantera just nu.</p>
+    {% endif %}
+{% endblock %}

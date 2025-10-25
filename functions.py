@@ -88,6 +88,8 @@ users_table = Table(
     Column("email", String, nullable=False, unique=True),
     Column("password", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
+    Column("role", String, nullable=False, server_default="user"),
+    Column("org_number", String, nullable=True),
 )
 
 user_pdfs_table = Table(
@@ -185,6 +187,45 @@ admin_audit_log_table = Table(
     ),
 )
 
+pending_accounts_table = Table(
+    "pending_accounts",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("email", String, nullable=False),
+    Column("username", String, nullable=False),
+    Column("org_number", String, nullable=True),
+    Column("account_type", String, nullable=False),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column("status", String, nullable=False, server_default="pending"),
+)
+
+membership_requests_table = Table(
+    "membership_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("user_id", Integer, nullable=False),
+    Column("org_number", String, nullable=False),
+    Column("status", String, nullable=False, server_default="pending"),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        onupdate=func.now(),
+    ),
+)
+
 TABLE_REGISTRY: dict[str, Table] = {
     table.name: table
     for table in (
@@ -196,6 +237,8 @@ TABLE_REGISTRY: dict[str, Table] = {
         supervisor_connections_table,
         password_resets_table,
         admin_audit_log_table,
+        pending_accounts_table,
+        membership_requests_table,
     )
 }
 
@@ -325,8 +368,24 @@ def create_database() -> None:
                     "ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL"
                 )
             )
+        user_columns = {col["name"] for col in inspector.get_columns("users")}
+        if "role" not in user_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user' NOT NULL"
+                )
+            )
+        if "org_number" not in user_columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN org_number TEXT")
+            )
         existing_tables = set(inspector.get_table_names())
-        for table in (password_resets_table, admin_audit_log_table):
+        for table in (
+            password_resets_table,
+            admin_audit_log_table,
+            pending_accounts_table,
+            membership_requests_table,
+        ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
     logger.info("Database initialized")
@@ -410,6 +469,17 @@ def normalize_personnummer(pnr: str) -> str:
         logger.error("Misslyckad normalisering av personnummer: ogiltigt format")
         raise ValueError("Ogiltigt personnummerformat.")
     logger.debug("Personnummer normaliserat")
+    return digits
+
+
+def normalize_org_number(org_number: str) -> str:
+    # Normalisera organisationsnummer genom att ta bort skiljetecken.
+    if org_number is None:
+        raise ValueError("Ange organisationsnummer.")
+
+    digits = re.sub(r"\D", "", org_number)
+    if len(digits) != 10:
+        raise ValueError("Ogiltigt organisationsnummer.")
     return digits
 
 
@@ -660,6 +730,54 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
             )
         ).first()
     return row.username if row else None
+
+
+def get_user_by_personnummer_hash(personnummer_hash: str) -> Optional[Dict[str, Any]]:
+    # Hämta en användare baserad på det hashade personnumret.
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(
+                users_table.c.id,
+                users_table.c.username,
+                users_table.c.email,
+                users_table.c.personnummer,
+                users_table.c.role,
+                users_table.c.org_number,
+            ).where(users_table.c.personnummer == personnummer_hash)
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def get_user_by_email_hash(email_hash: str) -> Optional[Dict[str, Any]]:
+    # Hämta en användare baserad på det hashade e-postvärdet.
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(
+                users_table.c.id,
+                users_table.c.username,
+                users_table.c.email,
+                users_table.c.personnummer,
+                users_table.c.role,
+                users_table.c.org_number,
+            ).where(users_table.c.email == email_hash)
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
+    # Hämta användaren via primärnyckeln.
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(
+                users_table.c.id,
+                users_table.c.username,
+                users_table.c.email,
+                users_table.c.personnummer,
+                users_table.c.role,
+                users_table.c.org_number,
+            ).where(users_table.c.id == user_id)
+        ).mappings().first()
+    return dict(row) if row else None
 
 
 def check_pending_supervisor_hash(email_hash: str) -> bool:
@@ -984,6 +1102,290 @@ def log_admin_action(admin: str, action: str, details: str) -> None:
             )
         )
     logger.info("Admin %s utförde %s: %s", admin_name, action, trimmed_details)
+
+
+def _generate_placeholder_personnummer_hash(conn) -> str:
+    # Generera ett unikt hashvärde att använda som platsinnehåll för personnummer.
+    for _ in range(10):
+        candidate = hash_value(f"ansok:{secrets.token_hex(16)}")
+        existing = conn.execute(
+            select(users_table.c.id).where(users_table.c.personnummer == candidate)
+        ).first()
+        if not existing:
+            return candidate
+    raise RuntimeError("Kunde inte skapa unikt platsnummer för användare.")
+
+
+def create_pending_account(
+    email: str,
+    username: str,
+    org_number: str | None,
+    account_type: str,
+) -> int:
+    # Spara en ny kontoansökan.
+    cleaned_username = (username or "").strip()
+    if not cleaned_username:
+        raise ValueError("Ange ett namn.")
+
+    normalized_email = normalize_email(email)
+    normalized_type = (account_type or "").strip().lower()
+    if normalized_type not in {"user", "handledare"}:
+        raise ValueError("Ogiltig kontotyp.")
+
+    normalized_org: str | None = None
+    if org_number:
+        normalized_org = normalize_org_number(org_number)
+    if normalized_type == "handledare" and not normalized_org:
+        raise ValueError("Handledare måste ange organisationsnummer.")
+
+    with get_engine().begin() as conn:
+        email_hash = hash_value(normalized_email)
+        existing_user = conn.execute(
+            select(users_table.c.id).where(users_table.c.email == email_hash)
+        ).first()
+        if existing_user:
+            raise ValueError("Kontot finns redan.")
+
+        existing_pending = conn.execute(
+            select(pending_accounts_table.c.id).where(
+                pending_accounts_table.c.email == normalized_email,
+                pending_accounts_table.c.status == "pending",
+            )
+        ).first()
+        if existing_pending:
+            raise ValueError("Det finns redan en väntande ansökan.")
+
+        result = conn.execute(
+            insert(pending_accounts_table).values(
+                email=normalized_email,
+                username=cleaned_username,
+                org_number=normalized_org,
+                account_type=normalized_type,
+                status="pending",
+            )
+        )
+
+    new_id = int(result.inserted_primary_key[0])
+    logger.info(
+        "Ny kontoansökan registrerad: %s (%s)",
+        mask_hash(hash_value(normalized_email)),
+        normalized_type,
+    )
+    return new_id
+
+
+def list_pending_accounts(status: str | None = "pending") -> List[Dict[str, Any]]:
+    # Lista kontoansökningar.
+    with get_engine().connect() as conn:
+        stmt = select(pending_accounts_table).order_by(
+            pending_accounts_table.c.created_at.asc()
+        )
+        if status:
+            stmt = stmt.where(pending_accounts_table.c.status == status)
+        rows = conn.execute(stmt).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def get_pending_account(account_id: int) -> Optional[Dict[str, Any]]:
+    # Hämta en enskild kontoansökan.
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(pending_accounts_table)
+            .where(pending_accounts_table.c.id == account_id)
+            .limit(1)
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def approve_pending_account(account_id: int, admin: str) -> bool:
+    # Godkänn en ansökan och skapa ett användarkonto.
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(pending_accounts_table)
+            .where(pending_accounts_table.c.id == account_id)
+            .with_for_update()
+        ).mappings().first()
+        if not row or row["status"] != "pending":
+            return False
+
+        normalized_email = normalize_email(row["email"])
+        normalized_org = row["org_number"] or None
+        if normalized_org:
+            normalized_org = normalize_org_number(normalized_org)
+        account_type = row["account_type"]
+        if account_type == "handledare" and not normalized_org:
+            raise ValueError("Handledare kräver organisationsnummer.")
+
+        email_hash = hash_value(normalized_email)
+        existing_user = conn.execute(
+            select(users_table.c.id).where(users_table.c.email == email_hash)
+        ).first()
+        if existing_user:
+            raise ValueError("Kontot finns redan.")
+
+        password_hash = hash_password(secrets.token_urlsafe(16))
+        personnummer_hash = _generate_placeholder_personnummer_hash(conn)
+
+        conn.execute(
+            insert(users_table).values(
+                username=row["username"],
+                email=email_hash,
+                password=password_hash,
+                personnummer=personnummer_hash,
+                role=account_type,
+                org_number=normalized_org,
+            )
+        )
+
+        conn.execute(
+            update(pending_accounts_table)
+            .where(pending_accounts_table.c.id == account_id)
+            .values(status="approved", org_number=normalized_org)
+        )
+
+    log_admin_action(
+        admin,
+        "godkände ansökan",
+        f"pending_account_id={account_id}",
+    )
+    return True
+
+
+def deny_pending_account(account_id: int, admin: str) -> bool:
+    # Avslå en kontoansökan.
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(pending_accounts_table)
+            .where(
+                pending_accounts_table.c.id == account_id,
+                pending_accounts_table.c.status == "pending",
+            )
+            .values(status="denied")
+        )
+    if result.rowcount:
+        log_admin_action(
+            admin,
+            "avslag på ansökan",
+            f"pending_account_id={account_id}",
+        )
+    return result.rowcount > 0
+
+
+def create_membership_request(user_id: int, org_number: str) -> int:
+    # Skapa en begäran om att kopplas till en organisation.
+    normalized_org = normalize_org_number(org_number)
+    with get_engine().begin() as conn:
+        user_row = conn.execute(
+            select(users_table.c.org_number).where(users_table.c.id == user_id)
+        ).first()
+        if not user_row:
+            raise ValueError("Användaren finns inte.")
+        if user_row.org_number == normalized_org:
+            raise ValueError("Användaren är redan kopplad till organisationen.")
+
+        existing = conn.execute(
+            select(membership_requests_table.c.id).where(
+                membership_requests_table.c.user_id == user_id,
+                membership_requests_table.c.org_number == normalized_org,
+                membership_requests_table.c.status == "pending",
+            )
+        ).first()
+        if existing:
+            raise ValueError("Det finns redan en väntande förfrågan.")
+
+        result = conn.execute(
+            insert(membership_requests_table).values(
+                user_id=user_id,
+                org_number=normalized_org,
+                status="pending",
+            )
+        )
+
+    request_id = int(result.inserted_primary_key[0])
+    logger.info(
+        "Användare %s skapade organisationsförfrågan %s",
+        user_id,
+        request_id,
+    )
+    return request_id
+
+
+def list_membership_requests_for_org(
+    org_number: str, status: str | None = "pending"
+) -> List[Dict[str, Any]]:
+    # Lista medlemsförfrågningar för ett organisationsnummer.
+    normalized_org = normalize_org_number(org_number)
+    with get_engine().connect() as conn:
+        stmt = select(membership_requests_table).where(
+            membership_requests_table.c.org_number == normalized_org
+        )
+        if status:
+            stmt = stmt.where(membership_requests_table.c.status == status)
+        rows = conn.execute(stmt.order_by(membership_requests_table.c.created_at.asc())).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def list_membership_requests_for_user(user_id: int) -> List[Dict[str, Any]]:
+    # Lista medlemsförfrågningar för en viss användare.
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(membership_requests_table)
+            .where(membership_requests_table.c.user_id == user_id)
+            .order_by(membership_requests_table.c.created_at.desc())
+        ).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def get_membership_request(request_id: int) -> Optional[Dict[str, Any]]:
+    # Hämta en specifik medlemsförfrågan.
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(membership_requests_table)
+            .where(membership_requests_table.c.id == request_id)
+            .limit(1)
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def update_membership_request_status(
+    request_id: int,
+    status: str,
+    reviewer: str,
+) -> bool:
+    # Uppdatera status för en medlemsförfrågan.
+    normalized_status = status.lower()
+    if normalized_status not in {"approved", "denied"}:
+        raise ValueError("Ogiltig status.")
+
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(membership_requests_table)
+            .where(membership_requests_table.c.id == request_id)
+            .with_for_update()
+        ).mappings().first()
+        if not row or row["status"] != "pending":
+            return False
+
+        conn.execute(
+            update(membership_requests_table)
+            .where(membership_requests_table.c.id == request_id)
+            .values(status=normalized_status, updated_at=func.now())
+        )
+
+        if normalized_status == "approved":
+            conn.execute(
+                update(users_table)
+                .where(users_table.c.id == row["user_id"])
+                .values(org_number=row["org_number"])
+            )
+
+    logger.info(
+        "Medlemsförfrågan %s uppdaterades till %s av %s",
+        request_id,
+        normalized_status,
+        reviewer or "okänd",
+    )
+    return True
 
 
 def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:

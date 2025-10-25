@@ -6,7 +6,7 @@ from functools import partial
 import logging
 import os
 import time
-from typing import Sequence
+from typing import Any, Sequence
 
 from flask import (
     Flask,
@@ -390,6 +390,85 @@ def supervisor_dashboard():
     )
 
 
+@app.route('/handledare/requests', methods=['GET'])
+def supervisor_membership_requests():
+    email_hash, supervisor_name = _require_supervisor()
+    supervisor_user = functions.get_user_by_email_hash(email_hash)
+    if not supervisor_user or supervisor_user.get('role') != 'handledare':
+        flash('Du har inte behörighet att hantera organisationsförfrågningar.', 'error')
+        return redirect(url_for('supervisor_dashboard'))
+
+    org_number = supervisor_user.get('org_number')
+    if not org_number:
+        flash('Inget organisationsnummer är kopplat till ditt konto.', 'warning')
+        return redirect(url_for('supervisor_dashboard'))
+
+    requests = functions.list_membership_requests_for_org(org_number)
+    enriched_requests: list[dict[str, Any]] = []
+    for entry in requests:
+        user = functions.get_user_by_id(entry['user_id'])
+        enriched_requests.append(
+            {
+                'id': entry['id'],
+                'org_number': entry['org_number'],
+                'status': entry['status'],
+                'created_at': entry['created_at'],
+                'user': user,
+            }
+        )
+
+    return render_template(
+        'handledare_requests.html',
+        supervisor_name=supervisor_name,
+        org_number=org_number,
+        membership_requests=enriched_requests,
+    )
+
+
+@app.post('/handledare/requests/<int:request_id>/<action>')
+def supervisor_membership_action(request_id: int, action: str):
+    email_hash, supervisor_name = _require_supervisor()
+    supervisor_user = functions.get_user_by_email_hash(email_hash)
+    if not supervisor_user or supervisor_user.get('role') != 'handledare':
+        flash('Du har inte behörighet att hantera organisationsförfrågningar.', 'error')
+        return redirect(url_for('supervisor_dashboard'))
+
+    org_number = supervisor_user.get('org_number')
+    if not org_number:
+        flash('Inget organisationsnummer är kopplat till ditt konto.', 'warning')
+        return redirect(url_for('supervisor_dashboard'))
+
+    request_row = functions.get_membership_request(request_id)
+    if not request_row or request_row.get('org_number') != org_number:
+        abort(404)
+
+    action_lower = action.lower()
+    status_map = {
+        'approve': 'approved',
+        'deny': 'denied',
+    }
+    mapped_status = status_map.get(action_lower)
+    if not mapped_status:
+        abort(404)
+
+    try:
+        if functions.update_membership_request_status(
+            request_id,
+            mapped_status,
+            supervisor_name,
+        ):
+            if mapped_status == 'approved':
+                flash('Förfrågan har godkänts.', 'success')
+            else:
+                flash('Förfrågan har avslagits.', 'info')
+        else:
+            flash('Förfrågan kunde inte behandlas.', 'warning')
+    except ValueError as exc:
+        flash(str(exc), 'error')
+
+    return redirect(url_for('supervisor_membership_requests'))
+
+
 @app.route('/handledare/anvandare/<person_hash>/pdf/<int:pdf_id>')
 def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
@@ -533,11 +612,40 @@ def home():
     return render_template('index.html')
 
 
-@app.route('/ansok', methods=['GET'])
+@app.route('/ansok', methods=['GET', 'POST'])
 def apply_account():
-    """Visa sidan för kontoförfrågningar."""
+    """Hantera ansökan om nya konton."""
+    if request.method == 'POST':
+        form = request.form
+        email = (form.get('email') or '').strip()
+        username = (form.get('username') or '').strip()
+        account_type = (form.get('account_type') or '').strip()
+        org_number = (form.get('org_number') or '').strip()
+        try:
+            functions.create_pending_account(
+                email=email,
+                username=username,
+                org_number=org_number or None,
+                account_type=account_type,
+            )
+        except ValueError as exc:
+            logger.warning("Misslyckad kontoansökan: %s", exc)
+            flash(str(exc), 'error')
+            return render_template(
+                'apply.html',
+                form_data={
+                    'email': email,
+                    'username': username,
+                    'account_type': account_type,
+                    'org_number': org_number,
+                },
+            )
+
+        flash('Tack! Din ansökan har skickats in för granskning.', 'success')
+        return redirect(url_for('apply_account'))
+
     logger.debug("Rendering apply account page")
-    return render_template('apply.html')
+    return render_template('apply.html', form_data={})
 
 
 
@@ -659,6 +767,37 @@ def dashboard():
         category_summary=category_summary,
         grouped_pdfs=visible_groups,
         user_name=user_name,
+    )
+
+
+@app.route('/me/connect-organization', methods=['GET', 'POST'])
+def connect_organization():
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+
+    pnr_hash = session.get('personnummer')
+    if not pnr_hash:
+        abort(403)
+
+    user_row = functions.get_user_by_personnummer_hash(pnr_hash)
+    if not user_row:
+        abort(404)
+
+    if request.method == 'POST':
+        org_number = (request.form.get('org_number') or '').strip()
+        try:
+            functions.create_membership_request(user_row['id'], org_number)
+        except ValueError as exc:
+            flash(str(exc), 'error')
+        else:
+            flash('Din förfrågan har skickats till företagets handledare.', 'success')
+            return redirect(url_for('connect_organization'))
+
+    membership_requests = functions.list_membership_requests_for_user(user_row['id'])
+    return render_template(
+        'connect_organization.html',
+        user=user_row,
+        membership_requests=membership_requests,
     )
 
 
@@ -932,6 +1071,40 @@ def admin():
         'admin.html',
         categories=COURSE_CATEGORIES,
     )
+
+
+@app.route('/admin/requests', methods=['GET'])
+def admin_pending_accounts():
+    admin_name = _require_admin()
+    pending_accounts = functions.list_pending_accounts()
+    return render_template(
+        'admin_requests.html',
+        admin_name=admin_name,
+        requests=pending_accounts,
+    )
+
+
+@app.post('/admin/requests/<int:account_id>/<action>')
+def admin_pending_account_action(account_id: int, action: str):
+    admin_name = _require_admin()
+    action_lower = action.lower()
+    try:
+        if action_lower == 'approve':
+            if functions.approve_pending_account(account_id, admin_name):
+                flash('Ansökan har godkänts.', 'success')
+            else:
+                flash('Ansökan kunde inte behandlas.', 'warning')
+        elif action_lower == 'deny':
+            if functions.deny_pending_account(account_id, admin_name):
+                flash('Ansökan har avslagits.', 'info')
+            else:
+                flash('Ansökan kunde inte behandlas.', 'warning')
+        else:
+            abort(404)
+    except ValueError as exc:
+        logger.warning("Misslyckades hantera ansökan %s: %s", account_id, exc)
+        flash(str(exc), 'error')
+    return redirect(url_for('admin_pending_accounts'))
 
 
 @app.post('/admin/api/oversikt')

@@ -1,35 +1,60 @@
 {% extends 'base.html' %}
-{% block title %}Ansök om konto – Utbildnings Intyg{% endblock %}
+{% block title %}Ansök om konto – Utbildningsintyg{% endblock %}
 {% block head %}
-    <meta name="description" content="Ansök om konto för att hantera utbildningsintyg digitalt.">
+    <meta name="description" content="Ansök om konto för att få tillgång till Utbildningsintyg.">
 {% endblock %}
 {% block content %}
+{% set data = form_data or {} %}
 <section class="apply-hero" aria-labelledby="apply-title">
     <h1 id="apply-title">Ansök om konto</h1>
-    <p>Skicka in en kontoansökan så hjälper vi dig och ditt team att få tillgång till hela portalen.</p>
-    <a class="apply-button" href="mailto:support@jarnvagskonsulterna.se?subject=Ans%C3%B6kan%20om%20konto">Ansök om konto</a>
+    <p>Fyll i formuläret så kontaktar vi dig när ansökan har granskats.</p>
 </section>
 
-<section class="apply-info" aria-labelledby="pricing-title">
-    <h2 id="pricing-title">Vad kostar det?</h2>
-    <p class="apply-price">Användarkonto är gratis.</p>
-    <p class="apply-price">Arbetsgivarkonto med tillgång till företagsportalen kostar 20 kronor per kopplad användare.</p>
+<section class="form-section" aria-labelledby="apply-form-title">
+    <h2 id="apply-form-title">Uppgifter</h2>
+    <form method="post" class="form-card">
+        <div class="form-group">
+            <label for="username">Namn</label>
+            <input type="text" id="username" name="username" required value="{{ data.get('username', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="email">E-postadress</label>
+            <input type="email" id="email" name="email" required value="{{ data.get('email', '') }}">
+        </div>
+        <fieldset class="form-group">
+            <legend>Vilket konto vill du ansöka om?</legend>
+            <label>
+                <input type="radio" name="account_type" value="user" {% if data.get('account_type', 'user') == 'user' %}checked{% endif %}>
+                Användare – ser sina egna intyg
+            </label>
+            <label>
+                <input type="radio" name="account_type" value="handledare" {% if data.get('account_type') == 'handledare' %}checked{% endif %}>
+                Handledare – hanterar organisationens intyg
+            </label>
+        </fieldset>
+        <div class="form-group">
+            <label for="org_number">Organisationsnummer</label>
+            <input type="text" id="org_number" name="org_number" placeholder="ÅÅÅÅMM-XXXX" value="{{ data.get('org_number', '') }}">
+            <p class="form-help">Obligatoriskt för handledare, valfritt för användare.</p>
+        </div>
+        <button type="submit" class="btn">Skicka ansökan</button>
+    </form>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title">
-    <h2 id="steps-title">Så går ansökan till</h2>
+    <h2 id="steps-title">Så går granskningen till</h2>
     <ol class="apply-step-list">
         <li>
-            <h3>Skicka in uppgifter</h3>
-            <p>Ange företag, kontaktperson och vilka roller som ska ha tillgång.</p>
+            <h3>Skicka in ansökan</h3>
+            <p>Du lämnar kontaktuppgifter och väljer kontotyp.</p>
         </li>
         <li>
             <h3>Verifiering</h3>
-            <p>Vi kontaktar dig för att bekräfta behörigheter och teckna avtal.</p>
+            <p>Administrationen kontrollerar uppgifterna och tar kontakt vid behov.</p>
         </li>
         <li>
-            <h3>Kom igång</h3>
-            <p>Kontot aktiveras och du får en snabb genomgång av portalen.</p>
+            <h3>Aktivering</h3>
+            <p>När ansökan godkänns får du instruktioner för att logga in.</p>
         </li>
     </ol>
 </section>
