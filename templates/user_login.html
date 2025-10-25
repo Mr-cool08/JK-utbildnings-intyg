@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-{% block title %}Användarinloggning{% endblock %}
+{% block title %}Standardkontoinloggning{% endblock %}
 {% block content %}
-    <h1>Användarinloggning</h1>
+    <h1>Standardkontoinloggning</h1>
     {% if error %}<p class="message error">{{ error }}</p>{% endif %}
     <form action="/login" method="POST" class="form-card">
         <label for="personnummer">Personnummer:</label>

@@ -58,8 +58,8 @@ def _supervisor_client(email_hash, name):
 
 
 def test_supervisor_activation_flow(empty_db):
-    email = "handledare@example.com"
-    name = "Handledare"
+    email = "foretagskonto@example.com"
+    name = "Företagskonto"
     assert functions.admin_create_supervisor(email, name)
     email_hash = functions.get_supervisor_email_hash(email)
     assert functions.check_pending_supervisor_hash(email_hash)
@@ -74,7 +74,7 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     client = _supervisor_client(
         supervisor_setup["email_hash"], supervisor_setup["name"]
     )
-    response = client.get("/handledare")
+    response = client.get("/foretagskonto")
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert supervisor_setup["user_name"] in body
@@ -98,7 +98,7 @@ def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     pdfs = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])
     pdf_id = pdfs[0]["id"]
     response = client.post(
-        f"/handledare/dela/{supervisor_setup['personnummer_hash']}/{pdf_id}",
+        f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}/{pdf_id}",
         data={"recipient_email": "mottagare@example.com", "anchor": "user-anchor"},
     )
     assert response.status_code == 302
@@ -113,7 +113,7 @@ def test_supervisor_remove_connection(supervisor_setup):
         supervisor_setup["email_hash"], supervisor_setup["name"]
     )
     response = client.post(
-        f"/handledare/kopplingar/{supervisor_setup['personnummer_hash']}/ta-bort",
+        f"/foretagskonto/kopplingar/{supervisor_setup['personnummer_hash']}/ta-bort",
         data={"anchor": "user-anchor"},
     )
     assert response.status_code == 302
@@ -133,7 +133,7 @@ def test_admin_create_supervisor_api(empty_db, monkeypatch):
 
     client = _admin_client()
     response = client.post(
-        "/admin/api/handledare/skapa",
+        "/admin/api/foretagskonto/skapa",
         json={"name": "Chef", "email": "chef@example.com"},
     )
     assert response.status_code == 200
@@ -149,7 +149,7 @@ def test_admin_link_supervisor_api(supervisor_setup):
     )
     client = _admin_client()
     response = client.post(
-        "/admin/api/handledare/koppla",
+        "/admin/api/foretagskonto/koppla",
         json={
             "email": supervisor_setup["email"],
             "personnummer": supervisor_setup["personnummer"],
@@ -166,7 +166,7 @@ def test_admin_link_supervisor_api(supervisor_setup):
 def test_admin_supervisor_overview_api(supervisor_setup):
     client = _admin_client()
     response = client.post(
-        "/admin/api/handledare/oversikt",
+        "/admin/api/foretagskonto/oversikt",
         json={"email": supervisor_setup["email"]},
     )
     assert response.status_code == 200

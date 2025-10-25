@@ -135,19 +135,19 @@
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.status === 'success') {
-        const msg = data.link ? `Användare skapad. Länk: <a href="${data.link}">${data.link}</a>` : 'Användare skapad.';
+        const msg = data.link ? `Standardkonto skapat. Länk: <a href="${data.link}">${data.link}</a>` : 'Standardkonto skapat.';
         showMessage('success', msg, !!data.link);
         form.reset();
         renderCategorySelectors([]);
       } else {
-        const msg = data?.message || `Kunde inte skapa användare (HTTP ${res.status}).`;
+        const msg = data?.message || `Kunde inte skapa standardkonto (HTTP ${res.status}).`;
         showMessage('error', msg);
       }
     } catch {
       showMessage('error', 'Nätverks- eller serverfel. Försök igen.');
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Skapa användare';
+      submitBtn.textContent = 'Skapa standardkonto';
       stopProgress();
     }
   });

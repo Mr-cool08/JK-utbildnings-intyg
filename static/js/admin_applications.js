@@ -59,8 +59,8 @@
   }
 
   function formatAccountType(value) {
-    if (value === 'handledare') return 'Handledarkonto';
-    return 'Användarkonto';
+    if (value === 'foretagskonto') return 'Företagskonto';
+    return 'Standardkonto';
   }
 
   function formatStatus(value) {
@@ -156,7 +156,7 @@
     detailFields.email.textContent = item.email || '–';
     detailFields.company.textContent = item.company_name || '–';
     detailFields.orgnr.textContent = item.orgnr_normalized || '–';
-    if (item.account_type === 'handledare') {
+    if (item.account_type === 'foretagskonto') {
       if (invoiceWrappers.address && detailFields.invoiceAddress) {
         const hasAddress = Boolean(item.invoice_address);
         invoiceWrappers.address.hidden = !hasAddress;

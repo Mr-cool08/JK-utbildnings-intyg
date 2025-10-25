@@ -19,19 +19,19 @@
 
   function toggleInvoiceFields() {
     const selected = form.querySelector('input[name="account_type"]:checked');
-    const isHandledare = selected && selected.value === 'handledare';
+    const isForetagskonto = selected && selected.value === 'foretagskonto';
 
     if (invoiceSection) {
-      invoiceSection.hidden = !isHandledare;
+      invoiceSection.hidden = !isForetagskonto;
     }
     if (invoiceAddress) {
-      invoiceAddress.required = Boolean(isHandledare);
+      invoiceAddress.required = Boolean(isForetagskonto);
     }
     if (invoiceContact) {
-      invoiceContact.required = Boolean(isHandledare);
+      invoiceContact.required = Boolean(isForetagskonto);
     }
     if (invoiceReference) {
-      invoiceReference.required = Boolean(isHandledare);
+      invoiceReference.required = Boolean(isForetagskonto);
     }
   }
 

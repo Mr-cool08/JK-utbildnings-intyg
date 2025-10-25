@@ -2,7 +2,7 @@
 {% block title %}Admin — Fakturering{% endblock %}
 {% block content %}
 <h1>Admin — Fakturering</h1>
-<p>Den här sidan visar vilka företag som har aktiva handledarkonton och som ska faktureras.</p>
+<p>Den här sidan visar vilka företag som har aktiva företagskonton och som ska faktureras.</p>
 
 <section class="panel">
     <h2>Faktureringslista</h2>
@@ -16,8 +16,8 @@
                     <th>Fakturaadress</th>
                     <th>Kontaktperson</th>
                     <th>Märkning</th>
-                    <th>Handledare</th>
-                    <th>Användare</th>
+                    <th>Företagskonton</th>
+                    <th>Standardkonton</th>
                 </tr>
             </thead>
             <tbody>
@@ -28,7 +28,7 @@
                     <td>{% if company.invoice_address %}<pre class="invoice-text">{{ company.invoice_address }}</pre>{% else %}–{% endif %}</td>
                     <td>{{ company.invoice_contact or '–' }}</td>
                     <td>{{ company.invoice_reference or '–' }}</td>
-                    <td>{{ company.handledare_count }}</td>
+                    <td>{{ company.foretagskonto_count }}</td>
                     <td>{{ company.user_count }}</td>
                 </tr>
                 {% endfor %}

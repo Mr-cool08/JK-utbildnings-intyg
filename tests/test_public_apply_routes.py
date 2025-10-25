@@ -12,8 +12,8 @@ def test_apply_landing_has_links(empty_db):
         response = client.get('/ansok')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
-        assert '/ansok/anvandare' in body
-        assert '/ansok/handledare' in body
+        assert '/ansok/standardkonto' in body
+        assert '/ansok/foretagskonto' in body
 
 
 def test_user_application_submission(empty_db):
@@ -21,7 +21,7 @@ def test_user_application_submission(empty_db):
         with client.session_transaction() as session:
             session['csrf_token'] = 'test-token'
         response = client.post(
-            '/ansok/anvandare',
+            '/ansok/standardkonto',
             data={
                 'csrf_token': 'test-token',
                 'name': 'Anna Användare',
@@ -38,23 +38,23 @@ def test_user_application_submission(empty_db):
         stored = conn.execute(functions.application_requests_table.select()).fetchall()
         assert len(stored) == 1
         row = stored[0]
-        assert row.account_type == 'user'
+        assert row.account_type == 'standard'
         assert row.invoice_address is None
 
 
-def test_handledare_application_submission(empty_db):
+def test_foretagskonto_application_submission(empty_db):
     with _client() as client:
         with client.session_transaction() as session:
             session['csrf_token'] = 'test-token'
         response = client.post(
-            '/ansok/handledare',
+            '/ansok/foretagskonto',
             data={
                 'csrf_token': 'test-token',
-                'name': 'Helena Handledare',
+                'name': 'Helena Företagskonto',
                 'email': 'helena@example.com',
                 'company_name': 'Handledarbolaget AB',
                 'invoice_address': 'Fakturagatan 1',
-                'invoice_contact': 'Helena Handledare',
+                'invoice_contact': 'Helena Företagskonto',
                 'invoice_reference': 'Märkning 123',
                 'orgnr': '5560160680',
                 'comment': 'Vi vill administrera våra kursdeltagare.',
@@ -69,7 +69,7 @@ def test_handledare_application_submission(empty_db):
         stored = conn.execute(functions.application_requests_table.select()).fetchall()
         assert len(stored) == 1
         row = stored[0]
-        assert row.account_type == 'handledare'
+        assert row.account_type == 'foretagskonto'
         assert row.invoice_address == 'Fakturagatan 1'
-        assert row.invoice_contact == 'Helena Handledare'
+        assert row.invoice_contact == 'Helena Företagskonto'
         assert row.invoice_reference == 'Märkning 123'

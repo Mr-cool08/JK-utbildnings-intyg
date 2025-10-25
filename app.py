@@ -199,9 +199,9 @@ def create_app() -> Flask:
         "user_name": os.getenv("DEMO_USER_NAME", "Demoanvändare"),
         "user_personnummer": os.getenv("DEMO_USER_PERSONNUMMER", "199001011234"),
         "user_password": os.getenv("DEMO_USER_PASSWORD", "DemoLösenord1!"),
-        "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.handledare@example.com"),
-        "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demohandledare"),
-        "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoHandledare1!"),
+        "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.foretagskonto@example.com"),
+        "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demoföretagskonto"),
+        "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoForetagskonto1!"),
     }
 
     app.config["IS_DEMO"] = _as_bool(os.getenv("ENABLE_DEMO_MODE"))
@@ -262,7 +262,7 @@ def _require_supervisor() -> tuple[str, str]:
     )
     if supervisor_name:
         session["supervisor_name"] = supervisor_name
-    return email_hash, supervisor_name or "Handledare"
+    return email_hash, supervisor_name or "Företagskonto"
 
 @app.context_processor
 def inject_flags():
@@ -341,10 +341,10 @@ def create_user(pnr_hash):
             return render_template('create_user.html')
         else:
             logger.warning("User hash %s not found during create_user", pnr_hash)
-            return "Fel: Användaren hittades inte"
+            return "Fel: Standardkontot hittades inte"
 
 
-@app.route('/handledare/skapa/<email_hash>', methods=['GET', 'POST'])
+@app.route('/foretagskonto/skapa/<email_hash>', methods=['GET', 'POST'])
 def supervisor_create(email_hash: str):
     logger.info("Handling supervisor creation for hash %s", email_hash)
     if request.method == 'POST':
@@ -378,7 +378,7 @@ def supervisor_create(email_hash: str):
     return render_template('create_supervisor.html', invalid=True)
 
 
-@app.route('/handledare/login', methods=['GET', 'POST'])
+@app.route('/foretagskonto/login', methods=['GET', 'POST'])
 def supervisor_login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
@@ -391,7 +391,7 @@ def supervisor_login():
         try:
             normalized_email = functions.normalize_email(email)
         except ValueError:
-            logger.warning("Ogiltig e-postadress vid handledarinloggning")
+            logger.warning("Ogiltig e-postadress vid företagskontoinloggning")
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
@@ -400,7 +400,7 @@ def supervisor_login():
         try:
             valid = functions.verify_supervisor_credentials(normalized_email, password)
         except ValueError:
-            logger.warning("Ogiltig e-postadress vid handledarinloggning (validering)")
+            logger.warning("Ogiltig e-postadress vid företagskontoinloggning (validering)")
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
@@ -423,16 +423,16 @@ def supervisor_login():
     return render_template('supervisor_login.html')
 
 
-@app.route('/handledare', methods=['GET'])
+@app.route('/foretagskonto', methods=['GET'])
 def supervisor_dashboard():
     if not session.get('supervisor_logged_in'):
-            return redirect(url_for('supervisor_login'))
+        return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
     connections = functions.list_supervisor_connections(email_hash)
     users = []
     for entry in connections:
         person_hash = entry['personnummer_hash']
-        username = (entry.get('username') or 'Användare').strip()
+        username = (entry.get('username') or 'Standardkonto').strip()
         pdfs = functions.get_user_pdfs(person_hash)
         for pdf in pdfs:
             pdf['category_labels'] = labels_for_slugs(pdf.get('categories') or [])
@@ -451,7 +451,7 @@ def supervisor_dashboard():
     )
 
 
-@app.route('/handledare/anvandare/<person_hash>/pdf/<int:pdf_id>')
+@app.route('/foretagskonto/standardkonto/<person_hash>/pdf/<int:pdf_id>')
 def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
     if not functions.supervisor_has_access(email_hash, person_hash):
@@ -480,7 +480,7 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     return response
 
 
-@app.post('/handledare/dela/<person_hash>/<int:pdf_id>')
+@app.post('/foretagskonto/dela/<person_hash>/<int:pdf_id>')
 def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
     email_hash, supervisor_name = _require_supervisor()
     anchor = request.form.get('anchor', '')
@@ -514,7 +514,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
         flash('Intyget kunde inte hittas.', 'error')
         return redirect(redirect_target)
 
-    owner_name = functions.get_username_by_personnummer_hash(person_hash) or 'Användaren'
+    owner_name = functions.get_username_by_personnummer_hash(person_hash) or 'Standardkontot'
     attachments = [(pdf[0], pdf[1])]
 
     try:
@@ -545,7 +545,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
     return redirect(redirect_target)
 
 
-@app.post('/handledare/kopplingar/<person_hash>/ta-bort')
+@app.post('/foretagskonto/kopplingar/<person_hash>/ta-bort')
 def supervisor_remove_connection_route(person_hash: str):
     email_hash, _ = _require_supervisor()
     anchor = request.form.get('anchor', '')
@@ -604,7 +604,7 @@ def apply_account():
 def _render_application_form(account_type: str):
     """Hjälpfunktion för att visa och hantera ansökningsformulär."""
 
-    if account_type not in {"user", "handledare"}:
+    if account_type not in {"standard", "foretagskonto"}:
         abort(404)
 
     form_errors: list[str] = []
@@ -617,7 +617,7 @@ def _render_application_form(account_type: str):
         "comment": "",
     }
 
-    if account_type == "handledare":
+    if account_type == "foretagskonto":
         base_form_data.update(
             {
                 "company_name": "",
@@ -666,12 +666,12 @@ def _render_application_form(account_type: str):
                     form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
                 else:
                     flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
-                    target = 'apply_handledare' if account_type == 'handledare' else 'apply_user'
+                    target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
                     return redirect(url_for(target))
 
     csrf_token = _ensure_csrf_token()
 
-    template_name = 'apply_handledare.html' if account_type == 'handledare' else 'apply_user.html'
+    template_name = 'apply_foretagskonto.html' if account_type == 'foretagskonto' else 'apply_standardkonto.html'
 
     return (
         render_template(
@@ -684,18 +684,18 @@ def _render_application_form(account_type: str):
     )
 
 
-@app.route('/ansok/anvandare', methods=['GET', 'POST'])
-def apply_user():
-    """Visa och hantera ansökan för användarkonto."""
+@app.route('/ansok/standardkonto', methods=['GET', 'POST'])
+def apply_standardkonto():
+    """Visa och hantera ansökan för standardkonto."""
 
-    return _render_application_form("user")
+    return _render_application_form("standard")
 
 
-@app.route('/ansok/handledare', methods=['GET', 'POST'])
-def apply_handledare():
-    """Visa och hantera ansökan för handledarkonto."""
+@app.route('/ansok/foretagskonto', methods=['GET', 'POST'])
+def apply_foretagskonto():
+    """Visa och hantera ansökan för företagskonto."""
 
-    return _render_application_form("handledare")
+    return _render_application_form("foretagskonto")
 
 
 
@@ -916,7 +916,7 @@ def share_pdf() -> tuple[Response, int]:
         if sender_name:
             session['username'] = sender_name
 
-    sender_display = (sender_name or '').strip() or 'En användare'
+    sender_display = (sender_name or '').strip() or 'Ett standardkonto'
 
     try:
         normalized_recipient = email_service.normalize_valid_email(recipient_email)
@@ -1044,7 +1044,7 @@ def admin():
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
-                return jsonify({'status': 'success', 'message': 'PDF:er uppladdade för befintlig användare'})
+                return jsonify({'status': 'success', 'message': 'PDF:er uppladdade för befintligt standardkonto'})
 
             if pending_exists:
                 logger.info(
@@ -1052,7 +1052,7 @@ def admin():
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
-                return jsonify({'status': 'success', 'message': 'Användaren väntar redan på aktivering. PDF:er uppladdade.'})
+                return jsonify({'status': 'success', 'message': 'Standardkontot väntar redan på aktivering. PDF:er uppladdade.'})
 
             # --- Create new pending user ---
             if functions.admin_create_user(email, username, personnummer):
@@ -1068,10 +1068,10 @@ def admin():
                     return jsonify({'status': 'error', 'message': 'Det gick inte att skicka inloggningslänken via e-post.'}), 500
 
                 logger.info("Admin created user %s", mask_hash(pnr_hash))
-                return jsonify({'status': 'success', 'message': 'Användare skapad', 'link': link})
+                return jsonify({'status': 'success', 'message': 'Standardkonto skapat', 'link': link})
 
             logger.error("Failed to create pending user for %s", mask_hash(pnr_hash))
-            return jsonify({'status': 'error', 'message': 'Kunde inte skapa användare'}), 500
+            return jsonify({'status': 'error', 'message': 'Kunde inte skapa standardkonto'}), 500
 
         except ValueError as ve:
             logger.error("Value error during admin upload: %s", ve)
@@ -1408,7 +1408,7 @@ def admin_send_password_reset():
     return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat.', 'link': link})
 
 
-@app.post('/admin/api/handledare/skapa')
+@app.post('/admin/api/foretagskonto/skapa')
 def admin_create_supervisor_route():
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
@@ -1426,7 +1426,7 @@ def admin_create_supervisor_route():
 
     if not functions.admin_create_supervisor(normalized_email, name):
         return (
-            jsonify({'status': 'error', 'message': 'Handledaren finns redan eller väntar på aktivering.'}),
+            jsonify({'status': 'error', 'message': 'Företagskontot finns redan eller väntar på aktivering.'}),
             409,
         )
 
@@ -1444,14 +1444,14 @@ def admin_create_supervisor_route():
 
     functions.log_admin_action(
         admin_name,
-        'skapade handledare',
+        'skapade företagskonto',
         f'email_hash={email_hash}',
     )
     logging.info("Admin created supervisor %s", mask_hash(email_hash), extra={'admin': admin_name})
-    return jsonify({'status': 'success', 'message': 'Handledare skapad.', 'link': link})
+    return jsonify({'status': 'success', 'message': 'Företagskonto skapat.', 'link': link})
 
 
-@app.post('/admin/api/handledare/koppla')
+@app.post('/admin/api/foretagskonto/koppla')
 def admin_link_supervisor_route():
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
@@ -1459,7 +1459,7 @@ def admin_link_supervisor_route():
     personnummer = (payload.get('personnummer') or '').strip()
     if not email or not personnummer:
         logging.debug("Admin link_supervisor without email or personnummer", extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ange handledarens e-post och personnummer.'}), 400
+        return jsonify({'status': 'error', 'message': 'Ange företagskontots e-post och personnummer.'}), 400
 
     try:
         success, reason = functions.admin_link_supervisor_to_user(email, personnummer)
@@ -1472,10 +1472,10 @@ def admin_link_supervisor_route():
         message = 'Åtgärden kunde inte utföras.'
         if reason == 'missing_supervisor':
             status_code = 404
-            message = 'Handledaren finns inte.'
+            message = 'Företagskontot finns inte.'
         elif reason == 'missing_user':
             status_code = 404
-            message = 'Användaren finns inte.'
+            message = 'Standardkontot finns inte.'
         elif reason == 'exists':
             status_code = 409
             message = 'Kopplingen finns redan.'
@@ -1488,21 +1488,21 @@ def admin_link_supervisor_route():
     personnummer_hash = functions.hash_value(normalized_personnummer)
     functions.log_admin_action(
         admin_name,
-        'kopplade handledare',
+        'kopplade företagskonto',
         f'email_hash={email_hash}, personnummer_hash={personnummer_hash}',
     )
     logging.info("Admin linked supervisor %s to user %s", mask_hash(email_hash), mask_hash(personnummer_hash), extra={'admin': admin_name})
-    return jsonify({'status': 'success', 'message': 'Handledaren har kopplats till användaren.'})
+    return jsonify({'status': 'success', 'message': 'Företagskontot har kopplats till standardkontot.'})
 
 
-@app.post('/admin/api/handledare/oversikt')
+@app.post('/admin/api/foretagskonto/oversikt')
 def admin_supervisor_overview():
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
     email = (payload.get('email') or '').strip()
     if not email:
         logging.debug("Admin supervisor_overview without email", extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ange handledarens e-post.'}), 400
+        return jsonify({'status': 'error', 'message': 'Ange företagskontots e-post.'}), 400
 
     try:
         email_hash = functions.get_supervisor_email_hash(email)
@@ -1513,12 +1513,12 @@ def admin_supervisor_overview():
     overview = functions.get_supervisor_overview(email_hash)
     if not overview:
         logging.debug("Admin supervisor_overview not found for email: %s", email, extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Handledaren hittades inte.'}), 404
+        return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
 
     normalized_email = functions.normalize_email(email)
     functions.log_admin_action(
         admin_name,
-        'visade handledaröversikt',
+        'visade företagskontoöversikt',
         f'email_hash={functions.hash_value(normalized_email)}',
     )
     logging.debug("Admin supervisor_overview for %s with %d users", mask_hash(functions.hash_value(normalized_email)), len(overview.get('users', [])), extra={'admin': admin_name})
@@ -1635,7 +1635,7 @@ def verify_certificate_route(personnummer):
         return jsonify({'status': 'success', 'verified': True})
     return jsonify({
         'status': 'error',
-        'message': "Användarens certifikat är inte verifierat",
+        'message': "Standardkontots certifikat är inte verifierat",
     }), 404
     logger.info("Certificate for %s is NOT verified", mask_hash(functions.hash_value(personnummer)))
 
