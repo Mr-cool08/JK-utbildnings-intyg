@@ -18,10 +18,10 @@
     <div class="demo-credentials">
         <h2>Förinställda konton</h2>
         <ul>
-            <li><strong>Handledare:</strong> {{ DEMO_CREDENTIALS.supervisor_email }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
-            <li><strong>Användare:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
+            <li><strong>Företagskonto:</strong> {{ DEMO_CREDENTIALS.supervisor_email }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
+            <li><strong>Standardkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
         </ul>
-        <p class="demo-hint">Använd uppgifterna ovan för att logga in som handledare eller kursdeltagare.</p>
+        <p class="demo-hint">Använd uppgifterna ovan för att logga in som företagskonto eller kursdeltagare.</p>
     </div>
 </section>
 {% endif %}
@@ -42,7 +42,7 @@
             {% if not IS_DEMO and DEMO_SITE_URL %}
                 <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
             {% else %}
-                <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
+                <a class="btn hero-btn btn-ghost" href="/foretagskonto/login">Prova demo</a>
             {% endif %}
         </div>
     </section>
@@ -91,8 +91,8 @@
             <article class="feature-card">
                 <h3>Ansök om ett konto</h3>
                 <ul class="feature-list">
-                    <li>Arbetsgivarkonto med företagsportal</li>
-                    <li>Användarkonto för kursdeltagare</li>
+                    <li>Företagskonto med företagsportal</li>
+                    <li>Standardkonto för kursdeltagare</li>
                     <li>Snabb onboarding av hela teamet</li>
                 </ul>
                 <a class="feature-link" href="{{ url_for('apply_account') }}">Ansök direkt via portalen</a>

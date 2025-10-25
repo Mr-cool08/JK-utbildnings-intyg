@@ -1417,7 +1417,7 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
                 "Kunde inte skapa återställningstoken för %s: uppgifter matchar inte",
                 mask_hash(personnummer_hash),
             )
-            raise ValueError("Angivna uppgifter matchar ingen aktiv användare.")
+            raise ValueError("Angivna uppgifter matchar inget aktivt standardkonto.")
 
         token = secrets.token_urlsafe(32)
         token_hash = _hash_token(token)
@@ -1643,7 +1643,7 @@ def ensure_demo_data(
     supervisor_name: str,
     supervisor_password: str,
 ) -> None:
-    """Skapa eller uppdatera demodata för handledare och användare."""
+    """Skapa eller uppdatera demodata för företagskonto och standardkonto."""
 
     try:
         normalized_pnr = normalize_personnummer(user_personnummer)
@@ -1660,7 +1660,7 @@ def ensure_demo_data(
     try:
         normalized_supervisor_email = normalize_email(supervisor_email)
     except ValueError:
-        logger.error("Ogiltig e-postadress för demohandledare: %s", supervisor_email)
+        logger.error("Ogiltig e-postadress för demoföretagskonto: %s", supervisor_email)
         return
 
     pnr_hash = _hash_personnummer(normalized_pnr)
@@ -1732,7 +1732,7 @@ def ensure_demo_data(
                     password=hash_password(supervisor_password),
                 )
             )
-            logger.info("Demodata: uppdaterade demohandledare")
+            logger.info("Demodata: uppdaterade demoföretagskonto")
         else:
             conn.execute(
                 delete(pending_supervisors_table).where(
@@ -1746,25 +1746,25 @@ def ensure_demo_data(
                 )
             )
             supervisor_created = True
-            logger.info("Demodata: skapade pending-demohandledare")
+            logger.info("Demodata: skapade pending-demoföretagskonto")
 
     if supervisor_created:
         try:
             if supervisor_activate_account(supervisor_email_hash, supervisor_password):
-                logger.info("Demodata: demohandledare aktiverad")
+                logger.info("Demodata: demoföretagskonto aktiverat")
             else:
-                logger.warning("Demodata: demohandledare kunde inte aktiveras")
+                logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")
         except ValueError:
-            logger.error("Demodata: lösenordet för demohandledaren är ogiltigt")
+            logger.error("Demodata: lösenordet för demoföretagskontot är ogiltigt")
 
     linked, reason = admin_link_supervisor_to_user(
         normalized_supervisor_email, normalized_pnr
     )
     if linked:
-        logger.info("Demodata: kopplade handledare och demoanvändare")
+        logger.info("Demodata: kopplade företagskonto och demoanvändare")
     elif reason != "exists":
         logger.warning(
-            "Demodata: kunde inte koppla handledare och demoanvändare (%s)", reason
+            "Demodata: kunde inte koppla företagskonto och demoanvändare (%s)", reason
         )
 
     _ensure_demo_pdfs(pnr_hash)
@@ -1892,7 +1892,7 @@ def create_application_request(
     invoice_contact: Optional[str] = None,
     invoice_reference: Optional[str] = None,
 ) -> int:
-    allowed_types = {"user", "handledare"}
+    allowed_types = {"standard", "foretagskonto"}
     normalized_type = (account_type or "").strip().lower()
     if normalized_type not in allowed_types:
         raise ValueError("Ogiltig kontotyp.")
@@ -1904,21 +1904,21 @@ def create_application_request(
     normalized_email = normalize_email(email)
     validated_orgnr = validate_orgnr(orgnr)
     cleaned_company = (company_name or "").strip()
-    if normalized_type == "handledare" and not cleaned_company:
-        raise ValueError("Företagsnamn krävs för handledarkonton.")
+    if normalized_type == "foretagskonto" and not cleaned_company:
+        raise ValueError("Företagsnamn krävs för företagskonton.")
 
     cleaned_comment = _clean_optional_text(comment)
     cleaned_invoice_address = _clean_optional_text(invoice_address, max_length=1000)
     cleaned_invoice_contact = _clean_optional_text(invoice_contact, max_length=255)
     cleaned_invoice_reference = _clean_optional_text(invoice_reference, max_length=255)
 
-    if normalized_type == "handledare":
+    if normalized_type == "foretagskonto":
         if not cleaned_invoice_address:
-            raise ValueError("Fakturaadress krävs för handledarkonton.")
+            raise ValueError("Fakturaadress krävs för företagskonton.")
         if not cleaned_invoice_contact:
-            raise ValueError("Kontaktperson för fakturering krävs för handledarkonton.")
+            raise ValueError("Kontaktperson för fakturering krävs för företagskonton.")
         if not cleaned_invoice_reference:
-            raise ValueError("Märkning för fakturering krävs för handledarkonton.")
+            raise ValueError("Märkning för fakturering krävs för företagskonton.")
     else:
         cleaned_invoice_address = None
         cleaned_invoice_contact = None
@@ -2036,7 +2036,7 @@ def approve_application_request(
 
     email_hash = hash_value(normalized_email)
     logger.info(
-        "Ansökan %s godkänd av %s (företag %s, användare %s)",
+        "Ansökan %s godkänd av %s (företag %s, standardkonto %s)",
         application_id,
         normalized_reviewer,
         validated_orgnr,
@@ -2119,11 +2119,11 @@ def reject_application_request(
 
 
 def list_companies_for_invoicing() -> List[Dict[str, Any]]:
-    """Returnerar företag med handledarkonton och deras fakturauppgifter."""
+    """Returnerar företag med företagskonton och deras fakturauppgifter."""
 
-    handledare_count_expr = func.sum(
-        case((company_users_table.c.role == "handledare", 1), else_=0)
-    ).label("handledare_count")
+    foretagskonto_count_expr = func.sum(
+        case((company_users_table.c.role == "foretagskonto", 1), else_=0)
+    ).label("foretagskonto_count")
     user_count_expr = func.count(company_users_table.c.id).label("user_count")
 
     query = (
@@ -2134,7 +2134,7 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
             companies_table.c.invoice_address,
             companies_table.c.invoice_contact,
             companies_table.c.invoice_reference,
-            handledare_count_expr,
+            foretagskonto_count_expr,
             user_count_expr,
         )
         .select_from(
@@ -2151,7 +2151,7 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
             companies_table.c.invoice_contact,
             companies_table.c.invoice_reference,
         )
-        .having(handledare_count_expr > 0)
+        .having(foretagskonto_count_expr > 0)
         .order_by(companies_table.c.name)
     )
 
@@ -2169,7 +2169,7 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
                 "invoice_address": mapping.get("invoice_address"),
                 "invoice_contact": mapping.get("invoice_contact"),
                 "invoice_reference": mapping.get("invoice_reference"),
-                "handledare_count": int(mapping["handledare_count"] or 0),
+                "foretagskonto_count": int(mapping["foretagskonto_count"] or 0),
                 "user_count": int(mapping["user_count"] or 0),
             }
         )

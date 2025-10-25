@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Aktivera handledarkonto{% endblock %}
+{% block title %}Aktivera företagskonto{% endblock %}
 {% block content %}
     <div class="create-account">
-        <h2>Aktivera handledarkonto</h2>
+        <h2>Aktivera företagskonto</h2>
         {% if invalid %}
             <p class="message error">Länken är ogiltig eller har redan använts. Kontakta administratören om du behöver en ny inbjudan.</p>
         {% else %}
             {% if error %}
                 <p class="message error">{{ error }}</p>
             {% endif %}
-            <p>Välj ett starkt lösenord för ditt handledarkonto. Lösenordet måste vara minst åtta tecken långt.</p>
+            <p>Välj ett starkt lösenord för ditt företagskonto. Lösenordet måste vara minst åtta tecken långt.</p>
             <form method="post" class="form-card">
                 <label for="password">Lösenord</label>
                 <input type="password" id="password" name="password" minlength="8" required>

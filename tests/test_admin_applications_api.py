@@ -14,7 +14,7 @@ def test_admin_list_applications(empty_db):
     _admin_session(client)
 
     first = functions.create_application_request(
-        'handledare',
+        'foretagskonto',
         'Test',
         'api@example.com',
         '5560160680',
@@ -46,9 +46,9 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     monkeypatch.setattr(app.email_service, 'send_application_approval_email', fake_send)
 
     application_id = functions.create_application_request(
-        'handledare',
-        'Handledare',
-        'handledare@example.com',
+        'foretagskonto',
+        'Företagskonto',
+        'foretagskonto@example.com',
         '5560160680',
         'Handledarbolaget',
         'Test',
@@ -65,8 +65,8 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload['status'] == 'success'
-    assert payload['data']['account_type'] == 'handledare'
-    assert sent['email'] == 'handledare@example.com'
+    assert payload['data']['account_type'] == 'foretagskonto'
+    assert sent['email'] == 'foretagskonto@example.com'
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -91,7 +91,7 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
     monkeypatch.setattr(app.email_service, 'send_application_rejection_email', fake_send)
 
     application_id = functions.create_application_request(
-        'handledare',
+        'foretagskonto',
         'Avslag Test',
         'reject@example.com',
         '5560160680',

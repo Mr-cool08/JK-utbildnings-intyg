@@ -123,7 +123,7 @@ def test_admin_upload_pending_user(empty_db):
     assert payload["status"] == "success"
     assert (
         payload["message"]
-        == "Användaren väntar redan på aktivering. PDF:er uppladdade."
+        == "Standardkontot väntar redan på aktivering. PDF:er uppladdade."
     )
 
     pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))

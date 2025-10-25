@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
-{% block title %}Handledarinloggning{% endblock %}
+{% block title %}Företagskontoinloggning{% endblock %}
 {% block content %}
-    <h1>Handledarinloggning</h1>
-    <p>Ange din e-postadress och ditt lösenord för att komma åt de intyg du har behörighet till.</p>
+    <h1>Företagskontoinloggning</h1>
+    <p>Ange din e-postadress och ditt lösenord för att hantera kopplade standardkonton och intyg.</p>
     {% if error %}
         <p class="message error">{{ error }}</p>
     {% endif %}
     <form method="post" class="form-card">
         <label for="email">E-post</label>
-        <input type="email" id="email" name="email" required placeholder="handledare@example.com">
+        <input type="email" id="email" name="email" required placeholder="foretagskonto@example.com">
 
         <label for="password">Lösenord</label>
         <input type="password" id="password" name="password" required>

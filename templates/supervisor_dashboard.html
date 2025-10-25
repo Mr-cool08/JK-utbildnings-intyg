@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}Handledarpanel{% endblock %}
+{% block title %}Företagskontopanel{% endblock %}
 {% block content %}
-    <h1>Handledarpanel</h1>
-    <p>Välkommen {{ supervisor_name }}. Här ser du alla användare som administratören har kopplat till dig.</p>
+    <h1>Företagskontopanel</h1>
+    <p>Välkommen {{ supervisor_name }}. Här ser du alla standardkonton som administratören har kopplat till dig.</p>
     {% if users %}
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}">
@@ -52,11 +52,11 @@
                         </table>
                     </div>
                 {% else %}
-                    <p>Inga intyg är uppladdade för denna användare ännu.</p>
+                    <p>Inga intyg är uppladdade för detta standardkonto ännu.</p>
                 {% endif %}
             </section>
         {% endfor %}
     {% else %}
-        <p>Det finns inga kopplade användare just nu. Kontakta administratören om du behöver åtkomst.</p>
+        <p>Det finns inga kopplade standardkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
     {% endif %}
 {% endblock %}

@@ -236,7 +236,7 @@ def send_pdf_share_email(
     if not attachments:
         raise ValueError("Minst ett intyg krävs för delning.")
 
-    safe_sender = escape(sender_name.strip() or "En användare")
+    safe_sender = escape(sender_name.strip() or "Ett standardkonto")
     safe_owner = escape((owner_name or "").strip()) if owner_name else None
 
     subject_prefix = "Delade" if len(attachments) > 1 else "Delat"
@@ -298,10 +298,10 @@ def send_application_approval_email(
     """Skicka besked om godkänd ansökan."""
 
     normalized_type = account_type.lower()
-    if normalized_type == "handledare":
-        account_label = "ett handledarkonto"
+    if normalized_type == "foretagskonto":
+        account_label = "ett företagskonto"
     else:
-        account_label = "ett användarkonto"
+        account_label = "ett standardkonto"
 
     safe_company = escape((company_name or "").strip())
     if not safe_company:

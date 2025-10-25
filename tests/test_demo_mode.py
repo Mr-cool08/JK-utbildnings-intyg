@@ -9,9 +9,9 @@ DEMO_PARAMS = dict(
     user_name="Demoanvändare",
     user_personnummer="199001011234",
     user_password="DemoLösenord1!",
-    supervisor_email="demo.handledare@example.com",
-    supervisor_name="Demohandledare",
-    supervisor_password="DemoHandledare1!",
+    supervisor_email="demo.foretagskonto@example.com",
+    supervisor_name="Demoföretagskonto",
+    supervisor_password="DemoForetagskonto1!",
 )
 
 

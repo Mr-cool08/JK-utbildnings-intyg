@@ -243,20 +243,20 @@
         name: formData.get('name')?.toString().trim(),
         email: formData.get('email')?.toString().trim(),
       };
-      setMessageElement(createSupervisorMessage, 'Skapar handledare…', false);
+      setMessageElement(createSupervisorMessage, 'Skapar företagskonto…', false);
       try {
-        const res = await fetch('/admin/api/handledare/skapa', {
+        const res = await fetch('/admin/api/foretagskonto/skapa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte skapa handledare.');
+          throw new Error(data.message || 'Kunde inte skapa företagskonto.');
         }
         setMessageElement(
           createSupervisorMessage,
-          data.message || 'Handledare skapad.',
+          data.message || 'Företagskonto skapat.',
           false,
         );
         createSupervisorForm.reset();
@@ -278,7 +278,7 @@
       };
       setMessageElement(linkSupervisorMessage, 'Skapar koppling…', false);
       try {
-        const res = await fetch('/admin/api/handledare/koppla', {
+        const res = await fetch('/admin/api/foretagskonto/koppla', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -305,7 +305,7 @@
     }
     supervisorOverviewBody.innerHTML = '';
     const connections = Array.isArray(data.connections) ? data.connections : [];
-    supervisorOverviewTitle.textContent = `Kopplade användare för ${data.name || 'handledare'}`;
+    supervisorOverviewTitle.textContent = `Kopplade standardkonton för ${data.name || 'företagskonto'}`;
 
     if (!connections.length) {
       const row = document.createElement('tr');
@@ -318,7 +318,7 @@
       connections.forEach((entry) => {
         const row = document.createElement('tr');
         const nameCell = document.createElement('td');
-        nameCell.textContent = entry.username || 'Användare';
+        nameCell.textContent = entry.username || 'Standardkonto';
         const infoCell = document.createElement('td');
         const hash = entry.personnummer_hash || '';
         const label = document.createElement('span');
@@ -347,7 +347,7 @@
       setMessageElement(supervisorOverviewMessage, 'Hämtar kopplingar…', false);
       supervisorOverviewCard.hidden = true;
       try {
-        const res = await fetch('/admin/api/handledare/oversikt', {
+        const res = await fetch('/admin/api/foretagskonto/oversikt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),

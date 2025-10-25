@@ -11,8 +11,8 @@ def fresh_app_db(empty_db):
 
 def test_application_approval_creates_company_and_user(fresh_app_db):
     application_id = functions.create_application_request(
-        account_type="handledare",
-        name="Test Handledare",
+        account_type="foretagskonto",
+        name="Test Företagskonto",
         email="applicant@example.com",
         orgnr="556016-0680",
         company_name="Testbolag AB",
@@ -25,7 +25,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
     result = functions.approve_application_request(application_id, "admin")
 
     assert result["company_created"] is True
-    assert result["account_type"] == "handledare"
+    assert result["account_type"] == "foretagskonto"
     assert result["orgnr"] == "5560160680"
     assert result["company_name"] == "Testbolag AB"
 
@@ -38,7 +38,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
         assert user is not None
         assert user.email == "applicant@example.com"
         assert user.company_id == company.id
-        assert user.role == "handledare"
+        assert user.role == "foretagskonto"
 
         application = conn.execute(
             functions.application_requests_table.select().where(
@@ -54,9 +54,9 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
 
 def test_application_rejection_stores_reason(fresh_app_db):
     application_id = functions.create_application_request(
-        account_type="handledare",
-        name="Handledare Test",
-        email="handledare@example.com",
+        account_type="foretagskonto",
+        name="Företagskonto Test",
+        email="foretagskonto@example.com",
         orgnr="5560160680",
         company_name="Handledarbolaget",
         comment="Behöver åtkomst",
@@ -70,7 +70,7 @@ def test_application_rejection_stores_reason(fresh_app_db):
     )
 
     assert result["reason"] == "Behörigheterna kan inte styrkas."
-    assert result["account_type"] == "handledare"
+    assert result["account_type"] == "foretagskonto"
     assert result["company_name"] == "Handledarbolaget"
 
     with fresh_app_db.connect() as conn:
@@ -85,10 +85,10 @@ def test_application_rejection_stores_reason(fresh_app_db):
 
 
 def test_approval_reuses_existing_company(fresh_app_db):
-    handledare_id = functions.create_application_request(
-        account_type="handledare",
-        name="Handledaren",
-        email="handledare@example.com",
+    foretagskonto_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Företagskonton",
+        email="foretagskonto@example.com",
         orgnr="5560160680",
         company_name="Bolaget AB",
         comment=None,
@@ -97,7 +97,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         invoice_reference="Fakt 2024",
     )
     user_id = functions.create_application_request(
-        account_type="user",
+        account_type="standard",
         name="Första Användaren",
         email="first@example.com",
         orgnr="5560160680",
@@ -108,14 +108,14 @@ def test_approval_reuses_existing_company(fresh_app_db):
         invoice_reference=None,
     )
 
-    handledare_result = functions.approve_application_request(
-        handledare_id, "admin"
+    foretagskonto_result = functions.approve_application_request(
+        foretagskonto_id, "admin"
     )
     user_result = functions.approve_application_request(user_id, "admin")
 
-    assert handledare_result["company_created"] is True
+    assert foretagskonto_result["company_created"] is True
     assert user_result["company_created"] is False
-    assert handledare_result["company_id"] == user_result["company_id"]
+    assert foretagskonto_result["company_id"] == user_result["company_id"]
     assert user_result["company_name"] == "Bolaget AB"
 
     with fresh_app_db.connect() as conn:
@@ -124,13 +124,13 @@ def test_approval_reuses_existing_company(fresh_app_db):
 
         users = conn.execute(functions.company_users_table.select()).fetchall()
         emails = {row.email for row in users}
-        assert emails == {"first@example.com", "handledare@example.com"}
+        assert emails == {"first@example.com", "foretagskonto@example.com"}
 
 
-def test_missing_invoice_fields_for_handledare_raises(fresh_app_db):
+def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
     with pytest.raises(ValueError):
         functions.create_application_request(
-            account_type="handledare",
+            account_type="foretagskonto",
             name="Test",
             email="missing@example.com",
             orgnr="5560160680",
@@ -143,10 +143,10 @@ def test_missing_invoice_fields_for_handledare_raises(fresh_app_db):
 
 
 def test_list_companies_for_invoicing(fresh_app_db):
-    handledare_id = functions.create_application_request(
-        account_type="handledare",
-        name="Handledare 1",
-        email="handledare1@example.com",
+    foretagskonto_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Företagskonto 1",
+        email="foretagskonto1@example.com",
         orgnr="5560160680",
         company_name="Bolag 1",
         comment=None,
@@ -155,7 +155,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         invoice_reference="Ref 1",
     )
     user_id = functions.create_application_request(
-        account_type="user",
+        account_type="standard",
         name="Användare 1",
         email="user1@example.com",
         orgnr="5560160680",
@@ -163,7 +163,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         comment=None,
     )
 
-    functions.approve_application_request(handledare_id, "admin")
+    functions.approve_application_request(foretagskonto_id, "admin")
     functions.approve_application_request(user_id, "admin")
 
     companies = functions.list_companies_for_invoicing()
@@ -174,5 +174,5 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["invoice_address"] == "Adress 1"
     assert company["invoice_contact"] == "Kontakt 1"
     assert company["invoice_reference"] == "Ref 1"
-    assert company["handledare_count"] == 1
+    assert company["foretagskonto_count"] == 1
     assert company["user_count"] == 2
