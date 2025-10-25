@@ -808,7 +808,6 @@ small.hint {
     background: var(--gradient-primary);
     border-radius: 2rem;
     padding: clamp(2.5rem, 5vw, 3.5rem);
-    border: 4px solid rgba(0, 0, 0, 0.8);
     box-shadow: 0 20px 45px rgba(233, 59, 86, 0.2);
     color: #fff;
 }
