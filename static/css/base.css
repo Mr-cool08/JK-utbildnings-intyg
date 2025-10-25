@@ -204,7 +204,7 @@ img {
     display: flex;
 }
 
-.nav-links a {
+.nav-link {
     color: #fff;
     font-weight: 500;
     padding: 0.4rem 0.6rem;
@@ -212,18 +212,14 @@ img {
     transition: background var(--transition-base), color var(--transition-base);
 }
 
-.nav-links a:hover,
-.nav-links a:focus {
+.nav-link:hover,
+.nav-link:focus {
     background: rgba(255, 255, 255, 0.18);
 }
 
-.nav-external {
-    border: 1px solid rgba(255, 255, 255, 0.35);
-}
-
-.nav-external:hover,
-.nav-external:focus {
+.nav-link.is-active {
     background: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
 .flash-container {
@@ -315,7 +311,7 @@ h3 {
         display: flex;
     }
 
-    .nav-links a {
+    .nav-link {
         background: var(--color-nav-hover);
         justify-content: flex-start;
         padding: 0.7rem 0.85rem;
@@ -324,15 +320,11 @@ h3 {
         color: #fff;
     }
 
-    .nav-links a:hover,
-    .nav-links a:focus {
+    .nav-link:hover,
+    .nav-link:focus {
         background: var(--gradient-primary-strong);
         border-color: rgba(255, 255, 255, 0.45);
         box-shadow: var(--shadow-xs);
-    }
-
-    .nav-external {
-        border-color: rgba(255, 255, 255, 0.6);
     }
 }
 
@@ -761,170 +753,229 @@ small.hint {
     font-size: 0.95rem;
 }
 
-.hero {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    color: #fff;
-    padding: clamp(3rem, 5vw, 4rem) clamp(2rem, 6vw, 3.5rem);
-    border-radius: calc(var(--radius-lg) * 1.2);
-    text-align: center;
-    box-shadow: 0 18px 40px rgba(233, 59, 86, 0.25);
+/* Startsida */
+.landing-hero {
+    width: min(100%, var(--container-max));
+    margin: clamp(1.5rem, 4vw, 2.5rem) auto 0;
 }
 
-.hero-eyebrow {
+.hero-panel {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    border-radius: calc(var(--radius-lg) * 1.3);
+    padding: clamp(2.5rem, 6vw, 3.75rem);
+    display: flex;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: stretch;
+    box-shadow: 0 20px 45px rgba(156, 30, 10, 0.25);
+    color: #fff;
+}
+
+.hero-content {
+    flex: 1 1 60%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.hero-label {
     text-transform: uppercase;
     letter-spacing: 0.18em;
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin: 0;
     opacity: 0.85;
 }
 
-.hero h1 {
-    font-size: clamp(2.2rem, 6vw, 3rem);
-    margin-bottom: 0.75rem;
+.hero-content h1 {
+    margin: 0;
+    font-size: clamp(2.1rem, 5vw, 3rem);
+    line-height: 1.15;
 }
 
-.hero p {
-    margin: 0 auto 1.5rem;
-    max-width: 640px;
-    color: rgba(255, 255, 255, 0.9);
+.hero-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
 }
 
-.hero .actions {
+.hero-list li {
     display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.hero-list span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+}
+
+.hero-actions {
+    flex: 1 1 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    min-width: 220px;
+}
+
+.cta-button {
+    display: inline-flex;
     justify-content: center;
     align-items: center;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.hero .actions .btn {
-    padding: 0.75rem 1.5rem;
-    font-size: 1.05rem;
-}
-
-.hero-highlights {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.9rem;
-    margin: 1.75rem 0 0;
-    padding: 0;
-    color: white;
-}
-
-.hero-highlights li {
-    background: rgba(255, 255, 255, 0.18);
-    padding: 0.55rem 1.15rem;
+    padding: 1rem 1.5rem;
     border-radius: var(--radius-pill);
-    font-weight: 600;
+    background: #fff;
+    color: var(--color-primary);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    border: none;
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-.features {
+.cta-button:hover,
+.cta-button:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.cta-button:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+
+.cta-button-secondary {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.cta-button-secondary:hover,
+.cta-button-secondary:focus-visible {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.feature-board {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.feature-board h2 {
     text-align: center;
+}
+
+.feature-subheading {
+    text-align: center;
+    font-size: clamp(1.3rem, 3vw, 1.5rem);
+    font-weight: 700;
+    margin: 0;
+    color: var(--color-secondary);
 }
 
 .feature-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5rem;
+    gap: clamp(1.25rem, 3vw, 1.75rem);
 }
 
-.feature {
+.feature-card {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
-    padding: 1.5rem;
+    padding: clamp(1.5rem, 4vw, 2rem);
     box-shadow: var(--shadow-sm);
-    text-align: left;
-}
-
-.process {
+    border: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.5rem;
 }
 
-.process h2 {
-    text-align: center;
-}
-
-.process-steps {
-    counter-reset: steg;
-    display: grid;
-    gap: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.process-steps li {
-    position: relative;
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    padding: 1.75rem 1.5rem 1.5rem;
-    box-shadow: var(--shadow-sm);
-}
-
-.process-steps li::before {
-    counter-increment: steg;
-    content: counter(steg);
-    position: absolute;
-    top: -0.9rem;
-    left: 1.5rem;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    box-shadow: var(--shadow-sm);
-}
-
-.step-title {
-    display: block;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
+.feature-card h3 {
     color: var(--color-text);
+    font-size: clamp(1.15rem, 2.5vw, 1.4rem);
 }
 
-.trust {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+.feature-card p {
+    color: var(--color-text-muted);
+    margin: 0;
 }
 
-.trust h2 {
-    text-align: center;
+.application-section {
+    width: min(100%, var(--container-max));
+    margin: 0 auto;
 }
 
-.trust-grid {
+.application-inner {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5rem;
-}
-
-.trust-card {
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    padding: 1.6rem;
-    box-shadow: var(--shadow-sm);
-}
-
-.cta-banner {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: clamp(1.5rem, 4vw, 2rem);
     background: var(--color-surface);
     border-radius: calc(var(--radius-lg) * 1.1);
-    padding: clamp(2.5rem, 5vw, 3rem);
-    text-align: center;
-    box-shadow: var(--shadow-md);
+    padding: clamp(2rem, 5vw, 2.75rem);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
 }
 
-.cta-banner p {
-    max-width: 520px;
-    margin: 1rem auto 1.5rem;
+.application-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.application-primary h2 {
+    margin: 0;
+}
+
+.application-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.9rem 1.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-primary);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.application-button:hover,
+.application-button:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+}
+
+.application-button:focus-visible {
+    outline: 3px solid rgba(233, 59, 86, 0.35);
+    outline-offset: 2px;
+}
+
+.application-detail {
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.5rem, 4vw, 2rem);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 0 0 1px rgba(233, 59, 86, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.application-detail h3 {
+    margin: 0;
 }
 
 .create-account {
@@ -1021,20 +1072,30 @@ small.hint {
 }
 
 @media (max-width: 640px) {
-    .hero {
-        text-align: left;
+    .hero-panel {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
-    .hero h1 {
-        font-size: clamp(2rem, 9vw, 2.4rem);
+    .hero-actions {
+        width: 100%;
     }
 
-    .hero .actions {
-        justify-content: center;
+    .cta-button,
+    .cta-button-secondary {
+        width: 100%;
     }
 
-    .hero-highlights {
-        justify-content: flex-start;
+    .feature-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .application-inner {
+        padding: clamp(1.75rem, 6vw, 2.25rem);
+    }
+
+    .application-button {
+        width: 100%;
     }
 
     .inline-form {
@@ -1046,28 +1107,14 @@ small.hint {
         width: 100%;
     }
 
-    .actions .btn,
-    .share-form .btn {
-        width: 100%;
-    }
 }
 
 @media (max-width: 480px) {
-    .nav-links a {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-    }
-
     .form-card {
         padding: 1.25rem;
     }
 
     .btn {
         width: 100%;
-    }
-
-    .hero-highlights {
-        flex-direction: column;
-        align-items: stretch;
     }
 }
