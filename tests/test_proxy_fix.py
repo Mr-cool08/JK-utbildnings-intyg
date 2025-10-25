@@ -15,6 +15,17 @@ def test_proxy_fix_applied_and_headers_respected(monkeypatch):
     assert isinstance(proxy_app.wsgi_app, ProxyFix)
 
     def _probe() -> dict[str, str]:
+        """
+        Return probe information about the current request as HTML-escaped strings.
+        
+        Returns:
+            dict[str, str]: A mapping containing:
+                - "scheme": the request scheme (for example, "http" or "https").
+                - "remote_addr": the client's IP address or an empty string if unavailable.
+                - "host": the request host, including port if present.
+                - "port": the server port from the WSGI environment.
+        All returned values are HTML-escaped.
+        """
         return {
             "scheme": str(escape(request.scheme)),
             "remote_addr": str(escape(request.remote_addr or "")),
