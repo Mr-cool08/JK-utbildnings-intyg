@@ -1,77 +1,42 @@
 {% extends 'base.html' %}
 {% block title %}Ansök om konto – Utbildningsintyg{% endblock %}
 {% block head %}
-    <meta name="description" content="Ansök om konto för att hantera utbildningsintyg digitalt.">
+    <meta name="description" content="Välj ansökningsväg för att skapa konto i Utbildningsintygets portal.">
 {% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title">
     <div class="apply-hero-content">
         <div class="apply-intro">
             <h1 id="apply-title">Ansök om konto</h1>
-            <p>Fyll i uppgifterna nedan så återkommer vi efter att ha granskat din ansökan. Alla fält utom kommentar är obligatoriska. Företagsnamn behövs endast för handledarkonton.</p>
+            <p>Välj vilken typ av konto du behöver för att komma igång med Utbildningsintyg.</p>
+            <div class="apply-choice-buttons">
+                <a class="btn" href="{{ url_for('apply_user') }}">Ansök som användare</a>
+                <a class="btn btn-secondary" href="{{ url_for('apply_handledare') }}">Ansök som handledare</a>
+            </div>
         </div>
-        <form method="post" class="apply-form" novalidate>
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            {% if form_errors %}
-                <div class="message error" role="alert">
-                    <ul>
-                        {% for error in form_errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-            <fieldset class="field-group">
-                <legend>Vilket konto behöver du?</legend>
-                <label class="radio-option">
-                    <input type="radio" name="account_type" value="user" required {% if form_data.account_type == 'user' %}checked{% endif %}>
-                    <span>Arbetsplatskonto för användare</span>
-                </label>
-                <label class="radio-option">
-                    <input type="radio" name="account_type" value="handledare" {% if form_data.account_type == 'handledare' %}checked{% endif %}>
-                    <span>Handledarkonto för företagsportal</span>
-                </label>
-            </fieldset>
-
-            <label for="name">Fullständigt namn</label>
-            <input id="name" name="name" type="text" value="{{ form_data.name }}" required autocomplete="name">
-
-            <label for="email">E-postadress</label>
-            <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
-
-            <label for="company_name">Företag <span class="optional">(krävs för handledarkonto)</span></label>
-            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" autocomplete="organization">
-            <small class="hint">Om du ansöker som handledare behöver vi företagets namn för att skapa organisationen.</small>
-
-            <fieldset class="field-group" id="invoiceSection">
-                <legend>Faktureringsuppgifter <span class="optional">(krävs för handledarkonto)</span></legend>
-                <label for="invoice_address">Fakturaadress</label>
-                <textarea id="invoice_address" name="invoice_address" rows="3">{{ form_data.invoice_address }}</textarea>
-                <small class="hint">Ange fullständig adress inklusive eventuellt referensnummer.</small>
-
-                <label for="invoice_contact">Kontaktperson</label>
-                <input id="invoice_contact" name="invoice_contact" type="text" value="{{ form_data.invoice_contact }}">
-
-                <label for="invoice_reference">Märkning</label>
-                <input id="invoice_reference" name="invoice_reference" type="text" value="{{ form_data.invoice_reference }}">
-            </fieldset>
-
-            <label for="orgnr">Organisationsnummer</label>
-            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
-            <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
-
-            <label for="comment">Kommentar <span class="optional">(valfritt)</span></label>
-            <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
-
-            <button type="submit" class="btn">Skicka ansökan</button>
-        </form>
+        <div class="apply-choice-panels">
+            <article class="apply-choice-card">
+                <h2>Arbetsplatskonto</h2>
+                <p>Passar dig som ska logga in och ta del av utbildningsmaterial och intyg kopplat till din arbetsplats.</p>
+                <ul>
+                    <li>Kräver organisationsnummer för att kopplas till rätt företag.</li>
+                    <li>Ingen kostnad per användare.</li>
+                    <li>Ansökan tar bara någon minut.</li>
+                </ul>
+                <a class="apply-choice-link" href="{{ url_for('apply_user') }}" aria-label="Ansök om arbetsplatskonto">Till ansökan</a>
+            </article>
+            <article class="apply-choice-card">
+                <h2>Handledarkonto</h2>
+                <p>För företag som vill administrera flera användare, följa upp intyg och få samlad fakturering.</p>
+                <ul>
+                    <li>Fakturaadress, kontaktperson och märkning krävs.</li>
+                    <li>20 kronor per ansluten användare i portalen.</li>
+                    <li>Vi skapar företaget åt dig vid godkänd ansökan.</li>
+                </ul>
+                <a class="apply-choice-link" href="{{ url_for('apply_handledare') }}" aria-label="Ansök om handledarkonto">Till ansökan</a>
+            </article>
+        </div>
     </div>
-</section>
-
-<section class="apply-info" aria-labelledby="pricing-title">
-    <h2 id="pricing-title">Vad kostar det?</h2>
-    <p class="apply-price">Användarkonto är gratis.</p>
-    <p class="apply-price">Företagsportal med handledare kostar 20 kronor per kopplad användare.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title">
@@ -79,17 +44,16 @@
     <ol class="apply-step-list">
         <li>
             <h3>Skicka in uppgifter</h3>
-            <p>Ange företag, kontaktperson och vilken roll som ska få åtkomst.</p>
+            <p>Välj rätt konto, ange organisationsnummer och beskriv kort vad du behöver.</p>
         </li>
         <li>
             <h3>Verifiering</h3>
-            <p>Vi kontrollerar organisationsnumret och bekräftar behörigheter.</p>
+            <p>Vi kontrollerar uppgifterna, skapar företag och återkopplar via e-post.</p>
         </li>
         <li>
             <h3>Starta upp</h3>
-            <p>När ansökan godkänns skapar vi kontot och skickar instruktioner via e-post.</p>
+            <p>När ansökan godkänns skickar vi instruktioner för att logga in och börja använda tjänsten.</p>
         </li>
     </ol>
 </section>
 {% endblock %}
-{% block footer %}{{ super() }}<script src="{{ url_for('static', filename='js/apply.js') }}" defer></script>{% endblock %}

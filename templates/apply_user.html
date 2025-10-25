@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Ansök om arbetsplatskonto – Utbildningsintyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Ansök om arbetsplatskonto och få tillgång till Utbildningsintygets portal.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="apply-title">
+    <div class="apply-hero-content">
+        <div class="apply-intro">
+            <h1 id="apply-title">Ansök om arbetsplatskonto</h1>
+            <p>Fyll i uppgifterna så kopplar vi kontot till rätt företag via organisationsnumret.</p>
+        </div>
+        <form method="post" class="apply-form" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if form_errors %}
+                <div class="message error" role="alert">
+                    <ul>
+                        {% for error in form_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <label for="name">Fullständigt namn</label>
+            <input id="name" name="name" type="text" value="{{ form_data.name }}" required autocomplete="name">
+
+            <label for="email">E-postadress</label>
+            <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
+
+            <label for="orgnr">Organisationsnummer</label>
+            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
+            <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
+
+            <label for="comment">Kommentar <span class="optional">(valfritt)</span></label>
+            <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
+
+            <button type="submit" class="btn">Skicka ansökan</button>
+        </form>
+    </div>
+</section>
+
+<section class="apply-info" aria-labelledby="info-title">
+    <h2 id="info-title">Om arbetsplatskonton</h2>
+    <p class="apply-price">Användarkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
+    <p>Vi kopplar kontot till befintligt företag eller skapar en ny koppling baserat på organisationsnumret.</p>
+</section>
+
+<section class="apply-steps" aria-labelledby="steps-title">
+    <h2 id="steps-title">Så går ansökan till</h2>
+    <ol class="apply-step-list">
+        <li>
+            <h3>Skicka in uppgifter</h3>
+            <p>Berätta vem du är och vilket företag du representerar.</p>
+        </li>
+        <li>
+            <h3>Verifiering</h3>
+            <p>Vi kontrollerar organisationsnumret och kopplar kontot till företaget.</p>
+        </li>
+        <li>
+            <h3>Starta upp</h3>
+            <p>Vid godkänd ansökan skickar vi inloggningsinstruktioner via e-post.</p>
+        </li>
+    </ol>
+</section>
+{% endblock %}

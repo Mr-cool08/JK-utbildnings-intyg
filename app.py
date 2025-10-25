@@ -594,26 +594,46 @@ def home():
     return render_template('index.html')
 
 
-@app.route('/ansok', methods=['GET', 'POST'])
+@app.route('/ansok', methods=['GET'])
 def apply_account():
-    """Visa och hantera ansökningsformuläret."""
+    """Visa val för ansökan om konto."""
+
+    return render_template('apply.html')
+
+
+def _render_application_form(account_type: str):
+    """Hjälpfunktion för att visa och hantera ansökningsformulär."""
+
+    if account_type not in {"user", "handledare"}:
+        abort(404)
 
     form_errors: list[str] = []
     status_code = 200
-    form_data = {
-        "account_type": "user",
+
+    base_form_data = {
         "name": "",
         "email": "",
         "orgnr": "",
-        "company_name": "",
         "comment": "",
-        "invoice_address": "",
-        "invoice_contact": "",
-        "invoice_reference": "",
     }
 
+    if account_type == "handledare":
+        base_form_data.update(
+            {
+                "company_name": "",
+                "invoice_address": "",
+                "invoice_contact": "",
+                "invoice_reference": "",
+            }
+        )
+    else:
+        base_form_data.update({"company_name": ""})
+
+    form_data = dict(base_form_data)
+
     if request.method == 'POST':
-        form_data.update({key: (request.form.get(key, '') or '').strip() for key in form_data})
+        for key in form_data:
+            form_data[key] = (request.form.get(key, '') or '').strip()
         if not _validate_csrf_token():
             form_errors.append("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.")
         else:
@@ -624,17 +644,21 @@ def apply_account():
             else:
                 try:
                     request_id = functions.create_application_request(
-                        form_data["account_type"],
+                        account_type,
                         form_data["name"],
                         form_data["email"],
                         form_data["orgnr"],
-                        form_data["company_name"],
-                        form_data["comment"],
-                        form_data["invoice_address"],
-                        form_data["invoice_contact"],
-                        form_data["invoice_reference"],
+                        form_data.get("company_name"),
+                        form_data.get("comment"),
+                        form_data.get("invoice_address"),
+                        form_data.get("invoice_contact"),
+                        form_data.get("invoice_reference"),
                     )
-                    logger.info("Ny ansökan %s mottagen från %s", request_id, mask_hash(functions.hash_value(form_data["email"].lower())))
+                    logger.info(
+                        "Ny ansökan %s mottagen från %s",
+                        request_id,
+                        mask_hash(functions.hash_value(form_data["email"].lower())),
+                    )
                 except ValueError as exc:
                     form_errors.append(str(exc))
                 except Exception as exc:  # pragma: no cover - defensiv loggning
@@ -642,18 +666,36 @@ def apply_account():
                     form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
                 else:
                     flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
-                    return redirect(url_for('apply_account'))
+                    target = 'apply_handledare' if account_type == 'handledare' else 'apply_user'
+                    return redirect(url_for(target))
 
     csrf_token = _ensure_csrf_token()
+
+    template_name = 'apply_handledare.html' if account_type == 'handledare' else 'apply_user.html'
+
     return (
         render_template(
-            'apply.html',
+            template_name,
             csrf_token=csrf_token,
             form_data=form_data,
             form_errors=form_errors,
         ),
         status_code,
     )
+
+
+@app.route('/ansok/anvandare', methods=['GET', 'POST'])
+def apply_user():
+    """Visa och hantera ansökan för användarkonto."""
+
+    return _render_application_form("user")
+
+
+@app.route('/ansok/handledare', methods=['GET', 'POST'])
+def apply_handledare():
+    """Visa och hantera ansökan för handledarkonto."""
+
+    return _render_application_form("handledare")
 
 
 

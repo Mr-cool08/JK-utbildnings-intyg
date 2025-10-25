@@ -10,6 +10,13 @@
   const invoiceContact = document.getElementById('invoice_contact');
   const invoiceReference = document.getElementById('invoice_reference');
 
+  if (!accountRadios || accountRadios.length === 0) {
+    if (invoiceSection) {
+      invoiceSection.hidden = false;
+    }
+    return;
+  }
+
   function toggleInvoiceFields() {
     const selected = form.querySelector('input[name="account_type"]:checked');
     const isHandledare = selected && selected.value === 'handledare';
