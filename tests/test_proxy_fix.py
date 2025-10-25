@@ -1,4 +1,5 @@
 from flask import request
+from markupsafe import escape
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import app
@@ -15,10 +16,10 @@ def test_proxy_fix_applied_and_headers_respected(monkeypatch):
 
     def _probe() -> dict[str, str]:
         return {
-            "scheme": request.scheme,
-            "remote_addr": request.remote_addr or "",
-            "host": request.host,
-            "port": request.environ["SERVER_PORT"],
+            "scheme": str(escape(request.scheme)),
+            "remote_addr": str(escape(request.remote_addr or "")),
+            "host": str(escape(request.host)),
+            "port": str(escape(request.environ["SERVER_PORT"])),
         }
 
     proxy_app.add_url_rule("/proxy-test", view_func=_probe)
