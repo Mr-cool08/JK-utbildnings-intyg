@@ -28,9 +28,8 @@
 <div class="landing-content">
     <section class="home-hero" aria-labelledby="home-hero-title">
         <div class="hero-text">
-            <p class="hero-eyebrow">Digitalt arkiv för utbildningsintyg</p>
-            <h1 id="home-hero-title">Alltid uppdaterade utbildningsintyg på en plats</h1>
-            <p class="hero-lead">Utbildnings Intyg samlar alla dina intyg i ett säkert arkiv och gör dem redo att delas med bara några klick.</p>
+            <p class="hero-eyebrow">Alla dina utbildningsintyg på en plats</p>
+            <h1 id="home-hero-title">Digitalt arkiv för utbildningsintyg</h1>
             <ul class="hero-list">
                 <li>Digital lagring av utbildningsintyg</li>
                 <li>Enkel delning med arbetsgivare och kunder</li>
@@ -39,12 +38,35 @@
             </ul>
         </div>
         <div class="hero-actions" aria-label="Snabbknappar">
-            <a class="btn hero-btn" href="#funktioner">Läs mer om tjänsten</a>
+            <a class="btn hero-btn" href="{{ url_for('apply_account') }}">Ansök om konto</a>
             {% if not IS_DEMO and DEMO_SITE_URL %}
                 <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
             {% else %}
                 <a class="btn hero-btn btn-ghost" href="/handledare/login">Prova demo</a>
             {% endif %}
+        </div>
+    </section>
+
+
+
+    <section class="workflow" id="sa-fungerar" aria-labelledby="workflow-title">
+        <h2 id="workflow-title">Så fungerar det</h2>
+        <div class="workflow-steps">
+            <article class="workflow-card">
+                <span class="step-number">1</span>
+                <h3>Skicka in intyg</h3>
+                <p>Utbildningsanordnaren laddar upp signerade intyg och knyter dem till rätt deltagare.</p>
+            </article>
+            <article class="workflow-card">
+                <span class="step-number">2</span>
+                <h3>Aktivera konton</h3>
+                <p>Deltagare och arbetsgivare bjuds in via e-post och kan direkt logga in i arkivet.</p>
+            </article>
+            <article class="workflow-card">
+                <span class="step-number">3</span>
+                <h3>Hämta och dela</h3>
+                <p>Intygen kan skrivas ut, laddas ned eller delas digitalt med ett enda klick.</p>
+            </article>
         </div>
     </section>
 
@@ -84,27 +106,6 @@
                 <h3>Beställ nya utbildningar</h3>
                 <p>Begär kompletterande utbildningar direkt från portalen när ett behov upptäcks.</p>
                 <p class="feature-highlight">Samarbeta med utbildare och följ status i realtid.</p>
-            </article>
-        </div>
-    </section>
-
-    <section class="workflow" id="sa-fungerar" aria-labelledby="workflow-title">
-        <h2 id="workflow-title">Så fungerar det</h2>
-        <div class="workflow-steps">
-            <article class="workflow-card">
-                <span class="step-number">1</span>
-                <h3>Skicka in intyg</h3>
-                <p>Utbildningsanordnaren laddar upp signerade intyg och knyter dem till rätt deltagare.</p>
-            </article>
-            <article class="workflow-card">
-                <span class="step-number">2</span>
-                <h3>Aktivera konton</h3>
-                <p>Deltagare och arbetsgivare bjuds in via e-post och kan direkt logga in i arkivet.</p>
-            </article>
-            <article class="workflow-card">
-                <span class="step-number">3</span>
-                <h3>Hämta och dela</h3>
-                <p>Intygen kan skrivas ut, laddas ned eller delas digitalt med ett enda klick.</p>
             </article>
         </div>
     </section>

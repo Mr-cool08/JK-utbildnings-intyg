@@ -310,6 +310,27 @@ h3 {
     margin: 0 0 0.5rem;
 }
 
+.cta-panel {
+    background: var(--gradient-primary-soft);
+    border-radius: calc(var(--radius-lg) * 1.1);
+    padding: clamp(2.5rem, 5vw, 3.25rem);
+    text-align: center;
+    color: #fff;
+    box-shadow: var(--shadow-md);
+}
+
+/* Ensure the CTA heading explicitly uses white text (overrides global h2 color) */
+.cta-panel h2,
+.cta-panel #cta-title {
+    color: #fff;
+}
+
+/* Make the paragraph under the CTA title white and add spacing below it */
+.cta-panel p {
+    color: #fff;
+    margin: 0 0 1.25rem 0; /* keep a bottom gap for buttons */
+}
+
 @media (max-width: 768px) {
     .nav-inner {
         flex-wrap: wrap;
@@ -362,15 +383,17 @@ h3 {
         border-color: rgba(255, 255, 255, 0.45);
         box-shadow: var(--shadow-xs);
     }
-
-    .nav-external {
-        border-color: rgba(255, 255, 255, 0.6);
-    }
 }
 
 p {
     margin: 0;
     color: var(--color-text-muted);
+}
+
+/* Ensure CTA paragraph stays white even after the global <p> rule */
+.cta-panel p {
+    color: #fff;
+    margin: 0 0 1.25rem 0; /* keep a bottom gap for buttons */
 }
 
 ul,
@@ -805,11 +828,12 @@ small.hint {
     align-items: stretch;
     justify-content: space-between;
     gap: clamp(1.5rem, 4vw, 2.5rem);
-    background: var(--gradient-primary);
+    /* Make hero background white and neutral */
+    background: var(--color-surface);
     border-radius: 2rem;
     padding: clamp(2.5rem, 5vw, 3.5rem);
-    box-shadow: 0 20px 45px rgba(233, 59, 86, 0.2);
-    color: #fff;
+    box-shadow: var(--shadow-md);
+    color: var(--color-text); /* dark text on white */
 }
 
 .hero-text {
@@ -822,7 +846,7 @@ small.hint {
     letter-spacing: 0.18em;
     font-weight: 700;
     margin: 0 0 0.75rem;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-muted);
 }
 
 .hero-text h1 {
@@ -831,10 +855,16 @@ small.hint {
     line-height: 1.15;
 }
 
+/* Slightly reduce the size for the landing hero main title to better fit the white hero */
+#home-hero-title {
+    font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+    margin-bottom: 0.6rem;
+}
+
 .hero-lead {
     font-size: 1.05rem;
     margin: 0 0 1.5rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--color-text);
 }
 
 .hero-list {
@@ -861,8 +891,9 @@ small.hint {
     width: 1.65rem;
     height: 1.65rem;
     border-radius: 50%;
-    background: #fff;
-    color: var(--color-secondary);
+    /* on white hero, use primary color badge with white check */
+    background: var(--color-primary);
+    color: #fff;
     display: grid;
     place-items: center;
     font-size: 0.95rem;
@@ -887,6 +918,38 @@ small.hint {
     font-size: 1.05rem;
     padding: 0.9rem 1.4rem;
     border-radius: var(--radius-pill);
+}
+
+/* Adjust button styles specifically inside the white hero so they remain visible */
+.home-hero .btn {
+    /* keep primary solid button look */
+    background: var(--color-primary);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: var(--shadow-xs);
+}
+
+.home-hero .btn:hover,
+.home-hero .btn:focus-visible {
+    background: var(--color-primary-dark);
+}
+
+.home-hero .btn-ghost {
+    /* ghost on white becomes subtle outline using primary color */
+    background: transparent;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: none;
+}
+
+.home-hero .btn-ghost:hover,
+.home-hero .btn-ghost:focus-visible {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+}
+
+.home-hero .hero-list li {
+    color: var(--color-text);
 }
 
 .feature-section {
@@ -1004,7 +1067,12 @@ small.hint {
 }
 
 .benefits {
-    text-align: center;
+    background: var(--color-surface);
+    border-radius: calc(var(--radius-lg) * 1.1);
+    padding: clamp(2.5rem, 5vw, 3rem);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border-strong);
+
 }
 
 .benefit-grid {
@@ -1030,10 +1098,16 @@ small.hint {
     box-shadow: var(--shadow-md);
 }
 
+/* Ensure the CTA heading explicitly uses white text (overrides global h2 color) */
+.cta-panel h2,
+.cta-panel #cta-title {
+    color: #fff;
+}
+
+/* Make the paragraph under the CTA title white and add spacing below it */
 .cta-panel p {
-    margin: 0 auto clamp(1.5rem, 4vw, 2rem);
-    max-width: 560px;
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
+    margin: 0 0 1.25rem 0; /* keep a bottom gap for buttons */
 }
 
 .cta-actions {

@@ -27,7 +27,7 @@
         <div class="nav-inner">
             <a class="brand" href="/">
                 <img class="brand-logo" src="{{ url_for('static', filename='pictures/favicon_smaller.png') }}" alt="JK Utbildnings logotyp">
-                <span class="brand-name">JK Utbildningsintyg</span>
+                <span class="brand-name">Utbildningsintyg</span>
             </a>
             <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Växla navigering">
                 <span class="nav-toggle-bar"></span>
@@ -50,8 +50,7 @@
                     <a class="nav-link {% if request.path.startswith('/handledare') %}is-active{% endif %}" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
                     <a class="nav-link {% if request.path.startswith('/login') %}is-active{% endif %}" href="/login">Logga in</a>
                 {% endif %}
-                <a href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener" class="nav-external">Järnvägskonsulterna</a>
-                <a href="https://www.sakerhetsutbildarna.se" target="_blank" rel="noopener" class="nav-external">Säkerhetsutbildarna</a>
+
             </div>
         </div>
     </nav>
