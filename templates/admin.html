@@ -5,6 +5,12 @@
 <p>Skapa nya användare, hantera intyg och skicka återställningslänkar. Avancerade databasåtgärder finns längst ner på sidan.</p>
 
 <section class="panel">
+    <h2>Hantera ansökningar</h2>
+    <p>Öppna listan över inkomna ansökningar för att godkänna eller avslå konton.</p>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Öppna ansökningar</a>
+</section>
+
+<section class="panel">
     <h2>Skapa väntande användare</h2>
     <p>Använd detta formulär för att registrera en användare och ladda upp intyg.</p>
     <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">

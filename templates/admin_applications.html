@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Ansökningar{% endblock %}
+{% block content %}
+<h1>Admin — Ansökningar</h1>
+<p>Hantera inkomna kontoansökningar. Alla ändringar loggas och godkännanden skickar automatiskt ett e-postmeddelande till kontaktpersonen.</p>
+
+<section class="panel admin-applications" data-csrf-token="{{ csrf_token }}">
+    <header class="panel-header">
+        <h2>Inkomna ansökningar</h2>
+        <div class="filter-group">
+            <label for="statusFilter">Visa status</label>
+            <select id="statusFilter">
+                <option value="pending">Väntar på granskning</option>
+                <option value="approved">Godkända</option>
+                <option value="rejected">Avslagna</option>
+                <option value="alla">Alla</option>
+            </select>
+            <button type="button" class="btn" id="refreshApplications">Uppdatera lista</button>
+        </div>
+    </header>
+
+    <div id="applicationsMessage" class="message" role="status" aria-live="polite" hidden></div>
+
+    <div class="table-scroll">
+        <table class="data-table" id="applicationsTable">
+            <thead>
+                <tr>
+                    <th>Namn</th>
+                    <th>Företag</th>
+                    <th>Kontotyp</th>
+                    <th>Status</th>
+                    <th>Inskickad</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="applicationDetail" class="application-detail" hidden>
+        <h3 id="applicationDetailTitle">Detaljer</h3>
+        <dl>
+            <div>
+                <dt>Namn</dt>
+                <dd id="detailName"></dd>
+            </div>
+            <div>
+                <dt>E-post</dt>
+                <dd id="detailEmail"></dd>
+            </div>
+            <div>
+                <dt>Telefon</dt>
+                <dd id="detailPhone"></dd>
+            </div>
+            <div>
+                <dt>Företag</dt>
+                <dd id="detailCompany"></dd>
+            </div>
+            <div>
+                <dt>Organisationsnummer</dt>
+                <dd id="detailOrgnr"></dd>
+            </div>
+            <div>
+                <dt>Kontotyp</dt>
+                <dd id="detailType"></dd>
+            </div>
+            <div>
+                <dt>Kommentar</dt>
+                <dd id="detailComment"></dd>
+            </div>
+            <div>
+                <dt>Status</dt>
+                <dd id="detailStatus"></dd>
+            </div>
+            <div id="detailReviewers" hidden>
+                <dt>Granskad av</dt>
+                <dd id="detailReviewer"></dd>
+            </div>
+            <div id="detailDecision" hidden>
+                <dt>Motivering</dt>
+                <dd id="detailReason"></dd>
+            </div>
+            <div>
+                <dt>Skapad</dt>
+                <dd id="detailCreated"></dd>
+            </div>
+            <div>
+                <dt>Uppdaterad</dt>
+                <dd id="detailUpdated"></dd>
+            </div>
+        </dl>
+        <div id="applicationActions" class="application-actions" hidden>
+            <button type="button" class="btn" id="approveApplication">Godkänn ansökan</button>
+            <button type="button" class="btn btn-secondary" id="showRejectForm">Avslå ansökan</button>
+        </div>
+        <form id="rejectForm" class="reject-form" hidden>
+            <label for="rejectReason">Motivering till avslag</label>
+            <textarea id="rejectReason" rows="3" required></textarea>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-secondary">Skicka avslag</button>
+                <button type="button" class="btn-link" id="cancelReject">Avbryt</button>
+            </div>
+        </form>
+        <div id="detailMessage" class="message" role="status" aria-live="polite" hidden></div>
+    </div>
+</section>
+
+<a class="btn-link" href="{{ url_for('admin') }}">Tillbaka till adminpanelen</a>
+
+{% endblock %}
+{% block head %}{{ super() }}<meta name="robots" content="noindex">{% endblock %}
+{% block footer %}{{ super() }}<script src="{{ url_for('static', filename='js/admin_applications.js') }}" defer></script>{% endblock %}

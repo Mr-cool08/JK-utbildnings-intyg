@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from functools import lru_cache
 import string
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import quote_plus
 from sqlalchemy import (
     Column,
@@ -35,7 +35,7 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
@@ -185,6 +185,95 @@ admin_audit_log_table = Table(
     ),
 )
 
+schema_migrations_table = Table(
+    "schema_migrations",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("version", String, nullable=False, unique=True),
+    Column(
+        "applied_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+)
+
+companies_table = Table(
+    "companies",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("orgnr", String, nullable=False, unique=True, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+)
+
+application_requests_table = Table(
+    "application_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("account_type", String, nullable=False),
+    Column("name", String, nullable=False),
+    Column("email", String, nullable=False),
+    Column("phone", String),
+    Column("orgnr_normalized", String, nullable=False, index=True),
+    Column("company_name", String, nullable=False),
+    Column("comment", String),
+    Column("status", String, nullable=False, server_default="pending"),
+    Column("reviewed_by", String),
+    Column("reviewed_at", DateTime(timezone=True)),
+    Column("decision_reason", String),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+)
+
+company_users_table = Table(
+    "company_users",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("company_id", Integer, nullable=False, index=True),
+    Column("role", String, nullable=False),
+    Column("name", String, nullable=False),
+    Column("email", String, nullable=False, unique=True),
+    Column("phone", String),
+    Column("created_via_application_id", Integer, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+)
+
 TABLE_REGISTRY: dict[str, Table] = {
     table.name: table
     for table in (
@@ -196,8 +285,50 @@ TABLE_REGISTRY: dict[str, Table] = {
         supervisor_connections_table,
         password_resets_table,
         admin_audit_log_table,
+        schema_migrations_table,
+        companies_table,
+        application_requests_table,
+        company_users_table,
     )
 }
+
+MigrationFn = Callable[[Connection], None]
+
+
+def _migration_0001_companies(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if companies_table.name not in existing_tables:
+        companies_table.create(bind=conn)
+    if application_requests_table.name not in existing_tables:
+        application_requests_table.create(bind=conn)
+    if company_users_table.name not in existing_tables:
+        company_users_table.create(bind=conn)
+
+
+MIGRATIONS: List[Tuple[str, MigrationFn]] = [
+    ("0001_companies", _migration_0001_companies),
+]
+
+
+def run_migrations(engine: Engine) -> None:
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        existing_tables = set(inspector.get_table_names())
+        if schema_migrations_table.name not in existing_tables:
+            schema_migrations_table.create(bind=conn)
+        applied_versions = {
+            row.version
+            for row in conn.execute(select(schema_migrations_table.c.version))
+        }
+        for version, migration_fn in MIGRATIONS:
+            if version in applied_versions:
+                continue
+            migration_fn(conn)
+            conn.execute(
+                insert(schema_migrations_table).values(version=version)
+            )
+
 
 _ENGINE: Optional[Engine] = None
 
@@ -316,6 +447,7 @@ def create_database() -> None:
     # Create required tables if they do not exist.
     engine = get_engine()
     metadata.create_all(engine)
+    run_migrations(engine)
     with engine.begin() as conn:
         inspector = inspect(conn)
         columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
@@ -411,6 +543,37 @@ def normalize_personnummer(pnr: str) -> str:
         raise ValueError("Ogiltigt personnummerformat.")
     logger.debug("Personnummer normaliserat")
     return digits
+
+
+def normalize_orgnr(orgnr: str) -> str:
+    """Normalisera organisationsnummer till exakt tio siffror."""
+
+    if orgnr is None:
+        raise ValueError("Organisationsnummer saknas.")
+
+    digits = re.sub(r"\D", "", orgnr)
+    if len(digits) != 10:
+        raise ValueError("Organisationsnumret måste bestå av tio siffror.")
+    return digits
+
+
+def validate_orgnr(orgnr: str) -> str:
+    """Validera ett svenskt organisationsnummer med Luhn-mod10."""
+
+    normalized = normalize_orgnr(orgnr)
+    total = 0
+    for index, char in enumerate(normalized[:-1]):
+        digit = int(char)
+        if index % 2 == 0:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+
+    checksum = (10 - (total % 10)) % 10
+    if checksum != int(normalized[-1]):
+        raise ValueError("Ogiltigt organisationsnummer.")
+    return normalized
 
 
 def _hash_personnummer(pnr: str) -> str:
@@ -1607,6 +1770,238 @@ def _ensure_demo_pdfs(personnummer_hash: str) -> None:
         else:
             store_pdf_blob(personnummer_hash, filename, content, pdf.get("categories"))
             existing_filenames.add(filename)
+
+
+def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    return cleaned[:max_length]
+
+
+def _ensure_company(conn: Connection, orgnr: str, company_name: str) -> Tuple[int, bool]:
+    cleaned_name = company_name.strip()
+    if not cleaned_name:
+        raise ValueError("Företagsnamn saknas.")
+
+    existing = conn.execute(
+        select(companies_table.c.id, companies_table.c.name).where(
+            companies_table.c.orgnr == orgnr
+        )
+    ).first()
+    if existing:
+        if existing.name != cleaned_name:
+            conn.execute(
+                update(companies_table)
+                .where(companies_table.c.id == existing.id)
+                .values(name=cleaned_name)
+            )
+        return int(existing.id), False
+
+    result = conn.execute(
+        insert(companies_table).values(orgnr=orgnr, name=cleaned_name)
+    )
+    company_id = result.inserted_primary_key[0]
+    return int(company_id), True
+
+
+def create_application_request(
+    account_type: str,
+    name: str,
+    email: str,
+    phone: Optional[str],
+    orgnr: str,
+    company_name: str,
+    comment: Optional[str],
+) -> int:
+    allowed_types = {"user", "handledare"}
+    normalized_type = (account_type or "").strip().lower()
+    if normalized_type not in allowed_types:
+        raise ValueError("Ogiltig kontotyp.")
+
+    cleaned_name = (name or "").strip()
+    if not cleaned_name:
+        raise ValueError("Namn saknas.")
+
+    normalized_email = normalize_email(email)
+    validated_orgnr = validate_orgnr(orgnr)
+    cleaned_company = (company_name or "").strip()
+    if not cleaned_company:
+        raise ValueError("Företagsnamn saknas.")
+
+    cleaned_phone = _clean_optional_text(phone, max_length=64)
+    cleaned_comment = _clean_optional_text(comment)
+
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            insert(application_requests_table).values(
+                account_type=normalized_type,
+                name=cleaned_name,
+                email=normalized_email,
+                phone=cleaned_phone,
+                orgnr_normalized=validated_orgnr,
+                company_name=cleaned_company,
+                comment=cleaned_comment,
+            )
+        )
+        request_id = result.inserted_primary_key[0]
+
+    email_hash = hash_value(normalized_email)
+    logger.info(
+        "Mottog kontoansökan %s för %s",
+        request_id,
+        mask_hash(email_hash),
+    )
+    return int(request_id)
+
+
+def list_application_requests(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    allowed_statuses = {"pending", "approved", "rejected"}
+    query = select(application_requests_table).order_by(
+        application_requests_table.c.created_at.desc()
+    )
+    if status:
+        normalized = status.strip().lower()
+        if normalized not in allowed_statuses:
+            raise ValueError("Ogiltig status.")
+        query = query.where(application_requests_table.c.status == normalized)
+
+    with get_engine().connect() as conn:
+        rows = conn.execute(query)
+        return [dict(row._mapping) for row in rows]
+
+
+def get_application_request(application_id: int) -> Optional[Dict[str, Any]]:
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(application_requests_table).where(
+                application_requests_table.c.id == application_id
+            )
+        ).first()
+    return dict(row._mapping) if row else None
+
+
+def approve_application_request(
+    application_id: int, reviewer: str
+) -> Dict[str, Any]:
+    normalized_reviewer = (reviewer or "").strip() or "okänd"
+
+    with get_engine().begin() as conn:
+        application = conn.execute(
+            select(application_requests_table).where(
+                application_requests_table.c.id == application_id
+            )
+        ).first()
+        if not application:
+            raise ValueError("Ansökan hittades inte.")
+        if application.status != "pending":
+            raise ValueError("Ansökan är redan hanterad.")
+
+        validated_orgnr = validate_orgnr(application.orgnr_normalized)
+        company_id, created = _ensure_company(
+            conn, validated_orgnr, application.company_name
+        )
+
+        normalized_email = normalize_email(application.email)
+        existing_user = conn.execute(
+            select(company_users_table.c.id).where(
+                company_users_table.c.email == normalized_email
+            )
+        ).first()
+        if existing_user:
+            raise ValueError("E-postadressen är redan registrerad.")
+
+        result = conn.execute(
+            insert(company_users_table).values(
+                company_id=company_id,
+                role=application.account_type,
+                name=application.name,
+                email=normalized_email,
+                phone=application.phone,
+                created_via_application_id=application.id,
+            )
+        )
+        user_id = result.inserted_primary_key[0]
+
+        conn.execute(
+            update(application_requests_table)
+            .where(application_requests_table.c.id == application.id)
+            .values(
+                status="approved",
+                reviewed_by=normalized_reviewer,
+                reviewed_at=func.now(),
+                decision_reason=None,
+            )
+        )
+
+    email_hash = hash_value(normalized_email)
+    logger.info(
+        "Ansökan %s godkänd av %s (företag %s, användare %s)",
+        application_id,
+        normalized_reviewer,
+        validated_orgnr,
+        mask_hash(email_hash),
+    )
+    return {
+        "company_id": int(company_id),
+        "user_id": int(user_id),
+        "orgnr": validated_orgnr,
+        "email": normalized_email,
+        "account_type": application.account_type,
+        "name": application.name,
+        "company_name": application.company_name,
+        "company_created": created,
+    }
+
+
+def reject_application_request(
+    application_id: int, reviewer: str, reason: str
+) -> Dict[str, Any]:
+    normalized_reviewer = (reviewer or "").strip() or "okänd"
+    cleaned_reason = _clean_optional_text(reason, max_length=500)
+    if not cleaned_reason:
+        raise ValueError("Ange en motivering till avslaget.")
+
+    with get_engine().begin() as conn:
+        application = conn.execute(
+            select(application_requests_table).where(
+                application_requests_table.c.id == application_id
+            )
+        ).first()
+        if not application:
+            raise ValueError("Ansökan hittades inte.")
+        if application.status != "pending":
+            raise ValueError("Ansökan är redan hanterad.")
+
+        conn.execute(
+            update(application_requests_table)
+            .where(application_requests_table.c.id == application.id)
+            .values(
+                status="rejected",
+                reviewed_by=normalized_reviewer,
+                reviewed_at=func.now(),
+                decision_reason=cleaned_reason,
+            )
+        )
+
+    normalized_email = normalize_email(application.email)
+    email_hash = hash_value(normalized_email)
+    logger.info(
+        "Ansökan %s avslogs av %s (%s)",
+        application_id,
+        normalized_reviewer,
+        mask_hash(email_hash),
+    )
+    return {
+        "orgnr": application.orgnr_normalized,
+        "email": normalized_email,
+        "account_type": application.account_type,
+        "name": application.name,
+        "company_name": application.company_name,
+        "reason": cleaned_reason,
+    }
 
 
 

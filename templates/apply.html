@@ -1,19 +1,66 @@
 {% extends 'base.html' %}
-{% block title %}Ansök om konto – Utbildnings Intyg{% endblock %}
+{% block title %}Ansök om konto – Utbildningsintyg{% endblock %}
 {% block head %}
     <meta name="description" content="Ansök om konto för att hantera utbildningsintyg digitalt.">
 {% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title">
-    <h1 id="apply-title">Ansök om konto</h1>
-    <p>Skicka in en kontoansökan så hjälper vi dig och ditt team att få tillgång till hela portalen.</p>
-    <a class="apply-button" href="mailto:support@jarnvagskonsulterna.se?subject=Ans%C3%B6kan%20om%20konto">Ansök om konto</a>
+    <div class="apply-hero-content">
+        <div class="apply-intro">
+            <h1 id="apply-title">Ansök om konto</h1>
+            <p>Fyll i uppgifterna nedan så återkommer vi efter att ha granskat din ansökan. Alla fält utom telefonnummer och kommentar är obligatoriska.</p>
+        </div>
+        <form method="post" class="apply-form" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if form_errors %}
+                <div class="message error" role="alert">
+                    <ul>
+                        {% for error in form_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            <fieldset class="field-group">
+                <legend>Vilket konto behöver du?</legend>
+                <label class="radio-option">
+                    <input type="radio" name="account_type" value="user" required {% if form_data.account_type == 'user' %}checked{% endif %}>
+                    <span>Arbetsplatskonto för användare</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="account_type" value="handledare" {% if form_data.account_type == 'handledare' %}checked{% endif %}>
+                    <span>Handledarkonto för företagsportal</span>
+                </label>
+            </fieldset>
+
+            <label for="name">Fullständigt namn</label>
+            <input id="name" name="name" type="text" value="{{ form_data.name }}" required autocomplete="name">
+
+            <label for="email">E-postadress</label>
+            <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
+
+            <label for="phone">Telefonnummer <span class="optional">(valfritt)</span></label>
+            <input id="phone" name="phone" type="tel" value="{{ form_data.phone }}" autocomplete="tel">
+
+            <label for="company_name">Företag</label>
+            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" required autocomplete="organization">
+
+            <label for="orgnr">Organisationsnummer</label>
+            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
+            <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
+
+            <label for="comment">Kommentar <span class="optional">(valfritt)</span></label>
+            <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
+
+            <button type="submit" class="btn">Skicka ansökan</button>
+        </form>
+    </div>
 </section>
 
 <section class="apply-info" aria-labelledby="pricing-title">
     <h2 id="pricing-title">Vad kostar det?</h2>
     <p class="apply-price">Användarkonto är gratis.</p>
-    <p class="apply-price">Arbetsgivarkonto med tillgång till företagsportalen kostar 20 kronor per kopplad användare.</p>
+    <p class="apply-price">Företagsportal med handledare kostar 20 kronor per kopplad användare.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title">
@@ -21,15 +68,15 @@
     <ol class="apply-step-list">
         <li>
             <h3>Skicka in uppgifter</h3>
-            <p>Ange företag, kontaktperson och vilka roller som ska ha tillgång.</p>
+            <p>Ange företag, kontaktperson och vilken roll som ska få åtkomst.</p>
         </li>
         <li>
             <h3>Verifiering</h3>
-            <p>Vi kontaktar dig för att bekräfta behörigheter och teckna avtal.</p>
+            <p>Vi kontrollerar organisationsnumret och bekräftar behörigheter.</p>
         </li>
         <li>
-            <h3>Kom igång</h3>
-            <p>Kontot aktiveras och du får en snabb genomgång av portalen.</p>
+            <h3>Starta upp</h3>
+            <p>När ansökan godkänns skapar vi kontot och skickar instruktioner via e-post.</p>
         </li>
     </ol>
 </section>
