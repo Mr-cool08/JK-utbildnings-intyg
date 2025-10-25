@@ -1136,7 +1136,8 @@ def admin_list_applications():
     try:
         rows = functions.list_application_requests(status)
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 400
+        logging.exception("Failed to list application requests")
+        return jsonify({'status': 'error', 'message': 'Felaktig begäran.'}), 400
 
     serialized = [_serialize_application_row(row) for row in rows]
     return jsonify({'status': 'success', 'data': serialized})
