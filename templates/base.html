@@ -26,8 +26,10 @@
     <nav class="site-nav">
         <div class="nav-inner">
             <a class="brand" href="/">
-                <img class="brand-logo" src="{{ url_for('static', filename='pictures/favicon_smaller.png') }}" alt="JK Utbildnings logotyp">
-                <span>Hem</span>
+                <span class="brand-icon" aria-hidden="true">
+                    <img class="brand-logo" src="{{ url_for('static', filename='pictures/favicon_smaller.png') }}" alt="">
+                </span>
+                <span class="brand-label">Hem</span>
             </a>
             <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Växla navigering">
                 <span class="nav-toggle-bar"></span>
@@ -35,21 +37,23 @@
                 <span class="nav-toggle-bar"></span>
             </button>
             <div class="nav-links">
+                <a class="nav-link" href="/">Hem</a>
+                <a class="nav-link" href="#ansokan">Ansök om konto</a>
+                <a class="nav-link" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
                 {% if session.get('supervisor_logged_in') %}
-                    <a href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
-                    <a href="/logout">Logga ut</a>
+                    <a class="nav-link" href="{{ url_for('supervisor_dashboard') }}">Handledarpanel</a>
+                    <a class="nav-link nav-link-accent" href="/logout">Logga ut</a>
                 {% elif session.get('user_logged_in') %}
-                    <a href="/dashboard">Intyg</a>
-                    <a href="/logout">Logga ut</a>
+                    <a class="nav-link" href="/dashboard">Mina intyg</a>
+                    <a class="nav-link nav-link-accent" href="/logout">Logga ut</a>
                 {% elif session.get('admin_logged_in') %}
-                    <a href="/admin">Admin</a>
-                    <a href="/logout">Logga ut</a>
+                    <a class="nav-link" href="/admin">Adminpanel</a>
+                    <a class="nav-link nav-link-accent" href="/logout">Logga ut</a>
                 {% else %}
-                    <a href="/login">Logga in</a>
-                    <a href="{{ url_for('supervisor_login') }}">Handledarinloggning</a>
+                    <a class="nav-link nav-link-accent" href="/login">Logga in</a>
                 {% endif %}
-                <a href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener" class="nav-external">Järnvägskonsulterna</a>
-                <a href="https://www.sakerhetsutbildarna.se" target="_blank" rel="noopener" class="nav-external">Säkerhetsutbildarna</a>
+                <a class="nav-link nav-external" href="https://www.jarnvagskonsulterna.se" target="_blank" rel="noopener">Järnvägskonsulterna</a>
+                <a class="nav-link nav-external" href="https://www.sakerhetsutbildarna.se" target="_blank" rel="noopener">Säkerhetsutbildarna</a>
             </div>
         </div>
     </nav>
