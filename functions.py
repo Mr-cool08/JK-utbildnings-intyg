@@ -1999,25 +1999,25 @@ def approve_application_request(
     application_id: int, reviewer: str
 ) -> Dict[str, Any]:
     """
-    Approve an application request and create the corresponding company and company user; for corporate accounts, ensure or create a pending supervisor entry.
+    Approve an application request, provision the company and associated company user, and for corporate accounts ensure or create a pending supervisor entry.
     
     Parameters:
     	application_id (int): ID of the application request to approve.
-    	reviewer (str): Name of the reviewer; empty values are normalized to "okänd".
+    	reviewer (str): Name of the reviewer; empty or blank values are normalized to "okänd".
     
     Returns:
-    	result (Dict[str, Any]): Metadata about the created/updated records:
+    	dict: Metadata about the created or updated records with keys:
     		company_id (int): ID of the ensured or created company.
     		user_id (int): ID of the newly created company user.
     		orgnr (str): Normalized organization number for the company.
     		email (str): Normalized email address of the created user.
     		account_type (str): Account type from the application (e.g., "foretagskonto").
     		name (str): Applicant's name from the application.
-    		company_name (str): Display name of the company (may be provided or derived).
+    		company_name (str): Display name of the company (existing or newly created).
     		company_created (bool): True if a new company was created, False if an existing company was used.
-    		invoice_address (Optional[str]): Invoice address from the application.
-    		invoice_contact (Optional[str]): Invoice contact from the application.
-    		invoice_reference (Optional[str]): Invoice reference from the application.
+    		invoice_address (Optional[str]): Invoice address from the application, or None.
+    		invoice_contact (Optional[str]): Invoice contact from the application, or None.
+    		invoice_reference (Optional[str]): Invoice reference from the application, or None.
     		pending_supervisor_created (bool): True if a pending supervisor row was created for corporate accounts.
     		supervisor_activation_required (bool): True if a supervisor account must be activated for the company (corporate accounts).
     		supervisor_email_hash (Optional[str]): Hashed supervisor email for corporate accounts, or None for non-corporate accounts.
@@ -2204,7 +2204,20 @@ def reject_application_request(
 
 
 def list_companies_for_invoicing() -> List[Dict[str, Any]]:
-    """Returnerar företag med företagskonton och deras fakturauppgifter."""
+    """
+    Return a list of companies that have at least one corporate account along with their invoicing data and aggregated user counts.
+    
+    Returns:
+        companies (List[Dict[str, Any]]): A list of dictionaries, one per company, each containing:
+            - id (int): Company database identifier.
+            - name (str): Company name.
+            - orgnr (str): Normalized organization number (hashed/stored form).
+            - invoice_address (Optional[str]): Invoice address or None if not set.
+            - invoice_contact (Optional[str]): Invoice contact or None if not set.
+            - invoice_reference (Optional[str]): Invoice reference or None if not set.
+            - foretagskonto_count (int): Number of company_users with role "foretagskonto" for the company (>= 1).
+            - user_count (int): Total number of users linked to the company.
+    """
 
     foretagskonto_count_expr = func.sum(
         case((company_users_table.c.role == "foretagskonto", 1), else_=0)
