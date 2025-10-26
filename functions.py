@@ -1927,11 +1927,14 @@ def create_application_request(
     stored_company = cleaned_company if cleaned_company else ""
 
     with get_engine().begin() as conn:
-        # Prevent duplicate pending applications for the same email + orgnr combination.
+        # Hindra dubbletter för samma e-post + orgnr och kontotyp. Ansökningar
+        # för olika kontotyper ska hanteras oberoende så att både standard- och
+        # företagskonton kan ansöka med samma uppgifter parallellt.
         existing_pending = conn.execute(
             select(application_requests_table).where(
                 application_requests_table.c.email == normalized_email,
                 application_requests_table.c.orgnr_normalized == validated_orgnr,
+                application_requests_table.c.account_type == normalized_type,
                 application_requests_table.c.status == 'pending',
             )
         ).first()
@@ -1940,10 +1943,6 @@ def create_application_request(
             if existing_type == normalized_type:
                 raise ValueError(
                     'Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support.'
-                )
-            else:
-                raise ValueError(
-                    'Det finns redan en väntande ansökan för denna e-post och organisationsnummer. Kontakta support om du vill ändra ansökningstyp.'
                 )
         result = conn.execute(
             insert(application_requests_table).values(

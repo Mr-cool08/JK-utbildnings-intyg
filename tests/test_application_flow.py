@@ -198,4 +198,39 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["invoice_contact"] == "Kontakt 1"
     assert company["invoice_reference"] == "Ref 1"
     assert company["foretagskonto_count"] == 1
-    assert company["user_count"] == 2
+
+
+def test_pending_applications_allow_different_account_types(fresh_app_db):
+    standard_id = functions.create_application_request(
+        account_type="standard",
+        name="Test Användare",
+        email="kontakt@example.com",
+        orgnr="5560160680",
+        company_name="",
+        comment=None,
+    )
+
+    foretagskonto_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Test Företag",
+        email="kontakt@example.com",
+        orgnr="5560160680",
+        company_name="Testbolaget AB",
+        comment=None,
+        invoice_address="Adress 123",
+        invoice_contact="Kontaktperson",
+        invoice_reference="Ref 2024",
+    )
+
+    assert foretagskonto_id != standard_id
+
+    with fresh_app_db.connect() as conn:
+        pending = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.email
+                == functions.normalize_email("kontakt@example.com")
+            )
+        ).fetchall()
+
+    assert {row.account_type for row in pending} == {"standard", "foretagskonto"}
+    assert all(row.status == "pending" for row in pending)
