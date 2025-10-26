@@ -19,7 +19,7 @@ from smtplib import (
 from typing import Sequence
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger
+from logging_utils import configure_module_logger, mask_hash
 
 import functions
 
@@ -86,12 +86,13 @@ def send_email_message(
     """Send ``msg`` to ``normalized_recipient`` using ``settings``."""
 
     context = ssl.create_default_context()
+    recipient_mask = mask_hash(functions.hash_value(normalized_recipient))
 
     try:
         use_ssl = settings.port == 465
         logger.info(
             "Förbereder utskick till %s via %s:%s (%s, timeout %ss)",
-            normalized_recipient,
+            recipient_mask,
             settings.server,
             settings.port,
             "SSL" if use_ssl else "STARTTLS",
@@ -135,12 +136,12 @@ def send_email_message(
                 )
 
             if refused:
-                logger.error("SMTP server refused recipients: %s", refused)
+                logger.error("SMTP server refused recipients: %s", recipient_mask)
                 raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
         logger.debug(
             "Meddelande-ID för utskick till %s: %s",
-            normalized_recipient,
+            recipient_mask,
             msg["Message-ID"],
         )
 
@@ -151,7 +152,7 @@ def send_email_message(
         logger.exception("Server closed the connection during SMTP session")
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except SMTPException as exc:
-        logger.exception("SMTP error when sending to %s", normalized_recipient)
+        logger.exception("SMTP error when sending to %s", recipient_mask)
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except OSError as exc:
         logger.exception("Connection error to email server")
@@ -298,26 +299,44 @@ def send_application_approval_email(
     """Skicka besked om godkänd ansökan."""
 
     normalized_type = account_type.lower()
+    company_text = (company_name or "").strip()
+    company_text = " ".join(company_text.splitlines())
+    safe_company_html = escape(company_text)
+
     if normalized_type == "foretagskonto":
+        if not company_text:
+            company_text = "företaget"
+            safe_company_html = "företaget"
         account_label = "ett företagskonto"
+        subject = f"Ansökan godkänd för {company_text}"
+        body = f"""
+            <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                    <p>Hej,</p>
+                    <p>Din ansökan om {account_label} kopplat till {safe_company_html} har blivit godkänd.</p>
+                    <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
+                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
+                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+                </body>
+            </html>
+        """
     else:
         account_label = "ett standardkonto"
-
-    safe_company = escape((company_name or "").strip())
-    if not safe_company:
-        safe_company = "företaget"
-    subject = f"Ansökan godkänd för {safe_company}"
-    body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Din ansökan om {account_label} kopplat till {safe_company} har blivit godkänd.</p>
-                <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
-                <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
-                <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
-            </body>
-        </html>
-    """
+        company_phrase = f" kopplat till {safe_company_html}" if company_text else ""
+        subject = (
+            f"Ansökan om standardkonto godkänd{f' för {company_text}' if company_text else ''}"
+        )
+        body = f"""
+            <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                    <p>Hej,</p>
+                    <p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>
+                    <p>Kontot har skapats och du får separat information om hur du loggar in.</p>
+                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
+                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+                </body>
+            </html>
+        """
     send_email(to_email, subject, body)
 
 

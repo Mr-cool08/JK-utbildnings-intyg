@@ -201,7 +201,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["user_count"] == 2
 
 
-def test_standard_application_without_orgnr_can_be_skapat_men_inte_godkannas(fresh_app_db):
+def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
     application_id = functions.create_application_request(
         account_type="standard",
         name="Organisationslös Användare",
@@ -220,6 +220,25 @@ def test_standard_application_without_orgnr_can_be_skapat_men_inte_godkannas(fre
         assert stored is not None
         assert stored.orgnr_normalized == ""
 
-    with pytest.raises(ValueError) as exc:
-        functions.approve_application_request(application_id, "admin")
-    assert "saknar organisationsnummer" in str(exc.value)
+    result = functions.approve_application_request(application_id, "admin")
+    assert result["company_id"] is None
+    assert result["orgnr"] == ""
+    assert result["company_created"] is False
+    assert result["pending_supervisor_created"] is False
+
+    with fresh_app_db.connect() as conn:
+        user = conn.execute(functions.company_users_table.select()).first()
+        assert user is not None
+        assert user.email == "utan-orgnr@example.com"
+        assert user.company_id is None
+
+        companies = conn.execute(functions.companies_table.select()).fetchall()
+        assert companies == []
+
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        assert application.status == "approved"
+        assert application.reviewed_by == "admin"
