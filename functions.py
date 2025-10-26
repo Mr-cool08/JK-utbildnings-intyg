@@ -1998,7 +1998,35 @@ def get_application_request(application_id: int) -> Optional[Dict[str, Any]]:
 def approve_application_request(
     application_id: int, reviewer: str
 ) -> Dict[str, Any]:
+    """
+    Approve an application request and create the corresponding company and company user; for corporate accounts, ensure or create a pending supervisor entry.
+    
+    Parameters:
+    	application_id (int): ID of the application request to approve.
+    	reviewer (str): Name of the reviewer; empty values are normalized to "okänd".
+    
+    Returns:
+    	result (Dict[str, Any]): Metadata about the created/updated records:
+    		company_id (int): ID of the ensured or created company.
+    		user_id (int): ID of the newly created company user.
+    		orgnr (str): Normalized organization number for the company.
+    		email (str): Normalized email address of the created user.
+    		account_type (str): Account type from the application (e.g., "foretagskonto").
+    		name (str): Applicant's name from the application.
+    		company_name (str): Display name of the company (may be provided or derived).
+    		company_created (bool): True if a new company was created, False if an existing company was used.
+    		invoice_address (Optional[str]): Invoice address from the application.
+    		invoice_contact (Optional[str]): Invoice contact from the application.
+    		invoice_reference (Optional[str]): Invoice reference from the application.
+    		pending_supervisor_created (bool): True if a pending supervisor row was created for corporate accounts.
+    		supervisor_activation_required (bool): True if a supervisor account must be activated for the company (corporate accounts).
+    		supervisor_email_hash (Optional[str]): Hashed supervisor email for corporate accounts, or None for non-corporate accounts.
+    """
     normalized_reviewer = (reviewer or "").strip() or "okänd"
+
+    pending_supervisor_created = False
+    supervisor_activation_required = False
+    supervisor_email_hash: Optional[str] = None
 
     with get_engine().begin() as conn:
         application = conn.execute(
@@ -2041,6 +2069,42 @@ def approve_application_request(
         )
         user_id = result.inserted_primary_key[0]
 
+        if application.account_type == "foretagskonto":
+            supervisor_email_hash = hash_value(normalized_email)
+            existing_supervisor = conn.execute(
+                select(supervisors_table.c.id).where(
+                    supervisors_table.c.email == supervisor_email_hash
+                )
+            ).first()
+            pending_row = conn.execute(
+                select(
+                    pending_supervisors_table.c.id,
+                    pending_supervisors_table.c.name,
+                ).where(pending_supervisors_table.c.email == supervisor_email_hash)
+            ).first()
+
+            cleaned_name = (application.name or "").strip()
+
+            if existing_supervisor:
+                supervisor_activation_required = False
+            elif pending_row:
+                supervisor_activation_required = True
+                if cleaned_name and pending_row.name != cleaned_name:
+                    conn.execute(
+                        update(pending_supervisors_table)
+                        .where(pending_supervisors_table.c.id == pending_row.id)
+                        .values(name=cleaned_name)
+                    )
+            else:
+                conn.execute(
+                    insert(pending_supervisors_table).values(
+                        email=supervisor_email_hash,
+                        name=cleaned_name,
+                    )
+                )
+                pending_supervisor_created = True
+                supervisor_activation_required = True
+
         conn.execute(
             update(application_requests_table)
             .where(application_requests_table.c.id == application.id)
@@ -2072,6 +2136,9 @@ def approve_application_request(
         "invoice_address": application.invoice_address,
         "invoice_contact": application.invoice_contact,
         "invoice_reference": application.invoice_reference,
+        "pending_supervisor_created": pending_supervisor_created,
+        "supervisor_activation_required": supervisor_activation_required,
+        "supervisor_email_hash": supervisor_email_hash,
     }
 
 
@@ -2193,4 +2260,3 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
         )
 
     return companies
-

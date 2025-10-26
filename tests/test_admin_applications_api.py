@@ -37,13 +37,27 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     _admin_session(client)
 
     sent = {}
+    creation_sent = {}
 
     def fake_send(email, account_type, company_name):
+        """
+        Record the provided email details into the outer `sent` dictionary for test assertions.
+        
+        Parameters:
+            email (str): Recipient email address to store under key 'email'.
+            account_type (str): Account type to store under key 'type'.
+            company_name (str): Company name to store under key 'company'.
+        """
         sent['email'] = email
         sent['type'] = account_type
         sent['company'] = company_name
 
     monkeypatch.setattr(app.email_service, 'send_application_approval_email', fake_send)
+    monkeypatch.setattr(
+        app.email_service,
+        'send_creation_email',
+        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+    )
 
     application_id = functions.create_application_request(
         'foretagskonto',
@@ -67,6 +81,9 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'foretagskonto'
     assert sent['email'] == 'foretagskonto@example.com'
+    assert creation_sent['email'] == 'foretagskonto@example.com'
+    assert 'creation_link' in payload
+    assert creation_sent['link'] == payload['creation_link']
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -75,9 +92,18 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
             )
         ).first()
         assert application.status == 'approved'
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).first()
+        assert pending_supervisor is not None
 
 
 def test_admin_reject_application_api(empty_db, monkeypatch):
+    """
+    Verifies that the admin reject-application API records a rejection, sends a rejection email, and persists the decision reason.
+    
+    Sends a POST to the admin rejection endpoint for a created application, asserts a 200 response with a success payload containing the supplied reason, checks that a rejection email was sent to the applicant, and verifies the application row in the database has status 'rejected' and the decision_reason set to the provided reason.
+    """
     client = app.app.test_client()
     _admin_session(client)
 
