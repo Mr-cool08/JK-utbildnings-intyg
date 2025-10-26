@@ -33,7 +33,7 @@
 
             <label for="orgnr">Organisationsnummer</label>
             <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
-            <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
+            <small class="hint">Ange organisationsnumret med eller utan bindestreck.</small>
 
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
