@@ -1214,10 +1214,8 @@ def admin_approve_application(application_id: int):
         email_warnings.append('Konto godkänt men bekräftelsemejlet kunde inte skickas.')
 
     creation_link: str | None = None
-    if (
-        result.get('account_type') == 'foretagskonto'
-        and result.get('supervisor_activation_required')
-        and result.get('supervisor_email_hash')
+    if result.get('supervisor_activation_required') and result.get(
+        'supervisor_email_hash'
     ):
         creation_link = url_for(
             'supervisor_create',

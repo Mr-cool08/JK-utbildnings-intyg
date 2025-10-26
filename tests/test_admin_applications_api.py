@@ -98,6 +98,65 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
         assert pending_supervisor is not None
 
 
+def test_admin_approve_standard_application_sends_creation_email(
+    empty_db, monkeypatch
+):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    sent: dict[str, str] = {}
+    creation_sent: dict[str, str] = {}
+
+    def fake_send(email, account_type, company_name):
+        sent['email'] = email
+        sent['type'] = account_type
+        sent['company'] = company_name
+
+    monkeypatch.setattr(
+        app.email_service, 'send_application_approval_email', fake_send
+    )
+    monkeypatch.setattr(
+        app.email_service,
+        'send_creation_email',
+        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+    )
+
+    application_id = functions.create_application_request(
+        'standard',
+        'Standard Användare',
+        'standard@example.com',
+        '',
+        '',
+        'Hej',
+    )
+
+    response = client.post(
+        f'/admin/api/ansokningar/{application_id}/godkann',
+        json={'csrf_token': 'test-csrf'},
+        headers={'X-CSRF-Token': 'test-csrf'},
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['status'] == 'success'
+    assert payload['data']['account_type'] == 'standard'
+    assert sent['email'] == 'standard@example.com'
+    assert creation_sent['email'] == 'standard@example.com'
+    assert 'creation_link' in payload
+    assert creation_sent['link'] == payload['creation_link']
+
+    with empty_db.connect() as conn:
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        assert application.status == 'approved'
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).fetchall()
+        assert len(pending_supervisor) == 1
+
+
 def test_admin_reject_application_api(empty_db, monkeypatch):
     """
     Verifies that the admin reject-application API records a rejection, sends a rejection email, and persists the decision reason.

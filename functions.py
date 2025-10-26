@@ -2171,7 +2171,7 @@ def approve_application_request(
             raise ValueError("E-postadressen är redan registrerad.") from exc
         user_id = result.inserted_primary_key[0]
 
-        if application.account_type == "foretagskonto":
+        if application.account_type in {"foretagskonto", "standard"}:
             supervisor_email_hash = hash_value(normalized_email)
             existing_supervisor = conn.execute(
                 select(supervisors_table.c.id).where(
