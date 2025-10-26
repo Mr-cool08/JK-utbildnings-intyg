@@ -298,26 +298,41 @@ def send_application_approval_email(
     """Skicka besked om godkänd ansökan."""
 
     normalized_type = account_type.lower()
+    safe_company = escape((company_name or "").strip())
+
     if normalized_type == "foretagskonto":
+        if not safe_company:
+            safe_company = "företaget"
         account_label = "ett företagskonto"
+        subject = f"Ansökan godkänd för {safe_company}"
+        body = f"""
+            <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                    <p>Hej,</p>
+                    <p>Din ansökan om {account_label} kopplat till {safe_company} har blivit godkänd.</p>
+                    <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
+                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
+                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+                </body>
+            </html>
+        """
     else:
         account_label = "ett standardkonto"
-
-    safe_company = escape((company_name or "").strip())
-    if not safe_company:
-        safe_company = "företaget"
-    subject = f"Ansökan godkänd för {safe_company}"
-    body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Din ansökan om {account_label} kopplat till {safe_company} har blivit godkänd.</p>
-                <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
-                <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
-                <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
-            </body>
-        </html>
-    """
+        company_phrase = f" kopplat till {safe_company}" if safe_company else ""
+        subject = (
+            f"Ansökan om standardkonto godkänd{f' för {safe_company}' if safe_company else ''}"
+        )
+        body = f"""
+            <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
+                    <p>Hej,</p>
+                    <p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>
+                    <p>Kontot har skapats och du får separat information om hur du loggar in.</p>
+                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
+                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
+                </body>
+            </html>
+        """
     send_email(to_email, subject, body)
 
 

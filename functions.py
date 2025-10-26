@@ -259,7 +259,7 @@ company_users_table = Table(
     "company_users",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("company_id", Integer, nullable=False, index=True),
+    Column("company_id", Integer, nullable=True, index=True),
     Column("role", String, nullable=False),
     Column("name", String, nullable=False),
     Column("email", String, nullable=False, unique=True),
@@ -351,10 +351,91 @@ def _migration_0003_add_invoice_fields(conn: Connection) -> None:
         _add_column_if_missing(conn, application_requests_table.name, "invoice_reference", "TEXT")
 
 
+def _migration_0004_make_company_id_nullable(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    columns = inspector.get_columns(company_users_table.name)
+    company_id_column = next(
+        (column for column in columns if column["name"] == "company_id"), None
+    )
+    if not company_id_column or company_id_column.get("nullable", False):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(text("PRAGMA foreign_keys=OFF"))
+        try:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE company_users_new (
+                        id INTEGER PRIMARY KEY,
+                        company_id INTEGER,
+                        role VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL UNIQUE,
+                        created_via_application_id INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO company_users_new (
+                        id,
+                        company_id,
+                        role,
+                        name,
+                        email,
+                        created_via_application_id,
+                        created_at,
+                        updated_at
+                    )
+                    SELECT
+                        id,
+                        company_id,
+                        role,
+                        name,
+                        email,
+                        created_via_application_id,
+                        created_at,
+                        updated_at
+                    FROM company_users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE company_users"))
+            conn.execute(text("ALTER TABLE company_users_new RENAME TO company_users"))
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_company_users_company_id ON company_users(company_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_company_users_created_via_application_id ON company_users(created_via_application_id)"
+                )
+            )
+        finally:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+        return
+
+    conn.execute(
+        text("ALTER TABLE company_users ALTER COLUMN company_id DROP NOT NULL")
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
     ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
+    ("0004_make_company_id_nullable", _migration_0004_make_company_id_nullable),
 ]
 
 
@@ -2050,20 +2131,22 @@ def approve_application_request(
             raise ValueError("Ansökan är redan hanterad.")
 
         stored_orgnr = (application.orgnr_normalized or "").strip()
-        if not stored_orgnr and application.account_type == "standard":
-            raise ValueError(
-                "Ansökan saknar organisationsnummer. Be användaren lägga till uppgiften via sin dashboard innan du godkänner."
+        company_id: Optional[int]
+        created: bool = False
+        if stored_orgnr:
+            validated_orgnr = validate_orgnr(stored_orgnr)
+            company_id, created, company_display = _ensure_company(
+                conn,
+                validated_orgnr,
+                application.company_name,
+                application.invoice_address,
+                application.invoice_contact,
+                application.invoice_reference,
             )
-
-        validated_orgnr = validate_orgnr(application.orgnr_normalized)
-        company_id, created, company_display = _ensure_company(
-            conn,
-            validated_orgnr,
-            application.company_name,
-            application.invoice_address,
-            application.invoice_contact,
-            application.invoice_reference,
-        )
+        else:
+            validated_orgnr = ""
+            company_id = None
+            company_display = (application.company_name or "").strip()
 
         normalized_email = normalize_email(application.email)
         existing_user = conn.execute(
@@ -2141,14 +2224,14 @@ def approve_application_request(
         mask_hash(email_hash),
     )
     return {
-        "company_id": int(company_id),
+        "company_id": int(company_id) if company_id is not None else None,
         "user_id": int(user_id),
         "orgnr": validated_orgnr,
         "email": normalized_email,
         "account_type": application.account_type,
         "name": application.name,
         "company_name": company_display,
-        "company_created": created,
+        "company_created": created if company_id is not None else False,
         "invoice_address": application.invoice_address,
         "invoice_contact": application.invoice_contact,
         "invoice_reference": application.invoice_reference,
@@ -2177,9 +2260,14 @@ def reject_application_request(
         if application.status != "pending":
             raise ValueError("Ansökan är redan hanterad.")
 
-        validated_orgnr = validate_orgnr(application.orgnr_normalized)
+        stored_orgnr = (application.orgnr_normalized or "").strip()
+        if stored_orgnr:
+            validated_orgnr = validate_orgnr(stored_orgnr)
+        else:
+            validated_orgnr = ""
+
         company_display = (application.company_name or "").strip()
-        if not company_display:
+        if not company_display and validated_orgnr:
             existing_company = conn.execute(
                 select(companies_table.c.name).where(
                     companies_table.c.orgnr == validated_orgnr
@@ -2189,6 +2277,8 @@ def reject_application_request(
                 company_display = existing_company.name
             else:
                 company_display = f"organisationsnummer {validated_orgnr}"
+        if not company_display:
+            company_display = "standardkontot"
 
         conn.execute(
             update(application_requests_table)
