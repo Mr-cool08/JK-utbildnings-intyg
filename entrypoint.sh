@@ -26,7 +26,7 @@ HTTPS_PORT="${HTTPS_PORT:-443}"
 HTTP_PORT="${HTTP_PORT:-80}"
 FLASK_PORT="${FLASK_PORT:-5000}"
 
-# TLS källor:
+# TLS-källor:
 # 1) TLS_CERT_PATH/TLS_KEY_PATH -> läs filer (t.ex. Let's Encrypt)
 # 2) TLS_CERT/TLS_KEY (PEM eller base64)
 # 3) self-signed fallback
@@ -96,7 +96,7 @@ http {
         ssl_certificate     __CERT__;
         ssl_certificate_key __KEY__;
 
-        # TLS inställningar (gäller ej self-signed OCSP)
+        # TLS-inställningar (gäller ej self-signed OCSP)
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_prefer_server_ciphers on;
 
