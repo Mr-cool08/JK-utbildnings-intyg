@@ -36,6 +36,7 @@
     --container-max: 1100px;
     --container-padding: clamp(1.25rem, 4vw, 2.5rem);
     --transition-base: 0.2s ease;
+    --transition-fast: 0.12s ease; /* Added to support faster UI transitions */
 }
 
 *,
@@ -329,6 +330,23 @@ h3 {
 .cta-panel p {
     color: #fff;
     margin: 0 0 1.25rem 0; /* keep a bottom gap for buttons */
+    padding-bottom: 1rem; /* extra space below the paragraph so buttons don't sit too tight */
+}
+
+/* Back link used on single-application pages to return to account choice */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--color-text);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.back-link:hover,
+.back-link:focus-visible {
+    text-decoration: underline;
 }
 
 @media (max-width: 768px) {
@@ -956,7 +974,8 @@ small.hint {
 
 /* Slightly reduce the size for the landing hero main title to better fit the white hero */
 #home-hero-title {
-    font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+    /* made slightly smaller per request */
+    font-size: clamp(1.6rem, 3.6vw, 2.2rem);
     margin-bottom: 0.6rem;
 }
 
@@ -1207,6 +1226,7 @@ small.hint {
 .cta-panel p {
     color: #fff;
     margin: 0 0 1.25rem 0; /* keep a bottom gap for buttons */
+    padding-bottom: 1rem; /* extra space below the paragraph so buttons don't sit too tight */
 }
 
 .cta-actions {

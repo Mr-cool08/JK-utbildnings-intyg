@@ -6,6 +6,9 @@
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title">
     <div class="apply-hero-content">
+
+        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till konto-val">&#x2190; Tillbaka</a>
+
         <div class="apply-intro">
             <h1 id="apply-title">Ansök om standardkonto</h1>
             <p>Fyll i uppgifterna så kopplar vi kontot till rätt företag via organisationsnumret.</p>
@@ -32,7 +35,7 @@
             <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
             <small class="hint">Ange organisationsnumret med eller utan bindestreck. Vi normaliserar till tio siffror och kontrollerar kontrollsiffran.</small>
 
-            <label for="comment">Kommentar <span class="optional">(valfritt)</span></label>
+            <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
 
             <button type="submit" class="btn">Skicka ansökan</button>
