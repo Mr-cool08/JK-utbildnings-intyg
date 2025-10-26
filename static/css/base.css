@@ -1282,36 +1282,22 @@ small.hint {
     border-radius: var(--radius-lg);
     padding: clamp(1.5rem, 4vw, 2rem);
     box-shadow: var(--shadow-sm);
-    display: grid;
+    /* Use column flex layout so the CTA button can be pushed to the bottom */
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
 }
 
 .apply-choice-card ul {
-    margin: 0;
+    /* Allow the list to grow and push the button down on taller cards */
+    margin: 0 0 0.5rem 0;
     padding-left: 1.1rem;
-    display: grid;
-    gap: 0.35rem;
+    flex: 1 1 auto;
 }
 
-.apply-choice-link {
-    font-weight: 700;
-    color: var(--color-primary);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
-
-.apply-choice-link::after {
-    content: '\2192';
-    font-size: 1.1em;
-    transition: transform var(--transition-fast);
-}
-
-.apply-choice-link:hover::after,
-.apply-choice-link:focus-visible::after {
-    transform: translateX(4px);
+.apply-choice-card .btn {
+    margin-top: 0.5rem;
+    align-self: flex-start;
 }
 
 .apply-form {
