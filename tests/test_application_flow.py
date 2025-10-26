@@ -28,6 +28,11 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
     assert result["account_type"] == "foretagskonto"
     assert result["orgnr"] == "5560160680"
     assert result["company_name"] == "Testbolag AB"
+    assert result["pending_supervisor_created"] is True
+    assert result["supervisor_activation_required"] is True
+    assert result["supervisor_email_hash"] == functions.hash_value(
+        functions.normalize_email("applicant@example.com")
+    )
 
     with fresh_app_db.connect() as conn:
         company = conn.execute(functions.companies_table.select()).first()
@@ -39,6 +44,15 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
         assert user.email == "applicant@example.com"
         assert user.company_id == company.id
         assert user.role == "foretagskonto"
+
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).first()
+        assert pending_supervisor is not None
+        assert pending_supervisor.email == functions.hash_value(
+            functions.normalize_email("applicant@example.com")
+        )
+        assert pending_supervisor.name == "Test Företagskonto"
 
         application = conn.execute(
             functions.application_requests_table.select().where(
@@ -117,6 +131,10 @@ def test_approval_reuses_existing_company(fresh_app_db):
     assert user_result["company_created"] is False
     assert foretagskonto_result["company_id"] == user_result["company_id"]
     assert user_result["company_name"] == "Bolaget AB"
+    assert foretagskonto_result["pending_supervisor_created"] is True
+    assert foretagskonto_result["supervisor_activation_required"] is True
+    assert user_result["supervisor_activation_required"] is False
+    assert user_result["supervisor_email_hash"] is None
 
     with fresh_app_db.connect() as conn:
         companies = conn.execute(functions.companies_table.select()).fetchall()
@@ -125,6 +143,11 @@ def test_approval_reuses_existing_company(fresh_app_db):
         users = conn.execute(functions.company_users_table.select()).fetchall()
         emails = {row.email for row in users}
         assert emails == {"first@example.com", "foretagskonto@example.com"}
+
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).fetchall()
+        assert len(pending_supervisor) == 1
 
 
 def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):

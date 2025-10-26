@@ -37,6 +37,7 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     _admin_session(client)
 
     sent = {}
+    creation_sent = {}
 
     def fake_send(email, account_type, company_name):
         sent['email'] = email
@@ -44,6 +45,11 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
         sent['company'] = company_name
 
     monkeypatch.setattr(app.email_service, 'send_application_approval_email', fake_send)
+    monkeypatch.setattr(
+        app.email_service,
+        'send_creation_email',
+        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+    )
 
     application_id = functions.create_application_request(
         'foretagskonto',
@@ -67,6 +73,9 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'foretagskonto'
     assert sent['email'] == 'foretagskonto@example.com'
+    assert creation_sent['email'] == 'foretagskonto@example.com'
+    assert 'creation_link' in payload
+    assert creation_sent['link'] == payload['creation_link']
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -75,6 +84,10 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
             )
         ).first()
         assert application.status == 'approved'
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).first()
+        assert pending_supervisor is not None
 
 
 def test_admin_reject_application_api(empty_db, monkeypatch):

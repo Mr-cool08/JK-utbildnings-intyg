@@ -9,7 +9,7 @@ import logging
 import os
 import secrets
 import time
-from typing import Sequence
+from typing import Any, Sequence
 
 from flask import (
     Flask,
@@ -1188,14 +1188,34 @@ def admin_approve_application(application_id: int):
         logger.exception("Misslyckades att godkänna ansökan %s", application_id)
         return jsonify({'status': 'error', 'message': 'Kunde inte godkänna ansökan.'}), 500
 
-    email_error = None
+    email_warnings: list[str] = []
     try:
         email_service.send_application_approval_email(
             result['email'], result['account_type'], result['company_name']
         )
     except RuntimeError as exc:
         logger.exception("Misslyckades att skicka godkännandemejl för ansökan %s", application_id)
-        email_error = str(exc)
+        email_warnings.append('Konto godkänt men bekräftelsemejlet kunde inte skickas.')
+
+    creation_link: str | None = None
+    if (
+        result.get('account_type') == 'foretagskonto'
+        and result.get('supervisor_activation_required')
+        and result.get('supervisor_email_hash')
+    ):
+        creation_link = url_for(
+            'supervisor_create',
+            email_hash=result['supervisor_email_hash'],
+            _external=True,
+        )
+        try:
+            email_service.send_creation_email(result['email'], creation_link)
+        except RuntimeError:
+            logger.exception(
+                "Misslyckades att skicka aktiveringslänk för företagskonto %s",
+                application_id,
+            )
+            email_warnings.append('Aktiveringslänken kunde inte skickas.')
 
     masked_email = mask_hash(functions.hash_value(result['email']))
     functions.log_admin_action(
@@ -1204,9 +1224,11 @@ def admin_approve_application(application_id: int):
         f'application_id={application_id}, email={masked_email}',
     )
 
-    payload = {'status': 'success', 'data': result}
-    if email_error:
-        payload['email_warning'] = 'Konto godkänt men e-post kunde inte skickas.'
+    payload: dict[str, Any] = {'status': 'success', 'data': result}
+    if email_warnings:
+        payload['email_warning'] = ' '.join(email_warnings)
+    if creation_link:
+        payload['creation_link'] = creation_link
     return jsonify(payload)
 
 
