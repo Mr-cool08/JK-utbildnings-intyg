@@ -1,4 +1,4 @@
- # Konstanter och hjälpmetoder för kurskategorier.
+# Konstanter och hjälpmetoder för kurskategorier.
 
 from __future__ import annotations
 

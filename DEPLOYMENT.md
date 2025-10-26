@@ -27,7 +27,7 @@ To launch only the demo environment with its temporary SQLite database run:
 docker compose up --build app_demo
 ```
 
-The demoversion listens on <http://localhost:8080> and resets its data on every restart.
+Demoversionen lyssnar på <http://localhost:8080> och återställer sina data vid varje omstart.
 
 ## Production deployment
 
