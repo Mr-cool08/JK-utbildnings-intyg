@@ -19,10 +19,10 @@ if not server or not user or not password:
 
 # --- Meddelande ---
 msg = EmailMessage()
-msg["Subject"] = "Testmail"
+msg["Subject"] = "Testmejl"
 msg["From"] = user
 msg["To"] = "liamsuorsa08@gmail.com"  # <-- byt till din adress
-msg.set_content("Hej! Detta är ett testmail.")
+msg.set_content("Hej! Detta är ett testmejl.")
 
 # --- Skicka via STARTTLS på port 587 ---
 context = ssl.create_default_context()
@@ -33,7 +33,7 @@ with smtplib.SMTP(server, port, timeout=30) as smtp:
     smtp.login(user, password)
     smtp.send_message(msg)
 
-print("Testmail skickat!")
+print("Testmejl skickat!")
 
 
 
