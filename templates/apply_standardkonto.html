@@ -11,7 +11,7 @@
 
         <div class="apply-intro">
             <h1 id="apply-title">Ansök om standardkonto</h1>
-            <p>Fyll i uppgifterna så kopplar vi kontot till rätt företag via organisationsnumret.</p>
+            <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart. Organisationsnummer kan du lägga till senare.</p>
         </div>
         <form method="post" class="apply-form" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -31,9 +31,9 @@
             <label for="email">E-postadress</label>
             <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
 
-            <label for="orgnr">Organisationsnummer</label>
-            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" required placeholder="Exempel: 556016-0680">
-            <small class="hint">Ange organisationsnumret med eller utan bindestreck.</small>
+            <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
+            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" placeholder="Exempel: 556016-0680">
+            <small class="hint">Du kan ange organisationsnumret nu eller lägga till det senare via din dashboard.</small>
 
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
@@ -54,7 +54,7 @@
 <section class="apply-info" aria-labelledby="info-title">
     <h2 id="info-title">Om standardkonton</h2>
     <p class="apply-price">Standardkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
-    <p>Vi kopplar kontot till befintligt företag eller skapar en ny koppling baserat på organisationsnumret.</p>
+    <p>Om du redan vet organisationsnumret anger du det här, annars kan du komplettera uppgiften från din dashboard.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title">
@@ -66,7 +66,7 @@
         </li>
         <li>
             <h3>Verifiering</h3>
-            <p>Vi kontrollerar organisationsnumret och kopplar kontot till företaget.</p>
+            <p>Vi granskar uppgifterna och ber dig vid behov om organisationsnumret innan kontot kopplas till ett företag.</p>
         </li>
         <li>
             <h3>Starta upp</h3>

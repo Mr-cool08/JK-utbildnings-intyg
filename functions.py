@@ -1902,7 +1902,11 @@ def create_application_request(
         raise ValueError("Namn saknas.")
 
     normalized_email = normalize_email(email)
-    validated_orgnr = validate_orgnr(orgnr)
+    raw_orgnr = (orgnr or "").strip()
+    if normalized_type == "standard" and raw_orgnr == "":
+        validated_orgnr = ""
+    else:
+        validated_orgnr = validate_orgnr(raw_orgnr)
     cleaned_company = (company_name or "").strip()
     if normalized_type == "foretagskonto" and not cleaned_company:
         raise ValueError("Företagsnamn krävs för företagskonton.")
@@ -1928,13 +1932,19 @@ def create_application_request(
 
     with get_engine().begin() as conn:
         # Prevent duplicate pending applications for the same email + orgnr combination.
-        existing_pending = conn.execute(
-            select(application_requests_table).where(
-                application_requests_table.c.email == normalized_email,
-                application_requests_table.c.orgnr_normalized == validated_orgnr,
-                application_requests_table.c.status == 'pending',
+        pending_query = select(application_requests_table).where(
+            application_requests_table.c.email == normalized_email,
+            application_requests_table.c.status == 'pending',
+        )
+        if validated_orgnr:
+            pending_query = pending_query.where(
+                application_requests_table.c.orgnr_normalized == validated_orgnr
             )
-        ).first()
+        else:
+            pending_query = pending_query.where(
+                application_requests_table.c.orgnr_normalized == ""
+            )
+        existing_pending = conn.execute(pending_query).first()
         if existing_pending:
             existing_type = existing_pending.account_type
             if existing_type == normalized_type:
@@ -2010,6 +2020,12 @@ def approve_application_request(
             raise ValueError("Ansökan hittades inte.")
         if application.status != "pending":
             raise ValueError("Ansökan är redan hanterad.")
+
+        stored_orgnr = (application.orgnr_normalized or "").strip()
+        if not stored_orgnr and application.account_type == "standard":
+            raise ValueError(
+                "Ansökan saknar organisationsnummer. Be användaren lägga till uppgiften via sin dashboard innan du godkänner."
+            )
 
         validated_orgnr = validate_orgnr(application.orgnr_normalized)
         company_id, created, company_display = _ensure_company(
