@@ -1176,6 +1176,22 @@ def admin_get_application(application_id: int):
 
 @app.post('/admin/api/ansokningar/<int:application_id>/godkann')
 def admin_approve_application(application_id: int):
+    """
+    Approve an application by its ID, perform related notifications, and record the admin action.
+    
+    Attempts to approve the application identified by application_id, sends an approval email to the applicant, and — if the approved application is a corporate account requiring supervisor activation — generates a supervisor creation link and attempts to send a creation email. Records the approval in the admin action log. If email sending fails, the response may include an explanatory warning; if a supervisor creation link was generated it will be included in the response.
+    
+    Parameters:
+        application_id (int): The numeric identifier of the application to approve.
+    
+    Returns:
+        A Flask JSON response with:
+          - On success: a payload containing 'status': 'success' and 'data' with the approved application details. May also include:
+              - 'email_warning' (str): concatenated warnings about failed email deliveries.
+              - 'creation_link' (str): an external URL for supervisor account activation when applicable.
+          - On client error (e.g., invalid CSRF or validation): JSON with 'status': 'error' and 'message' describing the problem, typically returned with HTTP 400.
+          - On server error: JSON with 'status': 'error' and a generic message, typically returned with HTTP 500.
+    """
     admin_name = _require_admin()
     if not _validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400

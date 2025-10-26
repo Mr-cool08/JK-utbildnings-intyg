@@ -40,6 +40,14 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     creation_sent = {}
 
     def fake_send(email, account_type, company_name):
+        """
+        Record the provided email details into the outer `sent` dictionary for test assertions.
+        
+        Parameters:
+            email (str): Recipient email address to store under key 'email'.
+            account_type (str): Account type to store under key 'type'.
+            company_name (str): Company name to store under key 'company'.
+        """
         sent['email'] = email
         sent['type'] = account_type
         sent['company'] = company_name
@@ -91,6 +99,11 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
 
 
 def test_admin_reject_application_api(empty_db, monkeypatch):
+    """
+    Verifies that the admin reject-application API records a rejection, sends a rejection email, and persists the decision reason.
+    
+    Sends a POST to the admin rejection endpoint for a created application, asserts a 200 response with a success payload containing the supplied reason, checks that a rejection email was sent to the applicant, and verifies the application row in the database has status 'rejected' and the decision_reason set to the provided reason.
+    """
     client = app.app.test_client()
     _admin_session(client)
 
