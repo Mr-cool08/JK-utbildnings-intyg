@@ -33,6 +33,11 @@ def test_admin_list_applications(empty_db):
 
 
 def test_admin_approve_application_api(empty_db, monkeypatch):
+    """
+    Verify the admin approval endpoint approves an application, sends both approval and creation emails (including a creation link), and creates a pending supervisor record in the database.
+    
+    Asserts that the response indicates success and contains the approved account type and a `creation_link`, that the approval and creation emails are sent to the applicant's email, and that the application's status is updated to "approved" with a corresponding pending supervisor row created.
+    """
     client = app.app.test_client()
     _admin_session(client)
 

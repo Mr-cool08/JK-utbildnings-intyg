@@ -99,6 +99,18 @@ def test_application_rejection_stores_reason(fresh_app_db):
 
 
 def test_approval_reuses_existing_company(fresh_app_db):
+    """
+    Verifies that approving an application reuses an existing company when the organization number matches.
+    
+    Creates two application requests with the same organization number (one foretagskonto with invoice data and one standard without), approves both, and asserts that:
+    - the first approval creates the company and a pending supervisor requiring activation,
+    - the second approval reuses the existing company (does not create a new company) and does not require supervisor activation,
+    - both approvals reference the same company_id and the company name is preserved,
+    - the database contains exactly one company, two users with the expected emails, and a single pending supervisor entry.
+    
+    Parameters:
+        fresh_app_db: A test database fixture reset for each test run.
+    """
     foretagskonto_id = functions.create_application_request(
         account_type="foretagskonto",
         name="Företagskonton",
