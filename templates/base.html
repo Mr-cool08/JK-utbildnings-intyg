@@ -61,9 +61,12 @@
     {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="flash-container">
+            <div class="toast-container" aria-live="polite" aria-atomic="true">
                 {% for category, message in messages %}
-                    <div class="flash {{ category }}">{{ message }}</div>
+                    <div class="toast {{ category }}" role="status">
+                        <div class="toast-message">{{ message }}</div>
+                        <button class="toast-close" aria-label="Stäng meddelande">×</button>
+                    </div>
                 {% endfor %}
             </div>
         {% endif %}
@@ -78,5 +81,82 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/nav.js') }}" defer></script>
+    <style>
+    /* Minimal toast styles kept local so template works without touching global CSS */
+    .toast-container {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 1000;
+        pointer-events: none;
+    }
+    .toast {
+        pointer-events: auto;
+        min-width: 220px;
+        max-width: 360px;
+        background: #222;
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 220ms ease, transform 220ms ease;
+    }
+    .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    .toast.success { background: #1b8f4a; }
+    .toast.error { background: #d64545; }
+    .toast .toast-message { margin-right: 0.5rem; flex: 1 1 auto; }
+    .toast .toast-close {
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.9);
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 0.25rem;
+    }
+    </style>
+
+    <script>
+    // Small script to show toasts and auto-hide them. Runs immediately — degrades gracefully if JS disabled.
+    (function(){
+        function initToasts(){
+            var container = document.querySelector('.toast-container');
+            if(!container) return;
+            var toasts = Array.prototype.slice.call(container.querySelectorAll('.toast'));
+            toasts.forEach(function(t){
+                // expose visually
+                requestAnimationFrame(function(){ t.classList.add('show'); });
+                // auto hide after 4s
+                var hideTimer = setTimeout(function(){ hideToast(t); }, 4000);
+                // allow manual close
+                var btn = t.querySelector('.toast-close');
+                if(btn){
+                    btn.addEventListener('click', function(){ clearTimeout(hideTimer); hideToast(t); });
+                }
+            });
+        }
+        function hideToast(t){
+            t.classList.remove('show');
+            // remove from DOM after transition
+            t.addEventListener('transitionend', function(){ if(t.parentNode) t.parentNode.removeChild(t); });
+        }
+        if(document.readyState === 'loading'){
+            document.addEventListener('DOMContentLoaded', initToasts);
+        } else {
+            initToasts();
+        }
+    })();
+    </script>
 </body>
 </html>

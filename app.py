@@ -1,4 +1,4 @@
- # Flask application for issuing and serving course certificates.
+# Flask application for issuing and serving course certificates.
 
 from __future__ import annotations
 
@@ -671,7 +671,9 @@ def _render_application_form(account_type: str):
                         logger.exception("Kunde inte spara ansökan")
                         form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
                     else:
-                        flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
+                        # Make the client-facing confirmation explicit about which account type was submitted
+                        display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
+                        flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
                         target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
                         return redirect(url_for(target))
 

@@ -1,4 +1,4 @@
- # Database helpers and utility functions for the Flask application.
+# Database helpers and utility functions for the Flask application.
 
 from __future__ import annotations
 
@@ -1927,6 +1927,24 @@ def create_application_request(
     stored_company = cleaned_company if cleaned_company else ""
 
     with get_engine().begin() as conn:
+        # Prevent duplicate pending applications for the same email + orgnr combination.
+        existing_pending = conn.execute(
+            select(application_requests_table).where(
+                application_requests_table.c.email == normalized_email,
+                application_requests_table.c.orgnr_normalized == validated_orgnr,
+                application_requests_table.c.status == 'pending',
+            )
+        ).first()
+        if existing_pending:
+            existing_type = existing_pending.account_type
+            if existing_type == normalized_type:
+                raise ValueError(
+                    'Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support.'
+                )
+            else:
+                raise ValueError(
+                    'Det finns redan en väntande ansökan för denna e-post och organisationsnummer. Kontakta support om du vill ändra ansökningstyp.'
+                )
         result = conn.execute(
             insert(application_requests_table).values(
                 account_type=normalized_type,
@@ -2176,8 +2194,3 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
 
     return companies
 
-
-
-    
-    
-    

@@ -19,7 +19,20 @@ def _resolve_unique_paths(paths: Iterable[str | os.PathLike[str] | None]) -> lis
         if not raw:
             continue
 
-        path = Path(raw).expanduser()
+        # Expand user home explicitly using HOME when available so tests that
+        # monkeypatch HOME on Windows behave deterministically. Fallback to
+        # Path.expanduser() for other cases (including ~user patterns).
+        raw_str = str(raw)
+        if raw_str.startswith("~"):
+            home = os.environ.get("HOME")
+            if home:
+                # Replace the initial '~' with the HOME env var content
+                # Keep the remainder of the path intact (including any leading slash).
+                path = Path(home + raw_str[1:])
+            else:
+                path = Path(raw_str).expanduser()
+        else:
+            path = Path(raw_str).expanduser()
         try:
             canonical = path.resolve()
         except FileNotFoundError:
@@ -54,4 +67,3 @@ def load_environment() -> None:
 
     if not loaded:
         load_dotenv(override=False)
-
