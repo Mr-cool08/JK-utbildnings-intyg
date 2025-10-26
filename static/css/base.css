@@ -1382,6 +1382,23 @@ small.hint {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-items: start;
     }
+    /* Ensure the intro (title) and the form stack vertically and span the full width
+       on larger screens so the page title appears above the form instead of beside it. */
+    .apply-hero-content .apply-intro,
+    .apply-hero-content .apply-form {
+        grid-column: 1 / -1;
+    }
+    /* Force the choice cards to sit side-by-side (two columns) when there's room
+       so the cards appear next to each other on larger viewports. */
+    .apply-choice-panels {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(1rem, 2vw, 1.5rem);
+    }
+    /* Make sure the panels take the full width of the hero grid so the two
+       internal columns have enough room to sit side-by-side. */
+    .apply-hero-content .apply-choice-panels {
+        grid-column: 1 / -1;
+    }
 }
 
 .apply-button {
