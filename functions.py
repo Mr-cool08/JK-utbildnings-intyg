@@ -1935,6 +1935,7 @@ def create_application_request(
         pending_query = select(application_requests_table).where(
             application_requests_table.c.email == normalized_email,
             application_requests_table.c.status == 'pending',
+            application_requests_table.c.account_type == normalized_type,
         )
         if validated_orgnr:
             pending_query = pending_query.where(
@@ -1946,15 +1947,9 @@ def create_application_request(
             )
         existing_pending = conn.execute(pending_query).first()
         if existing_pending:
-            existing_type = existing_pending.account_type
-            if existing_type == normalized_type:
-                raise ValueError(
-                    'Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support.'
-                )
-            else:
-                raise ValueError(
-                    'Det finns redan en väntande ansökan för denna e-post och organisationsnummer. Kontakta support om du vill ändra ansökningstyp.'
-                )
+            raise ValueError(
+                'Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support.'
+            )
         result = conn.execute(
             insert(application_requests_table).values(
                 account_type=normalized_type,
