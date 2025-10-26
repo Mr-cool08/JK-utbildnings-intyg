@@ -2,15 +2,34 @@
 # shellcheck shell=bash
 set -euo pipefail
 
-readonly db_name="${POSTGRES_DB}"
-readonly owner_user="${POSTGRES_USER}"
-readonly ro_user="${POSTGRES_RO_USER}"
-readonly ro_password="${POSTGRES_RO_PASSWORD}"
+readonly db_name="${POSTGRES_DB:-}"
+readonly owner_user="${POSTGRES_USER:-}"
+readonly ro_user="${POSTGRES_RO_USER:-}"
+readonly ro_password="${POSTGRES_RO_PASSWORD:-}"
 readonly app_network_cidr="172.28.0.0/16"
 readonly pg_hba_file="${PGDATA}/pg_hba.conf"
 
-if [[ -z "${ro_user}" || -z "${ro_password}" ]]; then
-    echo "Required variables POSTGRES_RO_USER or POSTGRES_RO_PASSWORD are not set" >&2
+missing_vars=()
+
+if [[ -z "${ro_user}" ]]; then
+    missing_vars+=("POSTGRES_RO_USER")
+fi
+
+if [[ -z "${ro_password}" ]]; then
+    missing_vars+=("POSTGRES_RO_PASSWORD")
+fi
+
+if [[ -z "${db_name}" ]]; then
+    missing_vars+=("POSTGRES_DB")
+fi
+
+if [[ -z "${owner_user}" ]]; then
+    missing_vars+=("POSTGRES_USER")
+fi
+
+if (( ${#missing_vars[@]} > 0 )); then
+    missing_list=$(IFS=', '; echo "${missing_vars[*]}")
+    printf 'Required environment variables are not set: %s\n' "${missing_list}" >&2
     exit 1
 fi
 
