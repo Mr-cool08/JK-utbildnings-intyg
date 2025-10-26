@@ -7,6 +7,7 @@ from functools import partial
 import hmac
 import logging
 import os
+from pathlib import Path
 import secrets
 import time
 from typing import Any, Sequence
@@ -38,6 +39,13 @@ from course_categories import (
     normalize_category_slugs,
 )
 
+from app.auth import (
+    ROLE_SUPERVISOR,
+    ROLE_USER,
+    get_current_role,
+    login_required,
+    role_required,
+)
 from services import email as email_service
 
 
@@ -189,7 +197,13 @@ def create_app() -> Flask:
     # Create and configure the Flask application.
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
-    app = Flask(__name__)
+    package_root = Path(__file__).resolve().parent
+    project_root = package_root.parent
+    app = Flask(
+        __name__,
+        template_folder=str(project_root / "templates"),
+        static_folder=str(project_root / "static"),
+    )
     _configure_proxy_fix(app)
     app.secret_key = os.getenv('secret_key')
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
@@ -234,6 +248,8 @@ def create_app() -> Flask:
 
 
 app = create_app()
+
+__all__ = ["app", "create_app"]
 
 
 @app.route("/health")
@@ -413,6 +429,11 @@ def supervisor_login():
             )
 
         session['supervisor_logged_in'] = True
+        session['authenticated'] = True
+        session['current_role'] = ROLE_SUPERVISOR
+        session.pop('user_logged_in', None)
+        session.pop('personnummer', None)
+        session.pop('username', None)
         session['supervisor_email_hash'] = email_hash
         supervisor_name = functions.get_supervisor_name_by_hash(email_hash)
         if supervisor_name:
@@ -424,9 +445,9 @@ def supervisor_login():
 
 
 @app.route('/foretagskonto', methods=['GET'])
+@login_required
+@role_required(ROLE_SUPERVISOR)
 def supervisor_dashboard():
-    if not session.get('supervisor_logged_in'):
-        return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
     connections = functions.list_supervisor_connections(email_hash)
     users = []
@@ -452,6 +473,8 @@ def supervisor_dashboard():
 
 
 @app.route('/foretagskonto/standardkonto/<person_hash>/pdf/<int:pdf_id>')
+@login_required
+@role_required(ROLE_SUPERVISOR)
 def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
     if not functions.supervisor_has_access(email_hash, person_hash):
@@ -481,6 +504,8 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
 
 
 @app.post('/foretagskonto/dela/<person_hash>/<int:pdf_id>')
+@login_required
+@role_required(ROLE_SUPERVISOR)
 def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
     email_hash, supervisor_name = _require_supervisor()
     anchor = request.form.get('anchor', '')
@@ -546,6 +571,8 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
 
 
 @app.post('/foretagskonto/kopplingar/<person_hash>/ta-bort')
+@login_required
+@role_required(ROLE_SUPERVISOR)
 def supervisor_remove_connection_route(person_hash: str):
     email_hash, _ = _require_supervisor()
     anchor = request.form.get('anchor', '')
@@ -759,6 +786,11 @@ def login():
         logger.debug("Login attempt for %s", mask_hash(personnummer_hash))
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
+            session['authenticated'] = True
+            session['current_role'] = ROLE_USER
+            session.pop('supervisor_logged_in', None)
+            session.pop('supervisor_email_hash', None)
+            session.pop('supervisor_name', None)
             session['personnummer'] = personnummer_hash
             session['username'] = functions.get_username_by_personnummer_hash(
                 personnummer_hash
@@ -776,11 +808,10 @@ def login():
 
 
 @app.route('/dashboard', methods=['GET'])
+@login_required
+@role_required(ROLE_USER)
 def dashboard():
     # Visa alla PDF:er för den inloggade användaren.
-    if not session.get('user_logged_in'):
-        logger.debug("Unauthenticated access to dashboard")
-        return redirect('/login')
     pnr_hash = session.get('personnummer')
     user_name = session.get('username')
     if not user_name and pnr_hash:
@@ -843,11 +874,10 @@ def dashboard():
 
 
 @app.route('/my_pdfs/<int:pdf_id>')
+@login_required
+@role_required(ROLE_USER)
 def download_pdf(pdf_id: int):
     # Serve a stored PDF for the logged-in user from the database.
-    if not session.get('user_logged_in'):
-        logger.debug("Unauthenticated download attempt for %s", pdf_id)
-        return redirect('/login')
     pnr_hash = session.get('personnummer')
     as_attachment = request.args.get('download', '1') != '0'
     pdf = functions.get_pdf_content(pnr_hash, pdf_id)
@@ -867,10 +897,14 @@ def download_pdf(pdf_id: int):
 
 @app.route('/share_pdf', methods=['POST'])
 def share_pdf() -> tuple[Response, int]:
-    # Share a PDF with a recipient via e-post.
-    if not session.get('user_logged_in'):
+    # Share a PDF med behörighetskontroll.
+
+    role = get_current_role()
+    if role is None:
         logger.debug("Unauthenticated share attempt")
         return jsonify({'fel': 'Du måste vara inloggad för att dela intyg.'}), 401
+    if role != ROLE_USER:
+        abort(403)
 
     payload = request.get_json(silent=True) or request.form
     if not payload:
@@ -1732,6 +1766,8 @@ def logout():
     session.pop('user_logged_in', None)
     session.pop('admin_logged_in', None)
     session.pop('admin_username', None)
+    session.pop('authenticated', None)
+    session.pop('current_role', None)
     session.pop('personnummer', None)
     session.pop('supervisor_logged_in', None)
     session.pop('supervisor_email_hash', None)
