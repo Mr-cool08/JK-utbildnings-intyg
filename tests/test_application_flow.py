@@ -199,3 +199,27 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["invoice_reference"] == "Ref 1"
     assert company["foretagskonto_count"] == 1
     assert company["user_count"] == 2
+
+
+def test_standard_application_without_orgnr_can_be_skapat_men_inte_godkannas(fresh_app_db):
+    application_id = functions.create_application_request(
+        account_type="standard",
+        name="Organisationslös Användare",
+        email="utan-orgnr@example.com",
+        orgnr="",
+        company_name="",
+        comment="",
+    )
+
+    with fresh_app_db.connect() as conn:
+        stored = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        assert stored is not None
+        assert stored.orgnr_normalized == ""
+
+    with pytest.raises(ValueError) as exc:
+        functions.approve_application_request(application_id, "admin")
+    assert "saknar organisationsnummer" in str(exc.value)
