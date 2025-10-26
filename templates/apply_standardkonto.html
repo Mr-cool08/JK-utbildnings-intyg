@@ -38,6 +38,14 @@
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
 
+            <div class="form-consent">
+                <input id="terms_confirmed" name="terms_confirmed" type="checkbox" value="1" {% if form_data.terms_confirmed %}checked{% endif %} required>
+                <label for="terms_confirmed">
+                    Jag har läst och förstått <a href="{{ url_for('terms_of_service') }}">användarvillkoren</a> och den
+                    <a href="{{ url_for('legal_information') }}">juridiska informationen</a>.
+                </label>
+            </div>
+
             <button type="submit" class="btn">Skicka ansökan</button>
         </form>
     </div>
