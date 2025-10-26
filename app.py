@@ -1788,9 +1788,10 @@ def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
     return datetime.datetime.fromtimestamp(value).strftime(format)
 
 if __name__ == '__main__':
-    logger.critical("Starting app from app.py, Debug is enabled")
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    logger.critical("Starting app from app.py, Debug is %s", "ENABLED" if debug_mode else "DISABLED")
     app.run(
-        debug=True,
+        debug=debug_mode,
         host='0.0.0.0',
         port=int(os.getenv('PORT', 80)),
     )
