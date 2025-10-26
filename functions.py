@@ -425,10 +425,15 @@ def _migration_0004_make_company_id_nullable(conn: Connection) -> None:
         finally:
             conn.execute(text("PRAGMA foreign_keys=ON"))
         return
-
-    conn.execute(
-        text("ALTER TABLE company_users ALTER COLUMN company_id DROP NOT NULL")
-    )
+    elif dialect.startswith("postgresql"):
+        conn.execute(
+            text("ALTER TABLE company_users ALTER COLUMN company_id DROP NOT NULL")
+        )
+        return
+    else:
+        raise RuntimeError(
+            f"Migration 0004 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+        )
 
 
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
@@ -2157,15 +2162,18 @@ def approve_application_request(
         if existing_user:
             raise ValueError("E-postadressen är redan registrerad.")
 
-        result = conn.execute(
-            insert(company_users_table).values(
-                company_id=company_id,
-                role=application.account_type,
-                name=application.name,
-                email=normalized_email,
-                created_via_application_id=application.id,
+        try:
+            result = conn.execute(
+                insert(company_users_table).values(
+                    company_id=company_id,
+                    role=application.account_type,
+                    name=application.name,
+                    email=normalized_email,
+                    created_via_application_id=application.id,
+                )
             )
-        )
+        except IntegrityError as exc:
+            raise ValueError("E-postadressen är redan registrerad.") from exc
         user_id = result.inserted_primary_key[0]
 
         if application.account_type == "foretagskonto":
