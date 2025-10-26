@@ -615,6 +615,7 @@ def _render_application_form(account_type: str):
         "email": "",
         "orgnr": "",
         "comment": "",
+        "terms_confirmed": "",
     }
 
     if account_type == "foretagskonto":
@@ -642,32 +643,37 @@ def _render_application_form(account_type: str):
                 status_code = 429
                 form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
             else:
-                try:
-                    request_id = functions.create_application_request(
-                        account_type,
-                        form_data["name"],
-                        form_data["email"],
-                        form_data["orgnr"],
-                        form_data.get("company_name"),
-                        form_data.get("comment"),
-                        form_data.get("invoice_address"),
-                        form_data.get("invoice_contact"),
-                        form_data.get("invoice_reference"),
+                if not _as_bool(form_data.get("terms_confirmed")):
+                    form_errors.append(
+                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
-                    logger.info(
-                        "Ny ansökan %s mottagen från %s",
-                        request_id,
-                        mask_hash(functions.hash_value(form_data["email"].lower())),
-                    )
-                except ValueError as exc:
-                    form_errors.append(str(exc))
-                except Exception as exc:  # pragma: no cover - defensiv loggning
-                    logger.exception("Kunde inte spara ansökan")
-                    form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
-                else:
-                    flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
-                    target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
-                    return redirect(url_for(target))
+                if not form_errors:
+                    try:
+                        request_id = functions.create_application_request(
+                            account_type,
+                            form_data["name"],
+                            form_data["email"],
+                            form_data["orgnr"],
+                            form_data.get("company_name"),
+                            form_data.get("comment"),
+                            form_data.get("invoice_address"),
+                            form_data.get("invoice_contact"),
+                            form_data.get("invoice_reference"),
+                        )
+                        logger.info(
+                            "Ny ansökan %s mottagen från %s",
+                            request_id,
+                            mask_hash(functions.hash_value(form_data["email"].lower())),
+                        )
+                    except ValueError as exc:
+                        form_errors.append(str(exc))
+                    except Exception as exc:  # pragma: no cover - defensiv loggning
+                        logger.exception("Kunde inte spara ansökan")
+                        form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
+                    else:
+                        flash(("success", "Tack! Vi hör av oss så snart vi granskat ansökan."))
+                        target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
+                        return redirect(url_for(target))
 
     csrf_token = _ensure_csrf_token()
 
@@ -704,6 +710,20 @@ def license():
     # Render the license information page.
     logger.debug("Rendering license page")
     return render_template('license.html')
+
+
+@app.route('/villkor', methods=['GET'])
+def terms_of_service():
+    """Visa sidan med villkor."""
+
+    return render_template('terms_of_service.html')
+
+
+@app.route('/juridik', methods=['GET'])
+def legal_information():
+    """Visa sidan med juridisk information."""
+
+    return render_template('legal_information.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])

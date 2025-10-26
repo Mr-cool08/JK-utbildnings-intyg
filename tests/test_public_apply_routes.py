@@ -28,6 +28,7 @@ def test_user_application_submission(empty_db):
                 'email': 'anna@example.com',
                 'orgnr': '556016-0680',
                 'comment': 'Ser fram emot att använda portalen.',
+                'terms_confirmed': '1',
             },
             follow_redirects=True,
         )
@@ -58,6 +59,7 @@ def test_foretagskonto_application_submission(empty_db):
                 'invoice_reference': 'Märkning 123',
                 'orgnr': '5560160680',
                 'comment': 'Vi vill administrera våra kursdeltagare.',
+                'terms_confirmed': '1',
             },
             follow_redirects=True,
         )
@@ -73,3 +75,27 @@ def test_foretagskonto_application_submission(empty_db):
         assert row.invoice_address == 'Fakturagatan 1'
         assert row.invoice_contact == 'Helena Företagskonto'
         assert row.invoice_reference == 'Märkning 123'
+
+
+def test_application_requires_terms_confirmation(empty_db):
+    with _client() as client:
+        with client.session_transaction() as session:
+            session['csrf_token'] = 'test-token'
+        response = client.post(
+            '/ansok/standardkonto',
+            data={
+                'csrf_token': 'test-token',
+                'name': 'Anna Användare',
+                'email': 'anna@example.com',
+                'orgnr': '556016-0680',
+                'comment': 'Ser fram emot att använda portalen.',
+            },
+            follow_redirects=True,
+        )
+        body = response.data.decode('utf-8')
+        assert response.status_code == 200
+        assert 'Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan.' in body
+
+    with empty_db.connect() as conn:
+        stored = conn.execute(functions.application_requests_table.select()).fetchall()
+        assert stored == []
