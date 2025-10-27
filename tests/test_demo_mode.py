@@ -12,6 +12,7 @@ DEMO_PARAMS = dict(
     supervisor_email="demo.foretagskonto@example.com",
     supervisor_name="Demoföretagskonto",
     supervisor_password="DemoForetagskonto1!",
+    supervisor_orgnr="5560160680",
 )
 
 
@@ -24,6 +25,12 @@ def test_ensure_demo_data_creates_accounts(empty_db):
     assert functions.verify_supervisor_credentials(
         DEMO_PARAMS["supervisor_email"], DEMO_PARAMS["supervisor_password"]
     )
+
+    details = functions.get_supervisor_login_details_for_orgnr(
+        DEMO_PARAMS["supervisor_orgnr"]
+    )
+    assert details is not None
+    assert details["email"] == functions.normalize_email(DEMO_PARAMS["supervisor_email"])
 
     with empty_db.connect() as conn:
         connection_row = conn.execute(

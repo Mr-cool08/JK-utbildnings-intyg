@@ -202,6 +202,7 @@ def create_app() -> Flask:
         "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.foretagskonto@example.com"),
         "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demoföretagskonto"),
         "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoForetagskonto1!"),
+        "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5560160680"),
     }
 
     app.config["IS_DEMO"] = _as_bool(os.getenv("ENABLE_DEMO_MODE"))
@@ -210,6 +211,7 @@ def create_app() -> Flask:
         "user_personnummer": demo_defaults["user_personnummer"],
         "user_password": demo_defaults["user_password"],
         "supervisor_email": demo_defaults["supervisor_email"],
+        "supervisor_orgnr": demo_defaults["supervisor_orgnr"],
         "supervisor_password": demo_defaults["supervisor_password"],
     }
 
@@ -223,6 +225,7 @@ def create_app() -> Flask:
             supervisor_email=demo_defaults["supervisor_email"],
             supervisor_name=demo_defaults["supervisor_name"],
             supervisor_password=demo_defaults["supervisor_password"],
+            supervisor_orgnr=demo_defaults["supervisor_orgnr"],
         )
 
     with app.app_context():
@@ -381,32 +384,51 @@ def supervisor_create(email_hash: str):
 @app.route('/foretagskonto/login', methods=['GET', 'POST'])
 def supervisor_login():
     if request.method == 'POST':
-        email = request.form.get('email', '').strip()
+        orgnr = request.form.get('orgnr', '').strip()
         password = request.form.get('password', '').strip()
-        if not email or not password:
+        if not orgnr or not password:
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
             )
         try:
-            normalized_email = functions.normalize_email(email)
+            normalized_orgnr = functions.validate_orgnr(orgnr)
         except ValueError:
-            logger.warning("Ogiltig e-postadress vid företagskontoinloggning")
+            logger.warning("Ogiltigt organisationsnummer vid företagskontoinloggning")
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
             )
-        email_hash = functions.hash_value(normalized_email)
+
+        details = functions.get_supervisor_login_details_for_orgnr(normalized_orgnr)
+        if not details:
+            logger.warning(
+                "Företagskonto saknas för organisationsnummer %s",
+                mask_hash(functions.hash_value(normalized_orgnr)),
+            )
+            return render_template(
+                'supervisor_login.html',
+                error='Ogiltiga inloggningsuppgifter.',
+            )
+
+        normalized_email = details['email']
+        email_hash = details['email_hash']
         try:
             valid = functions.verify_supervisor_credentials(normalized_email, password)
         except ValueError:
-            logger.warning("Ogiltig e-postadress vid företagskontoinloggning (validering)")
+            logger.warning(
+                "Ogiltig kontokonfiguration vid företagskontoinloggning för %s",
+                mask_hash(functions.hash_value(normalized_orgnr)),
+            )
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
             )
         if not valid:
-            logger.warning("Invalid supervisor login for %s", email_hash)
+            logger.warning(
+                "Felaktigt lösenord för företagskonto %s",
+                mask_hash(functions.hash_value(normalized_orgnr)),
+            )
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
@@ -414,10 +436,17 @@ def supervisor_login():
 
         session['supervisor_logged_in'] = True
         session['supervisor_email_hash'] = email_hash
-        supervisor_name = functions.get_supervisor_name_by_hash(email_hash)
+        session['supervisor_orgnr'] = normalized_orgnr
+        supervisor_name = details.get('name') or functions.get_supervisor_name_by_hash(
+            email_hash
+        )
         if supervisor_name:
             session['supervisor_name'] = supervisor_name
-        logger.info("Supervisor %s logged in", email_hash)
+        logger.info(
+            "Supervisor %s loggade in för organisationsnummer %s",
+            email_hash,
+            mask_hash(functions.hash_value(normalized_orgnr)),
+        )
         return redirect(url_for('supervisor_dashboard'))
 
     return render_template('supervisor_login.html')
@@ -1734,6 +1763,7 @@ def logout():
     session.pop('supervisor_logged_in', None)
     session.pop('supervisor_email_hash', None)
     session.pop('supervisor_name', None)
+    session.pop('supervisor_orgnr', None)
     return redirect('/')
 
 
