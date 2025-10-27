@@ -94,7 +94,6 @@ def test_application_rejection_stores_reason(fresh_app_db):
             )
         ).first()
         assert application.status == "rejected"
-
         assert application.reviewed_by == "admin"
 
 
