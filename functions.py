@@ -1924,7 +1924,7 @@ def ensure_demo_data(
             else:
                 logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")
         except ValueError:
-            logger.error("Demodata: lösenordet för demoföretagskontot är ogiltigt")
+            logger.exception("Demodata: lösenordet för demoföretagskontot är ogiltigt")
 
     if normalized_orgnr:
         with engine.begin() as conn:
@@ -1938,7 +1938,7 @@ def ensure_demo_data(
                     invoice_reference="DEMOKONTO",
                 )
             except ValueError:
-                logger.error(
+                logger.exception(
                     "Demodata: kunde inte skapa företag för organisationsnummer %s",
                     normalized_orgnr,
                 )
@@ -1951,12 +1951,27 @@ def ensure_demo_data(
                     )
                 existing_company_user = conn.execute(
                     select(company_users_table.c.id).where(
-                        company_users_table.c.company_id == company_id,
-                        company_users_table.c.email == normalized_supervisor_email,
-                        company_users_table.c.role == "foretagskonto",
+                        company_users_table.c.email == normalized_supervisor_email
                     )
                 ).first()
-                if not existing_company_user:
+                if existing_company_user:
+                    conn.execute(
+                        update(company_users_table)
+                        .where(
+                            company_users_table.c.email == normalized_supervisor_email
+                        )
+                        .values(
+                            company_id=company_id,
+                            role="foretagskonto",
+                            name=supervisor_name,
+                            email=normalized_supervisor_email,
+                        )
+                    )
+                    logger.info(
+                        "Demodata: uppdaterade demoföretagskonto för %s",
+                        normalized_orgnr,
+                    )
+                else:
                     conn.execute(
                         insert(company_users_table).values(
                             company_id=company_id,
