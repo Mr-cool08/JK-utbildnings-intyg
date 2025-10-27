@@ -5,13 +5,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_RO_USER: ${POSTGRES_RO_USER}
-      POSTGRES_RO_PASSWORD: ${POSTGRES_RO_PASSWORD}
     ports:
       - "50825:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./scripts/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
       interval: 5s
