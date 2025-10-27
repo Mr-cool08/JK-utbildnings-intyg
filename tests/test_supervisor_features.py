@@ -24,14 +24,27 @@ def supervisor_setup(empty_db):
     user_email = "user@example.com"
     user_name = "Test Användare"
     personnummer = "19900101-1234"
+    orgnr = "556016-0680"
+    normalized_orgnr = functions.validate_orgnr(orgnr)
 
     assert functions.admin_create_user(user_email, user_name, personnummer)
     pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
     assert functions.user_create_user("Hemligt123", pnr_hash)
     functions.store_pdf_blob(pnr_hash, "intyg.pdf", b"%PDF-1.4", [])
 
-    assert functions.admin_create_supervisor(email, name)
-    email_hash = functions.get_supervisor_email_hash(email)
+    application_id = functions.create_application_request(
+        "foretagskonto",
+        name,
+        email,
+        orgnr,
+        "Testbolaget AB",
+        "",  # kommentar
+        "Fakturavägen 1",
+        "Ekonomi Test",
+        "REF-123",
+    )
+    approval = functions.approve_application_request(application_id, "admin")
+    email_hash = approval["supervisor_email_hash"]
     assert functions.check_pending_supervisor_hash(email_hash)
     assert functions.supervisor_activate_account(email_hash, "StarktLosen123")
 
@@ -45,6 +58,7 @@ def supervisor_setup(empty_db):
         "personnummer": personnummer,
         "personnummer_hash": pnr_hash,
         "user_name": user_name,
+        "orgnr": normalized_orgnr,
     }
 
 
@@ -68,6 +82,12 @@ def test_supervisor_activation_flow(empty_db):
     assert functions.supervisor_activate_account(email_hash, "LångtLösen123")
     assert not functions.check_pending_supervisor_hash(email_hash)
     assert functions.supervisor_exists(email)
+
+
+def test_get_supervisor_login_details_for_orgnr(supervisor_setup):
+    details = functions.get_supervisor_login_details_for_orgnr(supervisor_setup["orgnr"])
+    assert details is not None
+    assert details["email_hash"] == supervisor_setup["email_hash"]
 
 
 def test_supervisor_dashboard_lists_users(supervisor_setup):

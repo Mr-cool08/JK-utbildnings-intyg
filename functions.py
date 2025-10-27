@@ -1055,6 +1055,78 @@ def verify_supervisor_credentials(email: str, password: str) -> bool:
     return verify_password(row.password, password)
 
 
+def get_supervisor_login_details_for_orgnr(
+    orgnr: str,
+) -> Optional[Dict[str, str]]:
+    """Hämta inloggningsuppgifter för ett företagskonto via organisationsnummer."""
+
+    normalized_orgnr = validate_orgnr(orgnr)
+
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(
+                company_users_table.c.email,
+                company_users_table.c.name,
+                company_users_table.c.updated_at,
+                company_users_table.c.id,
+            )
+            .select_from(
+                company_users_table.join(
+                    companies_table,
+                    company_users_table.c.company_id == companies_table.c.id,
+                )
+            )
+            .where(
+                companies_table.c.orgnr == normalized_orgnr,
+                company_users_table.c.role == "foretagskonto",
+            )
+            .order_by(
+                company_users_table.c.updated_at.desc(),
+                company_users_table.c.id.desc(),
+            )
+        ).fetchall()
+
+    if not rows:
+        return None
+
+    candidates: list[tuple[str, str, str]] = []
+    email_hashes: list[str] = []
+    for row in rows:
+        mapping = row._mapping
+        try:
+            normalized_email = normalize_email(mapping["email"])
+        except ValueError:
+            continue
+        email_hash = hash_value(normalized_email)
+        candidates.append((normalized_email, email_hash, mapping["name"]))
+        email_hashes.append(email_hash)
+
+    if not email_hashes:
+        return None
+
+    with get_engine().connect() as conn:
+        supervisor_rows = conn.execute(
+            select(supervisors_table.c.email, supervisors_table.c.name).where(
+                supervisors_table.c.email.in_(email_hashes)
+            )
+        ).fetchall()
+
+    names_by_hash = {row.email: row.name for row in supervisor_rows}
+
+    for normalized_email, email_hash, fallback_name in candidates:
+        supervisor_name = names_by_hash.get(email_hash)
+        if supervisor_name is None:
+            continue
+        return {
+            "email": normalized_email,
+            "email_hash": email_hash,
+            "name": supervisor_name or fallback_name,
+            "orgnr": normalized_orgnr,
+        }
+
+    return None
+
+
 def get_supervisor_name_by_hash(email_hash: str) -> Optional[str]:
     """Return the name of the supervisor identified by ``email_hash``."""
 
@@ -1728,6 +1800,7 @@ def ensure_demo_data(
     supervisor_email: str,
     supervisor_name: str,
     supervisor_password: str,
+    supervisor_orgnr: Optional[str] = None,
 ) -> None:
     """Skapa eller uppdatera demodata för företagskonto och standardkonto."""
 
@@ -1748,6 +1821,16 @@ def ensure_demo_data(
     except ValueError:
         logger.error("Ogiltig e-postadress för demoföretagskonto: %s", supervisor_email)
         return
+
+    try:
+        normalized_orgnr = (
+            validate_orgnr(supervisor_orgnr) if supervisor_orgnr else None
+        )
+    except ValueError:
+        logger.error(
+            "Ogiltigt organisationsnummer för demoföretagskonto: %s", supervisor_orgnr
+        )
+        normalized_orgnr = None
 
     pnr_hash = _hash_personnummer(normalized_pnr)
     user_email_hash = hash_value(normalized_user_email)
@@ -1841,7 +1924,66 @@ def ensure_demo_data(
             else:
                 logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")
         except ValueError:
-            logger.error("Demodata: lösenordet för demoföretagskontot är ogiltigt")
+            logger.exception("Demodata: lösenordet för demoföretagskontot är ogiltigt")
+
+    if normalized_orgnr:
+        with engine.begin() as conn:
+            try:
+                company_id, created_company, company_name = _ensure_company(
+                    conn,
+                    normalized_orgnr,
+                    supervisor_name,
+                    invoice_address="Demovägen 1, 123 45 Demo",
+                    invoice_contact=supervisor_name,
+                    invoice_reference="DEMOKONTO",
+                )
+            except ValueError:
+                logger.exception(
+                    "Demodata: kunde inte skapa företag för organisationsnummer %s",
+                    normalized_orgnr,
+                )
+            else:
+                if created_company:
+                    logger.info(
+                        "Demodata: skapade demoföretag %s (%s)",
+                        company_name,
+                        normalized_orgnr,
+                    )
+                existing_company_user = conn.execute(
+                    select(company_users_table.c.id).where(
+                        company_users_table.c.email == normalized_supervisor_email
+                    )
+                ).first()
+                if existing_company_user:
+                    conn.execute(
+                        update(company_users_table)
+                        .where(
+                            company_users_table.c.email == normalized_supervisor_email
+                        )
+                        .values(
+                            company_id=company_id,
+                            role="foretagskonto",
+                            name=supervisor_name,
+                            email=normalized_supervisor_email,
+                        )
+                    )
+                    logger.info(
+                        "Demodata: uppdaterade demoföretagskonto för %s",
+                        normalized_orgnr,
+                    )
+                else:
+                    conn.execute(
+                        insert(company_users_table).values(
+                            company_id=company_id,
+                            role="foretagskonto",
+                            name=supervisor_name,
+                            email=normalized_supervisor_email,
+                        )
+                    )
+                    logger.info(
+                        "Demodata: kopplade demoföretag %s till företagskonto",
+                        normalized_orgnr,
+                    )
 
     linked, reason = admin_link_supervisor_to_user(
         normalized_supervisor_email, normalized_pnr
