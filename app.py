@@ -444,7 +444,7 @@ def supervisor_login():
             session['supervisor_name'] = supervisor_name
         logger.info(
             "Supervisor %s loggade in för organisationsnummer %s",
-            email_hash,
+            mask_hash(email_hash),
             mask_hash(functions.hash_value(normalized_orgnr)),
         )
         return redirect(url_for('supervisor_dashboard'))
