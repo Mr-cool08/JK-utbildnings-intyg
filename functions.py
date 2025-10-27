@@ -2387,12 +2387,10 @@ def approve_application_request(
 
 
 def reject_application_request(
-    application_id: int, reviewer: str, reason: str
+    application_id: int, reviewer: str
 ) -> Dict[str, Any]:
     normalized_reviewer = (reviewer or "").strip() or "okänd"
-    cleaned_reason = _clean_optional_text(reason, max_length=500)
-    if not cleaned_reason:
-        raise ValueError("Ange en motivering till avslaget.")
+
 
     with get_engine().begin() as conn:
         application = conn.execute(
@@ -2432,7 +2430,7 @@ def reject_application_request(
                 status="rejected",
                 reviewed_by=normalized_reviewer,
                 reviewed_at=func.now(),
-                decision_reason=cleaned_reason,
+
             )
         )
 
@@ -2449,8 +2447,7 @@ def reject_application_request(
         "email": normalized_email,
         "account_type": application.account_type,
         "name": application.name,
-        "company_name": company_display,
-        "reason": cleaned_reason,
+        "company_name": company_display
     }
 
 

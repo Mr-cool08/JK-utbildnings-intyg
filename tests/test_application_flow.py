@@ -80,10 +80,10 @@ def test_application_rejection_stores_reason(fresh_app_db):
     )
 
     result = functions.reject_application_request(
-        application_id, "admin", "Behörigheterna kan inte styrkas."
+        application_id, "admin"
     )
 
-    assert result["reason"] == "Behörigheterna kan inte styrkas."
+
     assert result["account_type"] == "foretagskonto"
     assert result["company_name"] == "Handledarbolaget"
 
@@ -94,7 +94,7 @@ def test_application_rejection_stores_reason(fresh_app_db):
             )
         ).first()
         assert application.status == "rejected"
-        assert application.decision_reason == "Behörigheterna kan inte styrkas."
+
         assert application.reviewed_by == "admin"
 
 

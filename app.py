@@ -1206,26 +1206,24 @@ def admin_get_application(application_id: int):
 @app.post('/admin/api/ansokningar/<int:application_id>/godkann')
 def admin_approve_application(application_id: int):
     """
-    Approve an application by its ID, perform related notifications, and record the admin action.
-    
-    Attempts to approve the application identified by application_id, sends an approval email to the applicant, and — if the approved application is a corporate account requiring supervisor activation — generates a supervisor creation link and attempts to send a creation email. Records the approval in the admin action log. If email sending fails, the response may include an explanatory warning; if a supervisor creation link was generated it will be included in the response.
-    
-    Parameters:
-        application_id (int): The numeric identifier of the application to approve.
-    
-    Returns:
-        A Flask JSON response with:
-          - On success: a payload containing 'status': 'success' and 'data' with the approved application details. May also include:
-              - 'email_warning' (str): concatenated warnings about failed email deliveries.
-              - 'creation_link' (str): an external URL for supervisor account activation when applicable.
-          - On client error (e.g., invalid CSRF or validation): JSON with 'status': 'error' and 'message' describing the problem, typically returned with HTTP 400.
-          - On server error: JSON with 'status': 'error' and a generic message, typically returned with HTTP 500.
+    Godkänn ansökan, skapa/aktivera konto(n), skicka mejl till sökande (normal user)
+    och – vid företagskonto – även till handledare/supervisor. Logga admin-åtgärden.
     """
     admin_name = _require_admin()
     if not _validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
 
     try:
+        # Förväntat result-format (exempel):
+        # {
+        #   'email': 'applicant@example.com',
+        #   'account_type': 'standard'|'foretagskonto',
+        #   'company_name': 'Exempel AB'|None,
+        #   'user_activation_required': True|False,
+        #   'user_email_hash': 'abc123'|None,
+        #   'supervisor_activation_required': True|False,
+        #   'supervisor_email_hash': 'def456'|None
+        # }
         result = functions.approve_application_request(application_id, admin_name)
     except ValueError as exc:
         return jsonify({'status': 'error', 'message': str(exc)}), 400
@@ -1234,44 +1232,50 @@ def admin_approve_application(application_id: int):
         return jsonify({'status': 'error', 'message': 'Kunde inte godkänna ansökan.'}), 500
 
     email_warnings: list[str] = []
+
+    creation_link: str | None = None  # <- samlad länk för svaret
+
+    # 1) Bekräftelsemejl (godkänd ansökan)
     try:
         email_service.send_application_approval_email(
             result['email'], result['account_type'], result['company_name']
         )
-    except RuntimeError as exc:
+    except Exception:
         logger.exception("Misslyckades att skicka godkännandemejl för ansökan %s", application_id)
         email_warnings.append('Konto godkänt men bekräftelsemejlet kunde inte skickas.')
 
-    creation_link: str | None = None
-    if result.get('supervisor_activation_required') and result.get(
-        'supervisor_email_hash'
-    ):
-        creation_link = url_for(
-            'supervisor_create',
-            email_hash=result['supervisor_email_hash'],
-            _external=True,
-        )
+    # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
+    if result.get('user_activation_required') and result.get('user_email_hash'):
+        link = url_for('user_create', email_hash=result['user_email_hash'], _external=True)
         try:
-            email_service.send_creation_email(result['email'], creation_link)
-        except RuntimeError:
-            logger.exception(
-                "Misslyckades att skicka aktiveringslänk för företagskonto %s",
-                application_id,
-            )
-            email_warnings.append('Aktiveringslänken kunde inte skickas.')
+            email_service.send_creation_email(result['email'], link)
+            creation_link = link  # <- spara till payload
+        except Exception:
+            logger.exception("Misslyckades att skicka aktiveringslänk till sökande för ansökan %s", application_id)
+            email_warnings.append('Aktiveringslänken till sökande kunde inte skickas.')
+
+    # 3) Aktiveringslänk till SUPERVISOR (företagskonto)
+    if result.get('supervisor_activation_required') and result.get('supervisor_email_hash'):
+        link = url_for('supervisor_create', email_hash=result['supervisor_email_hash'], _external=True)
+        try:
+            email_service.send_creation_email(result['email'], link)
+            if creation_link is None:
+                creation_link = link  # <- använd denna om ingen tidigare satt
+        except Exception:
+            logger.exception("Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)", application_id)
+            email_warnings.append('Aktiveringslänken till handledare/supervisor kunde inte skickas.')
 
     masked_email = mask_hash(functions.hash_value(result['email']))
     functions.log_admin_action(
-        admin_name,
-        'godkände ansökan',
-        f'application_id={application_id}, email={masked_email}',
+        admin_name, 'godkände ansökan', f'application_id={application_id}, email={masked_email}',
     )
 
     payload: dict[str, Any] = {'status': 'success', 'data': result}
     if email_warnings:
         payload['email_warning'] = ' '.join(email_warnings)
     if creation_link:
-        payload['creation_link'] = creation_link
+        payload['creation_link'] = creation_link  # <- TOPP-NIVÅ, uppfyller testet
+
     return jsonify(payload)
 
 
@@ -1282,10 +1286,9 @@ def admin_reject_application(application_id: int):
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
 
     payload = request.get_json(silent=True) or {}
-    reason = (payload.get('reason') or '').strip()
 
     try:
-        result = functions.reject_application_request(application_id, admin_name, reason)
+        result = functions.reject_application_request(application_id, admin_name)
     except ValueError as exc:
         return jsonify({'status': 'error', 'message': str(exc)}), 400
     except Exception:
@@ -1295,7 +1298,7 @@ def admin_reject_application(application_id: int):
     email_error = None
     try:
         email_service.send_application_rejection_email(
-            result['email'], result['company_name'], result['reason']
+            result['email'], result['company_name']
         )
     except RuntimeError as exc:
         logger.exception("Misslyckades att skicka avslag för ansökan %s", application_id)

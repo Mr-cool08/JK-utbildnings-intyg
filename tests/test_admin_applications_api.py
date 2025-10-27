@@ -168,9 +168,8 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
 
     sent = {}
 
-    def fake_send(email, company_name, reason):
+    def fake_send(email, company_name):
         sent['email'] = email
-        sent['reason'] = reason
         sent['company'] = company_name
 
     monkeypatch.setattr(app.email_service, 'send_application_rejection_email', fake_send)
@@ -189,13 +188,12 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
 
     response = client.post(
         f'/admin/api/ansokningar/{application_id}/avslag',
-        json={'reason': 'Ofullständiga uppgifter', 'csrf_token': 'test-csrf'},
+        json={'csrf_token': 'test-csrf'},
         headers={'X-CSRF-Token': 'test-csrf'},
     )
     assert response.status_code == 200
     payload = response.get_json()
     assert payload['status'] == 'success'
-    assert payload['data']['reason'] == 'Ofullständiga uppgifter'
     assert sent['email'] == 'reject@example.com'
 
     with empty_db.connect() as conn:
@@ -205,4 +203,3 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
             )
         ).first()
         assert application.status == 'rejected'
-        assert application.decision_reason == 'Ofullständiga uppgifter'
