@@ -1143,10 +1143,16 @@ def admin():
     )
 
 
-@app.route('/admin/ansokningar', methods=['GET'])
+@app.route('/admin/ansokningar', methods=['GET', 'POST'])
 def admin_applications():
     if not session.get('admin_logged_in'):
         return redirect('/login_admin')
+    if request.method == 'POST':
+        # Hantera filtrering etc. här vid behov
+        pass
+    elif request.method == 'GET':
+        applications_requests = functions.list_application_requests()
+        print(applications_requests)
     csrf_token = _ensure_csrf_token()
     return render_template('admin_applications.html', csrf_token=csrf_token)
 
@@ -1179,8 +1185,8 @@ def _serialize_application_row(row: dict) -> dict:
         "reviewed_at": row.get("reviewed_at").isoformat() if row.get("reviewed_at") else None,
     }
 
-
-@app.get('/admin/api/ansokningar')
+"""
+@app.get('/admin/api/ansokningar', Method = ['GET', 'POST'])
 def admin_list_applications():
     _require_admin()
     status = request.args.get('status')
@@ -1192,7 +1198,7 @@ def admin_list_applications():
 
     serialized = [_serialize_application_row(row) for row in rows]
     return jsonify({'status': 'success', 'data': serialized})
-
+"""
 
 @app.get('/admin/api/ansokningar/<int:application_id>')
 def admin_get_application(application_id: int):
@@ -1278,7 +1284,7 @@ def admin_approve_application(application_id: int):
 
     return jsonify(payload)
 
-
+"""
 @app.post('/admin/api/ansokningar/<int:application_id>/avslag')
 def admin_reject_application(application_id: int):
     admin_name = _require_admin()
@@ -1316,7 +1322,7 @@ def admin_reject_application(application_id: int):
         response_payload['email_warning'] = 'Ansökan avslogs men e-post kunde inte skickas.'
     return jsonify(response_payload)
 
-
+"""
 @app.post('/admin/api/oversikt')
 def admin_user_overview():
     admin_name = _require_admin()

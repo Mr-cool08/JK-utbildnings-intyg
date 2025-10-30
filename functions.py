@@ -479,7 +479,7 @@ def _build_engine() -> Engine:
     db_url = os.getenv("DATABASE_URL")
     sqlite_database_path: Optional[str] = None
     if not db_url:
-        if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB")):
+        if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB", "True")):
             test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
             if test_db_path == ":memory:":
                 db_url = "sqlite:///:memory:"
