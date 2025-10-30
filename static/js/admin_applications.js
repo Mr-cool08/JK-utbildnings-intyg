@@ -11,10 +11,6 @@
   const messageBox = document.getElementById('applicationsMessage');
   const detailSection = document.getElementById('applicationDetail');
   const detailMessage = document.getElementById('detailMessage');
-  const rejectForm = document.getElementById('rejectForm');
-  const rejectReason = document.getElementById('rejectReason');
-  const cancelRejectBtn = document.getElementById('cancelReject');
-  const showRejectBtn = document.getElementById('showRejectForm');
   const approveBtn = document.getElementById('approveApplication');
   const actionsWrapper = document.getElementById('applicationActions');
   const detailFields = {
@@ -210,10 +206,6 @@
 
     const pending = item.status === 'pending';
     actionsWrapper.hidden = !pending;
-    rejectForm.hidden = true;
-    if (pending && rejectReason) {
-      rejectReason.value = '';
-    }
     setMessage(detailMessage, '');
     detailSection.hidden = false;
   }
@@ -273,16 +265,7 @@
     }
   }
 
-  async function rejectSelected(event) {
-    event.preventDefault();
-    if (!selectedId) {
-      return;
-    }
-    const reason = (rejectReason.value || '').trim();
-    if (!reason) {
-      setMessage(detailMessage, 'Ange en motivering till avslaget.', 'error');
-      return;
-    }
+
 
     setMessage(detailMessage, 'Skickar avslag…');
     try {
@@ -303,7 +286,6 @@
         payload.email_warning || 'Ansökan avslogs och svar skickades.',
         payload.email_warning ? 'error' : 'success'
       );
-      rejectForm.hidden = true;
       await fetchApplications();
       showDetail(selectedId);
     } catch (err) {
@@ -311,16 +293,7 @@
     }
   }
 
-  function toggleRejectForm(show) {
-    if (!rejectForm) return;
-    rejectForm.hidden = !show;
-    if (show) {
-      rejectReason.value = '';
-      rejectReason.focus();
-    } else {
-      rejectReason.value = '';
-    }
-  }
+
 
   refreshBtn?.addEventListener('click', fetchApplications);
   statusFilter?.addEventListener('change', () => {
@@ -329,8 +302,7 @@
   });
 
   approveBtn?.addEventListener('click', approveSelected);
-  showRejectBtn?.addEventListener('click', () => toggleRejectForm(true));
-  cancelRejectBtn?.addEventListener('click', () => toggleRejectForm(false));
+
   rejectForm?.addEventListener('submit', rejectSelected);
 
   fetchApplications();
