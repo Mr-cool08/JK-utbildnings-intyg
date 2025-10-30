@@ -98,7 +98,12 @@
         </dl>
         <div id="applicationActions" class="application-actions" hidden>
             <button type="button" class="btn" id="approveApplication">Godkänn ansökan</button>
-            <button type="button" class="btn btn-secondary" id="showRejectForm">Avslå ansökan</button>
+            
+            <form id="rejectForm" class="reject-form" hidden>
+                 <div class="form-actions">
+                    <button type="submit" class="btn btn-secondary" id="showRejectForm">Avslå ansökan</button>
+                </div>
+            </form>
         </div>
         <div id="detailMessage" class="message" role="status" aria-live="polite" hidden></div>
     </div>
