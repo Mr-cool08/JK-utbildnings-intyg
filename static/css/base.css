@@ -723,7 +723,9 @@ textarea:focus {
 .filter-group select {
     min-width: 160px;
 }
-
+.application-card{
+    border: 1px solid red;
+}
 .application-detail {
     border-top: 1px solid var(--color-border);
     padding-top: 1.25rem;
@@ -1604,4 +1606,196 @@ small.hint {
     .hero-list li::before {
         left: 0.35rem;
     }
+}
+
+
+
+/* === Admin Applications Enhancements === */
+
+/* Panel general improvements */
+.panel.admin-applications {
+    background-color: var(--surface, #fff);
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    padding: 1.5rem;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.panel.admin-applications:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Header styling */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.panel-header h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-group select,
+.filter-group button {
+    font-size: 0.95rem;
+}
+
+/* Application cards */
+.applications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.application-card {
+    background: var(--surface-alt, #fafafa);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.application-card:hover {
+    background: var(--hover-bg, #f5f5f5);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.application-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    flex-wrap: wrap;
+}
+
+.application-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.95rem;
+}
+
+/* Status color accents */
+.application-status {
+    font-weight: 500;
+}
+
+.status-pending {
+    color: var(--status-pending, #d97706); /* amber */
+}
+
+.status-approved {
+    color: var(--status-approved, #15803d); /* green */
+}
+
+.status-rejected {
+    color: var(--status-rejected, #b91c1c); /* red */
+}
+
+/* Buttons */
+.btn {
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Message and details area */
+.message {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    background: var(--info-bg, #f9fafb);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+/* Smooth appearance for hidden/visible toggles */
+[hidden] {
+    display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .application-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+}
+
+
+
+/* === Application Checkbox Enhancements === */
+
+/* Hide the default checkbox but keep it accessible */
+.application-toggle {
+    position: absolute;
+    opacity: 0;
+}
+
+/* Create a custom checkbox look */
+.application-summary::before {
+    content: "";
+    display: inline-block;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 2px solid var(--border-color, #ccc);
+    border-radius: 0.3rem;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    background-color: var(--surface, #fff);
+}
+
+/* Show checkmark when selected */
+.application-toggle:checked + .application-card .application-summary::before {
+    background-color: var(--accent-color, #3b82f6);
+    border-color: var(--accent-color, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    content: "✓";
+    color: #fff;
+    text-align: center;
+    font-size: 0.8rem;
+    line-height: 1rem;
+}
+
+/* Highlight selected cards */
+.application-toggle:checked + .application-card {
+    background-color: var(--accent-bg, #f0f8ff);
+    border-color: var(--accent-color, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* When multiple selected, show multi-action area clearly */
+.application-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-start;
+    margin-top: 1rem;
+}
+
+.application-actions .btn {
+    min-width: 9rem;
 }

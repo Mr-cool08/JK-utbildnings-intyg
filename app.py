@@ -723,9 +723,22 @@ def _render_application_form(account_type: str):
 
 @app.route('/ansok/standardkonto', methods=['GET', 'POST'])
 def apply_standardkonto():
-    """Visa och hantera ansökan för standardkonto."""
+    if request.method == 'POST':
+        logger.debug("Handling standard account application form submission")
+        full_name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        orgnr = request.form.get('orgnr', '').strip()
+        company_name = request.form.get('company_name', '').strip()
+        comment = request.form.get('comment', '').strip()
+        functions.create_application_request(
+            "standard", full_name, email, orgnr, company_name, comment
+        )
+        return redirect('/ansok/standardkonto', success_message="Ansökan skickad")
+    elif request.method == 'GET':
+        logger.debug("Rendering standard account application form")
+        return render_template('apply_standardkonto.html')
 
-    return _render_application_form("standard")
+
 
 
 @app.route('/ansok/foretagskonto', methods=['GET', 'POST'])
@@ -1148,13 +1161,31 @@ def admin_applications():
     if not session.get('admin_logged_in'):
         return redirect('/login_admin')
     if request.method == 'POST':
-        # Hantera filtrering etc. här vid behov
-        pass
+        application_id = request.form.get('application_id')
+        application_status = request.form.get('application_status')
+        print(application_status)
+        print(application_id)
+        if application_status == "approved":
+            functions.approve_application_request(int(application_id), 'admin')
+            logger.debug('Ansökan har godkänts.', 'success')
+            return jsonify({'status': 'success', 'message': 'Ansökan har godkänts.'})
+        elif application_status == "rejected":
+            functions.reject_application_request(int(application_id), 'admin')
+            logger.debug('Ansökan har avslagits.', 'success')
+            return "test"
+        else:
+            logger.error('Ogiltig status för ansökan.')
+            return "testing"
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
         print(applications_requests)
+        for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
+            logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
+        return render_template('admin_applications.html', applications=applications_requests)
+    else:
+        return render_template('error.html', code=405, message='Method Not Allowed'), 405
     csrf_token = _ensure_csrf_token()
-    return render_template('admin_applications.html', csrf_token=csrf_token)
+
 
 
 @app.route('/admin/fakturering', methods=['GET'])
@@ -1742,8 +1773,8 @@ def login_admin():
     # Authenticate an administrator for access to the admin panel.
     if request.method == 'POST':
 
-        admin_password = os.getenv('admin_password')
-        admin_username = os.getenv('admin_username')
+        admin_password = os.getenv('admin_password', 'Default')
+        admin_username = os.getenv('admin_username', 'admin')
         if request.form['username'] == admin_username and request.form['password'] == admin_password:
             session['admin_logged_in'] = True
             session['admin_username'] = admin_username
@@ -1830,5 +1861,5 @@ if __name__ == '__main__':
     app.run(
         debug=debug_mode,
         host='0.0.0.0',
-        port=int(os.getenv('PORT', 80)),
+        port=int(os.getenv('PORT', 8000)),
     )

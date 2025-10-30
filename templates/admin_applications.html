@@ -3,6 +3,26 @@
 {% block content %}
 <h1>Admin — Ansökningar</h1>
 <p>Hantera inkomna kontoansökningar. Alla ändringar loggas och godkännanden skickar automatiskt ett e-postmeddelande till kontaktpersonen.</p>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const detailButtons = document.querySelectorAll('.show-details-btn');
+
+    detailButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const appId = btn.getAttribute('data-app-id');
+            const details = document.getElementById(`details-${appId}`);
+
+            if (details.hasAttribute('hidden')) {
+                details.removeAttribute('hidden');
+                btn.textContent = 'Dölj information';
+            } else {
+                details.setAttribute('hidden', '');
+                btn.textContent = 'Visa mer information';
+            }
+        });
+    });
+});
+</script>
 
 <section class="panel admin-applications" data-csrf-token="{{ csrf_token }}">
     <header class="panel-header">
@@ -14,6 +34,7 @@
                 <option value="approved">Godkända</option>
                 <option value="rejected">Avslagna</option>
                 <option value="alla">Alla</option>
+
             </select>
             <button type="button" class="btn" id="refreshApplications">Uppdatera lista</button>
         </div>
@@ -22,95 +43,79 @@
     <div id="applicationsMessage" class="message" role="status" aria-live="polite" hidden></div>
 
     <div class="table-scroll">
-        <table class="data-table" id="applicationsTable">
-            <thead>
-                <tr>
-                    <th>Namn</th>
-                    <th>Företag</th>
-                    <th>Kontotyp</th>
-                    <th>Status</th>
-                    <th>Inskickad</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div id="applicationDetail" class="application-detail" hidden>
-        <h3 id="applicationDetailTitle">Detaljer</h3>
-        <dl>
-            <div>
-                <dt>Namn</dt>
-                <dd id="detailName"></dd>
-            </div>
-            <div>
-                <dt>E-post</dt>
-                <dd id="detailEmail"></dd>
-            </div>
-            <div>
-                <dt>Företag</dt>
-                <dd id="detailCompany"></dd>
-            </div>
-            <div>
-                <dt>Organisationsnummer</dt>
-                <dd id="detailOrgnr"></dd>
-            </div>
-            <div id="detailInvoiceAddressWrapper" hidden>
-                <dt>Fakturaadress</dt>
-                <dd id="detailInvoiceAddress" class="invoice-text"></dd>
-            </div>
-            <div id="detailInvoiceContactWrapper" hidden>
-                <dt>Kontaktperson</dt>
-                <dd id="detailInvoiceContact"></dd>
-            </div>
-            <div id="detailInvoiceReferenceWrapper" hidden>
-                <dt>Märkning</dt>
-                <dd id="detailInvoiceReference"></dd>
-            </div>
-            <div>
-                <dt>Kontotyp</dt>
-                <dd id="detailType"></dd>
-            </div>
-            <div>
-                <dt>Kommentar</dt>
-                <dd id="detailComment"></dd>
-            </div>
-            <div>
-                <dt>Status</dt>
-                <dd id="detailStatus"></dd>
-            </div>
-            <div id="detailReviewers" hidden>
-                <dt>Granskad av</dt>
-                <dd id="detailReviewer"></dd>
-            </div>
-            <div id="detailDecision" hidden>
-                <dt>Motivering</dt>
-                <dd id="detailReason"></dd>
-            </div>
-            <div>
-                <dt>Skapad</dt>
-                <dd id="detailCreated"></dd>
-            </div>
-            <div>
-                <dt>Uppdaterad</dt>
-                <dd id="detailUpdated"></dd>
-            </div>
-        </dl>
-        <div id="applicationActions" class="application-actions" hidden>
-            <button type="button" class="btn" id="approveApplication">Godkänn ansökan</button>
+    <div id="applicationsList" class="applications-list">
+        {% if application == [] %}
+        <p>Inga ansökningar mottagna än.</p>
+        {% endif %}
             
-            <form id="rejectForm" class="reject-form" hidden>
-                 <div class="form-actions">
-                    <button type="submit" class="btn btn-secondary" id="showRejectForm">Avslå ansökan</button>
-                </div>
-            </form>
-        </div>
-        <div id="detailMessage" class="message" role="status" aria-live="polite" hidden></div>
-    </div>
-</section>
+        {% for application in applications %}
+<input type="checkbox"
+       id="applicationToggle{{ application.id }}"
+       class="application-toggle"
+       data-application-id="{{ application.id }}">
 
+<div class="application-card" data-status="{{ application.status }}">
+    <label for="applicationToggle{{ application.id }}" class="application-summary">
+        <div class="application-info">
+            <span class="application-name">{{ application.name }}</span>
+            <span class="application-email">&lt;{{ application.email }}&gt;</span>
+            <span class="application-type">Typ: {{ application.account_type }}</span>
+            <span class="application-status 
+                {% if application.status == 'pending' %}status-pending
+                {% elif application.status == 'approved' %}status-approved
+                {% elif application.status == 'rejected' %}status-rejected{% endif %}">
+                Status: {{ application.status|capitalize }}
+            </span>
+        </div>
+    </label>
+
+    <!-- New "show more" section -->
+    <div class="application-actions-inline">
+        <button type="button"
+                class="btn btn-small show-details-btn"
+                data-app-id="{{ application.id }}">
+            Visa mer information
+        </button>
+    </div>
+
+    <!-- Hidden details panel -->
+    <div class="application-details" id="details-{{ application.id }}" hidden>
+        <p><strong>Organisationsnummer:</strong> {{ application.orgnr_normalized or "—" }}</p>
+        <p><strong>Företagsnamn:</strong> {{ application.company_name or "—" }}</p>
+        <p><strong>Fakturaadress:</strong> {{ application.invoice_address or "—" }}</p>
+        <p><strong>Kontaktperson:</strong> {{ application.invoice_contact or "—" }}</p>
+        <p><strong>Kommentar:</strong> {{ application.comment or "—" }}</p>
+        <p><strong>Skapad:</strong> {{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </div>
+</div>
+
+
+    </div>
+
+       <div class="application-actions">
+    <!-- Accept form -->
+    <form method="POST" action="{{ url_for('admin_applications') }}">
+        <input type="hidden" name="application_id" value="{{ application.id }}">
+        <input type="hidden" name="application_status" value="approved">
+        <button type="submit" class="btn btn-small btn-approve">
+            Godkänn
+        </button>
+    </form>
+
+    <!-- Deny form -->
+    <form method="POST" action="{{ url_for('admin_applications') }}">
+        <input type="hidden" name="application_id" value="{{ application.id }}">
+        <input type="hidden" name="application_status" value="rejected">
+        <button type="submit" class="btn btn-small btn-deny">
+            Avvisa
+        </button>
+    </form>
+</div>
+
+</section>
+{% endfor %}
 <a class="btn-link" href="{{ url_for('admin') }}">Tillbaka till adminpanelen</a>
 
 {% endblock %}
 {% block head %}{{ super() }}<meta name="robots" content="noindex">{% endblock %}
-{% block footer %}{{ super() }}<script src="{{ url_for('static', filename='js/admin_applications.js') }}" defer></script>{% endblock %}
+{% block footer %}{{ super() }}{% endblock %}

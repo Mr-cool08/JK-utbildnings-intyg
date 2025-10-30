@@ -48,6 +48,11 @@
 
             <button type="submit" class="btn">Skicka ansökan</button>
         </form>
+        {% if success_message %}
+            <div class="message success" role="status" aria-live="polite">
+                {{ success_message }}
+            </div>
+        {% endif %}
     </div>
 </section>
 
