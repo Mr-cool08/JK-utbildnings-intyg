@@ -1172,10 +1172,10 @@ def admin_applications():
         elif application_status == "rejected":
             functions.reject_application_request(int(application_id), 'admin')
             logger.debug('Ansökan har avslagits.', 'success')
-            return "test"
+            return jsonify({'status': 'success', 'message': 'Ansökan har avslagits.'})
         else:
             logger.error('Ogiltig status för ansökan.')
-            return "testing"
+            return jsonify({'status': 'error', 'message': 'Ogiltig status för ansökan.'}), 400
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
         print(applications_requests)
