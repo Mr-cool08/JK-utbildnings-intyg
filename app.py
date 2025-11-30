@@ -723,20 +723,9 @@ def _render_application_form(account_type: str):
 
 @app.route('/ansok/standardkonto', methods=['GET', 'POST'])
 def apply_standardkonto():
-    if request.method == 'POST':
-        logger.debug("Handling standard account application form submission")
-        full_name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip()
-        orgnr = request.form.get('orgnr', '').strip()
-        company_name = request.form.get('company_name', '').strip()
-        comment = request.form.get('comment', '').strip()
-        functions.create_application_request(
-            "standard", full_name, email, orgnr, company_name, comment
-        )
-        return redirect('/ansok/standardkonto', success_message="Ansökan skickad")
-    elif request.method == 'GET':
-        logger.debug("Rendering standard account application form")
-        return render_template('apply_standardkonto.html')
+    """Visa och hantera ansökan för standardkonto."""
+
+    return _render_application_form("standard")
 
 
 
@@ -1216,8 +1205,7 @@ def _serialize_application_row(row: dict) -> dict:
         "reviewed_at": row.get("reviewed_at").isoformat() if row.get("reviewed_at") else None,
     }
 
-"""
-@app.get('/admin/api/ansokningar', Method = ['GET', 'POST'])
+@app.get('/admin/api/ansokningar')
 def admin_list_applications():
     _require_admin()
     status = request.args.get('status')
@@ -1229,7 +1217,6 @@ def admin_list_applications():
 
     serialized = [_serialize_application_row(row) for row in rows]
     return jsonify({'status': 'success', 'data': serialized})
-"""
 
 @app.get('/admin/api/ansokningar/<int:application_id>')
 def admin_get_application(application_id: int):
@@ -1315,14 +1302,11 @@ def admin_approve_application(application_id: int):
 
     return jsonify(payload)
 
-"""
 @app.post('/admin/api/ansokningar/<int:application_id>/avslag')
 def admin_reject_application(application_id: int):
     admin_name = _require_admin()
     if not _validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
-
-    payload = request.get_json(silent=True) or {}
 
     try:
         result = functions.reject_application_request(application_id, admin_name)
@@ -1352,8 +1336,6 @@ def admin_reject_application(application_id: int):
     if email_error:
         response_payload['email_warning'] = 'Ansökan avslogs men e-post kunde inte skickas.'
     return jsonify(response_payload)
-
-"""
 @app.post('/admin/api/oversikt')
 def admin_user_overview():
     admin_name = _require_admin()
