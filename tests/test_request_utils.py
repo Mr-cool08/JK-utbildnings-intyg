@@ -22,14 +22,12 @@ def test_register_public_submission_rate_limits(monkeypatch):
     ru._public_form_attempts.clear()
     monkeypatch.setattr(ru, "_last_cleanup", 0)
 
-    times = iter(range(1_000, 1_006))
+    times = iter(range(1_000, 1_000 + ru._PUBLIC_FORM_LIMIT + 2))
     monkeypatch.setattr(ru.time, "time", lambda: next(times))
 
-    assert ru.register_public_submission("3.3.3.3")
-    assert ru.register_public_submission("3.3.3.3")
-    assert ru.register_public_submission("3.3.3.3")
-    assert ru.register_public_submission("3.3.3.3")
-    assert ru.register_public_submission("3.3.3.3")
+    for _ in range(ru._PUBLIC_FORM_LIMIT):
+        assert ru.register_public_submission("3.3.3.3")
+
     assert not ru.register_public_submission("3.3.3.3")
 
 
