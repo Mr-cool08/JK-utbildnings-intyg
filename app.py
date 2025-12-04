@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from collections import deque
 from functools import partial
-import hmac
 import logging
 import os
-import secrets
 import time
 from typing import Any, Sequence
 
@@ -26,7 +23,6 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
@@ -39,6 +35,9 @@ from course_categories import (
 )
 
 from services import email as email_service
+from services.pdf import save_pdf_for_user
+from security_utils import ensure_csrf_token, validate_csrf_token
+from request_utils import as_bool, get_request_ip, register_public_submission
 
 
 load_environment()
@@ -46,73 +45,6 @@ load_environment()
 import functions
 
 
-
-ALLOWED_MIMES = {'application/pdf'}
-
-_CSRF_SESSION_KEY = "csrf_token"
-_PUBLIC_FORM_LIMIT = 5
-_PUBLIC_FORM_WINDOW = 60 * 60  # 1 timme
-_public_form_attempts: dict[str, deque[float]] = {}
-
-
-def _ensure_csrf_token() -> str:
-    token = session.get(_CSRF_SESSION_KEY)
-    if not token:
-        token = secrets.token_urlsafe(32)
-        session[_CSRF_SESSION_KEY] = token
-    return token
-
-
-def _extract_csrf_token() -> str | None:
-    if request.is_json:
-        payload = request.get_json(silent=True) or {}
-        token = payload.get("csrf_token")
-        if token:
-            return str(token)
-    token = request.headers.get("X-CSRF-Token")
-    if token:
-        return token
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        form_token = request.form.get("csrf_token")
-        if form_token:
-            return form_token
-    return request.args.get("csrf_token")
-
-
-def _validate_csrf_token() -> bool:
-    expected = session.get(_CSRF_SESSION_KEY)
-    candidate = _extract_csrf_token()
-    if not expected or not candidate:
-        return False
-    try:
-        return hmac.compare_digest(str(candidate), str(expected))
-    except Exception:
-        return False
-
-
-def _get_request_ip() -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.remote_addr or "0.0.0.0"
-
-
-def _register_public_submission(ip: str) -> bool:
-    now = time.time()
-    bucket = _public_form_attempts.setdefault(ip, deque())
-    while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
-        bucket.popleft()
-    if len(bucket) >= _PUBLIC_FORM_LIMIT:
-        return False
-    bucket.append(now)
-    return True
-
-
-def _as_bool(value: str | None) -> bool:
-    # Tolka strängar som booleska värden.
-    if value is None:
-        return False
-    return value.strip().lower() in {"1", "true", "on", "ja", "yes"}
 
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
@@ -205,7 +137,7 @@ def create_app() -> Flask:
         "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5560160680"),
     }
 
-    app.config["IS_DEMO"] = _as_bool(os.getenv("ENABLE_DEMO_MODE"))
+    app.config["IS_DEMO"] = as_bool(os.getenv("ENABLE_DEMO_MODE"))
     app.config["DEMO_SITE_URL"] = os.getenv("DEMO_SITE_URL", "").strip()
     app.config["DEMO_CREDENTIALS"] = {
         "user_personnummer": demo_defaults["user_personnummer"],
@@ -276,54 +208,6 @@ def inject_flags():
         "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
         "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
     }
-
-
-
-def save_pdf_for_user(
-    pnr: str, file_storage, categories: Sequence[str]
-) -> dict[str, str | int | Sequence[str]]:
-    # Validate and store a PDF in the database for the provided personnummer.
-    if file_storage.filename == "":
-        logger.error("No file selected for upload")
-        raise ValueError("Ingen fil vald.")
-
-    mime = file_storage.mimetype or ""
-    if mime not in ALLOWED_MIMES:
-        logger.error("Disallowed MIME type %s", mime)
-        raise ValueError("Endast PDF tillåts.")
-
-    head = file_storage.stream.read(5)
-    file_storage.stream.seek(0)
-    if head != b"%PDF-":
-        logger.error("File does not appear to be valid PDF")
-        raise ValueError("Filen verkar inte vara en giltig PDF.")
-
-    pnr_norm = functions.normalize_personnummer(pnr)
-    pnr_hash = functions.hash_value(pnr_norm)
-    logger.debug("Saving PDF for person %s", mask_hash(pnr_hash))
-
-    selected_categories = normalize_category_slugs(categories)
-    if len(selected_categories) != 1:
-        logger.error(
-            "Invalid number of categories (%d) for hash %s",
-            len(selected_categories),
-            mask_hash(pnr_hash),
-        )
-        raise ValueError("Exakt en kurskategori måste väljas.")
-
-    base = secure_filename(file_storage.filename)
-    base = base.replace(pnr_norm, "")
-    base = base.lstrip("_- ")
-    if not base:
-        base = "certificate.pdf"
-    # lägg på timestamp för att undvika krockar
-    filename = f"{int(time.time())}_{base}"
-
-    file_storage.stream.seek(0)
-    content = file_storage.stream.read()
-    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
-    logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
-    return {"id": pdf_id, "filename": filename, "categories": selected_categories}
 
 @app.route('/robots.txt')
 def robots_txt():
@@ -664,15 +548,15 @@ def _render_application_form(account_type: str):
     if request.method == 'POST':
         for key in form_data:
             form_data[key] = (request.form.get(key, '') or '').strip()
-        if not _validate_csrf_token():
+        if not validate_csrf_token():
             form_errors.append("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.")
         else:
-            client_ip = _get_request_ip()
-            if not _register_public_submission(client_ip):
+            client_ip = get_request_ip()
+            if not register_public_submission(client_ip):
                 status_code = 429
                 form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
             else:
-                if not _as_bool(form_data.get("terms_confirmed")):
+                if not as_bool(form_data.get("terms_confirmed")):
                     form_errors.append(
                         "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
@@ -706,7 +590,7 @@ def _render_application_form(account_type: str):
                         target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
                         return redirect(url_for(target))
 
-    csrf_token = _ensure_csrf_token()
+    csrf_token = ensure_csrf_token()
 
     template_name = 'apply_foretagskonto.html' if account_type == 'foretagskonto' else 'apply_standardkonto.html'
 
@@ -1086,7 +970,7 @@ def admin():
 
             # --- Save PDFs ---
             pdf_records = [
-                save_pdf_for_user(personnummer, file_storage, [category])
+                save_pdf_for_user(personnummer, file_storage, [category], logger)
                 for file_storage, category in zip(pdf_files, normalized_categories)
             ]
 
@@ -1173,7 +1057,7 @@ def admin_applications():
         return render_template('admin_applications.html', applications=applications_requests)
     else:
         return render_template('error.html', code=405, message='Method Not Allowed'), 405
-    csrf_token = _ensure_csrf_token()
+    csrf_token = ensure_csrf_token()
 
 
 
@@ -1234,7 +1118,7 @@ def admin_approve_application(application_id: int):
     och – vid företagskonto – även till handledare/supervisor. Logga admin-åtgärden.
     """
     admin_name = _require_admin()
-    if not _validate_csrf_token():
+    if not validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
 
     try:
@@ -1305,7 +1189,7 @@ def admin_approve_application(application_id: int):
 @app.post('/admin/api/ansokningar/<int:application_id>/avslag')
 def admin_reject_application(application_id: int):
     admin_name = _require_admin()
-    if not _validate_csrf_token():
+    if not validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
 
     try:
