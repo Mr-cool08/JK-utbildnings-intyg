@@ -514,12 +514,11 @@ def apply_account():
     return render_template('apply.html')
 
 
-def _render_application_form(account_type: str):
-    """Hjälpfunktion för att visa och hantera ansökningsformulär."""
+@app.route('/ansok/standardkonto', methods=['GET', 'POST'])
+def apply_standardkonto():
+    """Visa och hantera ansökan för standardkonto."""
 
-    if account_type not in {"standard", "foretagskonto"}:
-        abort(404)
-
+    account_type = "standard"
     form_errors: list[str] = []
     status_code = 200
 
@@ -529,19 +528,8 @@ def _render_application_form(account_type: str):
         "orgnr": "",
         "comment": "",
         "terms_confirmed": "",
+        "company_name": "",
     }
-
-    if account_type == "foretagskonto":
-        base_form_data.update(
-            {
-                "company_name": "",
-                "invoice_address": "",
-                "invoice_contact": "",
-                "invoice_reference": "",
-            }
-        )
-    else:
-        base_form_data.update({"company_name": ""})
 
     form_data = dict(base_form_data)
 
@@ -592,11 +580,9 @@ def _render_application_form(account_type: str):
 
     csrf_token = ensure_csrf_token()
 
-    template_name = 'apply_foretagskonto.html' if account_type == 'foretagskonto' else 'apply_standardkonto.html'
-
     return (
         render_template(
-            template_name,
+            'apply_standardkonto.html',
             csrf_token=csrf_token,
             form_data=form_data,
             form_errors=form_errors,
@@ -605,20 +591,84 @@ def _render_application_form(account_type: str):
     )
 
 
-@app.route('/ansok/standardkonto', methods=['GET', 'POST'])
-def apply_standardkonto():
-    """Visa och hantera ansökan för standardkonto."""
-
-    return _render_application_form("standard")
-
-
-
-
 @app.route('/ansok/foretagskonto', methods=['GET', 'POST'])
 def apply_foretagskonto():
     """Visa och hantera ansökan för företagskonto."""
 
-    return _render_application_form("foretagskonto")
+    account_type = "foretagskonto"
+    form_errors: list[str] = []
+    status_code = 200
+
+    base_form_data = {
+        "name": "",
+        "email": "",
+        "orgnr": "",
+        "comment": "",
+        "terms_confirmed": "",
+        "company_name": "",
+        "invoice_address": "",
+        "invoice_contact": "",
+        "invoice_reference": "",
+    }
+
+    form_data = dict(base_form_data)
+
+    if request.method == 'POST':
+        for key in form_data:
+            form_data[key] = (request.form.get(key, '') or '').strip()
+        if not validate_csrf_token():
+            form_errors.append("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.")
+        else:
+            client_ip = get_request_ip()
+            if not register_public_submission(client_ip):
+                status_code = 429
+                form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
+            else:
+                if not as_bool(form_data.get("terms_confirmed")):
+                    form_errors.append(
+                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
+                    )
+                if not form_errors:
+                    try:
+                        request_id = functions.create_application_request(
+                            account_type,
+                            form_data["name"],
+                            form_data["email"],
+                            form_data["orgnr"],
+                            form_data.get("company_name"),
+                            form_data.get("comment"),
+                            form_data.get("invoice_address"),
+                            form_data.get("invoice_contact"),
+                            form_data.get("invoice_reference"),
+                        )
+                        logger.info(
+                            "Ny ansökan %s mottagen från %s",
+                            request_id,
+                            mask_hash(functions.hash_value(form_data["email"].lower())),
+                        )
+                    except ValueError as exc:
+                        form_errors.append(str(exc))
+                    except Exception as exc:  # pragma: no cover - defensiv loggning
+                        logger.exception("Kunde inte spara ansökan")
+                        form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
+                    else:
+                        # Make the client-facing confirmation explicit about which account type was submitted
+                        display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
+                        flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
+                        target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
+                        return redirect(url_for(target))
+
+    csrf_token = ensure_csrf_token()
+
+    return (
+        render_template(
+            'apply_foretagskonto.html',
+            csrf_token=csrf_token,
+            form_data=form_data,
+            form_errors=form_errors,
+        ),
+        status_code,
+    )
 
 
 
