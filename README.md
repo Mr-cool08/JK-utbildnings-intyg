@@ -64,6 +64,25 @@ Om din infrastruktur redan har ett Docker-nätverk som ska delas med proxyn kan
 du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan du kör `docker compose`
 så att stacken återanvänder det angivna nätverket och ger proxyn en adress därifrån.
 
+## Flöde för företagskonton och kopplingar
+
+Diagrammet nedan visar hur ett företagskonto skapas, aktiveras och kopplas till standardkonton samt hur kopplade konton laddas efter inloggning.
+
+```mermaid
+flowchart TD
+    A[Ansökan godkänns eller konto skapas manuellt] --> B[Företagspost och företagsanvändare säkerställs]
+    B --> C[Aktiveringslänk med e-posthash genereras]
+    C --> D[Företagskontot sätter lösenord och aktiveras]
+    D --> E[Inloggning med organisationsnummer och lösenord]
+    E --> F[Sessionen sparar e-posthash för företagskontot]
+    F --> G[Dashboarden hämtar kopplade standardkonton]
+    G --> H[Behörighet kontrolleras innan intyg visas]
+
+    B -. Parallellt .-> I[Admin kopplar företagskonto till standardkonto]
+    I --> J[E-post och personnummer normaliseras och hashas]
+    J --> G
+```
+
 ## Running tests
 
 ```bash
