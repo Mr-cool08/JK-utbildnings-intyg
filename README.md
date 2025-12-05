@@ -2,6 +2,23 @@
 
 This web application manages the issuance and storage of course certificates. It separates responsibilities between administrators and end users so each party can focus on their own tasks.
 
+## Övergripande flöde
+
+Diagrammet nedan visar huvudstegen från att en administratör registrerar en elev till att eleven loggar in och laddar ned sitt intyg.
+
+```mermaid
+flowchart LR
+    A[Admin loggar in] --> B[Elev registreras med e-post och personnummer]
+    B --> C[PDF-intyg laddas upp]
+    C --> D[Personnummer normaliseras och hashas]
+    D --> E[Intyg sparas under elevens mapp]
+    E --> F[Aktiveringslänk skickas till elevens e-post]
+    F --> G[Elev sätter lösenord och aktiveras]
+    G --> H[Elev loggar in]
+    H --> I[Dashboard listar elevens intyg]
+    I --> J[Elev laddar ned önskat PDF-intyg]
+```
+
 ## Getting started
 
 1. **Install dependencies**
