@@ -723,8 +723,15 @@ textarea:focus {
 .filter-group select {
     min-width: 160px;
 }
-.application-card{
-    border: 1px solid red;
+
+.application-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+}
+.application-card {
+    border: 1px solid var(--color-border);
 }
 .application-detail {
     border-top: 1px solid var(--color-border);
@@ -1664,6 +1671,9 @@ small.hint {
     border: 1px solid var(--border-color, #ddd);
     border-radius: 0.75rem;
     padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1741,6 +1751,24 @@ small.hint {
     .filter-group {
         flex-direction: column;
         align-items: flex-start;
+        width: 100%;
+    }
+
+    .application-card {
+        padding: 1rem;
+    }
+
+    .application-actions-inline {
+        width: 100%;
+    }
+
+    .application-actions {
+        width: 100%;
+    }
+
+    .application-actions form,
+    .application-actions .btn {
+        flex: 1 1 160px;
         width: 100%;
     }
 }
