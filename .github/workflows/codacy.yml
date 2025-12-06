@@ -1,4 +1,4 @@
-name: Codacy Security Scan
+name: Security Scan (Codacy, Snyk, CodeQL)
 
 on:
   push:
@@ -7,11 +7,16 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Gemensamma rättigheter för alla jobb
 permissions:
   contents: read
   security-events: write
+  actions: read
 
 jobs:
+  # -----------------------------
+  # Codacy via Docker
+  # -----------------------------
   codacy-security-scan:
     runs-on: ubuntu-latest
 
@@ -33,7 +38,7 @@ jobs:
             --output results.sarif \
             --directory /src
 
-      - name: Normalize SARIF severity
+      - name: Normalize SARIF severity (Codacy)
         run: |
           python - << 'PY'
           import json
@@ -48,7 +53,66 @@ jobs:
               json.dump(data, f)
           PY
 
-      - name: Upload SARIF to GitHub
+      - name: Upload Codacy SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+  # -----------------------------
+  # Snyk Code (SAST)
+  # -----------------------------
+  snyk-security-scan:
+    runs-on: ubuntu-latest
+
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SNYK_ORG: mr-cool08        # ändra om din org-slug är annan
+      SNYK_REGION: eu
+      SNYK_API: https://api.eu.snyk.io
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+
+      - name: Snyk Code test (SAST)
+        # Snyk returnerar 1 om sårbarheter hittas - därför "|| true"
+        run: snyk code test --sarif-file-output=snyk-code.sarif || true
+
+      - name: Upload Snyk SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+
+  # -----------------------------
+  # CodeQL (GitHub Advanced Security)
+  # -----------------------------
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lägg till fler språk här vid behov, t.ex. ['python', 'javascript']
+        language: ['python']
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      # För Python gör autobuild i praktiken inget farligt, men det är ok att ha kvar
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
