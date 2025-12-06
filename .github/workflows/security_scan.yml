@@ -14,10 +14,13 @@ permissions:
 
 jobs:
   # -----------------------------
-  # Codacy via CLI (utan Docker)
+  # Codacy via CLI (.jar)
   # -----------------------------
   codacy-security-scan:
     runs-on: ubuntu-latest
+
+    env:
+      CODACY_ANALYSIS_CLI_VERSION: "7.10.0"
 
     steps:
       # -----------------------------
@@ -27,17 +30,17 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------
-      # Install Codacy Analysis CLI
+      # Install Codacy Analysis CLI (jar)
       # -----------------------------
-      - name: Install Codacy Analysis CLI
-        env:
-          CODACY_ANALYSIS_CLI_VERSION: "7.10.0"
+      - name: Download Codacy Analysis CLI
         run: |
+          set -e
           echo "Downloading Codacy Analysis CLI v${CODACY_ANALYSIS_CLI_VERSION}..."
-          curl -L "https://github.com/codacy/codacy-analysis-cli/releases/download/${CODACY_ANALYSIS_CLI_VERSION}/codacy-analysis-cli-linux" -o codacy-analysis-cli
-          chmod +x codacy-analysis-cli
-          sudo mv codacy-analysis-cli /usr/local/bin/codacy-analysis-cli
-          codacy-analysis-cli --version
+          mkdir -p /tmp/codacy-cli
+          curl -L \
+            "https://github.com/codacy/codacy-analysis-cli/releases/download/${CODACY_ANALYSIS_CLI_VERSION}/codacy-analysis-cli-assembly.jar" \
+            -o /tmp/codacy-cli/codacy-analysis-cli-assembly.jar
+          ls -lh /tmp/codacy-cli
 
       # -----------------------------
       # Run Codacy analysis
@@ -46,11 +49,21 @@ jobs:
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
-          codacy-analysis-cli analyze \
+          set -e
+          if [ -z "$CODACY_PROJECT_TOKEN" ]; then
+            echo "CODACY_PROJECT_TOKEN saknas! Lägg in den i repo-secrets."
+            exit 1
+          fi
+
+          # Kör .jar:en från /tmp så att inget nytt läggs till i repo:t
+          java -jar /tmp/codacy-cli/codacy-analysis-cli-assembly.jar analyze \
             --format sarif \
             --verbose \
-            --output results.sarif \
+            --output /tmp/codacy-results.sarif \
             --directory .
+
+          echo "Codacy SARIF genererad på /tmp/codacy-results.sarif"
+          ls -lh /tmp/codacy-results.sarif
 
       # -----------------------------
       # Normalize SARIF severity
@@ -59,7 +72,7 @@ jobs:
         run: |
           python3 - << 'PY'
           import json
-          path = "results.sarif"
+          path = "/tmp/codacy-results.sarif"
 
           with open(path, "r", encoding="utf-8") as f:
               data = json.load(f)
@@ -82,7 +95,7 @@ jobs:
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: results.sarif
+          sarif_file: /tmp/codacy-results.sarif
 
   # -----------------------------
   # Snyk Code (SAST)
