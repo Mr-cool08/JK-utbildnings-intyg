@@ -61,75 +61,109 @@ jobs:
   # Snyk Code (SAST)
   # -----------------------------
   snyk-security-scan:
-      runs-on: ubuntu-latest
-      permissions:
-        contents: read
-        security-events: write
-        actions: read
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        #SNYK_ORG: mr-cool08
-        #SNYK_REGION: eu
-        #SNYK_API: https://api.eu.snyk.io
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Check out code
-          uses: actions/checkout@v4
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
 
-        - name: Set up Snyk CLI
-          uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # Om du vill styra org manuellt kan du avkommentera och sätta rätt slug:
+      # SNYK_ORG: mr-cool08
+      # Om du kör i EU-regionen kan du lägga till:
+      # SNYK_REGION: eu
+      # SNYK_API: https://api.eu.snyk.io
 
-        - name: Authenticate Snyk
-          run: snyk auth "$SNYK_TOKEN"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
 
-        - name: Snyk Code test (SAST)
-          id: snyk-code
-          run: |
-            snyk code test --org="$SNYK_ORG" --sarif-file-output=snyk-code.sarif || true
-            if [ -f "snyk-code.sarif" ]; then
-              echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
-            else:
-              echo "sarif_exists=false" >> "$GITHUB_OUTPUT"
-            fi
+      - name: Kontrollera att SNYK_TOKEN finns
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "SNYK_TOKEN saknas eller är tom! Kontrollera GitHub Secrets."
+            exit 1
+          else
+            echo "SNYK_TOKEN finns. Längd: ${#SNYK_TOKEN} tecken."
+          fi
 
-        - name: Map Snyk severity to GitHub security-severity
-          if: steps.snyk-code.outputs.sarif_exists == 'true'
-          run: |
-            python - << 'PY'
-            import json
-            path = "snyk-code.sarif"
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
 
-            def score_for_level(level: str) -> str:
-                if level == "error":
-                    return "8.0"   # High
-                if level == "warning":
-                    return "5.0"   # Medium
-                if level in ("note", "none", None):
-                    return "2.0"   # Low
-                return "0.0"
+      - name: Authenticate Snyk
+        run: snyk auth "$SNYK_TOKEN"
 
-            for run in data.get("runs", []):
-                driver = run.get("tool", {}).get("driver", {})
-                for rule in driver.get("rules", []):
-                    default_cfg = rule.get("defaultConfiguration", {})
-                    lvl = default_cfg.get("level")
-                    if not lvl:
-                        continue
-                    props = rule.setdefault("properties", {})
-                    props["security-severity"] = score_for_level(lvl)
+      - name: Snyk Code test (SAST)
+        id: snyk-code
+        run: |
+          # Kör Snyk Code och skapa SARIF
+          snyk code test --sarif-file-output=snyk-code.sarif || true
 
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
-            PY
+          # Flagga om SARIF-filen finns
+          if [ -f "snyk-code.sarif" ]; then
+            echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sarif_exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-        - name: Upload Snyk SARIF to GitHub
-          if: steps.snyk-code.outputs.sarif_exists == 'true'
-          uses: github/codeql-action/upload-sarif@v4
-          with:
-            sarif_file: snyk-code.sarif
+      - name: Map Snyk severity to GitHub security-severity
+        if: steps.snyk-code.outputs.sarif_exists == 'true'
+        run: |
+          python - << 'PY'
+          import json
 
+          path = "snyk-code.sarif"
+          with open(path, encoding="utf-8") as f:
+              data = json.load(f)
+
+          def score_for_level(level: str) -> float:
+              level = (level or "").lower()
+              if level == "error":
+                  return 8.0   # High
+              if level == "warning":
+                  return 5.0   # Medium
+              if level in ("note", "none", ""):
+                  return 2.0   # Low
+              return 0.0
+
+          for run in data.get("runs", []):
+              driver = run.get("tool", {}).get("driver", {})
+              rules = driver.get("rules", []) or []
+
+              # Bygg upp ruleId -> rule
+              rule_by_id = {rule.get("id"): rule for rule in rules if rule.get("id")}
+
+              # Beräkna högsta severity per ruleId baserat på resultaten
+              sev_by_rule_id = {}
+              for res in run.get("results", []):
+                  rule_id = res.get("ruleId")
+                  if not rule_id:
+                      continue
+                  lvl = res.get("level")
+                  score = score_for_level(lvl)
+                  prev = sev_by_rule_id.get(rule_id)
+                  if prev is None or score > prev:
+                      sev_by_rule_id[rule_id] = score
+
+              # Sätt security-severity på respektive rule
+              for rule_id, score in sev_by_rule_id.items():
+                  rule = rule_by_id.get(rule_id)
+                  if not rule:
+                      continue
+                  props = rule.setdefault("properties", {})
+                  props["security-severity"] = f"{score:.1f}"
+
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f)
+          PY
+
+      - name: Upload Snyk SARIF to GitHub
+        if: steps.snyk-code.outputs.sarif_exists == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: snyk-code.sarif
 
   # -----------------------------
   # CodeQL (GitHub Advanced Security)
