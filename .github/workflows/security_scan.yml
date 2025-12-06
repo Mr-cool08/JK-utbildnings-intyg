@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # -----------------------------
-  # Codacy via Docker
+  # Codacy via CLI (ingen Docker)
   # -----------------------------
   codacy-security-scan:
     runs-on: ubuntu-latest
@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------
-      # Install Codacy CLI (no Docker)
+      # Install Codacy Analysis CLI
       # -----------------------------
       - name: Install Codacy Analysis CLI
         run: |
@@ -49,7 +49,7 @@ jobs:
             --directory .
 
       # -----------------------------
-      # Normalize SARIF severity
+      # Normalize SARIF severity (Codacy)
       # -----------------------------
       - name: Normalize SARIF severity
         run: |
@@ -134,7 +134,7 @@ jobs:
       - name: Map Snyk severity to GitHub security-severity
         if: steps.snyk-code.outputs.sarif_exists == 'true'
         run: |
-          python - << 'PY'
+          python3 - << 'PY'
           import json
 
           path = "snyk-code.sarif"
@@ -179,7 +179,7 @@ jobs:
                   props["security-severity"] = f"{score:.1f}"
 
           with open(path, "w", encoding="utf-8") as f:
-              json.dump(data, f)
+              json.dump(data, f, indent=2)
           PY
 
       - name: Upload Snyk SARIF to GitHub
@@ -242,7 +242,6 @@ jobs:
         uses: PyCQA/bandit-action@v1
         with:
           python-version: "3.12"
-          # valfria inställningar, ex:
           # severity: "medium"
           # confidence: "medium"
           # targets: "."
