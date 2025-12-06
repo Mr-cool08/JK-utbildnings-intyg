@@ -1243,8 +1243,15 @@ def admin_reject_application(application_id: int):
     if not validate_csrf_token():
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
 
+    payload = request.get_json(silent=True) or {}
+    decision_reason = (payload.get('reason') or '').strip()
+    if not decision_reason:
+        decision_reason = 'Ingen motivering angiven.'
+
     try:
-        result = functions.reject_application_request(application_id, admin_name)
+        result = functions.reject_application_request(
+            application_id, admin_name, decision_reason
+        )
     except ValueError as exc:
         return jsonify({'status': 'error', 'message': str(exc)}), 400
     except Exception:
@@ -1254,7 +1261,7 @@ def admin_reject_application(application_id: int):
     email_error = None
     try:
         email_service.send_application_rejection_email(
-            result['email'], result['company_name']
+            result['email'], result['company_name'], decision_reason
         )
     except RuntimeError as exc:
         logger.exception("Misslyckades att skicka avslag för ansökan %s", application_id)
