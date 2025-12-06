@@ -13,22 +13,31 @@ permissions:
   actions: read
 
 jobs:
-  # -------------------------------------------------
-  # Codacy – kör lokalt CLI + normaliserar SARIF
-  # -------------------------------------------------
+  # -----------------------------
+  # Codacy via Docker
+  # -----------------------------
   codacy-security-scan:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------
+      # Check out code
+      # -----------------------------
       - name: Check out code
         uses: actions/checkout@v4
 
+      # -----------------------------
+      # Install Codacy CLI (no Docker)
+      # -----------------------------
       - name: Install Codacy Analysis CLI
         run: |
           curl -L https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-linux -o codacy
           chmod +x codacy
           sudo mv codacy /usr/local/bin/codacy
 
+      # -----------------------------
+      # Run Codacy analysis
+      # -----------------------------
       - name: Run Codacy Analysis
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
@@ -39,7 +48,10 @@ jobs:
             --output results.sarif \
             --directory .
 
-      - name: Normalize SARIF severity (Codacy)
+      # -----------------------------
+      # Normalize SARIF severity
+      # -----------------------------
+      - name: Normalize SARIF severity
         run: |
           python3 - << 'PY'
           import json
@@ -60,16 +72,20 @@ jobs:
               json.dump(data, f, indent=2)
           PY
 
-      - name: Upload Codacy SARIF
+      # -----------------------------
+      # Upload SARIF to GitHub Security Tab
+      # -----------------------------
+      - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
 
-  # -------------------------------------------------
-  # Snyk – auth med token + Snyk Code + (valfritt) OSS
-  # -------------------------------------------------
-  snyk-security:
+  # -----------------------------
+  # Snyk Code (SAST)
+  # -----------------------------
+  snyk-security-scan:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       security-events: write
@@ -77,71 +93,108 @@ jobs:
 
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      SNYK_ORG: mr-cool08       # ändra om din org-slug är annan
-      SNYK_REGION: eu
-      SNYK_API: https://api.eu.snyk.io
+      # Om du vill styra org manuellt kan du avkommentera och sätta rätt slug:
+      # SNYK_ORG: mr-cool08
+      # Om du kör i EU-regionen kan du lägga till:
+      # SNYK_REGION: eu
+      # SNYK_API: https://api.eu.snyk.io
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Kontrollera att SNYK_TOKEN finns
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "SNYK_TOKEN saknas eller är tom! Kontrollera GitHub Secrets."
+            exit 1
+          else
+            echo "SNYK_TOKEN finns. Längd: ${#SNYK_TOKEN} tecken."
+          fi
 
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
 
-      - name: Snyk auth (med API-token)
+      - name: Authenticate Snyk
         run: snyk auth "$SNYK_TOKEN"
 
-      # Snyk Code (SAST) -> SARIF
-      - name: Snyk Code test (SARIF)
+      - name: Snyk Code test (SAST)
+        id: snyk-code
         run: |
-          snyk code test --org="$SNYK_ORG" --sarif > snyk-code.sarif || true
+          # Kör Snyk Code och skapa SARIF
+          snyk code test --sarif-file-output=snyk-code.sarif || true
 
-      - name: Upload Snyk Code SARIF
+          # Flagga om SARIF-filen finns
+          if [ -f "snyk-code.sarif" ]; then
+            echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sarif_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Map Snyk severity to GitHub security-severity
+        if: steps.snyk-code.outputs.sarif_exists == 'true'
+        run: |
+          python - << 'PY'
+          import json
+
+          path = "snyk-code.sarif"
+          with open(path, encoding="utf-8") as f:
+              data = json.load(f)
+
+          def score_for_level(level: str) -> float:
+              level = (level or "").lower()
+              if level == "error":
+                  return 8.0   # High
+              if level == "warning":
+                  return 5.0   # Medium
+              if level in ("note", "none", ""):
+                  return 2.0   # Low
+              return 0.0
+
+          for run in data.get("runs", []):
+              driver = run.get("tool", {}).get("driver", {})
+              rules = driver.get("rules", []) or []
+
+              # Bygg upp ruleId -> rule
+              rule_by_id = {rule.get("id"): rule for rule in rules if rule.get("id")}
+
+              # Beräkna högsta severity per ruleId baserat på resultaten
+              sev_by_rule_id = {}
+              for res in run.get("results", []):
+                  rule_id = res.get("ruleId")
+                  if not rule_id:
+                      continue
+                  lvl = res.get("level")
+                  score = score_for_level(lvl)
+                  prev = sev_by_rule_id.get(rule_id)
+                  if prev is None or score > prev:
+                      sev_by_rule_id[rule_id] = score
+
+              # Sätt security-severity på respektive rule
+              for rule_id, score in sev_by_rule_id.items():
+                  rule = rule_by_id.get(rule_id)
+                  if not rule:
+                      continue
+                  props = rule.setdefault("properties", {})
+                  props["security-severity"] = f"{score:.1f}"
+
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f)
+          PY
+
+      - name: Upload Snyk SARIF to GitHub
+        if: steps.snyk-code.outputs.sarif_exists == 'true'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-code.sarif
 
-      # (Valfritt) Snyk Open Source (dependency scan) -> SARIF
-      - name: Snyk Open Source test (SARIF)
-        run: |
-          snyk test --org="$SNYK_ORG" --all-projects --sarif-file-output=snyk-oss.sarif || true
-
-      - name: Upload Snyk OSS SARIF
-        if: exists('snyk-oss.sarif')
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: snyk-oss.sarif
-
-  # -------------------------------------------------
-  # Bandit – Python security lint
-  # (loggar i jobbet, ingen SARIF här)
-  # -------------------------------------------------
-  bandit-security:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Bandit
-        run: |
-          python -m pip install --upgrade pip
-          pip install bandit
-
-      - name: Run Bandit recursively
-        run: |
-          bandit -r . || true
-
-  # -------------------------------------------------
-  # CodeQL – officiellt GitHub-flöde (v4)
-  # -------------------------------------------------
+  # -----------------------------
+  # CodeQL (GitHub Advanced Security)
+  # -----------------------------
   codeql:
+    name: CodeQL
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       security-events: write
@@ -150,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["python"]
+        language: ['python']  # lägg till fler språk vid behov
 
     steps:
       - name: Check out code
@@ -166,3 +219,30 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # -----------------------------
+  # Bandit (Python SAST)
+  # -----------------------------
+  bandit:
+    name: Bandit
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
+        with:
+          python-version: "3.12"
+          # valfria inställningar, ex:
+          # severity: "medium"
+          # confidence: "medium"
+          # targets: "."
