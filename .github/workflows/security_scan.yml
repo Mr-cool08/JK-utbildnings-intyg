@@ -70,9 +70,10 @@ jobs:
 
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      SNYK_ORG: mr-cool08        # ändra om din org-slug är annan
-      SNYK_REGION: eu
-      SNYK_API: https://api.eu.snyk.io
+      # Om ditt konto ligger på https://app.eu.snyk.io kan du avkommentera raden nedan:
+      # SNYK_API: https://api.eu.snyk.io
+      # SNYK_ORG kan sättas om du har flera orgs:
+      # SNYK_ORG: mr-cool08
 
     steps:
       - name: Check out code
@@ -81,12 +82,18 @@ jobs:
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
 
+      - name: Snyk auth with token
+        run: |
+          # Autentisera CLI med API-token/PAT från SNYK_TOKEN
+          snyk auth "${SNYK_TOKEN}"
+
       - name: Snyk Code test (SAST)
         id: snyk-code
         run: |
           # Kör Snyk Code och försök skapa SARIF
           snyk code test --sarif-file-output=snyk-code.sarif || true
-          # Sätt en enkel flagga om filen finns
+
+          # Flagga om filen finns, så vi inte försöker ladda upp något som saknas
           if [ -f "snyk-code.sarif" ]; then
             echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
           else
