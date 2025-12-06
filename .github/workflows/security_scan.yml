@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # -----------------------------
-  # Codacy via CLI (ingen Docker)
+  # Codacy via CLI (utan Docker)
   # -----------------------------
   codacy-security-scan:
     runs-on: ubuntu-latest
@@ -30,10 +30,14 @@ jobs:
       # Install Codacy Analysis CLI
       # -----------------------------
       - name: Install Codacy Analysis CLI
+        env:
+          CODACY_ANALYSIS_CLI_VERSION: "7.10.0"
         run: |
-          curl -L https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-linux -o codacy
-          chmod +x codacy
-          sudo mv codacy /usr/local/bin/codacy
+          echo "Downloading Codacy Analysis CLI v${CODACY_ANALYSIS_CLI_VERSION}..."
+          curl -L "https://github.com/codacy/codacy-analysis-cli/releases/download/${CODACY_ANALYSIS_CLI_VERSION}/codacy-analysis-cli-linux" -o codacy-analysis-cli
+          chmod +x codacy-analysis-cli
+          sudo mv codacy-analysis-cli /usr/local/bin/codacy-analysis-cli
+          codacy-analysis-cli --version
 
       # -----------------------------
       # Run Codacy analysis
@@ -42,14 +46,14 @@ jobs:
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
-          codacy analyze \
+          codacy-analysis-cli analyze \
             --format sarif \
             --verbose \
             --output results.sarif \
             --directory .
 
       # -----------------------------
-      # Normalize SARIF severity (Codacy)
+      # Normalize SARIF severity
       # -----------------------------
       - name: Normalize SARIF severity
         run: |
@@ -134,7 +138,7 @@ jobs:
       - name: Map Snyk severity to GitHub security-severity
         if: steps.snyk-code.outputs.sarif_exists == 'true'
         run: |
-          python3 - << 'PY'
+          python - << 'PY'
           import json
 
           path = "snyk-code.sarif"
@@ -179,7 +183,7 @@ jobs:
                   props["security-severity"] = f"{score:.1f}"
 
           with open(path, "w", encoding="utf-8") as f:
-              json.dump(data, f, indent=2)
+              json.dump(data, f)
           PY
 
       - name: Upload Snyk SARIF to GitHub
@@ -242,6 +246,7 @@ jobs:
         uses: PyCQA/bandit-action@v1
         with:
           python-version: "3.12"
+          # valfria inställningar, ex:
           # severity: "medium"
           # confidence: "medium"
           # targets: "."
