@@ -926,10 +926,11 @@ def share_pdf() -> tuple[Response, int]:
         )
     except RuntimeError as exc:
         logger.exception(
-            "Failed to share pdf %s from %s to %s",
+            "Failed to share pdf %s from %s to %s. Error: %s",
             pdf_ids,
             pnr_hash,
             normalized_recipient,
+            exc,
         )
         return jsonify({'fel': 'Ett internt fel har inträffat.'}), 500
 
@@ -1090,11 +1091,11 @@ def admin_applications():
         print(application_id)
         if application_status == "approved":
             functions.approve_application_request(int(application_id), 'admin')
-            logger.debug('Ansökan har godkänts.', 'success')
+            logger.debug('Ansökan har godkänts, success')
             return jsonify({'status': 'success', 'message': 'Ansökan har godkänts.'})
         elif application_status == "rejected":
             functions.reject_application_request(int(application_id), 'admin')
-            logger.debug('Ansökan har avslagits.', 'success')
+            logger.debug('Ansökan har avslagits, success')
             return jsonify({'status': 'success', 'message': 'Ansökan har avslagits.'})
         else:
             logger.error('Ogiltig status för ansökan.')
