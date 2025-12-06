@@ -68,9 +68,9 @@ jobs:
         actions: read
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        SNYK_ORG: mr-cool08
-        SNYK_REGION: eu
-        SNYK_API: https://api.eu.snyk.io
+        #SNYK_ORG: mr-cool08
+        #SNYK_REGION: eu
+        #SNYK_API: https://api.eu.snyk.io
 
       steps:
         - name: Check out code
