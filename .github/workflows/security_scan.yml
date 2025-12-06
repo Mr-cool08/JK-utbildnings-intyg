@@ -36,8 +36,12 @@ jobs:
 
       # Se till att varje "run" i SARIF-filen har en unik automationDetails.id
       # så att GitHub inte tycker att det är flera runs med samma category.
-      - name: Assign unique category per Codacy run
+      - name: Fix permissions and assign unique category per Codacy run
         run: |
+          if [ -f results.sarif ]; then
+            sudo chmod a+rw results.sarif || true
+          fi
+
           python - << 'PY'
           import json
           from pathlib import Path
