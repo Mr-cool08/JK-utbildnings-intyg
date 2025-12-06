@@ -29,12 +29,37 @@ jobs:
             -v "$(pwd)":/src \
             codacy/codacy-analysis-cli:latest \
             analyze \
+            --tool codacy \
             --format sarif \
             --output /src/results.sarif \
-            --max-allowed-severity Low \
-            --enable-analytics true \
             --verbose
 
+      # ---------------------------------------------------
+      # Normalisera severity så GitHub visar rätt nivåer
+      # ---------------------------------------------------
+      - name: Normalize SARIF severity
+        run: |
+          python - << 'PY'
+          import json
+
+          path = "results.sarif"
+
+          with open(path, encoding="utf-8") as f:
+              data = json.load(f)
+
+          # Enkelt: höj alla NOTE → WARNING
+          for run in data.get("runs", []):
+              for res in run.get("results", []):
+                  if res.get("level") == "note":
+                      res["level"] = "warning"
+
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f)
+          PY
+
+      # ---------------------------------------------------
+      # Ladda upp SARIF till GitHub Code Scanning
+      # ---------------------------------------------------
       - name: Upload SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
