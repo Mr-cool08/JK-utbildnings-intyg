@@ -6,6 +6,8 @@ itsdangerous==2.1.2
 click==8.1.7
 SQLAlchemy==2.0.43
 psycopg[binary]==3.2.10
+MarkupSafe==2.1.5
+gunicorn==22.0.0
 pysqlite3-binary>=0.5.3; python_version < "3.12"
 pytest
 # Optional (for PDF validation if you later add more advanced checks)
