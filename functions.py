@@ -2387,9 +2387,11 @@ def approve_application_request(
 
 
 def reject_application_request(
-    application_id: int, reviewer: str
+    application_id: int, reviewer: str, reason: str | None = None
 ) -> Dict[str, Any]:
     normalized_reviewer = (reviewer or "").strip() or "okänd"
+    normalized_reason = (reason or "").strip()
+    decision_reason = normalized_reason or "Ingen motivering angiven."
 
 
     with get_engine().begin() as conn:
@@ -2430,6 +2432,7 @@ def reject_application_request(
                 status="rejected",
                 reviewed_by=normalized_reviewer,
                 reviewed_at=func.now(),
+                decision_reason=decision_reason,
 
             )
         )
@@ -2447,7 +2450,8 @@ def reject_application_request(
         "email": normalized_email,
         "account_type": application.account_type,
         "name": application.name,
-        "company_name": company_display
+        "company_name": company_display,
+        "decision_reason": decision_reason,
     }
 
 
