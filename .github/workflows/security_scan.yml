@@ -25,17 +25,46 @@ jobs:
         uses: actions/checkout@v4
 
       # Kör Codacy enligt deras officiella GitHub code scanning-exempel.
-      # max-allowed-issues gör att jobbet inte failar pga findings
-      # utan alltid genererar SARIF till GitHub.
       - name: Run Codacy Analysis CLI
         uses: codacy/codacy-analysis-cli-action@master
         with:
           output: results.sarif
           format: sarif
-          # Justera severity för icke-security issues så GitHub fattar nivåerna
           gh-code-scanning-compat: true
-          # Tvinga exit code 0 (även om det finns issues) så SARIF alltid skapas
+          # Tvinga exit code 0 även om det finns findings
           max-allowed-issues: 2147483647
+
+      # Se till att varje "run" i SARIF-filen har en unik automationDetails.id
+      # så att GitHub inte tycker att det är flera runs med samma category.
+      - name: Assign unique category per Codacy run
+        run: |
+          python - << 'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("results.sarif")
+          if not path.exists():
+              raise SystemExit("results.sarif saknas, kan inte patcha")
+
+          with path.open(encoding="utf-8") as f:
+              data = json.load(f)
+
+          runs = data.get("runs", [])
+          for idx, run in enumerate(runs):
+              tool_name = (
+                  run.get("tool", {})
+                     .get("driver", {})
+                     .get("name", "codacy")
+              )
+              safe_tool = "".join(ch.lower() if ch.isalnum() else "-" for ch in tool_name)
+              # Gör ID unikt per run
+              run["automationDetails"] = {
+                  "id": f"codacy-{safe_tool}-{idx}"
+              }
+
+          with path.open("w", encoding="utf-8") as f:
+              json.dump(data, f)
+          PY
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
