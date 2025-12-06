@@ -14,88 +14,33 @@ permissions:
 
 jobs:
   # -----------------------------
-  # Codacy via CLI (.jar)
+  # Codacy via codacy-analysis-cli-action
   # -----------------------------
   codacy-security-scan:
+    name: Codacy Security Scan
     runs-on: ubuntu-latest
 
-    env:
-      CODACY_ANALYSIS_CLI_VERSION: "7.10.0"
-
     steps:
-      # -----------------------------
-      # Check out code
-      # -----------------------------
       - name: Check out code
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # Install Codacy Analysis CLI (jar)
-      # -----------------------------
-      - name: Download Codacy Analysis CLI
-        run: |
-          set -e
-          echo "Downloading Codacy Analysis CLI v${CODACY_ANALYSIS_CLI_VERSION}..."
-          mkdir -p /tmp/codacy-cli
-          curl -L \
-            "https://github.com/codacy/codacy-analysis-cli/releases/download/${CODACY_ANALYSIS_CLI_VERSION}/codacy-analysis-cli-assembly.jar" \
-            -o /tmp/codacy-cli/codacy-analysis-cli-assembly.jar
-          ls -lh /tmp/codacy-cli
+      # Kör Codacy enligt deras officiella GitHub code scanning-exempel.
+      # max-allowed-issues gör att jobbet inte failar pga findings
+      # utan alltid genererar SARIF till GitHub.
+      - name: Run Codacy Analysis CLI
+        uses: codacy/codacy-analysis-cli-action@master
+        with:
+          output: results.sarif
+          format: sarif
+          # Justera severity för icke-security issues så GitHub fattar nivåerna
+          gh-code-scanning-compat: true
+          # Tvinga exit code 0 (även om det finns issues) så SARIF alltid skapas
+          max-allowed-issues: 2147483647
 
-      # -----------------------------
-      # Run Codacy analysis
-      # -----------------------------
-      - name: Run Codacy Analysis
-        env:
-          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-        run: |
-          set -e
-          if [ -z "$CODACY_PROJECT_TOKEN" ]; then
-            echo "CODACY_PROJECT_TOKEN saknas! Lägg in den i repo-secrets."
-            exit 1
-          fi
-
-          # Kör .jar:en från /tmp så att inget nytt läggs till i repo:t
-          java -jar /tmp/codacy-cli/codacy-analysis-cli-assembly.jar analyze \
-            --format sarif \
-            --verbose \
-            --output /tmp/codacy-results.sarif \
-            --directory .
-
-          echo "Codacy SARIF genererad på /tmp/codacy-results.sarif"
-          ls -lh /tmp/codacy-results.sarif
-
-      # -----------------------------
-      # Normalize SARIF severity
-      # -----------------------------
-      - name: Normalize SARIF severity
-        run: |
-          python3 - << 'PY'
-          import json
-          path = "/tmp/codacy-results.sarif"
-
-          with open(path, "r", encoding="utf-8") as f:
-              data = json.load(f)
-
-          for run in data.get("runs", []):
-              for res in run.get("results", []):
-                  sev = res.get("level")
-                  if sev == "note":
-                      res["level"] = "warning"
-                  elif sev == "warning":
-                      res["level"] = "error"
-
-          with open(path, "w", encoding="utf-8") as f:
-              json.dump(data, f, indent=2)
-          PY
-
-      # -----------------------------
-      # Upload SARIF to GitHub Security Tab
-      # -----------------------------
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: /tmp/codacy-results.sarif
+          sarif_file: results.sarif
 
   # -----------------------------
   # Snyk Code (SAST)
