@@ -19,20 +19,21 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Install Codacy Analysis CLI
-        run: pip install codacy-analysis-cli
-
-      - name: Run Codacy Analysis
+      - name: Run Codacy Analysis CLI (Docker)
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
-          codacy-analysis-cli analyze \
-            --tool codacy \
+          docker run \
+            --rm \
+            -e CODACY_PROJECT_TOKEN="${CODACY_PROJECT_TOKEN}" \
+            -v "$(pwd)":/src \
+            codacy/codacy-analysis-cli:latest \
+            analyze \
             --format sarif \
-            --output results.sarif \
-            --verbose \
+            --output /src/results.sarif \
             --max-allowed-severity Low \
-            --enable-analytics true
+            --enable-analytics true \
+            --verbose
 
       - name: Upload SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v3
