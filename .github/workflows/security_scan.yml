@@ -1,4 +1,4 @@
-name: Security Scan (Codacy, Snyk, CodeQL)
+name: Security Scan (Codacy, Snyk, CodeQL, Bandit)
 
 on:
   push:
@@ -64,6 +64,11 @@ jobs:
   snyk-security-scan:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SNYK_ORG: mr-cool08        # ändra om din org-slug är annan
@@ -93,10 +98,15 @@ jobs:
     name: CodeQL
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
     strategy:
       fail-fast: false
       matrix:
-        # Lägg till fler språk här vid behov, t.ex. ['python', 'javascript']
+        # Lägg till fler språk här om du vill
         language: ['python']
 
     steps:
@@ -108,7 +118,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
-      # För Python gör autobuild i praktiken inget farligt, men det är ok att ha kvar
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
 
@@ -116,3 +125,28 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
+
+  # -----------------------------
+  # Bandit (Python SAST)
+  # -----------------------------
+  bandit:
+    name: Bandit
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
+        with:
+          python-version: "3.12"
+          # övriga inputs (optional):
+          # severity: "low"
+          # confidence: "low"
+          # targets: "."
