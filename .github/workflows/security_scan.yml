@@ -20,39 +20,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------
+      # Check out code
+      # -----------------------------
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Run Codacy Analysis CLI (Docker)
+      # -----------------------------
+      # Install Codacy CLI (no Docker)
+      # -----------------------------
+      - name: Install Codacy Analysis CLI
+        run: |
+          curl -L https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-linux -o codacy
+          chmod +x codacy
+          sudo mv codacy /usr/local/bin/codacy
+
+      # -----------------------------
+      # Run Codacy analysis
+      # -----------------------------
+      - name: Run Codacy Analysis
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
-          docker run --rm \
-            -e CODACY_PROJECT_TOKEN="${CODACY_PROJECT_TOKEN}" \
-            -v "$(pwd)":/src \
-            -w /src \
-            codacy/codacy-analysis-cli:latest \
-            analyze \
+          codacy analyze \
             --format sarif \
+            --verbose \
             --output results.sarif \
-            --directory /src
+            --directory .
 
-      - name: Normalize SARIF severity (Codacy)
+      # -----------------------------
+      # Normalize SARIF severity
+      # -----------------------------
+      - name: Normalize SARIF severity
         run: |
-          python - << 'PY'
+          python3 - << 'PY'
           import json
           path = "results.sarif"
-          with open(path, encoding="utf-8") as f:
+
+          with open(path, "r", encoding="utf-8") as f:
               data = json.load(f)
+
           for run in data.get("runs", []):
               for res in run.get("results", []):
-                  if res.get("level") == "note":
+                  sev = res.get("level")
+                  if sev == "note":
                       res["level"] = "warning"
+                  elif sev == "warning":
+                      res["level"] = "error"
+
           with open(path, "w", encoding="utf-8") as f:
-              json.dump(data, f)
+              json.dump(data, f, indent=2)
           PY
 
-      - name: Upload Codacy SARIF to GitHub
+      # -----------------------------
+      # Upload SARIF to GitHub Security Tab
+      # -----------------------------
+      - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
