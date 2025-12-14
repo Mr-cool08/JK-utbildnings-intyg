@@ -41,4 +41,4 @@ jobs:
       - name: Trigger deployment webhook
         run: |
           echo "Triggering deployment via webhook..."
-          curl -X POST https://185.154.110.57:9443/api/stacks/webhooks/0d69635c-914c-4466-81c9-fbc2b8a24990 --insecure
+          curl -X POST https://185.154.110.57:9443/api/stacks/webhooks/d959e93a-9c8c-4779-b001-e71a53883d32 --insecure
