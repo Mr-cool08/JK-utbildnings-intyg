@@ -10,5 +10,6 @@ MarkupSafe
 gunicorn
 pysqlite3-binary>=0.5.3; python_version < "3.12"
 pytest
+requests
 # Optional (for PDF validation if you later add more advanced checks)
 # PyPDF2==3.0.0
