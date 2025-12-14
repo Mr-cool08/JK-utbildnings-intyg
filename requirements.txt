@@ -6,6 +6,8 @@ itsdangerous
 click
 SQLAlchemy
 psycopg
+MarkupSafe
+gunicorn
 pysqlite3-binary>=0.5.3; python_version < "3.12"
 pytest
 requests
