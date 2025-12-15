@@ -65,65 +65,32 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2
+    image: caddy:2-alpine
     depends_on:
-      - app
-      - app_demo
+      app:
+        condition: service_started
+      app_demo:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
     networks:
       - public_net
     environment:
-      DOMAIN_MAIN: "utbildningsintyg.se"
-      DOMAIN_DEMO: "demo.utbildningsintyg.se"
-      ACME_EMAIL: "liam@utbildningsintyg.se"
-
+      DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
+      DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
+      ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
     volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        mkdir -p /etc/caddy
-        : > /etc/caddy/Caddyfile
-        
-        # Apex -> app
-        if [ -n "$${DOMAIN_MAIN}" ]; then
-          cat >> /etc/caddy/Caddyfile <<EOF
-        $${DOMAIN_MAIN} {
-          encode zstd gzip
-          header {
-            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-            X-Content-Type-Options "nosniff"
-            Referrer-Policy "strict-origin-when-cross-origin"
-          }
-          reverse_proxy app:80
-        }
-        EOF
-        fi
-        
-        # Demo -> app_demo
-        if [ -n "$${DOMAIN_DEMO}" ]; then
-          cat >> /etc/caddy/Caddyfile <<EOF
-        $${DOMAIN_DEMO} {
-          encode zstd gzip
-          header {
-            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-            X-Content-Type-Options "nosniff"
-            Referrer-Policy "strict-origin-when-cross-origin"
-          }
-          reverse_proxy app_demo:80
-        }
-        EOF
-        fi
-        
-        echo "----- /etc/caddy/Caddyfile -----"
-        cat /etc/caddy/Caddyfile
-        echo "--------------------------------"
-        
-        exec caddy run --environ --config /etc/caddy/Caddyfile
+    command: ["caddy", "run", "--environ", "--config", "/etc/caddy/Caddyfile"]
+    healthcheck:
+      test: ["CMD", "caddy", "fmt", "--check", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:
