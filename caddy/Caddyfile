@@ -1,0 +1,54 @@
+{
+    email {$ACME_EMAIL:liam@utbildningsintyg.se}
+
+    # Lita på Cloudflares proxy för att behålla besökarens IP-adress
+    servers {
+        trusted_proxies cloudflare
+    }
+}
+
+(common_headers) {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+(common_health) {
+    handle_path /health {
+        respond "Allt fungerar" 200
+    }
+}
+
+{$DOMAIN_MAIN:utbildningsintyg.se} {
+    import common_headers
+    import common_health
+    reverse_proxy app:80
+}
+
+{$DOMAIN_DEMO:demo.utbildningsintyg.se} {
+    import common_headers
+    import common_health
+    reverse_proxy app_demo:80
+}
+
+:80 {
+    import common_headers
+    import common_health
+
+    @main host {$DOMAIN_MAIN:utbildningsintyg.se}
+    handle @main {
+        reverse_proxy app:80
+    }
+
+    @demo host {$DOMAIN_DEMO:demo.utbildningsintyg.se}
+    handle @demo {
+        reverse_proxy app_demo:80
+    }
+
+    handle {
+        respond "Domän saknas i Caddy-konfigurationen" 502
+    }
+}
