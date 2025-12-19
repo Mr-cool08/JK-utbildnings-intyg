@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
 
   # Init-container som skapar /caddyfile/Caddyfile i en named volume
-  caddyfile_init:
+    caddyfile_init:
     image: alpine:3.20
     environment:
       DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
@@ -71,11 +71,15 @@ services:
       ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
     volumes:
       - caddyfile_vol:/caddyfile
-    command: >
-      sh -lc '
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+
         cat > /caddyfile/Caddyfile <<EOF
         {
-          email {$ACME_EMAIL}
+          email ${ACME_EMAIL}
         }
 
         (common_headers) {
@@ -93,23 +97,23 @@ services:
           }
         }
 
-        {$DOMAIN_MAIN} {
+        ${DOMAIN_MAIN} {
           import common_headers
           import common_health
           reverse_proxy app:80
         }
 
-        {$DOMAIN_DEMO} {
+        ${DOMAIN_DEMO} {
           import common_headers
           import common_health
           reverse_proxy app_demo:80
         }
         EOF
 
-        echo "=== Wrote /caddyfile/Caddyfile ==="
+        echo "=== Generated Caddyfile ==="
         head -n 80 /caddyfile/Caddyfile
-      '
     restart: "no"
+
 
   caddy:
     image: caddy:2-alpine
