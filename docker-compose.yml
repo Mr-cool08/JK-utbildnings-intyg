@@ -80,10 +80,8 @@ services:
       DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
       DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
       ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
-    configs:
-      - source: caddyfile
-        target: /etc/caddy/Caddyfile
     volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     command: ["caddy", "run", "--environ", "--config", "/etc/caddy/Caddyfile"]
@@ -99,10 +97,6 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
-
-configs:
-  caddyfile:
-    file: ./caddy/Caddyfile
 
 networks:
   postgres_db:
