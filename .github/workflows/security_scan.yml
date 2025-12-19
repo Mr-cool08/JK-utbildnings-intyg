@@ -54,6 +54,16 @@ jobs:
               data = json.load(f)
 
           runs = data.get("runs", [])
+          max_runs = 20
+          if len(runs) > max_runs:
+              # GitHub Code Scanning stöder högst 20 runs per SARIF-fil
+              print(
+                  f"results.sarif innehåller {len(runs)} runs; "
+                  f"kapar till {max_runs} för att undvika uppladdningsfel."
+              )
+              runs = runs[:max_runs]
+              data["runs"] = runs
+
           for idx, run in enumerate(runs):
               tool_name = (
                   run.get("tool", {})
