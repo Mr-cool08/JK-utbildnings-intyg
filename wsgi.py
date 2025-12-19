@@ -24,10 +24,16 @@ def get_ssl_context():
     ``TLS_KEY`` environment variables containing PEM-formatted strings.
     When both values are present they are written to the default paths
     and returned as a tuple suitable for ``Flask.run``'s ``ssl_context``
-    parameter. If the environment variables are absent but files already
-    exist at the default paths those are used instead. Otherwise ``None``
-    is returned so the app starts without TLS.
+    parameter. If ``TLS_CERT_PATH`` and ``TLS_KEY_PATH`` are set and point
+    to existing files those are used directly. If the environment variables
+    are absent but files already exist at the default paths those are used
+    instead. Otherwise ``None`` is returned so the app starts without TLS.
     """
+
+    cert_path = os.getenv("TLS_CERT_PATH")
+    key_path = os.getenv("TLS_KEY_PATH")
+    if cert_path and key_path and os.path.isfile(cert_path) and os.path.isfile(key_path):
+        return cert_path, key_path
 
     cert = os.getenv("TLS_CERT")
     key = os.getenv("TLS_KEY")

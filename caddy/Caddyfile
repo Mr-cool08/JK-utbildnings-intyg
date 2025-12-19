@@ -1,6 +1,4 @@
 {
-    email {$ACME_EMAIL:liam@utbildningsintyg.se}
-
     # Lita på Cloudflares proxy för att behålla besökarens IP-adress
     servers {
         trusted_proxies cloudflare
@@ -23,12 +21,14 @@
 }
 
 {$DOMAIN_MAIN:utbildningsintyg.se} {
+    tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key
     import common_headers
     import common_health
     reverse_proxy app:80
 }
 
 {$DOMAIN_DEMO:demo.utbildningsintyg.se} {
+    tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key
     import common_headers
     import common_health
     reverse_proxy app_demo:80
