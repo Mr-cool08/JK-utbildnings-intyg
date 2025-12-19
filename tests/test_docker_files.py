@@ -32,23 +32,18 @@ def test_compose_avoids_host_volumes():
     assert "volumes:" not in compose or "- env_data:/config" not in compose
 
 
-def test_entrypoint_uses_nginx():
+def test_entrypoint_runs_gunicorn_only():
     entrypoint = _read(ROOT / "entrypoint.sh")
-    # Nginx ska köras i förgrunden
-    assert "nginx -g 'daemon off;'" in entrypoint
     # Backend kan vara Gunicorn (prod) eller python wsgi.py (dev)
     assert ("gunicorn" in entrypoint) or ("python wsgi.py" in entrypoint)
+    # Nginx ska inte startas längre
+    assert "nginx -g 'daemon off;'" not in entrypoint
 
 
 def test_dockerfile_installs_openssl():
     dockerfile = _read(ROOT / "Dockerfile")
-    # Någon apk-add rad måste innehålla både nginx och openssl
+    # Någon apk-add rad måste innehålla tini och curl
     apk_lines = [l for l in dockerfile.splitlines() if "apk add" in l]
     assert apk_lines, "No apk add line found in Dockerfile"
-    assert any(("nginx" in l and "openssl" in l) for l in apk_lines), \
-        "Expected nginx and openssl to be installed via apk add"
-
-
-def test_entrypoint_generates_cert_if_missing():
-    entrypoint = _read(ROOT / "entrypoint.sh")
-    assert "openssl req -x509" in entrypoint
+    assert any(("tini" in l and "curl" in l) for l in apk_lines), \
+        "Expected tini and curl to be installed via apk add"

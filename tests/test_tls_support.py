@@ -61,6 +61,5 @@ def test_get_ssl_context_with_explicit_paths(monkeypatch, tmp_path):
 
 def test_default_paths_constants():
     importlib.reload(wsgi)
-    assert wsgi.DEFAULT_CERT_PATH == "/etc/nginx/certs/server.crt"
-    assert wsgi.DEFAULT_KEY_PATH == "/etc/nginx/certs/server.key"
-
+    assert wsgi.DEFAULT_CERT_PATH == "/config/certs/server.crt"
+    assert wsgi.DEFAULT_KEY_PATH == "/config/certs/server.key"

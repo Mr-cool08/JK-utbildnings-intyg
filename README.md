@@ -12,7 +12,7 @@ This web application manages the issuance and storage of course certificates. It
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Provide the credentials for your external PostgreSQL server by setting `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and optionally `POSTGRES_PORT`. The container derives the SQLAlchemy connection string from these values whenever `DATABASE_URL` is empty. If you prefer, you can instead set `DATABASE_URL` directly to a PostgreSQL connection string. For local development or automated tests you may temporarily enable `ENABLE_LOCAL_TEST_DB` to let the app create a SQLite database file defined by `LOCAL_TEST_DB_PATH`; the flag is disabled by default so production deployments still require PostgreSQL. När applikationen körs bakom en omvänd proxy kan du ställa in `TRUSTED_PROXY_COUNT` för att ange hur många hopp som ska litas på – standardvärdet `1` motsvarar den Nginx-proxy som ingår i Docker-miljön.
+2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Provide the credentials for your external PostgreSQL server by setting `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and optionally `POSTGRES_PORT`. The container derives the SQLAlchemy connection string from these values whenever `DATABASE_URL` is empty. If you prefer, you can instead set `DATABASE_URL` directly to a PostgreSQL connection string. For local development or automated tests you may temporarily enable `ENABLE_LOCAL_TEST_DB` to let the app create a SQLite database file defined by `LOCAL_TEST_DB_PATH`; the flag is disabled by default so production deployments still require PostgreSQL. När applikationen körs bakom en omvänd proxy kan du ställa in `TRUSTED_PROXY_COUNT` för att ange hur många hopp som ska litas på – standardvärdet `1` motsvarar den Caddy-proxy som ingår i Docker-miljön.
 
 3. **Run the application**
    ```bash
@@ -22,12 +22,11 @@ This web application manages the issuance and storage of course certificates. It
 
 ### Anpassa TLS-certifikat
 
-Containern skapar automatiskt ett self-signed certifikat så att HTTPS fungerar
-direkt. Om du vill använda egna certifikat anger du PEM-innehållet via
-``TLS_CERT`` och ``TLS_KEY`` i din `.env`-fil eller pekar på filer med
-``TLS_CERT_PATH`` och ``TLS_KEY_PATH``. När båda värdena finns skrivs
-innehållet till `/etc/nginx/certs/server.crt` och
-`/etc/nginx/certs/server.key` i containern.
+Caddy hanterar TLS för Docker-miljön. Om du vill köra Flask-appen med TLS
+lokalt utan Caddy anger du PEM-innehållet via ``TLS_CERT`` och ``TLS_KEY`` i
+din `.env`-fil eller pekar på filer med ``TLS_CERT_PATH`` och
+``TLS_KEY_PATH``. När båda värdena finns skrivs innehållet till
+`/config/certs/server.crt` och `/config/certs/server.key` i containern.
 
 ### Driftsättning med Cloudflare Origin CA
 

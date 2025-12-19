@@ -7,14 +7,16 @@ app = application
 
 
 # Default locations for TLS certificate and key files used by the Flask
-# development server. They mirror the paths consumed by the nginx
-# entrypoint so a single set of certificates can be shared if desired.
-DEFAULT_CERT_PATH = "/etc/nginx/certs/server.crt"
-DEFAULT_KEY_PATH = "/etc/nginx/certs/server.key"
+# development server. These can be populated via environment variables
+# when TLS is needed for local development.
+DEFAULT_CERT_PATH = "/config/certs/server.crt"
+DEFAULT_KEY_PATH = "/config/certs/server.key"
 
 
 def _write_pem(content: str, path: str) -> None:
-    Path(path).write_text(content.replace("\\n", "\n"))
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content.replace("\\n", "\n"))
 
 
 def get_ssl_context():
