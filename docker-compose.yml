@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
 
   # Init-container som skapar /caddyfile/Caddyfile i en named volume
-    caddyfile_init:
+  caddyfile_init:
       image: alpine:3.20
       environment:
         DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
