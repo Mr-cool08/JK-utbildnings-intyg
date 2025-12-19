@@ -88,6 +88,11 @@ http {
         ''      close;
     }
 
+    # Lita på Cloudflare-headern för klientens IP-adress när proxy används
+    real_ip_header CF-Connecting-IP;
+    set_real_ip_from 0.0.0.0/0;
+    set_real_ip_from ::/0;
+
     server {
         listen       __HTTP__;
         listen       __HTTPS__ ssl http2;
