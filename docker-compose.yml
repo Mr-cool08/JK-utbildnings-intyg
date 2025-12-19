@@ -64,55 +64,55 @@ services:
 
   # Init-container som skapar /caddyfile/Caddyfile i en named volume
     caddyfile_init:
-    image: alpine:3.20
-    environment:
-      DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
-      DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
-      ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
-    volumes:
-      - caddyfile_vol:/caddyfile
-    command:
-      - sh
-      - -lc
-      - |
-        set -eu
+      image: alpine:3.20
+      environment:
+        DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
+        DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
+        ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
+      volumes:
+        - caddyfile_vol:/caddyfile
+      command:
+        - sh
+        - -lc
+        - |
+          set -eu
 
-        cat > /caddyfile/Caddyfile <<EOF
-        {
-          email ${ACME_EMAIL}
-        }
-
-        (common_headers) {
-          encode zstd gzip
-          header {
-            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-            X-Content-Type-Options "nosniff"
-            Referrer-Policy "strict-origin-when-cross-origin"
+          cat > /caddyfile/Caddyfile <<EOF
+          {
+            email ${ACME_EMAIL}
           }
-        }
 
-        (common_health) {
-          handle_path /health {
-            respond "Allt fungerar" 200
+          (common_headers) {
+            encode zstd gzip
+            header {
+              Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+              X-Content-Type-Options "nosniff"
+              Referrer-Policy "strict-origin-when-cross-origin"
+            }
           }
-        }
 
-        ${DOMAIN_MAIN} {
-          import common_headers
-          import common_health
-          reverse_proxy app:80
-        }
+          (common_health) {
+            handle_path /health {
+              respond "Allt fungerar" 200
+            }
+          }
 
-        ${DOMAIN_DEMO} {
-          import common_headers
-          import common_health
-          reverse_proxy app_demo:80
-        }
-        EOF
+          ${DOMAIN_MAIN} {
+            import common_headers
+            import common_health
+            reverse_proxy app:80
+          }
 
-        echo "=== Generated Caddyfile ==="
-        head -n 80 /caddyfile/Caddyfile
-    restart: "no"
+          ${DOMAIN_DEMO} {
+            import common_headers
+            import common_health
+            reverse_proxy app_demo:80
+          }
+          EOF
+
+          echo "=== Generated Caddyfile ==="
+          head -n 80 /caddyfile/Caddyfile
+      restart: "no"
 
 
   caddy:
