@@ -16,8 +16,7 @@ services:
       retries: 20
       start_period: 5s
     networks:
-      postgres_db:
-        ipv4_address: 172.28.0.10
+      - postgres_db
     restart: always
 
   app:
@@ -31,9 +30,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      postgres_db:
-        ipv4_address: 172.28.0.20
-      public_net: {}
+      - postgres_db
+      - public_net
     expose:
       - "80"
     restart: unless-stopped
@@ -57,63 +55,62 @@ services:
       DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
       DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
     networks:
-      public_net: {}
+      - public_net
     expose:
       - "80"
     restart: unless-stopped
 
-  # Init-container som skapar /caddyfile/Caddyfile i en named volume
+  # Init-container som skapar Caddyfile i named volume
   caddyfile_init:
-      image: alpine:3.20
-      environment:
-        DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
-        DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
-        ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
-      volumes:
-        - caddyfile_vol:/caddyfile
-      command:
-        - sh
-        - -lc
-        - |
-          set -eu
+    image: alpine:3.20
+    environment:
+      DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
+      DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
+      ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
+    volumes:
+      - caddyfile_vol:/caddyfile
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
 
-          cat > /caddyfile/Caddyfile <<EOF
-          {
-            email ${ACME_EMAIL}
+        cat > /caddyfile/Caddyfile <<EOF
+        {
+          email ${ACME_EMAIL}
+        }
+
+        (common_headers) {
+          encode zstd gzip
+          header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "strict-origin-when-cross-origin"
           }
+        }
 
-          (common_headers) {
-            encode zstd gzip
-            header {
-              Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-              X-Content-Type-Options "nosniff"
-              Referrer-Policy "strict-origin-when-cross-origin"
-            }
+        (common_health) {
+          handle_path /health {
+            respond "Allt fungerar" 200
           }
+        }
 
-          (common_health) {
-            handle_path /health {
-              respond "Allt fungerar" 200
-            }
-          }
+        ${DOMAIN_MAIN} {
+          import common_headers
+          import common_health
+          reverse_proxy app:80
+        }
 
-          ${DOMAIN_MAIN} {
-            import common_headers
-            import common_health
-            reverse_proxy app:80
-          }
+        ${DOMAIN_DEMO} {
+          import common_headers
+          import common_health
+          reverse_proxy app_demo:80
+        }
+        EOF
 
-          ${DOMAIN_DEMO} {
-            import common_headers
-            import common_health
-            reverse_proxy app_demo:80
-          }
-          EOF
-
-          echo "=== Generated Caddyfile ==="
-          head -n 80 /caddyfile/Caddyfile
-      restart: "no"
-
+        echo "=== Generated Caddyfile ==="
+        head -n 80 /caddyfile/Caddyfile
+    restart: "no"
 
   caddy:
     image: caddy:2-alpine
@@ -130,7 +127,6 @@ services:
     networks:
       - public_net
     volumes:
-      # Här ligger Caddyfile som init-containern skapade
       - caddyfile_vol:/etc/caddy
       - caddy_data:/data
       - caddy_config:/config
@@ -146,8 +142,5 @@ volumes:
 networks:
   postgres_db:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
   public_net:
     driver: bridge
