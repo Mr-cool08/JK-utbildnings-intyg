@@ -19,7 +19,89 @@ services:
       postgres_db:
         ipv4_address: 172.28.0.10
     restart: always
+  caddyfile_init:
+    image: alpine:3.20
+    environment:
+      DOMAIN_MAIN: "${DOMAIN_MAIN:-utbildningsintyg.se}"
+      DOMAIN_DEMO: "${DOMAIN_DEMO:-demo.utbildningsintyg.se}"
+      ACME_EMAIL: "${ACME_EMAIL:-liam@utbildningsintyg.se}"
+    volumes:
+      - caddyfile_vol:/caddyfile
+    command: >
+      sh -lc '
+        cat > /caddyfile/Caddyfile <<EOF
+        {
+          email {$ACME_EMAIL}
+        }
 
+        (common_headers) {
+          encode zstd gzip
+          header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "strict-origin-when-cross-origin"
+          }
+        }
+
+        (common_health) {
+          handle_path /health {
+            respond "Allt fungerar" 200
+          }
+        }
+
+        {$DOMAIN_MAIN} {
+          import common_headers
+          import common_health
+          reverse_proxy app:80
+        }
+
+        {$DOMAIN_DEMO} {
+          import common_headers
+          import common_health
+          reverse_proxy app_demo:80
+        }
+        EOF
+
+        echo "=== Wrote /caddyfile/Caddyfile ==="
+        cat /caddyfile/Caddyfile
+      '
+    restart: "no"
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      caddyfile_init:
+        condition: service_completed_successfully
+      app:
+        condition: service_started
+      app_demo:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - public_net
+    volumes:
+      - caddyfile_vol:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+    command: ["caddy", "run", "--environ", "--config", "/etc/caddy/Caddyfile"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  caddyfile_vol:
+
+networks:
+  postgres_db:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  public_net:
+    driver: bridge
   app:
     build: .
     user: "0:0"
