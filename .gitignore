@@ -130,3 +130,5 @@ $RECYCLE.BIN/
 test_mail.py
 /__pycache__
 /.vs
+deploy/certs/server.crt
+deploy/certs/server.key

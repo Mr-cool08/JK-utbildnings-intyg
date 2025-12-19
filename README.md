@@ -20,14 +20,29 @@ This web application manages the issuance and storage of course certificates. It
    ```
    The app will be available on <http://localhost:80>. For container-based deployment see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-### Optional: custom TLS certificates
+### Anpassa TLS-certifikat
 
-The container generates a self-signed certificate automatically so HTTPS works
-out of the box. To use your own certificate, provide the PEM-encoded
-certificate and key via the ``TLS_CERT`` and ``TLS_KEY`` environment
-variables in your `.env` file. When both are present their contents are written
-to `/etc/nginx/certs/server.crt` and `/etc/nginx/certs/server.key` inside the
-container.
+Containern skapar automatiskt ett self-signed certifikat så att HTTPS fungerar
+direkt. Om du vill använda egna certifikat anger du PEM-innehållet via
+``TLS_CERT`` och ``TLS_KEY`` i din `.env`-fil eller pekar på filer med
+``TLS_CERT_PATH`` och ``TLS_KEY_PATH``. När båda värdena finns skrivs
+innehållet till `/etc/nginx/certs/server.crt` och
+`/etc/nginx/certs/server.key` i containern.
+
+### Driftsättning med Cloudflare Origin CA
+
+1. Skapa ett Origin CA-certifikat i Cloudflare för `utbildningsintyg.se` och
+   `demo.utbildningsintyg.se`. Kopiera certifikat och privat nyckel till två
+   separata filer i PEM-format.
+2. Lägg filerna i `deploy/certs/` som `server.crt` och `server.key` och se till
+   att de inte checkas in i Git.
+3. Sätt Cloudflare-zonens SSL/TLS-läge till **Full (strict)** efter att
+   certifikatet har installerats.
+
+Observera att Cloudflare Origin CA-certifikat endast fungerar när trafiken går
+via Cloudflare. För utveckling kan du istället lägga PEM-innehållet i
+``TLS_CERT`` och ``TLS_KEY`` i `.env` (eller använda ``TLS_CERT_PATH`` och
+``TLS_KEY_PATH``) så att applikationen startar med TLS även lokalt.
 
 
 ## How it works for administrators
@@ -96,4 +111,3 @@ pytest
 1. Starta applikationen med `python app.py` och öppna <http://localhost/ansok>.
 2. Skicka in formuläret med namn, e-post och organisationsnummer för att skapa en väntande ansökan. Företagskontot behöver dessutom fylla i företagsnamn samt fakturaadress, kontaktperson och märkning så att fakturering kan ske korrekt; standardkonton kan lämna dessa fält tomma.
 3. Logga in som administratör och öppna <http://localhost/admin/ansokningar> för att granska, godkänna eller avslå ansökan. Alla ändringar uppdateras direkt och skickar svenska e-postmeddelanden vid godkännande eller avslag. Efter godkännande visas företaget automatiskt på faktureringssidan <http://localhost/admin/fakturering> tillsammans med de insamlade faktureringsuppgifterna.
-
