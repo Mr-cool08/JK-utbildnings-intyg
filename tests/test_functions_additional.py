@@ -1,5 +1,6 @@
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -72,3 +73,31 @@ def test_enable_local_test_db_creates_sqlite(tmp_path, monkeypatch):
         assert db_file.parent.exists()
     finally:
         functions.reset_engine()
+
+
+def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
+    monkeypatch.setattr(
+        functions.importlib.util, "find_spec", lambda name: object()
+    )
+    original_import_module = functions.importlib.import_module
+
+    def fake_import_module(name):
+        if name == "psycopg":
+            raise ImportError("no pq wrapper available")
+        return original_import_module(name)
+
+    monkeypatch.setattr(functions.importlib, "import_module", fake_import_module)
+    captured = {}
+
+    def fake_create_engine(url, **_kwargs):
+        captured["url"] = url
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr(functions, "create_engine", fake_create_engine)
+    engine = functions._build_engine()
+
+    if engine.url.drivername != "postgresql":
+        raise AssertionError("Expected postgresql drivername")
+    if captured["url"].drivername != "postgresql":
+        raise AssertionError("Expected postgresql drivername")

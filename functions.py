@@ -539,15 +539,25 @@ def _build_engine() -> Engine:
     if url.get_backend_name() == "postgresql":
         driver = url.get_driver_name() or ""
         if driver in ("", "psycopg2"):
+            psycopg_available = False
+            import_error = None
             if importlib.util.find_spec("psycopg") is not None:
+                try:
+                    importlib.import_module("psycopg")
+                except ImportError as exc:
+                    import_error = exc
+                else:
+                    psycopg_available = True
+            if psycopg_available:
                 url = url.set(drivername="postgresql+psycopg")
                 logger.debug(
                     "Using psycopg driver for PostgreSQL connections"
                 )
             else:
                 logger.warning(
-                    "psycopg driver not available; falling back to %s",
+                    "psycopg driver not available; falling back to %s%s",
                     driver or "default driver",
+                    f" ({import_error})" if import_error else "",
                 )
 
     engine_kwargs: Dict[str, Any] = {"future": True}
