@@ -1,4 +1,5 @@
 {
+    email {$ACME_EMAIL:liam@utbildningsintyg.se}
     # Lita på Cloudflares proxy för att behålla besökarens IP-adress
     servers {
         trusted_proxies cloudflare
@@ -21,17 +22,21 @@
 }
 
 {$DOMAIN_MAIN:utbildningsintyg.se} {
-    tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key
     import common_headers
     import common_health
-    reverse_proxy app:80
+    reverse_proxy app:80 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
 }
 
 {$DOMAIN_DEMO:demo.utbildningsintyg.se} {
-    tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key
     import common_headers
     import common_health
-    reverse_proxy app_demo:80
+    reverse_proxy app_demo:80 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
 }
 
 :80 {
@@ -40,12 +45,12 @@
 
     @main host {$DOMAIN_MAIN:utbildningsintyg.se}
     handle @main {
-        reverse_proxy app:80
+        redir https://{host}{uri} 308
     }
 
     @demo host {$DOMAIN_DEMO:demo.utbildningsintyg.se}
     handle @demo {
-        reverse_proxy app_demo:80
+        redir https://{host}{uri} 308
     }
 
     handle {
