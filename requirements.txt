@@ -6,6 +6,7 @@ itsdangerous
 click
 SQLAlchemy
 psycopg
+psycopg2-binary
 MarkupSafe
 gunicorn
 pysqlite3-binary>=0.5.3; python_version < "3.12"
