@@ -1,0 +1,67 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ${ORIGIN_CERT_PATH}:/etc/nginx/certs/origin.crt:ro
+      - ${ORIGIN_KEY_PATH}:/etc/nginx/certs/origin.key:ro
+      - logs_data:/var/log/nginx
+    networks:
+      - public_net
+    restart: unless-stopped
+
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      LOG_DIR: /app/logs
+    expose:
+      - "80"
+    volumes:
+      - env_data:/config
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - public_net
+      - db_net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks:
+      - db_net
+    restart: unless-stopped
+
+volumes:
+  env_data:
+  uploads_data:
+  logs_data:
+  pgdata:
+
+networks:
+  public_net:
+    name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
+  db_net:
+    internal: true

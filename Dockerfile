@@ -16,9 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Skapa och äg kataloger
-RUN mkdir -p /app/uploads /config \
+RUN mkdir -p /app/uploads /app/logs /config \
     && cp .example.env /config/.env || true \
-    && chown -R app:app /app /config /app/uploads
+    && chown -R app:app /app /config /app/uploads /app/logs
 
 # Miljö
 ENV HTTP_PORT=80 \
