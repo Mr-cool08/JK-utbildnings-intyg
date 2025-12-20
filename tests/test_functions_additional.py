@@ -90,12 +90,14 @@ def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
     monkeypatch.setattr(functions.importlib, "import_module", fake_import_module)
     captured = {}
 
-    def fake_create_engine(url, **kwargs):
+    def fake_create_engine(url, **_kwargs):
         captured["url"] = url
         return SimpleNamespace(url=url)
 
     monkeypatch.setattr(functions, "create_engine", fake_create_engine)
     engine = functions._build_engine()
 
-    assert engine.url.drivername == "postgresql"
-    assert captured["url"].drivername == "postgresql"
+    if engine.url.drivername != "postgresql":
+        raise AssertionError("Expected postgresql drivername")
+    if captured["url"].drivername != "postgresql":
+        raise AssertionError("Expected postgresql drivername")
