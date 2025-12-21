@@ -90,14 +90,11 @@ volumes:
 
 configs:
   nginx_conf:
-    external: true
-    name: jk_nginx_conf
+    file: ./deploy/nginx/nginx.conf
   nginx_app_conf:
-    external: true
-    name: jk_nginx_app_conf
+    file: ./deploy/nginx/conf.d/app.conf
   nginx_cloudflare_conf:
-    external: true
-    name: jk_nginx_cloudflare_conf
+    file: ./deploy/nginx/conf.d/cloudflare-realip.conf
 
 networks:
   public_net:
