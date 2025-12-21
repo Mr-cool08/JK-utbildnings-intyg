@@ -19,7 +19,7 @@ services:
   app:
     build: .
     env_file:
-      - .env
+      - stack.env
     environment:
       LOG_DIR: /app/logs
     expose:
