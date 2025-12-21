@@ -10,6 +10,7 @@ Applikationen körs i Docker och använder en PostgreSQL-databas.
 - Drift: `DEPLOYMENT.md`
 - Cloudflare: `docs/PUBLIC_DEPLOYMENT_CLOUDFLARE.md`
 - Produktionsguide: `docs/PRODUKTION_SETUP.md`
+- Portainer Stack: `docs/PRODUKTION_SETUP.md` (Steg 9)
 - Säkerhet: `SECURITY.md`
 
 ## Arkitektur
