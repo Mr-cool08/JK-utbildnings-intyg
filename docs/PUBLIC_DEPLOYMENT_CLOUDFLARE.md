@@ -26,7 +26,11 @@ sudo chmod 600 /etc/ssl/cloudflare/origin.*
 
 1. Skapa `.env` från `.env.example` och fyll i riktiga värden.
 2. Sätt `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` till filerna från steget ovan.
-3. Säkerställ att `TRUSTED_PROXY_COUNT=2` (Cloudflare + Nginx).
+3. Säkerställ att `TRUSTED_PROXY_COUNT=1` (Nginx är enda betrodda proxyn mot Flask).
+4. Uppdatera Cloudflare IP-listor vid behov:
+   ```bash
+   ./scripts/generate_cloudflare_ips.sh
+   ```
 
 Starta produktion med docker compose:
 
@@ -64,20 +68,25 @@ ytterligare vid behov (t.ex. till en specifik IP).
 
 ### Kontrollera att Cloudflare används
 
+Byt ut `DIN_DOMÄN` mot din riktiga domän (t.ex. `example.com`):
+
 ```bash
-curl -I https://din-domän.se
+curl -I https://DIN_DOMÄN
 ```
 
 Du ska se headers som `server: cloudflare` och `cf-ray`.
 
 ### Kontrollera att origin är låst
 
+Byt ut `ORIGIN_IP` mot serverns riktiga IP-adress eller hostname
+(t.ex. `203.0.113.10` eller `origin.example.com`):
+
 ```bash
 curl -I http://ORIGIN_IP
 curl -Ik https://ORIGIN_IP
 ```
 
-Begäran ska blockeras (timeout eller 403/401 beroende på UFW).
+Begäran ska blockeras (timeout om UFW stoppar, eller 403/401 om Nginx svarar).
 
 ### Kontrollera korrekt klient-IP i loggar
 
@@ -90,6 +99,6 @@ docker compose -f docker-compose.prod.yml exec app tail -n 5 /app/logs/gunicorn-
 
 Om IP-adressen i loggen är en Cloudflare-adress, kontrollera att:
 
-- `TRUSTED_PROXY_COUNT=2` i `.env`
+- `TRUSTED_PROXY_COUNT=1` i `.env`
 - Nginx skickar `X-Forwarded-For`
 - Cloudflare-proxy är aktiverad (orange moln)

@@ -11,7 +11,7 @@ services:
       - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
       - ${ORIGIN_CERT_PATH}:/etc/nginx/certs/origin.crt:ro
       - ${ORIGIN_KEY_PATH}:/etc/nginx/certs/origin.key:ro
-      - logs_data:/var/log/nginx
+      - nginx_logs:/var/log/nginx
     networks:
       - public_net
     restart: unless-stopped
@@ -27,7 +27,7 @@ services:
     volumes:
       - env_data:/config
       - uploads_data:/app/uploads
-      - logs_data:/app/logs
+      - app_logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,11 +54,34 @@ services:
       - db_net
     restart: unless-stopped
 
+  postgres_backup:
+    image: postgres:16
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - pgdata_backups:/backups
+      - ./scripts/backup:/scripts:ro
+    command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]
+    networks:
+      - db_net
+    restart: unless-stopped
+
 volumes:
   env_data:
   uploads_data:
-  logs_data:
+  app_logs:
+  nginx_logs:
   pgdata:
+  pgdata_backups:
 
 networks:
   public_net:
