@@ -17,6 +17,7 @@ innehåller kontrollpunkter så att du kan verifiera att allt fungerar.
 - Steg 6: Brandvägg och origin-låsning
 - Steg 7: Drift, loggar och övervakning
 - Steg 8: Uppgraderingar
+- Steg 9: Portainer (Stack) – superdetaljerad setup
 - Felsökning
 - Checklista för produktion
 
