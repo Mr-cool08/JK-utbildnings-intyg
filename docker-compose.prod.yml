@@ -7,11 +7,16 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
       - ${ORIGIN_CERT_PATH}:/etc/nginx/certs/origin.crt:ro
       - ${ORIGIN_KEY_PATH}:/etc/nginx/certs/origin.key:ro
       - nginx_logs:/var/log/nginx
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/nginx.conf
+      - source: nginx_app_conf
+        target: /etc/nginx/conf.d/app.conf
+      - source: nginx_cloudflare_conf
+        target: /etc/nginx/conf.d/cloudflare-realip.conf
     networks:
       - public_net
     restart: unless-stopped
@@ -82,6 +87,14 @@ volumes:
   nginx_logs:
   pgdata:
   pgdata_backups:
+
+configs:
+  nginx_conf:
+    file: ./deploy/nginx/nginx.conf
+  nginx_app_conf:
+    file: ./deploy/nginx/conf.d/app.conf
+  nginx_cloudflare_conf:
+    file: ./deploy/nginx/conf.d/cloudflare-realip.conf
 
 networks:
   public_net:
