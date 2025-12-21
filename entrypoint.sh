@@ -20,6 +20,11 @@ trap 'shutdown' INT TERM EXIT
 # Standardportar i containern (mappa utanför)
 HTTP_PORT="${HTTP_PORT:-80}"
 APP_PORT="${APP_PORT:-${HTTP_PORT}}"
+LOG_DIR="${LOG_DIR:-/app/logs}"
+
+# Se till att loggkatalogen finns och kan skrivas av app-användaren
+mkdir -p "${LOG_DIR}"
+chown -R app:app "${LOG_DIR}"
 
 # Validate external PostgreSQL configuration or enable local SQLite fallback.
 if [ -z "${DATABASE_URL:-}" ]; then
@@ -88,7 +93,8 @@ THREADS="${THREADS:-8}"
 # Kontrollera att wsgi:app finns (ändra modul om din heter något annat)
 GUNICORN_CMD="gunicorn --bind 0.0.0.0:${APP_PORT} \
     --workers ${WEB_CONCURRENCY} --threads ${THREADS} \
-    --access-logfile - --error-logfile - \
+    --access-logfile ${LOG_DIR}/gunicorn-access.log \
+    --error-logfile ${LOG_DIR}/gunicorn-error.log \
     --timeout 60 \
     --user app --group app \
     --preload \

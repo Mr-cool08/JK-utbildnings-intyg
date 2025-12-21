@@ -80,6 +80,29 @@ Om din infrastruktur redan har ett Docker-nätverk som ska delas med proxyn kan
 du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan du kör `docker compose`
 så att stacken återanvänder det angivna nätverket och ger proxyn en adress därifrån.
 
+## Backup av PostgreSQL (produktion)
+
+Produktionstacken innehåller en backup-tjänst som kör `pg_dump` och sparar
+komprimerade `.sql.gz`-filer i volymen `pgdata_backups` (standard 7 dagars
+retention).
+
+### Kör backup manuellt
+
+```bash
+docker compose -f docker-compose.prod.yml exec postgres_backup \
+  /scripts/postgres_backup.sh --once
+```
+
+### Återställ senaste backup
+
+```bash
+LATEST_BACKUP=$(docker compose -f docker-compose.prod.yml exec -T postgres_backup \
+  /bin/sh -c 'ls -t /backups/backup-*.sql.gz | head -n 1')
+
+docker compose -f docker-compose.prod.yml exec -T postgres_backup \
+  /bin/sh -c "gunzip -c ${LATEST_BACKUP} | psql -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+```
+
 ## Flöde för företagskonton och kopplingar
 
 Diagrammet nedan visar hur ett företagskonto skapas, aktiveras och kopplas till standardkonton samt hur kopplade konton laddas efter inloggning.
