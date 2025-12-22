@@ -83,8 +83,11 @@ def run_compose_action(
         print("Hämtar senaste ändringarna med git pull...")
         runner(["git", "pull"], check=True)
 
-        print("Bygger om och startar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["up", "-d", "--build", "--no-cache"], runner)
+        print("Bygger om Docker Compose-tjänsterna utan cache...")
+        run_compose_command(compose_args, ["build", "--no-cache"], runner)
+
+        print("Startar Docker Compose-tjänsterna...")
+        run_compose_command(compose_args, ["up", "-d"], runner)
 
         print("Klar.")
         return
