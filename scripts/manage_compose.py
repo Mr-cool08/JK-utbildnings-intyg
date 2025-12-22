@@ -60,6 +60,11 @@ def run_compose_action(
         run_compose_command(compose_args, ["pull"], runner)
         print("Klar.")
         return
+    if action == "git-pull":
+        print("Hämtar senaste ändringarna med git pull...")
+        runner(["git", "pull"], check=True)
+        print("Klar.")
+        return
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["up", "-d"], runner)
@@ -69,8 +74,8 @@ def run_compose_action(
         print("Stoppar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["stop"], runner)
 
-        print("Hämtar senaste Docker-bilderna...")
-        run_compose_command(compose_args, ["pull"], runner)
+        print("Hämtar senaste ändringarna med git pull...")
+        runner(["git", "pull"], check=True)
 
         print("Startar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["up", "-d"], runner)
@@ -87,18 +92,20 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "1) Stoppa tjänsterna\n"
         "2) Hämta senaste bilder\n"
         "3) Starta tjänsterna\n"
-        "4) Stoppa + uppdatera + starta\n"
-        "5) Avsluta\n"
+        "4) Stoppa + git pull + starta\n"
+        "5) Git pull\n"
+        "6) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-5): ").strip()
+    choice = input_func("Ange ditt val (1-6): ").strip()
 
     mapping = {
         "1": "stop",
         "2": "pull",
         "3": "up",
         "4": "cycle",
-        "5": None,
+        "5": "git-pull",
+        "6": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -142,7 +149,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--action",
-        choices=["stop", "pull", "up", "cycle"],
+        choices=["stop", "pull", "up", "cycle", "git-pull"],
         help="Kör en specifik åtgärd utan meny.",
     )
     return parser.parse_args()
