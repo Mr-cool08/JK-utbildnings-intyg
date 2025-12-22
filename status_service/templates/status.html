@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Status för JK Utbildningsintyg</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fb;
+            margin: 0;
+            color: #1f2937;
+        }
+        main {
+            max-width: 720px;
+            margin: 48px auto;
+            background: #ffffff;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+        p {
+            margin-top: 0;
+            color: #4b5563;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            color: #374151;
+            font-weight: 600;
+        }
+        .status-ok {
+            color: #047857;
+            font-weight: 600;
+        }
+        .status-fail {
+            color: #b91c1c;
+            font-weight: 600;
+        }
+        .status-neutral {
+            color: #6b7280;
+            font-weight: 600;
+        }
+        footer {
+            margin-top: 24px;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Status för JK Utbildningsintyg</h1>
+        <p>Publik översikt utan känslig information.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Tjänst</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Upptid</td>
+                    <td>{{ status.uptime }}</td>
+                </tr>
+                <tr>
+                    <td>SSL</td>
+                    <td>
+                        {% if status.ssl == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-fail">Fel</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Databas</td>
+                    <td>
+                        {% if status.database == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% elif status.database == "Inte konfigurerad" %}
+                            <span class="status-neutral">Inte konfigurerad</span>
+                        {% else %}
+                            <span class="status-fail">Fel</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Nginx</td>
+                    <td>
+                        {% if status.nginx == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-fail">Fel</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <footer>Senast kontrollerad: {{ checked_at }}</footer>
+    </main>
+</body>
+</html>
