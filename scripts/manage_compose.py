@@ -77,14 +77,14 @@ def run_compose_action(
         print("Klar.")
         return
     if action == "cycle":
-        print("Stoppar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["stop"], runner)
+        print("Stoppar och tar bort Docker Compose-tjänsterna...")
+        run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
 
         print("Hämtar senaste ändringarna med git pull...")
         runner(["git", "pull"], check=True)
 
-        print("Startar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["up", "-d"], runner)
+        print("Bygger om och startar Docker Compose-tjänsterna...")
+        run_compose_command(compose_args, ["up", "-d", "--build", "--no-cache"], runner)
 
         print("Klar.")
         return
@@ -98,7 +98,7 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "1) Stoppa tjänsterna\n"
         "2) Hämta senaste bilder\n"
         "3) Starta tjänsterna\n"
-        "4) Stoppa + git pull + starta\n"
+        "4) Stoppa/ta bort + git pull + bygg/starta\n"
         "5) Git pull\n"
         "6) Avsluta\n"
     )
