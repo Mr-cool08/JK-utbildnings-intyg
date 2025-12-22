@@ -10,12 +10,18 @@ from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 
+def repo_root() -> Path:
+    # Resolve the repository root directory from this script location.
+    return Path(__file__).resolve().parents[1]
+
+
 def default_compose_file() -> str:
     # Select a sensible default compose file if available.
-    prod_file = Path("docker-compose.prod.yml")
+    root = repo_root()
+    prod_file = root / "docker-compose.prod.yml"
     if prod_file.is_file():
         return str(prod_file)
-    return "docker-compose.yml"
+    return str(root / "docker-compose.yml")
 
 
 def build_compose_args(

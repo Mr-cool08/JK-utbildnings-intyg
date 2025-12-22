@@ -31,6 +31,15 @@ def test_build_compose_args_includes_expected_flags():
     ]
 
 
+def test_default_compose_file_uses_repo_root():
+    module = _load_module()
+    root = Path(module.__file__).resolve().parents[1]
+    prod_file = root / "docker-compose.prod.yml"
+    expected = prod_file if prod_file.is_file() else root / "docker-compose.yml"
+
+    assert module.default_compose_file() == str(expected)
+
+
 def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
     calls: list[tuple[list[str], bool]] = []
