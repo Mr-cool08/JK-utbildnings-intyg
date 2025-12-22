@@ -1,3 +1,5 @@
+"""Tests for the public sitemap endpoint."""
+
 import unittest
 
 import pytest
