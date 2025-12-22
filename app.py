@@ -214,6 +214,11 @@ def robots_txt():
     # Serve robots.txt to disallow all crawlers.
     return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
 
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    # Serve sitemap.xml with public URLs only.
+    return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
+
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
     # Allow a pending user to set a password and activate the account.
