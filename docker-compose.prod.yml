@@ -106,9 +106,9 @@ configs:
           include       /etc/nginx/mime.types;
           default_type  application/octet-stream;
 
-          log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                            '$status $body_bytes_sent "$http_referer" '
-                            '"$http_user_agent" "$http_x_forwarded_for"';
+          log_format  main  '$$remote_addr - $$remote_user [$$time_local] "$$request" '
+                            '$$status $$body_bytes_sent "$$http_referer" '
+                            '"$$http_user_agent" "$$http_x_forwarded_for"';
 
           access_log  /var/log/nginx/access.log  main;
 
@@ -116,13 +116,14 @@ configs:
           keepalive_timeout  65;
           server_tokens off;
 
-          map $http_upgrade $connection_upgrade {
+          map $$http_upgrade $$connection_upgrade {
               default upgrade;
               ''      close;
           }
 
           include /etc/nginx/conf.d/*.conf;
       }
+
   nginx_app_conf:
     content: |
       # Nginx reverse proxy för JK Utbildningsintyg
@@ -138,7 +139,7 @@ configs:
           listen 80;
           server_name _;
 
-          return 301 https://$host$request_uri;
+          return 301 https://$$host$$request_uri;
       }
 
       server {
@@ -165,18 +166,19 @@ configs:
           location / {
               proxy_pass http://jk_utbildningsintyg_app;
               proxy_http_version 1.1;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;
-              proxy_set_header X-Forwarded-Host $host;
-              proxy_set_header X-Forwarded-Port $server_port;
-              proxy_set_header Upgrade $http_upgrade;
-              proxy_set_header Connection $connection_upgrade;
+              proxy_set_header Host $$host;
+              proxy_set_header X-Real-IP $$remote_addr;
+              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Host $$host;
+              proxy_set_header X-Forwarded-Port $$server_port;
+              proxy_set_header Upgrade $$http_upgrade;
+              proxy_set_header Connection $$connection_upgrade;
               proxy_read_timeout 60s;
               proxy_send_timeout 60s;
           }
       }
+
   nginx_cloudflare_conf:
     content: |
       # Autogenererad Cloudflare realip-konfiguration
