@@ -53,7 +53,8 @@ def test_run_compose_action_cycle_orders_commands():
     assert calls == [
         (["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"], True),
         (["git", "pull"], True),
-        (["docker", "compose", "-f", "docker-compose.yml", "up", "-d", "--build", "--no-cache"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], True),
     ]
 
 
