@@ -64,6 +64,18 @@ services:
       - "8081:80"
     restart: unless-stopped
 
+  status_page:
+    build:
+      context: .
+      dockerfile: status_service/Dockerfile
+    networks:
+      - public_net
+    expose:
+      - "80"
+    ports:
+      - "8082:80"
+    restart: unless-stopped
+
 volumes:
   pgdata:
 
