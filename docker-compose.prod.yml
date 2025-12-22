@@ -27,6 +27,7 @@ services:
       - stack.env
     environment:
       LOG_DIR: /app/logs
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     expose:
       - "80"
     volumes:
