@@ -1,3 +1,7 @@
+import unittest
+
+import pytest
+
 import app
 
 
@@ -6,18 +10,20 @@ def _client():
     return client
 
 
-def test_sitemap_xml_is_public(empty_db):
-    with _client() as client:
-        response = client.get('/sitemap.xml')
+@pytest.mark.usefixtures("empty_db")
+class TestSitemapXml(unittest.TestCase):
+    def test_sitemap_xml_is_public(self):
+        with _client() as client:
+            response = client.get('/sitemap.xml')
 
-    assert response.status_code == 200
-    assert response.mimetype == 'application/xml'
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'application/xml')
 
-    body = response.data.decode('utf-8')
-    assert 'https://www.utbildningsintyg.se/' in body
-    assert '/ansok/standardkonto' in body
-    assert '/ansok/foretagskonto' in body
+        body = response.data.decode('utf-8')
+        self.assertIn('https://www.utbildningsintyg.se/', body)
+        self.assertIn('/ansok/standardkonto', body)
+        self.assertIn('/ansok/foretagskonto', body)
 
-    assert '/admin' not in body
-    assert '/dashboard' not in body
-    assert '/create_user' not in body
+        self.assertNotIn('/admin', body)
+        self.assertNotIn('/dashboard', body)
+        self.assertNotIn('/create_user', body)
