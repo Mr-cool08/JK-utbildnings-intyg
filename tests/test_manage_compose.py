@@ -51,9 +51,9 @@ def test_run_compose_action_cycle_orders_commands():
     module.run_compose_action(["-f", "docker-compose.yml"], "cycle", runner=fake_runner)
 
     assert calls == [
-        (["docker", "compose", "-f", "docker-compose.yml", "stop"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"], True),
         (["git", "pull"], True),
-        (["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "up", "-d", "--build"], True),
     ]
 
 
