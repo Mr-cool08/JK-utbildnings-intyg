@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.utbildningsintyg.se/</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/ansok</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/ansok/standardkonto</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/ansok/foretagskonto</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/foretagskonto/login</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/login</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/license</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/villkor</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/juridik</loc>
+  </url>
+</urlset>

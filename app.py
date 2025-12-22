@@ -211,8 +211,15 @@ def inject_flags():
 
 @app.route('/robots.txt')
 def robots_txt():
+    """Servera robots.txt från den statiska katalogen."""
     # Serve robots.txt to disallow all crawlers.
     return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    """Servera sitemap.xml med publika URL:er."""
+    # Serve sitemap.xml with public URLs only.
+    return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash):
