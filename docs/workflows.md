@@ -29,7 +29,7 @@ Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows`
 - Manuell körning via `workflow_dispatch`.
 
 **Hur fungerar den?**
-- Kör Bandit med JSON-utdata och konverterar resultatet till SARIF innan uppladdning.
+- Kör Bandit med JSON-utdata (`--exit-zero`) och konverterar resultatet till SARIF innan uppladdning.
 
 ## Säkerhet: CodeQL
 

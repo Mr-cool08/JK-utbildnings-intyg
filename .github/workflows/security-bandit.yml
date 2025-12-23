@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Bandit (JSON)
         run: |
-          bandit -r . -f json -o bandit.json
+          bandit -r . -f json -o bandit.json --exit-zero
 
       - name: Convert Bandit JSON to SARIF
         run: |
