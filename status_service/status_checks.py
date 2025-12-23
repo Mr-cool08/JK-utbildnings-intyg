@@ -86,8 +86,8 @@ def check_ssl_status():
     host = os.getenv("STATUS_SSL_HOST", "utbildningsintyg.se")
     port = int(os.getenv("STATUS_SSL_PORT", "443"))
 
-    context = ssl.create_default_context()
-    # Enforce modern TLS versions (TLS 1.2+) regardless of system defaults
+    # Create a context for server authentication and enforce modern TLS (1.2+)
+    context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
     if hasattr(ssl, "TLSVersion") and hasattr(context, "minimum_version"):
         context.minimum_version = ssl.TLSVersion.TLSv1_2
     else:
