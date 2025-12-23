@@ -15,6 +15,15 @@ def test_dockerfile_uses_python_base_image():
     assert re.search(r"^FROM\s+python:.*alpine", dockerfile, re.MULTILINE)
 
 
+def test_dockerfile_uses_stable_python_tag():
+    dockerfile = _read(ROOT / "Dockerfile")
+    match = re.search(r"^FROM\s+python:([^\s]+)", dockerfile, re.MULTILINE)
+    assert match, "Expected Dockerfile to define a python base image"
+    tag = match.group(1)
+    pre_release = re.search(r"(^|[-_.])(rc|alpha|beta)\d*", tag, re.IGNORECASE)
+    assert pre_release is None, "Expected a stable Python tag without pre-release markers"
+
+
 def test_dockerfile_exposes_port_and_runs_entrypoint():
     dockerfile = _read(ROOT / "Dockerfile")
     # Tillåt antingen 80/443 eller 8080/8443 i containern
