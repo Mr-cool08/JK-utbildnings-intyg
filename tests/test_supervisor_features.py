@@ -71,6 +71,15 @@ def _supervisor_client(email_hash, name):
     return client
 
 
+def _user_client(personnummer_hash, username):
+    client = app.app.test_client()
+    with client.session_transaction() as sess:
+        sess["user_logged_in"] = True
+        sess["personnummer"] = personnummer_hash
+        sess["username"] = username
+    return client
+
+
 def test_supervisor_activation_flow(empty_db):
     email = "foretagskonto@example.com"
     name = "Företagskonto"
@@ -135,6 +144,52 @@ def test_supervisor_remove_connection(supervisor_setup):
     response = client.post(
         f"/foretagskonto/kopplingar/{supervisor_setup['personnummer_hash']}/ta-bort",
         data={"anchor": "user-anchor"},
+    )
+    assert response.status_code == 302
+    assert not functions.supervisor_has_access(
+        supervisor_setup["email_hash"], supervisor_setup["personnummer_hash"]
+    )
+
+
+def test_user_requests_connection_and_supervisor_accepts(supervisor_setup):
+    functions.supervisor_remove_connection(
+        supervisor_setup["email_hash"], supervisor_setup["personnummer_hash"]
+    )
+    user_client = _user_client(
+        supervisor_setup["personnummer_hash"], supervisor_setup["user_name"]
+    )
+    response = user_client.post(
+        "/dashboard/foretagskonto/begaran",
+        data={"orgnr": supervisor_setup["orgnr"]},
+    )
+    assert response.status_code == 302
+    pending = functions.list_supervisor_connection_requests(
+        supervisor_setup["email_hash"]
+    )
+    assert any(
+        request["personnummer_hash"] == supervisor_setup["personnummer_hash"]
+        for request in pending
+    )
+
+    supervisor_client = _supervisor_client(
+        supervisor_setup["email_hash"], supervisor_setup["name"]
+    )
+    response = supervisor_client.post(
+        f"/foretagskonto/forfragan/{supervisor_setup['personnummer_hash']}/godkann",
+        data={"anchor": "request"},
+    )
+    assert response.status_code == 302
+    assert functions.supervisor_has_access(
+        supervisor_setup["email_hash"], supervisor_setup["personnummer_hash"]
+    )
+
+
+def test_user_can_remove_connection(supervisor_setup):
+    user_client = _user_client(
+        supervisor_setup["personnummer_hash"], supervisor_setup["user_name"]
+    )
+    response = user_client.post(
+        f"/dashboard/foretagskonto/koppling/ta-bort/{supervisor_setup['email_hash']}"
     )
     assert response.status_code == 302
     assert not functions.supervisor_has_access(

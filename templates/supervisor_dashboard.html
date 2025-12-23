@@ -2,7 +2,45 @@
 {% block title %}Företagskontopanel{% endblock %}
 {% block content %}
     <h1>Företagskontopanel</h1>
-    <p>Välkommen {{ supervisor_name }}. Här ser du alla standardkonton som administratören har kopplat till dig.</p>
+    <p>Välkommen {{ supervisor_name }}. Här ser du alla standardkonton som är kopplade till dig.</p>
+    <section class="panel" id="pending-requests">
+        <div class="panel-header">
+            <h2>Förfrågningar från standardkonton</h2>
+        </div>
+        {% if pending_requests %}
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Standardkonto</th>
+                            <th>Åtgärder</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in pending_requests %}
+                            <tr id="request-{{ request.personnummer_hash }}">
+                                <td>{{ request.username }}</td>
+                                <td>
+                                    <div class="actions">
+                                        <form method="post" action="{{ url_for('supervisor_accept_connection_request_route', person_hash=request.personnummer_hash) }}">
+                                            <input type="hidden" name="anchor" value="request-{{ request.personnummer_hash }}">
+                                            <button type="submit" class="btn btn-secondary">Godkänn</button>
+                                        </form>
+                                        <form method="post" action="{{ url_for('supervisor_decline_connection_request_route', person_hash=request.personnummer_hash) }}" onsubmit="return confirm('Är du säker på att du vill avslå förfrågan?');">
+                                            <input type="hidden" name="anchor" value="request-{{ request.personnummer_hash }}">
+                                            <button type="submit" class="btn btn-danger">Avslå</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>Det finns inga väntande förfrågningar just nu.</p>
+        {% endif %}
+    </section>
     {% if users %}
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}">

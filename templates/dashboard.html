@@ -24,6 +24,61 @@
             Behöver du radera dina uppgifter? Kontakta oss så hjälper vi dig.
         </p>
     </div>
+    <section class="panel" aria-labelledby="connection-title">
+        <div class="panel-header">
+            <h2 id="connection-title">Koppling till företagskonto</h2>
+        </div>
+        <p>Skicka en förfrågan till ett företagskonto för att dela dina intyg.</p>
+        <form method="post" action="{{ url_for('user_request_supervisor_connection') }}" class="stacked-form">
+            <label for="connectionOrgnr">Företagets organisationsnummer</label>
+            <input
+                id="connectionOrgnr"
+                name="orgnr"
+                type="text"
+                required
+                inputmode="numeric"
+                placeholder="556016-0680"
+            >
+            <button type="submit" class="btn">Skicka förfrågan</button>
+        </form>
+        <div class="connection-block">
+            <h3>Aktiva kopplingar</h3>
+            {% if user_connections %}
+                <ul class="connection-list">
+                    {% for connection in user_connections %}
+                        <li class="connection-item">
+                            <div>
+                                <p class="connection-name">{{ connection.supervisor_name }}</p>
+                                <p class="connection-meta">Kopplad till ditt standardkonto.</p>
+                            </div>
+                            <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email_hash) }}" onsubmit="return confirm('Är du säker på att du vill koppla bort företagskontot?');">
+                                <button type="submit" class="btn btn-danger">Koppla bort</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Du har inga aktiva kopplingar just nu.</p>
+            {% endif %}
+        </div>
+        <div class="connection-block">
+            <h3>Väntande förfrågningar</h3>
+            {% if user_pending_requests %}
+                <ul class="connection-list">
+                    {% for request in user_pending_requests %}
+                        <li class="connection-item">
+                            <div>
+                                <p class="connection-name">{{ request.supervisor_name }}</p>
+                                <p class="connection-meta">Din förfrågan väntar på godkännande.</p>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Du har inga väntande förfrågningar.</p>
+            {% endif %}
+        </div>
+    </section>
     {% if category_summary %}
     <section class="category-list" aria-label="Tillgängliga kurskategorier">
         <h2>Kurskategorier</h2>

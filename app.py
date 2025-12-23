@@ -349,6 +349,7 @@ def supervisor_dashboard():
         return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
     connections = functions.list_supervisor_connections(email_hash)
+    pending_requests = functions.list_supervisor_connection_requests(email_hash)
     users = []
     for entry in connections:
         person_hash = entry['personnummer_hash']
@@ -368,6 +369,7 @@ def supervisor_dashboard():
         'supervisor_dashboard.html',
         supervisor_name=supervisor_name,
         users=users,
+        pending_requests=pending_requests,
     )
 
 
@@ -478,6 +480,36 @@ def supervisor_remove_connection_route(person_hash: str):
         flash('Kopplingen har tagits bort.', 'success')
     else:
         flash('Kopplingen kunde inte tas bort.', 'error')
+    return redirect(redirect_target)
+
+
+@app.post('/foretagskonto/forfragan/<person_hash>/godkann')
+def supervisor_accept_connection_request_route(person_hash: str):
+    email_hash, _ = _require_supervisor()
+    anchor = request.form.get('anchor', '')
+    redirect_target = url_for('supervisor_dashboard')
+    if anchor:
+        redirect_target += f'#{anchor}'
+
+    if functions.supervisor_accept_connection_request(email_hash, person_hash):
+        flash('Förfrågan har godkänts och kopplingen är aktiv.', 'success')
+    else:
+        flash('Förfrågan kunde inte godkännas.', 'error')
+    return redirect(redirect_target)
+
+
+@app.post('/foretagskonto/forfragan/<person_hash>/avsla')
+def supervisor_decline_connection_request_route(person_hash: str):
+    email_hash, _ = _require_supervisor()
+    anchor = request.form.get('anchor', '')
+    redirect_target = url_for('supervisor_dashboard')
+    if anchor:
+        redirect_target += f'#{anchor}'
+
+    if functions.supervisor_decline_connection_request(email_hash, person_hash):
+        flash('Förfrågan har avslagits.', 'success')
+    else:
+        flash('Förfrågan kunde inte avslås.', 'error')
     return redirect(redirect_target)
 
 @app.route('/aterstall-losenord/<token>', methods=['GET', 'POST'])
@@ -747,6 +779,50 @@ def login():
     return render_template('user_login.html')
 
 
+@app.post('/dashboard/foretagskonto/begaran')
+def user_request_supervisor_connection():
+    if not session.get('user_logged_in'):
+        logger.debug("Unauthenticated connection request")
+        return redirect('/login')
+    pnr_hash = session.get('personnummer')
+    orgnr = request.form.get('orgnr', '').strip()
+    success, reason, supervisor_name = functions.create_supervisor_connection_request(
+        orgnr, pnr_hash
+    )
+    if success:
+        display_name = supervisor_name or 'företagskontot'
+        flash(f'Förfrågan skickades till {display_name}.', 'success')
+        return redirect('/dashboard')
+
+    if reason == 'invalid_orgnr':
+        message = 'Ange ett giltigt organisationsnummer.'
+    elif reason == 'missing_supervisor':
+        message = 'Företagskontot hittades inte.'
+    elif reason == 'already_connected':
+        message = 'Du är redan kopplad till företagskontot.'
+    elif reason == 'already_pending':
+        message = 'Det finns redan en väntande förfrågan.'
+    elif reason == 'missing_user':
+        message = 'Standardkontot kunde inte hittas.'
+    else:
+        message = 'Förfrågan kunde inte skickas.'
+    flash(message, 'error')
+    return redirect('/dashboard')
+
+
+@app.post('/dashboard/foretagskonto/koppling/ta-bort/<supervisor_hash>')
+def user_remove_supervisor_connection_route(supervisor_hash: str):
+    if not session.get('user_logged_in'):
+        logger.debug("Unauthenticated connection removal")
+        return redirect('/login')
+    pnr_hash = session.get('personnummer')
+    if functions.supervisor_remove_connection(supervisor_hash, pnr_hash):
+        flash('Kopplingen har tagits bort.', 'success')
+    else:
+        flash('Kopplingen kunde inte tas bort.', 'error')
+    return redirect('/dashboard')
+
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     # Visa alla PDF:er för den inloggade användaren.
@@ -760,6 +836,8 @@ def dashboard():
         if user_name:
             session['username'] = user_name
     pdfs = functions.get_user_pdfs(pnr_hash)
+    user_connections = functions.list_user_connections(pnr_hash)
+    user_pending_requests = functions.list_user_connection_requests(pnr_hash)
     for pdf in pdfs:
         pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
     grouped_pdfs = []
@@ -811,6 +889,8 @@ def dashboard():
         category_summary=category_summary,
         grouped_pdfs=visible_groups,
         user_name=user_name,
+        user_connections=user_connections,
+        user_pending_requests=user_pending_requests,
     )
 
 
