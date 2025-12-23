@@ -785,6 +785,9 @@ def check_pending_user(personnummer: str) -> bool:
 
 def check_pending_user_hash(personnummer_hash: str) -> bool:
     # Return True if a pending user with ``personnummer_hash`` exists.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
     with get_engine().connect() as conn:
         row = conn.execute(
             select(pending_users_table.c.id).where(
@@ -792,6 +795,13 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
             )
         ).first()
     return row is not None
+
+
+def _is_valid_hash(value: str) -> bool:
+    # Verify that the hash is a 64-character hexadecimal string.
+    if value is None:
+        return False
+    return bool(re.fullmatch(r"[a-f0-9]{64}", value))
 
 
 @lru_cache(maxsize=256)
