@@ -28,6 +28,9 @@ Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows`
 - Vid `pull_request` mot `main`.
 - Manuell körning via `workflow_dispatch`.
 
+**Hur fungerar den?**
+- Kör Bandit med JSON-utdata och konverterar resultatet till SARIF innan uppladdning.
+
 ## Säkerhet: CodeQL
 
 **Fil:** `.github/workflows/security-codeql.yml`
