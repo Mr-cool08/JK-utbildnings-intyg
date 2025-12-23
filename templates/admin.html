@@ -73,39 +73,40 @@
 </section>
 
 <section class="panel">
-    <h2>Hantera företagskonto</h2>
-    <p>Skapa nya företagskonton och koppla dem till befintliga standardkonton.</p>
-    <div class="row">
-        <div class="col">
-            <form id="createSupervisorForm" class="stacked-form">
-                <h3>Skapa företagskonto</h3>
-                <label for="supervisorName">Namn</label>
-                <input id="supervisorName" name="name" type="text" required placeholder="Namn på företagskonto">
+    <h2>Skapa företagskonto</h2>
+    <p>Registrera ett nytt företagskonto som kan kopplas till standardkonton.</p>
+    <form id="createSupervisorForm" class="stacked-form">
+        <label for="supervisorName">Namn</label>
+        <input id="supervisorName" name="name" type="text" required placeholder="Namn på företagskonto">
 
-                <label for="supervisorEmail">E-post</label>
-                <input id="supervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
+        <label for="supervisorEmail">E-post</label>
+        <input id="supervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
 
-                <button type="submit" class="btn">Skapa företagskonto</button>
-                <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
-            </form>
-        </div>
-        <div class="col">
-            <form id="linkSupervisorForm" class="stacked-form">
-                <h3>Koppla företagskonto till standardkonto</h3>
-                <label for="linkSupervisorEmail">Företagskontots e-post</label>
-                <input id="linkSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
+        <button type="submit" class="btn">Skapa företagskonto</button>
+        <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
 
-                <label for="linkPersonnummer">Standardkontots personnummer</label>
-                <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
+<section class="panel">
+    <h2>Koppla företagskonto</h2>
+    <p>Skapa koppling mellan ett företagskonto och ett befintligt standardkonto.</p>
+    <form id="linkSupervisorForm" class="stacked-form">
+        <label for="linkSupervisorEmail">Företagskontots e-post</label>
+        <input id="linkSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
 
-                <button type="submit" class="btn">Skapa koppling</button>
-                <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
-            </form>
-        </div>
-    </div>
+        <label for="linkPersonnummer">Standardkontots personnummer</label>
+        <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
 
+        <button type="submit" class="btn">Skapa koppling</button>
+        <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Visa kopplingar</h2>
+    <p>Se vilka standardkonton som är kopplade till ett företagskonto.</p>
     <form id="supervisorOverviewForm" class="inline-form">
-        <label for="overviewSupervisorEmail">Visa kopplingar för företagskonto</label>
+        <label for="overviewSupervisorEmail">Företagskontots e-post</label>
         <input id="overviewSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
         <button type="submit" class="btn">Visa kopplingar</button>
         <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
