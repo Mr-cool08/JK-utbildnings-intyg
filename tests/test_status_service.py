@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import timedelta
 from urllib import error
@@ -73,6 +74,11 @@ def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
     def fake_connection(*_args, **_kwargs):
         raise ConnectionRefusedError(111, "Connection refused")
 
+    monkeypatch.setattr(
+        status_checks.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [(None, None, None, None, ("host", 443))],
+    )
     monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
 
     with caplog.at_level(logging.WARNING):
@@ -80,6 +86,32 @@ def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
 
     assert result == {"status": "Fel", "details": "Anslutning nekades"}
     assert "kunde inte ansluta" in caplog.text
+
+
+def test_check_ssl_status_tries_multiple_addresses(monkeypatch):
+    addresses = [
+        (None, None, None, None, ("first", 443)),
+        (None, None, None, None, ("second", 443)),
+    ]
+
+    def fake_connection(address, *_args, **_kwargs):
+        if address == ("first", 443):
+            raise ConnectionRefusedError(111, "Connection refused")
+        return contextlib.nullcontext()
+
+    class DummyContext:
+        minimum_version = None
+
+        def wrap_socket(self, *_args, **_kwargs):
+            return contextlib.nullcontext()
+
+    monkeypatch.setattr(status_checks.socket, "getaddrinfo", lambda *_args, **_kwargs: addresses)
+    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
+    monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+
+    result = status_checks.check_ssl_status()
+
+    assert result == {"status": "OK", "details": "TLS-handshake lyckades"}
 
 
 def test_check_http_status_handles_connection_refused(monkeypatch, caplog):

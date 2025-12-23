@@ -97,15 +97,41 @@ def check_ssl_status():
         if hasattr(ssl, "OP_NO_TLSv1_1"):
             context.options |= ssl.OP_NO_TLSv1_1
     try:
-        with socket.create_connection((host, port), timeout=3) as sock:
-            with context.wrap_socket(sock, server_hostname=host):
-                return {"status": "OK", "details": "TLS-handshake lyckades"}
-    except ConnectionRefusedError:
-        LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
-        return {"status": "Fel", "details": "Anslutning nekades"}
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except OSError:
-        LOGGER.exception("SSL-kontroll misslyckades mot %s:%s.", host, port)
-        return {"status": "Fel", "details": "TLS-handshake misslyckades"}
+        LOGGER.exception("SSL-kontroll misslyckades att slå upp %s:%s.", host, port)
+        return {"status": "Fel", "details": "DNS-uppslag misslyckades"}
+
+    last_error = None
+    refused = False
+    for _family, _socktype, _proto, _canon, sockaddr in addresses:
+        try:
+            with socket.create_connection(sockaddr, timeout=3) as sock:
+                with context.wrap_socket(sock, server_hostname=host):
+                    return {"status": "OK", "details": "TLS-handshake lyckades"}
+        except ConnectionRefusedError as exc:
+            refused = True
+            last_error = exc
+        except OSError as exc:
+            last_error = exc
+
+    if refused:
+        LOGGER.warning(
+            "SSL-kontroll kunde inte ansluta till någon adress för %s:%s.",
+            host,
+            port,
+        )
+        return {"status": "Fel", "details": "Anslutning nekades"}
+    if last_error is not None:
+        LOGGER.error(
+            "SSL-kontroll misslyckades mot %s:%s.",
+            host,
+            port,
+            exc_info=last_error,
+        )
+    else:
+        LOGGER.error("SSL-kontroll misslyckades mot %s:%s.", host, port)
+    return {"status": "Fel", "details": "TLS-handshake misslyckades"}
 
 
 def check_nginx_status():
