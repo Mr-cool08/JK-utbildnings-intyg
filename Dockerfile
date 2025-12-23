@@ -1,5 +1,5 @@
 #  Stabil Python (byt version om du vill)
-FROM python:3.15-rc-alpine3.22
+FROM python:3.12-alpine3.20
 
 # Installera systempaket
 RUN apk add --no-cache tini bash curl \
