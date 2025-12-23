@@ -31,6 +31,15 @@ def test_build_compose_args_includes_expected_flags():
     ]
 
 
+def test_default_compose_file_uses_repo_root():
+    module = _load_module()
+    root = Path(module.__file__).resolve().parents[1]
+    prod_file = root / "docker-compose.prod.yml"
+    expected = prod_file if prod_file.is_file() else root / "docker-compose.yml"
+
+    assert module.default_compose_file() == str(expected)
+
+
 def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
     calls: list[tuple[list[str], bool]] = []
@@ -42,8 +51,9 @@ def test_run_compose_action_cycle_orders_commands():
     module.run_compose_action(["-f", "docker-compose.yml"], "cycle", runner=fake_runner)
 
     assert calls == [
-        (["docker", "compose", "-f", "docker-compose.yml", "stop"], True),
-        (["docker", "compose", "-f", "docker-compose.yml", "pull"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"], True),
+        (["git", "pull"], True),
+        (["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"], True),
         (["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], True),
     ]
 
@@ -52,9 +62,22 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "5"
+        return "6"
 
     assert module.select_action(fake_input) is None
+
+
+def test_run_compose_action_git_pull_runs_git():
+    module = _load_module()
+    calls: list[tuple[list[str], bool]] = []
+
+    def fake_runner(cmd, check):
+        calls.append((list(cmd), check))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "git-pull", runner=fake_runner)
+
+    assert calls == [(["git", "pull"], True)]
 
 
 def test_run_menu_executes_selected_action():
