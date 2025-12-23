@@ -732,6 +732,13 @@ def legal_information():
     return render_template('legal_information.html')
 
 
+@app.route('/pris', methods=['GET'])
+def pricing():
+    """Visa prislistan."""
+
+    return render_template('pris.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     # Authenticate users using personnummer and password.
