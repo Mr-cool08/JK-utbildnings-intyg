@@ -138,3 +138,13 @@ def test_get_username_by_personnummer_hash(empty_db):
         == "PersonnummerNamn"
     )
     assert functions.get_username_by_personnummer_hash("saknas") is None
+
+
+def test_invalid_hash_inputs_return_safe_defaults(empty_db):
+    invalid_hash = "ogiltig"
+    assert not functions.check_pending_supervisor_hash(invalid_hash)
+    assert not functions.supervisor_has_access(invalid_hash, invalid_hash)
+    assert not functions.supervisor_remove_connection(invalid_hash, invalid_hash)
+    assert functions.get_user_pdfs(invalid_hash) == []
+    assert functions.get_pdf_metadata(invalid_hash, 1) is None
+    assert functions.get_pdf_content(invalid_hash, 1) is None
