@@ -3,6 +3,7 @@ name: Build and Push Docker image
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,13 +31,21 @@ jobs:
       - name: Set lower-case repository owner
         run: echo "REPOSITORY_OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
-      - uses: docker/build-push-action@v5
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ env.REPOSITORY_OWNER_LC }}/jk-utbildnings-intyg
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/jk-utbildnings-intyg
+          tags: |
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ env.REPOSITORY_OWNER_LC }}/jk-utbildnings-intyg:latest
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/jk-utbildnings-intyg:latest
+          tags: ${{ steps.meta.outputs.tags }}
 
       - name: Trigger deployment webhook
         run: |
