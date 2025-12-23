@@ -1,4 +1,6 @@
+import logging
 from datetime import timedelta
+from urllib import error
 
 from status_service import status_checks
 
@@ -65,3 +67,29 @@ def test_get_http_check_targets_includes_extras(monkeypatch):
         {"name": "API", "url": "https://api.test/health"},
         {"name": "CDN", "url": "https://cdn.test/status"},
     ]
+
+
+def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
+    def fake_connection(*_args, **_kwargs):
+        raise ConnectionRefusedError(111, "Connection refused")
+
+    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.check_ssl_status()
+
+    assert result == {"status": "Fel", "details": "Anslutning nekades"}
+    assert "kunde inte ansluta" in caplog.text
+
+
+def test_check_http_status_handles_connection_refused(monkeypatch, caplog):
+    def fake_urlopen(*_args, **_kwargs):
+        raise error.URLError(ConnectionRefusedError(111, "Connection refused"))
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.check_http_status("Test", "http://test")
+
+    assert result == {"name": "Test", "status": "Fel", "details": "Anslutning nekades"}
+    assert "kunde inte ansluta" in caplog.text
