@@ -40,6 +40,7 @@
         </div>
         <div class="hero-actions" aria-label="Snabbknappar">
             <a class="btn hero-btn" href="{{ url_for('apply_account') }}">Ansök om konto</a>
+            <a class="btn hero-btn" href="/pris">Prislista</a>
             {% if not IS_DEMO and DEMO_SITE_URL %}
                 <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
             {% else %}
@@ -58,7 +59,6 @@
                 <p class="pricing-preview-label">Från 100 kr per månad</p>
                 <p class="pricing-preview-meta">Skalbar prismodell med fast månadspris.</p>
             </div>
-            <a class="btn" href="/pris">Se full prislista</a>
         </div>
     </section>
 
