@@ -20,7 +20,7 @@
   function showMessage(type, text, isHtml = false) {
     result.style.display = 'block';
     result.className = `message ${type}`;
-    if (isHtml) result.innerHTML = text;
+    if (isHtml) result.innerText = text;
     else result.textContent = text;
   }
   function hideMessage() {
