@@ -969,7 +969,9 @@ def get_user_info(personnummer: str):
 
 def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
     # Return the username tied to ``personnummer_hash`` if it exists.
-
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return None
     with get_engine().connect() as conn:
         row = conn.execute(
             select(users_table.c.username).where(
@@ -981,7 +983,9 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
 
 def check_pending_supervisor_hash(email_hash: str) -> bool:
     """Return ``True`` if a pending supervisor with ``email_hash`` exists."""
-
+    if not _is_valid_hash(email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
     with get_engine().connect() as conn:
         row = conn.execute(
             select(pending_supervisors_table.c.id).where(
@@ -1202,7 +1206,12 @@ def supervisor_has_access(
     supervisor_email_hash: str, personnummer_hash: str
 ) -> bool:
     """Return ``True`` if supervisor has access to the given user."""
-
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
     with get_engine().connect() as conn:
         row = conn.execute(
             select(supervisor_connections_table.c.id).where(
@@ -1219,7 +1228,12 @@ def supervisor_remove_connection(
     supervisor_email_hash: str, personnummer_hash: str
 ) -> bool:
     """Remove a connection between supervisor and user."""
-
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
     with get_engine().begin() as conn:
         result = conn.execute(
             delete(supervisor_connections_table).where(
@@ -1502,6 +1516,10 @@ def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) ->
 
 def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
     # Return metadata for all PDFs belonging to ``personnummer_hash``.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return []
+
     def _load() -> List[Dict[str, Any]]:
         with get_engine().connect() as conn:
             rows = conn.execute(
@@ -1536,6 +1554,9 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
     # Return metadata for a single PDF without loading its content.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return None
     with get_engine().connect() as conn:
         row = conn.execute(
             select(
@@ -1560,6 +1581,9 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
 
 def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, bytes]]:
     # Return the filename and binary content for ``pdf_id``.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return None
     with get_engine().connect() as conn:
         row = conn.execute(
             select(
