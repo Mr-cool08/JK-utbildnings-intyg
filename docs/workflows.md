@@ -31,6 +31,17 @@ Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows`
 **Hur fungerar den?**
 - Kör Bandit med JSON-utdata (`--exit-zero`) och konverterar resultatet till SARIF innan uppladdning.
 
+## Legacy-flöden för kompatibilitet
+
+**Filer:**
+- `.github/workflows/bandit.yml`
+- `.github/workflows/security_scan.yml`
+
+**Syfte:** Behåller tidigare workflow-namn så att Code Scanning kan koppla historiska resultat till befintliga konfigurationer.
+
+**När körs de?**
+- Endast manuellt (`workflow_dispatch`) eller via `workflow_call`.
+
 ## Säkerhet: CodeQL
 
 **Fil:** `.github/workflows/security-codeql.yml`

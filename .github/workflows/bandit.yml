@@ -1,0 +1,9 @@
+name: Bandit (Legacy)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  analyze:
+    uses: ./.github/workflows/security-bandit.yml

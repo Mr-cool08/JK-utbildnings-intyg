@@ -1,0 +1,9 @@
+name: Security Scan (Legacy)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  bandit:
+    uses: ./.github/workflows/security-bandit.yml
