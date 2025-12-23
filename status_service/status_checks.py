@@ -100,6 +100,9 @@ def check_ssl_status():
         with socket.create_connection((host, port), timeout=3) as sock:
             with context.wrap_socket(sock, server_hostname=host):
                 return {"status": "OK", "details": "TLS-handshake lyckades"}
+    except ConnectionRefusedError:
+        LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
+        return {"status": "Fel", "details": "Anslutning nekades"}
     except OSError:
         LOGGER.exception("SSL-kontroll misslyckades mot %s:%s.", host, port)
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
@@ -142,6 +145,19 @@ def check_http_status(name, url, timeout=3):
             url,
         )
         return {"name": name, "status": "Fel", "details": f"HTTP {exc.code}"}
+    except error.URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, ConnectionRefusedError) or getattr(
+            reason, "errno", None
+        ) == 111:
+            LOGGER.warning(
+                "HTTP-kontroll '%s' kunde inte ansluta till %s.",
+                name,
+                url,
+            )
+            return {"name": name, "status": "Fel", "details": "Anslutning nekades"}
+        LOGGER.exception("HTTP-kontroll '%s' misslyckades för %s.", name, url)
+        return {"name": name, "status": "Fel", "details": "Nätverksfel"}
     except Exception:
         LOGGER.exception("HTTP-kontroll '%s' misslyckades för %s.", name, url)
         return {"name": name, "status": "Fel", "details": "Okänt fel"}
