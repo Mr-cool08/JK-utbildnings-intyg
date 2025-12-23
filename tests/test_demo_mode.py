@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import app
 import functions
 from sqlalchemy import func, select
 
@@ -90,3 +91,14 @@ def test_ensure_demo_data_is_idempotent(empty_db):
     assert supervisor_count == 1
     assert connection_count == 1
     assert pdf_count == len(functions.DEMO_PDF_DEFINITIONS)
+
+
+def test_demo_menu_link_points_to_main_domain(monkeypatch):
+    monkeypatch.setitem(app.app.config, "IS_DEMO", True)
+    client = app.app.test_client()
+
+    response = client.get("/", base_url="https://demo.exempel.se")
+
+    assert response.status_code == 200
+    assert b'L\xc3\xa4mna demomilj\xc3\xb6' in response.data
+    assert b'href="https://exempel.se"' in response.data

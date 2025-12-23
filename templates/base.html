@@ -50,7 +50,7 @@
                     <a class="nav-link {% if request.path.startswith('/foretagskonto') %}is-active{% endif %}" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
                     <a class="nav-link {% if request.path.startswith('/login') %}is-active{% endif %}" href="/login">Privatinloggning</a>
                     {% if IS_DEMO %}
-                        <a class="nav-link" href="/">Lämna demomiljö</a>
+                        <a class="nav-link" href="{{ MAIN_SITE_URL }}">Lämna demomiljö</a>
                     {% endif %}
                 {% endif %}
 

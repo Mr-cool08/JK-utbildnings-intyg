@@ -202,11 +202,16 @@ def _require_supervisor() -> tuple[str, str]:
 @app.context_processor
 def inject_flags():
     # Expose flags indicating debug and demo-läge to Jinja templates.
+    host = request.host
+    if host.startswith("demo."):
+        host = host[len("demo.") :]
+    main_site_url = f"{request.scheme}://{host}"
     return {
         "IS_DEV": current_app.debug,
         "IS_DEMO": current_app.config.get("IS_DEMO", False),
         "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
         "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
+        "MAIN_SITE_URL": main_site_url,
     }
 
 @app.route('/robots.txt')
