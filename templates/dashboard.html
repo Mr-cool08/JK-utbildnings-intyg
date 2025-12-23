@@ -24,6 +24,50 @@
             Behöver du radera dina uppgifter? Kontakta oss så hjälper vi dig.
         </p>
     </div>
+    {% if pending_link_requests %}
+    <section class="connection-panel" aria-label="Väntande kopplingsförfrågningar">
+        <h2>Väntande kopplingsförfrågningar</h2>
+        <p>Företagskonton som vill koppla sig till ditt standardkonto.</p>
+        <ul class="connection-list">
+            {% for request in pending_link_requests %}
+            <li>
+                <div>
+                    <strong>{{ request.supervisor_name }}</strong>
+                    <span class="connection-meta">Vill koppla ditt konto</span>
+                </div>
+                <div class="connection-actions">
+                    <form method="post" action="{{ url_for('user_accept_link_request_route', supervisor_hash=request.supervisor_email) }}">
+                        <button type="submit" class="btn">Godkänn</button>
+                    </form>
+                    <form method="post" action="{{ url_for('user_reject_link_request_route', supervisor_hash=request.supervisor_email) }}">
+                        <button type="submit" class="btn btn-secondary">Avböj</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {% if supervisor_connections %}
+    <section class="connection-panel" aria-label="Dina kopplade företagskonton">
+        <h2>Kopplade företagskonton</h2>
+        <p>Företagskonton som har åtkomst till dina intyg.</p>
+        <ul class="connection-list">
+            {% for connection in supervisor_connections %}
+            <li>
+                <div>
+                    <strong>{{ connection.supervisor_name }}</strong>
+                    <span class="connection-meta">Har åtkomst till ditt konto</span>
+                </div>
+                <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email) }}" onsubmit="return confirm('Vill du ta bort kopplingen?');">
+                    <button type="submit" class="btn btn-danger">Ta bort koppling</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
     {% if category_summary %}
     <section class="category-list" aria-label="Tillgängliga kurskategorier">
         <h2>Kurskategorier</h2>

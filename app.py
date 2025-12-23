@@ -376,6 +376,33 @@ def supervisor_dashboard():
     )
 
 
+@app.post('/foretagskonto/kopplingsforfragan')
+def supervisor_link_request_route():
+    email_hash, _ = _require_supervisor()
+    personnummer = (request.form.get('personnummer') or '').strip()
+    if not personnummer:
+        flash('Ange personnummer för standardkontot.', 'error')
+        return redirect(url_for('supervisor_dashboard'))
+    try:
+        normalized = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        flash('Personnumret är ogiltigt.', 'error')
+        return redirect(url_for('supervisor_dashboard'))
+
+    success, reason = functions.create_supervisor_link_request(email_hash, normalized)
+    if success:
+        flash('Kopplingsförfrågan har skickats.', 'success')
+    elif reason == "missing_user":
+        flash('Standardkontot kunde inte hittas.', 'error')
+    elif reason == "already_connected":
+        flash('Standardkontot är redan kopplat till ditt konto.', 'error')
+    elif reason == "already_requested":
+        flash('Det finns redan en kopplingsförfrågan till standardkontot.', 'error')
+    else:
+        flash('Kopplingsförfrågan kunde inte skickas.', 'error')
+    return redirect(url_for('supervisor_dashboard'))
+
+
 @app.route('/foretagskonto/standardkonto/<person_hash>/pdf/<int:pdf_id>')
 def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
@@ -807,6 +834,8 @@ def dashboard():
                 "count": len(uncategorized_group["pdfs"]),
             }
         )
+    pending_link_requests = functions.list_user_link_requests(pnr_hash)
+    supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
     user_name = user_name.capitalize()
     return render_template(
@@ -816,7 +845,45 @@ def dashboard():
         category_summary=category_summary,
         grouped_pdfs=visible_groups,
         user_name=user_name,
+        pending_link_requests=pending_link_requests,
+        supervisor_connections=supervisor_connections,
     )
+
+
+@app.post('/dashboard/kopplingsforfragan/<supervisor_hash>/godkann')
+def user_accept_link_request_route(supervisor_hash: str):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    personnummer_hash = session.get('personnummer')
+    if functions.user_accept_link_request(personnummer_hash, supervisor_hash):
+        flash('Kopplingen är nu aktiv.', 'success')
+    else:
+        flash('Kopplingsförfrågan kunde inte godkännas.', 'error')
+    return redirect('/dashboard')
+
+
+@app.post('/dashboard/kopplingsforfragan/<supervisor_hash>/avsla')
+def user_reject_link_request_route(supervisor_hash: str):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    personnummer_hash = session.get('personnummer')
+    if functions.user_reject_link_request(personnummer_hash, supervisor_hash):
+        flash('Kopplingsförfrågan har avböjts.', 'success')
+    else:
+        flash('Kopplingsförfrågan kunde inte avböjas.', 'error')
+    return redirect('/dashboard')
+
+
+@app.post('/dashboard/kopplingar/<supervisor_hash>/ta-bort')
+def user_remove_supervisor_connection_route(supervisor_hash: str):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+    personnummer_hash = session.get('personnummer')
+    if functions.user_remove_supervisor_connection(personnummer_hash, supervisor_hash):
+        flash('Kopplingen har tagits bort.', 'success')
+    else:
+        flash('Kopplingen kunde inte tas bort.', 'error')
+    return redirect('/dashboard')
 
 
 @app.route('/my_pdfs/<int:pdf_id>')
