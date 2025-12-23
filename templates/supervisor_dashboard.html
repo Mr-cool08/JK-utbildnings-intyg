@@ -3,6 +3,15 @@
 {% block content %}
     <h1>Företagskontopanel</h1>
     <p>Välkommen {{ supervisor_name }}. Här ser du alla standardkonton som administratören har kopplat till dig.</p>
+    <section class="panel">
+        <h2>Skicka kopplingsförfrågan</h2>
+        <p>Ange personnummer för standardkontot du vill koppla till ditt företagskonto.</p>
+        <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
+            <label for="link-request-personnummer">Personnummer</label>
+            <input id="link-request-personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
+            <button type="submit" class="btn">Skicka förfrågan</button>
+        </form>
+    </section>
     {% if users %}
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}">

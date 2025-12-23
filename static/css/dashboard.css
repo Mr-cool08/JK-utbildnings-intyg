@@ -199,6 +199,55 @@
     box-shadow: var(--shadow-xs);
 }
 
+.connection-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    background: var(--color-surface-soft);
+    display: grid;
+    gap: 1rem;
+}
+
+.connection-panel h2 {
+    margin: 0;
+}
+
+.connection-panel p {
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+.connection-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.connection-list li {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    padding: 0.9rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.connection-meta {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.connection-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .share-selected-button[disabled] {
     box-shadow: none;
 }

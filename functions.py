@@ -156,6 +156,25 @@ supervisor_connections_table = Table(
     ),
 )
 
+supervisor_link_requests_table = Table(
+    "supervisor_link_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("supervisor_email", String, nullable=False, index=True),
+    Column("user_personnummer", String, nullable=False, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    UniqueConstraint(
+        "supervisor_email",
+        "user_personnummer",
+        name="uq_supervisor_link_requests_pair",
+    ),
+)
+
 password_resets_table = Table(
     "password_resets",
     metadata,
@@ -289,6 +308,7 @@ TABLE_REGISTRY: dict[str, Table] = {
         pending_supervisors_table,
         supervisors_table,
         supervisor_connections_table,
+        supervisor_link_requests_table,
         password_resets_table,
         admin_audit_log_table,
         schema_migrations_table,
@@ -437,11 +457,19 @@ def _migration_0004_make_company_id_nullable(conn: Connection) -> None:
         )
 
 
+def _migration_0005_add_supervisor_link_requests(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_link_requests_table.name not in existing_tables:
+        supervisor_link_requests_table.create(bind=conn)
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
     ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
     ("0004_make_company_id_nullable", _migration_0004_make_company_id_nullable),
+    ("0005_add_supervisor_link_requests", _migration_0005_add_supervisor_link_requests),
 ]
 
 
@@ -1246,6 +1274,221 @@ def supervisor_remove_connection(
     return result.rowcount > 0
 
 
+def list_user_supervisor_connections(personnummer_hash: str) -> List[Dict[str, str]]:
+    """Return connected supervisors for a given user hash."""
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return []
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(
+                supervisor_connections_table.c.supervisor_email,
+                supervisors_table.c.name,
+            )
+            .select_from(
+                supervisor_connections_table.join(
+                    supervisors_table,
+                    supervisor_connections_table.c.supervisor_email
+                    == supervisors_table.c.email,
+                )
+            )
+            .where(supervisor_connections_table.c.user_personnummer == personnummer_hash)
+            .order_by(supervisors_table.c.name.asc())
+        )
+        return [
+            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name}
+            for row in rows
+        ]
+
+
+def list_user_link_requests(personnummer_hash: str) -> List[Dict[str, str]]:
+    """Return pending supervisor link requests for a user."""
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return []
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(
+                supervisor_link_requests_table.c.supervisor_email,
+                supervisors_table.c.name,
+            )
+            .select_from(
+                supervisor_link_requests_table.join(
+                    supervisors_table,
+                    supervisor_link_requests_table.c.supervisor_email
+                    == supervisors_table.c.email,
+                )
+            )
+            .where(
+                supervisor_link_requests_table.c.user_personnummer == personnummer_hash
+            )
+            .order_by(supervisors_table.c.name.asc())
+        )
+        return [
+            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name}
+            for row in rows
+        ]
+
+
+def create_supervisor_link_request(
+    supervisor_email_hash: str, personnummer: str
+) -> tuple[bool, str]:
+    """Create a link request from a supervisor to a user."""
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False, "invalid_supervisor"
+    pnr_hash = _hash_personnummer(personnummer)
+
+    with get_engine().begin() as conn:
+        supervisor_row = conn.execute(
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email == supervisor_email_hash
+            )
+        ).first()
+        if not supervisor_row:
+            logger.warning(
+                "Supervisor %s not found for link request",
+                mask_hash(supervisor_email_hash),
+            )
+            return False, "missing_supervisor"
+
+        user_row = conn.execute(
+            select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+        ).first()
+        if not user_row:
+            logger.warning(
+                "User %s not found for link request from %s",
+                mask_hash(pnr_hash),
+                mask_hash(supervisor_email_hash),
+            )
+            return False, "missing_user"
+
+        existing_connection = conn.execute(
+            select(supervisor_connections_table.c.id).where(
+                supervisor_connections_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer == pnr_hash,
+            )
+        ).first()
+        if existing_connection:
+            return False, "already_connected"
+
+        existing_request = conn.execute(
+            select(supervisor_link_requests_table.c.id).where(
+                supervisor_link_requests_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_link_requests_table.c.user_personnummer == pnr_hash,
+            )
+        ).first()
+        if existing_request:
+            return False, "already_requested"
+
+        conn.execute(
+            insert(supervisor_link_requests_table).values(
+                supervisor_email=supervisor_email_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+
+    logger.info(
+        "Supervisor %s requested link with %s",
+        mask_hash(supervisor_email_hash),
+        mask_hash(pnr_hash),
+    )
+    return True, "created"
+
+
+def user_accept_link_request(
+    personnummer_hash: str, supervisor_email_hash: str
+) -> bool:
+    """Accept a supervisor link request and create the connection."""
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
+
+    with get_engine().begin() as conn:
+        request_row = conn.execute(
+            select(supervisor_link_requests_table.c.id).where(
+                supervisor_link_requests_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_link_requests_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        ).first()
+        if not request_row:
+            return False
+
+        existing_connection = conn.execute(
+            select(supervisor_connections_table.c.id).where(
+                supervisor_connections_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        ).first()
+        if not existing_connection:
+            conn.execute(
+                insert(supervisor_connections_table).values(
+                    supervisor_email=supervisor_email_hash,
+                    user_personnummer=personnummer_hash,
+                )
+            )
+
+        conn.execute(
+            delete(supervisor_link_requests_table).where(
+                supervisor_link_requests_table.c.id == request_row.id
+            )
+        )
+    return True
+
+
+def user_reject_link_request(
+    personnummer_hash: str, supervisor_email_hash: str
+) -> bool:
+    """Reject a supervisor link request."""
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(supervisor_link_requests_table).where(
+                supervisor_link_requests_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_link_requests_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        )
+    return result.rowcount > 0
+
+
+def user_remove_supervisor_connection(
+    personnummer_hash: str, supervisor_email_hash: str
+) -> bool:
+    """Remove a supervisor connection from the user side."""
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False
+    if not _is_valid_hash(supervisor_email_hash):
+        logger.warning("Avvisade ogiltig hash för e-post")
+        return False
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            delete(supervisor_connections_table).where(
+                supervisor_connections_table.c.supervisor_email
+                == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer
+                == personnummer_hash,
+            )
+        )
+    return result.rowcount > 0
+
+
 def admin_link_supervisor_to_user(
     supervisor_email: str, personnummer: str
 ) -> tuple[bool, str]:
@@ -1303,6 +1546,12 @@ def admin_link_supervisor_to_user(
             insert(supervisor_connections_table).values(
                 supervisor_email=email_hash,
                 user_personnummer=pnr_hash,
+            )
+        )
+        conn.execute(
+            delete(supervisor_link_requests_table).where(
+                supervisor_link_requests_table.c.supervisor_email == email_hash,
+                supervisor_link_requests_table.c.user_personnummer == pnr_hash,
             )
         )
 
