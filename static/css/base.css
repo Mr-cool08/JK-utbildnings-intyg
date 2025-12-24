@@ -829,6 +829,23 @@ textarea:focus {
     color: var(--color-error-text);
 }
 
+.input-error {
+    border-color: var(--color-error-border);
+    background: var(--color-error-bg);
+    box-shadow: 0 0 0 2px var(--color-error-border);
+}
+
+.input-error:focus {
+    outline: 2px solid var(--color-error-border);
+    outline-offset: 1px;
+}
+
+.field-error-message {
+    color: var(--color-error-text);
+    font-weight: 600;
+    margin-top: 0.35rem;
+}
+
 small.hint {
     color: var(--color-text-muted);
     font-size: 0.9rem;

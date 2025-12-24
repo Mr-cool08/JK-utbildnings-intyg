@@ -559,6 +559,7 @@ def apply_standardkonto():
 
     account_type = "standard"
     form_errors: list[str] = []
+    field_errors = {"orgnr": False}
     status_code = 200
 
     base_form_data = {
@@ -606,7 +607,10 @@ def apply_standardkonto():
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
                     except ValueError as exc:
-                        form_errors.append(str(exc))
+                        message = str(exc)
+                        form_errors.append(message)
+                        if "organisationsnummer" in message.lower():
+                            field_errors["orgnr"] = True
                     except Exception as exc:  # pragma: no cover - defensiv loggning
                         logger.exception("Kunde inte spara ansökan")
                         form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
@@ -625,6 +629,7 @@ def apply_standardkonto():
             csrf_token=csrf_token,
             form_data=form_data,
             form_errors=form_errors,
+            field_errors=field_errors,
         ),
         status_code,
     )
@@ -636,6 +641,7 @@ def apply_foretagskonto():
 
     account_type = "foretagskonto"
     form_errors: list[str] = []
+    field_errors = {"orgnr": False}
     status_code = 200
 
     base_form_data = {
@@ -686,7 +692,10 @@ def apply_foretagskonto():
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
                     except ValueError as exc:
-                        form_errors.append(str(exc))
+                        message = str(exc)
+                        form_errors.append(message)
+                        if "organisationsnummer" in message.lower():
+                            field_errors["orgnr"] = True
                     except Exception as exc:  # pragma: no cover - defensiv loggning
                         logger.exception("Kunde inte spara ansökan")
                         form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
@@ -705,6 +714,7 @@ def apply_foretagskonto():
             csrf_token=csrf_token,
             form_data=form_data,
             form_errors=form_errors,
+            field_errors=field_errors,
         ),
         status_code,
     )
