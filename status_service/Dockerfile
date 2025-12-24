@@ -3,7 +3,9 @@ FROM python:3.15-rc-alpine3.22
 WORKDIR /app
 
 COPY status_service/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN apk add --no-cache postgresql-dev build-base \
+    && pip install --no-cache-dir -r /app/requirements.txt \
+    && apk del build-base
 
 COPY status_service /app/status_service
 
