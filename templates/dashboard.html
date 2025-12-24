@@ -60,9 +60,11 @@
                 </div>
                 <div class="connection-actions">
                     <form method="post" action="{{ url_for('user_accept_link_request_route', supervisor_hash=request.supervisor_email) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn">Godkänn</button>
                     </form>
                     <form method="post" action="{{ url_for('user_reject_link_request_route', supervisor_hash=request.supervisor_email) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-secondary">Avböj</button>
                     </form>
                 </div>
@@ -84,6 +86,7 @@
                     <span class="connection-meta">Har åtkomst till ditt konto</span>
                 </div>
                 <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email) }}" onsubmit="return confirm('Vill du ta bort kopplingen?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-danger">Ta bort koppling</button>
                 </form>
             </li>

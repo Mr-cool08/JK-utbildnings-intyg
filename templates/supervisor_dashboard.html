@@ -7,6 +7,7 @@
         <h2>Skicka kopplingsförfrågan</h2>
         <p>Ange personnummer för användarkontot du vill koppla till ditt företagskonto.</p>
         <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="link-request-personnummer">Personnummer</label>
             <input id="link-request-personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
             <button type="submit" class="btn">Skicka förfrågan</button>
@@ -18,6 +19,7 @@
                 <div class="panel-header">
                     <h2>{{ user.username }}</h2>
                     <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" onsubmit="return confirm('Är du säker på att du vill ta bort kopplingen?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
                         <button type="submit" class="btn btn-danger">Ta bort koppling</button>
                     </form>
@@ -48,6 +50,7 @@
                                                 <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
                                                 <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
                                                 <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                                     <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
                                                     <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
                                                     <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">

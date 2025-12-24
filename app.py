@@ -353,6 +353,7 @@ def supervisor_dashboard():
     if not session.get('supervisor_logged_in'):
         return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
+    csrf_token = ensure_csrf_token()
     connections = functions.list_supervisor_connections(email_hash)
     users = []
     for entry in connections:
@@ -373,12 +374,16 @@ def supervisor_dashboard():
         'supervisor_dashboard.html',
         supervisor_name=supervisor_name,
         users=users,
+        csrf_token=csrf_token,
     )
 
 
 @app.post('/foretagskonto/kopplingsforfragan')
 def supervisor_link_request_route():
     email_hash, _ = _require_supervisor()
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect(url_for('supervisor_dashboard'))
     personnummer = (request.form.get('personnummer') or '').strip()
     if not personnummer:
         flash('Ange personnummer för standardkontot.', 'error')
@@ -439,6 +444,10 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
     redirect_target = url_for('supervisor_dashboard')
     if anchor:
         redirect_target += f'#{anchor}'
+
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect(redirect_target)
 
     if not functions.supervisor_has_access(email_hash, person_hash):
         logger.warning(
@@ -504,6 +513,10 @@ def supervisor_remove_connection_route(person_hash: str):
     redirect_target = url_for('supervisor_dashboard')
     if anchor:
         redirect_target += f'#{anchor}'
+
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect(redirect_target)
 
     if functions.supervisor_remove_connection(email_hash, person_hash):
         logger.info("Supervisor %s removed access to %s", email_hash, person_hash)
@@ -898,6 +911,9 @@ def user_upload_pdf_route():
 def user_accept_link_request_route(supervisor_hash: str):
     if not session.get('user_logged_in'):
         return redirect('/login')
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
     if functions.user_accept_link_request(personnummer_hash, supervisor_hash):
         flash('Kopplingen är nu aktiv.', 'success')
@@ -910,6 +926,9 @@ def user_accept_link_request_route(supervisor_hash: str):
 def user_reject_link_request_route(supervisor_hash: str):
     if not session.get('user_logged_in'):
         return redirect('/login')
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
     if functions.user_reject_link_request(personnummer_hash, supervisor_hash):
         flash('Kopplingsförfrågan har avböjts.', 'success')
@@ -922,6 +941,9 @@ def user_reject_link_request_route(supervisor_hash: str):
 def user_remove_supervisor_connection_route(supervisor_hash: str):
     if not session.get('user_logged_in'):
         return redirect('/login')
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
     if functions.user_remove_supervisor_connection(personnummer_hash, supervisor_hash):
         flash('Kopplingen har tagits bort.', 'success')
@@ -1208,6 +1230,8 @@ def admin_applications():
     if not session.get('admin_logged_in'):
         return redirect('/login_admin')
     if request.method == 'POST':
+        if not validate_csrf_token(allow_if_absent=True):
+            return jsonify({'status': 'error', 'message': 'Formuläret är inte längre giltigt. Ladda om sidan och försök igen.'}), 400
         application_id = request.form.get('application_id')
         application_status = request.form.get('application_status')
         print(application_status)
@@ -1228,10 +1252,10 @@ def admin_applications():
         print(applications_requests)
         for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
             logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
-        return render_template('admin_applications.html', applications=applications_requests)
+        csrf_token = ensure_csrf_token()
+        return render_template('admin_applications.html', applications=applications_requests, csrf_token=csrf_token)
     else:
         return render_template('error.html', code=405, message='Method Not Allowed'), 405
-    csrf_token = ensure_csrf_token()
 
 @app.route('/gdpr', methods=['GET'])
 def gdpr_info():
