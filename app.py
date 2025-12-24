@@ -586,7 +586,7 @@ def apply_standardkonto():
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
                     form_errors.append(
-                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
+                        "Du måste intyga att du har läst och förstått villkoren och GDPR policyn innan du skickar ansökan."
                     )
                 if not form_errors:
                     try:
@@ -671,7 +671,7 @@ def apply_foretagskonto():
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
                     form_errors.append(
-                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
+                        "Du måste intyga att du har läst och förstått villkoren och GDPR policyn innan du skickar ansökan."
                     )
                 if not form_errors:
                     try:
@@ -719,27 +719,12 @@ def apply_foretagskonto():
         status_code,
     )
 
-
-
-@app.route('/license', methods=['GET'])
-def license():
-    # Render the license information page.
-    logger.debug("Rendering license page")
-    return render_template('license.html')
-
-
 @app.route('/villkor', methods=['GET'])
 def terms_of_service():
     """Visa sidan med villkor."""
 
     return render_template('terms_of_service.html')
 
-
-@app.route('/juridik', methods=['GET'])
-def legal_information():
-    """Visa sidan med juridisk information."""
-
-    return render_template('legal_information.html')
 
 
 @app.route('/pris', methods=['GET'])
