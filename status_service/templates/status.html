@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Status för JK Utbildningsintyg</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -12,7 +13,7 @@
             color: #1f2937;
         }
         main {
-            max-width: 720px;
+            max-width: 960px;
             margin: 48px auto;
             background: #ffffff;
             padding: 32px;
@@ -26,6 +27,11 @@
         p {
             margin-top: 0;
             color: #4b5563;
+        }
+        h2 {
+            margin-top: 32px;
+            margin-bottom: 12px;
+            font-size: 1.2rem;
         }
         table {
             width: 100%;
@@ -53,8 +59,64 @@
             color: #6b7280;
             font-weight: 600;
         }
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
         .subdued {
             color: #6b7280;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+        }
+        .card h3 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            color: #111827;
+        }
+        .card .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .card p {
+            margin: 6px 0 0 0;
+            color: #6b7280;
+            font-size: 0.95rem;
+        }
+        .panel {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+        .panel-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .panel-header p {
+            margin: 0;
+        }
+        canvas {
+            max-width: 100%;
+            height: 260px;
         }
         footer {
             margin-top: 24px;
@@ -66,7 +128,36 @@
 <body>
     <main>
         <h1>Status för JK Utbildningsintyg</h1>
-        <p>Publik översikt utan känslig information.</p>
+        <p>Publik översikt utan känslig information, men med extra diagnostik för felsökning.</p>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Driftläge</h3>
+                <div class="value">{{ status.metadata.environment }}</div>
+                <p>Hämtas från miljövariabeln <code>STATUS_ENVIRONMENT</code>.</p>
+            </div>
+            <div class="card">
+                <h3>Värd</h3>
+                <div class="value">{{ status.metadata.hostname }}</div>
+                <p>Användbart för att se vilken instans som svarar.</p>
+            </div>
+            <div class="card">
+                <h3>Upptid</h3>
+                <div class="value">{{ status.uptime }}</div>
+                <p>{{ status.metadata.uptime_seconds }} sekunder sedan senaste omstart.</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Svarstider per kontroll</h2>
+                    <p>Enkel överblick i realtid baserad på senaste körningen.</p>
+                </div>
+                <span class="tag">Diagram</span>
+            </div>
+            <canvas id="latencyChart" aria-label="Stapeldiagram över svarstider" role="img"></canvas>
+        </div>
 
         <table>
             <thead>
@@ -221,5 +312,57 @@
 
         <footer>Senast kontrollerad: {{ checked_at }}</footer>
     </main>
+    <script>
+        const latencySeries = {{ status.latency_series | tojson }};
+        const labels = latencySeries.map(item => item.label);
+        const data = latencySeries.map(item => item.value || 0);
+        const backgroundColors = latencySeries.map(item => {
+            if (item.status === "OK") {
+                return "rgba(16, 185, 129, 0.45)";
+            }
+            if (item.status === "Inte konfigurerad") {
+                return "rgba(107, 114, 128, 0.45)";
+            }
+            return "rgba(239, 68, 68, 0.45)";
+        });
+
+        const ctx = document.getElementById('latencyChart');
+        if (ctx && labels.length) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Svarstid (ms)',
+                        data,
+                        backgroundColor: backgroundColors,
+                        borderColor: 'rgba(59, 130, 246, 0.6)',
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const item = latencySeries[context.dataIndex];
+                                    const value = context.raw || 0;
+                                    return `${item.label}: ${value} ms (${item.status})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Millisekunder' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
