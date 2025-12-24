@@ -13,5 +13,6 @@ pysqlite3-binary>=0.5.3; python_version < "3.12"
 pytest
 requests
 Pillow>=11.3.0
+psutil
 # Optional (for PDF validation if you later add more advanced checks)
 # PyPDF2==3.0.0
