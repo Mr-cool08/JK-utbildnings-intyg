@@ -53,6 +53,9 @@
             color: #6b7280;
             font-weight: 600;
         }
+        .subdued {
+            color: #6b7280;
+        }
         footer {
             margin-top: 24px;
             font-size: 0.9rem;
@@ -121,6 +124,7 @@
                 <tr>
                     <th>Webbplats</th>
                     <th>Status</th>
+                    <th>Svarstid</th>
                     <th>Detaljer</th>
                 </tr>
             </thead>
@@ -137,9 +141,50 @@
                             <span class="status-fail">Fel</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% if check.response_time_ms %}
+                            {{ check.response_time_ms }} ms
+                        {% else %}
+                            <span class="subdued">-</span>
+                        {% endif %}
+                    </td>
                     <td>{{ check.details }}</td>
                 </tr>
                 {% endfor %}
+            </tbody>
+        </table>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Prestanda</th>
+                    <th>Status</th>
+                    <th>Detaljer</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Systemlast (1/5/15 min)</td>
+                    <td>
+                        {% if status.performance.load.status == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-neutral">{{ status.performance.load.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ status.performance.load.details }}</td>
+                </tr>
+                <tr>
+                    <td>Svarstid för kontroller</td>
+                    <td>
+                        {% if status.performance.latency.status == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-neutral">{{ status.performance.latency.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ status.performance.latency.details }}</td>
+                </tr>
             </tbody>
         </table>
 
