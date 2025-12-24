@@ -2,10 +2,10 @@
 {% block title %}Företagskontopanel{% endblock %}
 {% block content %}
     <h1>Företagskontopanel</h1>
-    <p>Välkommen {{ supervisor_name }}. Här ser du alla standardkonton som administratören har kopplat till dig.</p>
+    <p>Välkommen {{ supervisor_name }}. Här ser du alla användarkonton som administratören har kopplat till dig.</p>
     <section class="panel">
         <h2>Skicka kopplingsförfrågan</h2>
-        <p>Ange personnummer för standardkontot du vill koppla till ditt företagskonto.</p>
+        <p>Ange personnummer för användarkontot du vill koppla till ditt företagskonto.</p>
         <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
             <label for="link-request-personnummer">Personnummer</label>
             <input id="link-request-personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
@@ -61,11 +61,11 @@
                         </table>
                     </div>
                 {% else %}
-                    <p>Inga intyg är uppladdade för detta standardkonto ännu.</p>
+                    <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
                 {% endif %}
             </section>
         {% endfor %}
     {% else %}
-        <p>Det finns inga kopplade standardkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
+        <p>Det finns inga kopplade användarkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
     {% endif %}
 {% endblock %}

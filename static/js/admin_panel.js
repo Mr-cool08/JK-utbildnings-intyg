@@ -305,7 +305,7 @@
     }
     supervisorOverviewBody.innerHTML = '';
     const connections = Array.isArray(data.connections) ? data.connections : [];
-    supervisorOverviewTitle.textContent = `Kopplade standardkonton för ${data.name || 'företagskonto'}`;
+    supervisorOverviewTitle.textContent = `Kopplade användarkonton för ${data.name || 'företagskonto'}`;
 
     if (!connections.length) {
       const row = document.createElement('tr');
@@ -318,7 +318,7 @@
       connections.forEach((entry) => {
         const row = document.createElement('tr');
         const nameCell = document.createElement('td');
-        nameCell.textContent = entry.username || 'Standardkonto';
+        nameCell.textContent = entry.username || 'Användarkonto';
         const infoCell = document.createElement('td');
         const hash = entry.personnummer_hash || '';
         const label = document.createElement('span');

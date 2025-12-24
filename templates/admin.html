@@ -2,7 +2,7 @@
 {% block title %}Admin — Kontrollpanel{% endblock %}
 {% block content %}
 <h1>Admin — Kontrollpanel</h1>
-<p>Skapa nya standardkonton, hantera intyg och skicka återställningslänkar. Avancerade databasåtgärder finns längst ner på sidan.</p>
+<p>Skapa nya användarkonton, hantera intyg och skicka återställningslänkar. Avancerade databasåtgärder finns längst ner på sidan.</p>
 
 <section class="panel">
     <h2>Hantera ansökningar</h2>
@@ -17,8 +17,8 @@
 </section>
 
 <section class="panel">
-    <h2>Skapa väntande standardkonto</h2>
-    <p>Använd detta formulär för att registrera ett standardkonto och ladda upp intyg.</p>
+    <h2>Skapa väntande användarkonto</h2>
+    <p>Använd detta formulär för att registrera ett användarkonto och ladda upp intyg.</p>
     <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
         <label for="email">E-post</label>
         <input id="email" name="email" type="email" required placeholder="user@example.com" />
@@ -61,11 +61,11 @@
             </div>
         </template>
 
-        <button id="submitBtn" type="submit" class="btn">Skapa standardkonto</button>
+        <button id="submitBtn" type="submit" class="btn">Skapa användarkonto</button>
 
         <div id="progressContainer" class="progress-container" style="display:none">
             <div id="progressBar" class="progress-bar"></div>
-            <p class="progress-text">Skapar standardkonto… Detta kan ta upp till 30 sekunder.</p>
+            <p class="progress-text">Skapar användarkonto… Detta kan ta upp till 30 sekunder.</p>
         </div>
 
         <div id="result" class="message" style="display:none"></div>
@@ -74,7 +74,7 @@
 
 <section class="panel">
     <h2>Skapa företagskonto</h2>
-    <p>Registrera ett nytt företagskonto som kan kopplas till standardkonton.</p>
+    <p>Registrera ett nytt företagskonto som kan kopplas till användarkonton.</p>
     <form id="createSupervisorForm" class="stacked-form">
         <label for="supervisorName">Namn</label>
         <input id="supervisorName" name="name" type="text" required placeholder="Namn på företagskonto">
@@ -89,12 +89,12 @@
 
 <section class="panel">
     <h2>Koppla företagskonto</h2>
-    <p>Skapa koppling mellan ett företagskonto och ett befintligt standardkonto.</p>
+    <p>Skapa koppling mellan ett företagskonto och ett befintligt användarkonto.</p>
     <form id="linkSupervisorForm" class="stacked-form">
         <label for="linkSupervisorEmail">Företagskontots e-post</label>
         <input id="linkSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
 
-        <label for="linkPersonnummer">Standardkontots personnummer</label>
+        <label for="linkPersonnummer">Användarkontots personnummer</label>
         <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
 
         <button type="submit" class="btn">Skapa koppling</button>
@@ -104,7 +104,7 @@
 
 <section class="panel">
     <h2>Visa kopplingar</h2>
-    <p>Se vilka standardkonton som är kopplade till ett företagskonto.</p>
+    <p>Se vilka användarkonton som är kopplade till ett företagskonto.</p>
     <form id="supervisorOverviewForm" class="inline-form">
         <label for="overviewSupervisorEmail">Företagskontots e-post</label>
         <input id="overviewSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
@@ -113,7 +113,7 @@
     </form>
 
     <div id="supervisorOverviewCard" class="card" hidden>
-        <h3 id="supervisorOverviewTitle">Kopplade standardkonton</h3>
+        <h3 id="supervisorOverviewTitle">Kopplade användarkonton</h3>
         <div class="table-scroll">
             <table>
                 <thead>
@@ -130,7 +130,7 @@
 
 <section class="panel">
     <h2>Hantera befintliga intyg</h2>
-    <p>Sök fram ett standardkontos PDF:er för att ändra kategori eller ta bort filen.</p>
+    <p>Sök fram ett användarkontos PDF:er för att ändra kategori eller ta bort filen.</p>
     <form id="pdfLookupForm" class="inline-form">
         <label for="lookupPersonnummer">Personnummer</label>
         <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
@@ -159,7 +159,7 @@
 
 <section class="panel">
     <h2>Skicka återställningsmejl</h2>
-    <p>Bekräfta standardkontots uppgifter och skicka en ny länk för att välja lösenord.</p>
+    <p>Bekräfta användarkontots uppgifter och skicka en ny länk för att välja lösenord.</p>
     <form id="resetForm" class="stacked-form">
         <label for="resetPersonnummer">Personnummer</label>
         <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
