@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+import io
 import logging
+import os
 import time
 from typing import Sequence
 
+from PIL import Image
 from werkzeug.utils import secure_filename
 
 import functions
 from course_categories import normalize_category_slugs
 from logging_utils import mask_hash
 
-ALLOWED_MIMES = {"application/pdf"}
+ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
+
+
+def _convert_image_to_pdf(file_storage) -> bytes:
+    file_storage.stream.seek(0)
+    raw_bytes = file_storage.stream.read()
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as image:
+            if image.mode in ("RGBA", "LA"):
+                image = image.convert("RGB")
+            output = io.BytesIO()
+            image.save(output, format="PDF")
+            return output.getvalue()
+    except Exception:
+        raise ValueError("Bilden kunde inte konverteras till PDF.")
+
+
+def _build_pdf_filename(file_storage, normalized_pnr: str) -> str:
+    base = secure_filename(file_storage.filename)
+    base = base.replace(normalized_pnr, "")
+    base = base.lstrip("_- ")
+    name, _ext = os.path.splitext(base)
+    if not name:
+        name = "certificate"
+    return f"{int(time.time())}_{name}.pdf"
 
 
 def save_pdf_for_user(
@@ -25,14 +52,14 @@ def save_pdf_for_user(
         logger.error("No file selected for upload")
         raise ValueError("Ingen fil vald.")
 
-    mime = file_storage.mimetype or ""
+    mime = (file_storage.mimetype or "").lower()
     if mime not in ALLOWED_MIMES:
         logger.error("Disallowed MIME type %s", mime)
-        raise ValueError("Endast PDF tillåts.")
+        raise ValueError("Endast PDF, PNG eller JPG tillåts.")
 
     head = file_storage.stream.read(5)
     file_storage.stream.seek(0)
-    if head != b"%PDF-":
+    if mime == "application/pdf" and head != b"%PDF-":
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
@@ -49,16 +76,16 @@ def save_pdf_for_user(
         )
         raise ValueError("Exakt en kurskategori måste väljas.")
 
-    base = secure_filename(file_storage.filename)
-    base = base.replace(pnr_norm, "")
-    base = base.lstrip("_- ")
-    if not base:
-        base = "certificate.pdf"
-    # lägg på timestamp för att undvika krockar
-    filename = f"{int(time.time())}_{base}"
+    filename = _build_pdf_filename(file_storage, pnr_norm)
 
-    file_storage.stream.seek(0)
-    content = file_storage.stream.read()
+    if mime == "application/pdf":
+        file_storage.stream.seek(0)
+        content = file_storage.stream.read()
+    else:
+        content = _convert_image_to_pdf(file_storage)
+        logger.info(
+            "Konverterade %s till PDF för %s", mime, mask_hash(pnr_hash)
+        )
     pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
     logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
     return {"id": pdf_id, "filename": filename, "categories": selected_categories}
