@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}GDPR{% endblock %}
+{% block head %}
+    <meta name="description" content="Information om hur Utbildnings Intyg hanterar personuppgifter i enlighet med GDPR.">
+    <meta name="keywords" content="GDPR, personuppgifter, dataskydd, integritet, Utbildnings Intyg">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="GDPR - Utbildnings Intyg">
+    <meta property="og:description" content="Läs om hur Utbildnings Intyg skyddar dina personuppgifter enligt GDPR.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+{% endblock %}
+{% block content %}
+    <section class="gdpr-info" aria-labelledby="gdpr-title">
+        <h1 id="gdpr-title">GDPR och dataskydd</h1>
+        <p>På Utbildnings Intyg är vi engagerade i att skydda dina personuppgifter och följa EU:s allmänna dataskyddsförordning (GDPR). Denna sida förklarar hur vi samlar in, använder och skyddar dina uppgifter.</p>
+
+        <h2>Vilka uppgifter samlar vi in?</h2>
+        <ul>
+            <li>Personuppgifter som namn, e-postadress, telefonnummer och organisationsnummer.</li>
+            <li>Utbildningsrelaterade uppgifter såsom kursnamn, datum och intygsstatus.</li>
+            <li>Tekniska uppgifter som IP-adress, webbläsartyp och användningsdata.</li>
+        </ul>
+
+        <h2>Hur använder vi dina uppgifter?</h2>
+        <ul>
+            <li>För att tillhandahålla och förbättra våra tjänster.</li>
+            <li>För att kommunicera med dig om ditt konto och våra tjänster.</li>
+            <li>För att säkerställa säkerheten och integriteten för vår plattform.</li>
+        </ul>
+
+        <h2>Dina rättigheter</h2>
+        <p>Enligt GDPR har du följande rättigheter:</p>
+        <ul>
+            <li>Rätt att få tillgång till dina personuppgifter.</li>
+            <li>Rätt att begära rättelse eller radering av dina uppgifter.</li>
+            <li>Rätt att invända mot eller begränsa behandlingen av dina uppgifter.</li>
+            <li>Rätt att överföra dina uppgifter till en annan tjänsteleverantör.</li>
+        </ul>
+
+        <h2>Kontakta oss</h2>
+        <p>Om du har frågor om vår hantering av personuppgifter eller vill utöva dina rättigheter, vänligen kontakta oss på <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a>.</p>
+    </section>
+{% endblock %}

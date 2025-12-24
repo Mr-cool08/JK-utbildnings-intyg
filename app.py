@@ -1196,7 +1196,9 @@ def admin_applications():
         return render_template('error.html', code=405, message='Method Not Allowed'), 405
     csrf_token = ensure_csrf_token()
 
-
+@app.route('/gdpr', methods=['GET'])
+def gdpr_info():
+    return render_template('gdpr.html')
 
 @app.route('/admin/fakturering', methods=['GET'])
 def admin_invoicing():
