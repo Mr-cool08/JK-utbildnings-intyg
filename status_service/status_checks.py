@@ -299,7 +299,17 @@ def get_metadata(uptime):
         "environment": environment,
         "uptime_seconds": int(uptime.total_seconds()),
     }
-
+def get_ram_procent():
+    try:
+        ram = psutil.virtual_memory()
+        ram_percent = ram.percent
+        return {
+            "status": "OK",
+            "details": f"{ram_percent:.2f} %",
+        }
+    except Exception:
+        LOGGER.warning("RAM-användning kunde inte läsas i den aktuella miljön.")
+        return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
 
 def build_status(now=None):
     uptime = get_uptime(now=now)
@@ -320,6 +330,7 @@ def build_status(now=None):
             "load": get_load_average(),
             "latency": summarize_latency(http_checks),
             "cpu": get_cpu_procent(),
+            "ram": get_ram_procent(),
         },
         "latency_series": build_latency_series(http_checks),
         "metadata": get_metadata(uptime),

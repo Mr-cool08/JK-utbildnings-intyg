@@ -277,7 +277,7 @@
                     <td>{{ status.performance.latency.details }}</td>
                 </tr>
                 <tr>
-                    <td>Cpu procent</td>
+                    <td>Cpu usage</td>
                     <td>
                         {% if status.performance.cpu.status == "OK" %}
                             <span class="status-ok">OK</span>
@@ -286,6 +286,17 @@
                         {% endif %}
                     </td>
                     <td>{{ status.performance.cpu.details }}</td>
+                </tr>
+                <tr>
+                    <td>Ram Usage</td>
+                    <td>
+                        {% if status.performance.ram.status == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-neutral">{{ status.performance.ram.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ status.performance.ram.details }}</td>
                 </tr>
             </tbody>
         </table>
