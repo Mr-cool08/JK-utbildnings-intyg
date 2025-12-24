@@ -31,9 +31,24 @@
             <label for="email">E-postadress</label>
             <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
 
+            {% set orgnr_error = field_errors.get('orgnr') %}
             <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
-            <input id="orgnr" name="orgnr" type="text" inputmode="numeric" pattern="[0-9-\s]{6,12}" value="{{ form_data.orgnr }}" placeholder="Exempel: 556016-0680">
-            <small class="hint">Du kan ange organisationsnumret nu eller lägga till det senare via din dashboard.</small>
+            <input
+                id="orgnr"
+                name="orgnr"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9-\s]{6,12}"
+                value="{{ form_data.orgnr }}"
+                placeholder="Exempel: 556016-0680"
+                class="{% if orgnr_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if orgnr_error else 'false' }}"
+                aria-describedby="orgnr-hint{% if orgnr_error %} orgnr-error{% endif %}"
+            >
+            <small class="hint" id="orgnr-hint">Du kan ange organisationsnumret nu eller lägga till det senare via din dashboard.</small>
+            {% if orgnr_error %}
+                <p class="field-error-message" id="orgnr-error">Ange ett giltigt organisationsnummer enligt formatet 10 siffror.</p>
+            {% endif %}
 
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
