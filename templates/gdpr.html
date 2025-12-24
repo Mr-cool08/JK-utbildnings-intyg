@@ -1,44 +1,53 @@
 {% extends 'base.html' %}
 {% block title %}GDPR{% endblock %}
 {% block head %}
-    <meta name="description" content="Information om hur Utbildnings Intyg hanterar personuppgifter i enlighet med GDPR.">
+    <meta name="description" content="Hur Utbildnings Intyg behandlar personuppgifter i portalen och vilka rättigheter du har enligt GDPR.">
     <meta name="keywords" content="GDPR, personuppgifter, dataskydd, integritet, Utbildnings Intyg">
     <meta name="robots" content="index, follow">
     <meta property="og:title" content="GDPR - Utbildnings Intyg">
-    <meta property="og:description" content="Läs om hur Utbildnings Intyg skyddar dina personuppgifter enligt GDPR.">
+    <meta property="og:description" content="Läs hur Utbildnings Intyg hanterar ansökningar, inloggning och kursintyg enligt GDPR.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 {% endblock %}
 {% block content %}
     <section class="gdpr-info" aria-labelledby="gdpr-title">
-        <h1 id="gdpr-title">GDPR och dataskydd</h1>
-        <p>På Utbildnings Intyg är vi engagerade i att skydda dina personuppgifter och följa EU:s allmänna dataskyddsförordning (GDPR). Denna sida förklarar hur vi samlar in, använder och skyddar dina uppgifter.</p>
+        <h1 id="gdpr-title">Integritet och dataskydd (GDPR)</h1>
+        <p>Utbildnings Intyg är ett digitalt arkiv för kursintyg. Vi behandlar personuppgifter för att kunna skapa konton, lagra och dela intyg samt hantera fakturering för företagskunder.</p>
 
         <h2>Vilka uppgifter samlar vi in?</h2>
         <ul>
-            <li>Personuppgifter som namn, e-postadress, telefonnummer och organisationsnummer.</li>
-            <li>Utbildningsrelaterade uppgifter såsom kursnamn, datum och intygsstatus.</li>
-            <li>Tekniska uppgifter som IP-adress, webbläsartyp och användningsdata.</li>
+            <li><strong>Ansökningar om konto:</strong> namn, e-postadress, organisationsnummer, företagsnamn, fakturaadress, kontaktperson, märkning och eventuella kommentarer sparas för att hantera ansökningar om användar- eller företagskonto.</li>
+            <li><strong>Inloggning och konton:</strong> personnummer för standardkonton och e-postadresser för företagskonton/handledare lagras som deterministiska hashvärden. Lösenord sparas som PBKDF2-hashar.</li>
+            <li><strong>Kursintyg och kategorier:</strong> uppladdade kursintyg i PDF-format med tillhörande kurskategori, filnamn och koppling till rätt konto. När du delar intyg via e-post behandlas mottagarens e-postadress för utskicket.</li>
         </ul>
 
-        <h2>Hur använder vi dina uppgifter?</h2>
+        <h2>Vad använder vi uppgifterna till?</h2>
         <ul>
-            <li>För att tillhandahålla och förbättra våra tjänster.</li>
-            <li>För att kommunicera med dig om ditt konto och våra tjänster.</li>
-            <li>För att säkerställa säkerheten och integriteten för vår plattform.</li>
+            <li>Skapa och administrera användar- och företagskonton, inklusive kopplingar mellan standardkonton och företagskonton.</li>
+            <li>Visa, lagra och dela utbildningsintyg via dashboarden samt hantera kategorisering av intyg.</li>
+            <li>Skicka nödvändiga utskick såsom aktiveringslänkar, bekräftelser, återställning av lösenord och delningar av intyg.</li>
+            <li>Hantera ansökningar och fakturaunderlag för företagskonton.</li>
+        </ul>
+
+        <h2>Hur skyddar vi dina uppgifter?</h2>
+        <ul>
+            <li>Personnummer och e-postadresser hashas deterministiskt och lösenord sparas med PBKDF2 för att undvika klartextlagring.</li>
+            <li>PDF-filer kontrolleras innan de sparas och lagras i databasen tillsammans med valda kurskategorier.</li>
+            <li>Sessionskakor och CSRF-skydd används för att förhindra obehöriga ändringar av konton och intyg.</li>
+            <li>Serverloggar används för felsökning och för att upptäcka otillåtna åtkomstförsök.</li>
+        </ul>
+
+        <h2>Lagring och bevarande</h2>
+        <ul>
+            <li>Uppgifter och intyg lagras i applikationens databas och säkerhetskopieras enligt vår driftmiljö.</li>
+            <li>Du kan begära radering av konto och intyg, eller korrigering av felaktiga uppgifter, genom att kontakta oss.</li>
         </ul>
 
         <h2>Dina rättigheter</h2>
-        <p>Enligt GDPR har du följande rättigheter:</p>
-        <ul>
-            <li>Rätt att få tillgång till dina personuppgifter.</li>
-            <li>Rätt att begära rättelse eller radering av dina uppgifter.</li>
-            <li>Rätt att invända mot eller begränsa behandlingen av dina uppgifter.</li>
-            <li>Rätt att överföra dina uppgifter till en annan tjänsteleverantör.</li>
-        </ul>
+        <p>Du har rätt att få tillgång till de uppgifter vi behandlar om dig, begära rättelse eller radering och att invända mot behandlingen. Om du vill utöva dina rättigheter kontaktar du oss enligt nedan.</p>
 
         <h2>Kontakta oss</h2>
-        <p>Om du har frågor om vår hantering av personuppgifter eller vill utöva dina rättigheter, vänligen kontakta oss på <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a>.</p>
+        <p>Frågor om integritet och dataskydd skickas till <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a>. Vi återkopplar med bekräftelse och nästa steg.</p>
     </section>
 {% endblock %}
