@@ -261,6 +261,32 @@ def summarize_latency(http_checks):
     }
 
 
+def build_latency_series(http_checks):
+    series = []
+    for check in http_checks:
+        if not isinstance(check, dict):
+            continue
+        series.append(
+            {
+                "label": check.get("name", "Okänd kontroll"),
+                "value": check.get("response_time_ms"),
+                "status": check.get("status", "Okänd"),
+                "details": check.get("details", ""),
+            }
+        )
+    return series
+
+
+def get_metadata(uptime):
+    hostname = socket.gethostname()
+    environment = os.getenv("STATUS_ENVIRONMENT", "Okänd")
+    return {
+        "hostname": hostname,
+        "environment": environment,
+        "uptime_seconds": int(uptime.total_seconds()),
+    }
+
+
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
@@ -280,4 +306,6 @@ def build_status(now=None):
             "load": get_load_average(),
             "latency": summarize_latency(http_checks),
         },
+        "latency_series": build_latency_series(http_checks),
+        "metadata": get_metadata(uptime),
     }
