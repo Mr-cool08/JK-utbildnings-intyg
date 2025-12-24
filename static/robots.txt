@@ -18,24 +18,3 @@ Allow: /uploads/public/
 # Sitemap for better indexing
 Sitemap: https://www.utbildningsintyg.se/sitemap.xml
 
-# Google-specific optimization
-User-agent: Googlebot
-Allow: /
-Disallow: /private/
-Crawl-delay: 2
-
-User-agent: Googlebot-Image
-Allow: /static/images/
-Allow: /uploads/public/
-
-User-agent: Googlebot-News
-Allow: /
-
-User-agent: Googlebot-Video
-Allow: /
-
-# Notes:
-# - CSS, JS och bilder tillåts för att Google ska kunna återge sidan korrekt.
-# - Sitemapen hjälper Google att hitta alla sidor.
-# - Undvik att lägga känsliga data i offentliga kataloger.
-# - Ingen "Crawl-delay" krävs normalt för Google, men en låg siffra kan skydda servern.
