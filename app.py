@@ -865,7 +865,7 @@ def user_upload_pdf_route():
         flash('Kunde inte identifiera användaren. Logga in igen.', 'error')
         return redirect('/dashboard')
 
-    if not validate_csrf_token():
+    if not validate_csrf_token(allow_if_absent=True):
         flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
         return redirect('/dashboard')
 
