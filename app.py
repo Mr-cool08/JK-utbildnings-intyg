@@ -841,6 +841,7 @@ def dashboard():
     supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
     user_name = user_name.capitalize()
+    csrf_token = ensure_csrf_token()
     return render_template(
         'dashboard.html',
         pdfs=pdfs,
@@ -850,6 +851,7 @@ def dashboard():
         user_name=user_name,
         pending_link_requests=pending_link_requests,
         supervisor_connections=supervisor_connections,
+        csrf_token=csrf_token,
     )
 
 
@@ -857,6 +859,10 @@ def dashboard():
 def user_upload_pdf_route():
     if not session.get('user_logged_in'):
         return redirect('/login')
+
+    if not validate_csrf_token():
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
 
     personnummer = session.get('personnummer_raw')
     if not personnummer:

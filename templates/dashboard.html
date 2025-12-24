@@ -29,6 +29,7 @@
         <h2>Ladda upp intyg</h2>
         <p>Du kan ladda upp PDF, PNG eller JPG. Bilder konverteras automatiskt till PDF.</p>
         <form action="{{ url_for('user_upload_pdf_route') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-field">
                 <label for="certificate">Välj fil</label>
                 <input type="file" id="certificate" name="certificate" accept=".pdf,.png,.jpg,.jpeg" required>
