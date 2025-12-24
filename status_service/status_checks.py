@@ -4,6 +4,7 @@ import socket
 import ssl
 import time
 from datetime import timedelta
+from statistics import mean
 from urllib import error, request
 
 START_TIME = time.monotonic()
@@ -126,17 +127,29 @@ def check_http_status(name, url, timeout=3):
 
     try:
         req = request.Request(url, method="GET", headers={"User-Agent": "StatusCheck"})
+        start_time = time.monotonic()
         with request.urlopen(req, timeout=timeout) as response:
             status_code = response.status
+        elapsed_ms = (time.monotonic() - start_time) * 1000
         if 200 <= status_code < 400:
-            return {"name": name, "status": "OK", "details": f"HTTP {status_code}"}
+            return {
+                "name": name,
+                "status": "OK",
+                "details": f"HTTP {status_code}",
+                "response_time_ms": round(elapsed_ms),
+            }
         LOGGER.warning(
             "HTTP-kontroll '%s' fick oväntad statuskod %s för %s.",
             name,
             status_code,
             url,
         )
-        return {"name": name, "status": "Fel", "details": f"HTTP {status_code}"}
+        return {
+            "name": name,
+            "status": "Fel",
+            "details": f"HTTP {status_code}",
+            "response_time_ms": round(elapsed_ms),
+        }
     except error.HTTPError as exc:
         LOGGER.exception(
             "HTTP-kontroll '%s' misslyckades med HTTP-fel %s för %s.",
@@ -219,6 +232,35 @@ def get_country_availability():
     return countries
 
 
+def get_load_average():
+    try:
+        load1, load5, load15 = os.getloadavg()
+        return {
+            "status": "OK",
+            "details": f"{load1:.2f} / {load5:.2f} / {load15:.2f}",
+        }
+    except (AttributeError, OSError):
+        LOGGER.warning("Systemlast kunde inte läsas i den aktuella miljön.")
+        return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
+
+
+def summarize_latency(http_checks):
+    response_times = [
+        check["response_time_ms"]
+        for check in http_checks
+        if isinstance(check, dict) and "response_time_ms" in check
+    ]
+
+    if not response_times:
+        return {"status": "Inte tillgänglig", "details": "Inga mätningar"}
+
+    average_ms = mean(response_times)
+    return {
+        "status": "OK",
+        "details": f"Medel {average_ms:.0f} ms, högst {max(response_times):.0f} ms",
+    }
+
+
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
@@ -234,4 +276,8 @@ def build_status(now=None):
         },
         "http_checks": http_checks,
         "countries": get_country_availability(),
+        "performance": {
+            "load": get_load_average(),
+            "latency": summarize_latency(http_checks),
+        },
     }
