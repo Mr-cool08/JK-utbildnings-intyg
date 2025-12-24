@@ -7,7 +7,7 @@ Applikationen körs i Docker och använder en PostgreSQL-databas.
 
 ## Snabblänkar
 
-- Drift: `DEPLOYMENT.md`
+- Drift: `docs/DEPLOYMENT.md`
 - Cloudflare: `docs/PUBLIC_DEPLOYMENT_CLOUDFLARE.md`
 - Produktionsguide: `docs/PRODUKTION_SETUP.md`
 - Portainer Stack: `docs/PRODUKTION_SETUP.md` (Steg 9)
