@@ -134,12 +134,12 @@
             <div class="card">
                 <h3>Driftläge</h3>
                 <div class="value">{{ status.metadata.environment }}</div>
-                <p>Hämtas från miljövariabeln <code>STATUS_ENVIRONMENT</code>.</p>
+                <p>Visar om tjänsten körs i produktion eller utvecklingsläge.</p>
             </div>
             <div class="card">
                 <h3>Värd</h3>
                 <div class="value">{{ status.metadata.hostname }}</div>
-                <p>Användbart för att se vilken instans som svarar.</p>
+                <p>Serverns värdnamn där tjänsten körs.</p>
             </div>
             <div class="card">
                 <h3>Upptid</h3>
@@ -275,6 +275,17 @@
                         {% endif %}
                     </td>
                     <td>{{ status.performance.latency.details }}</td>
+                </tr>
+                <tr>
+                    <td>Cpu procent</td>
+                    <td>
+                        {% if status.performance.cpu.status == "OK" %}
+                            <span class="status-ok">OK</span>
+                        {% else %}
+                            <span class="status-neutral">{{ status.performance.cpu.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ status.performance.cpu.details }}</td>
                 </tr>
             </tbody>
         </table>

@@ -24,6 +24,7 @@ def index():
         status["checks"]["ssl"]["status"],
         status["checks"]["database"]["status"],
         status["checks"]["nginx"]["status"],
+        
     )
     return render_template("status.html", status=status, checked_at=get_display_timestamp())
 

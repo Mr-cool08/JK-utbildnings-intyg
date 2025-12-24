@@ -6,6 +6,7 @@ import time
 from datetime import timedelta
 from statistics import mean
 from urllib import error, request
+import psutil
 
 START_TIME = time.monotonic()
 LOGGER = logging.getLogger(__name__)
@@ -16,6 +17,18 @@ def get_uptime(now=None):
     seconds = max(0, current_time - START_TIME)
     return timedelta(seconds=int(seconds))
 
+def get_cpu_procent():
+    try:
+        cpu_percent = psutil.cpu_percent(interval=1)
+        return {
+            "status": "OK",
+            "details": f"{cpu_percent:.2f} %",
+        }
+    except Exception:
+        LOGGER.warning("CPU-användning kunde inte läsas i den aktuella miljön.")
+        return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
+    
+    
 
 def format_uptime(uptime):
     days = uptime.days
@@ -180,14 +193,14 @@ def get_http_check_targets():
     targets = [
         {
             "name": "Huvudsidan",
-            "url": os.getenv("STATUS_MAIN_URL", "http://app/health"),
+            "url": os.getenv("STATUS_MAIN_URL", "http://utbildningsintyg.se/health"),
         },
         {
             "name": "Demosidan",
-            "url": os.getenv("STATUS_DEMO_URL", "http://app_demo/health"),
+            "url": os.getenv("STATUS_DEMO_URL", "http://demo.utbildningsintyg.se/health"),
         },
     ]
-    raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "")
+    raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "http://google.com/")
     if not raw_extra:
         return targets
     for entry in raw_extra.split(","):
@@ -234,6 +247,7 @@ def get_country_availability():
 
 def get_load_average():
     try:
+        
         load1, load5, load15 = os.getloadavg()
         return {
             "status": "OK",
@@ -305,7 +319,9 @@ def build_status(now=None):
         "performance": {
             "load": get_load_average(),
             "latency": summarize_latency(http_checks),
+            "cpu": get_cpu_procent(),
         },
         "latency_series": build_latency_series(http_checks),
         "metadata": get_metadata(uptime),
+        
     }
