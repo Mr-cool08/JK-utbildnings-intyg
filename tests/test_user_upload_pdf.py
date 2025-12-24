@@ -14,11 +14,17 @@ def test_user_can_upload_pdf_from_dashboard(user_db):
             data={"personnummer": "9001011234", "password": "secret"},
         )
 
+        client.get("/dashboard")
+
+        with client.session_transaction() as session_data:
+            csrf_token = session_data.get("csrf_token")
+
         response = client.post(
             "/dashboard/ladda-upp",
             data={
                 "category": COURSE_CATEGORIES[1][0],
                 "certificate": (io.BytesIO(pdf_bytes), "intyg.pdf"),
+                "csrf_token": csrf_token,
             },
             content_type="multipart/form-data",
             follow_redirects=True,

@@ -873,6 +873,10 @@ def user_upload_pdf_route():
     if not session.get('user_logged_in'):
         return redirect('/login')
 
+    if not validate_csrf_token():
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
+
     personnummer = session.get('personnummer_raw')
     if not personnummer:
         flash('Kunde inte identifiera användaren. Logga in igen.', 'error')
