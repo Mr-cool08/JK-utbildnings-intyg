@@ -77,12 +77,14 @@ services:
     build:
       context: .
       dockerfile: status_service/Dockerfile
+    env_file:
+      - stack.env
     environment:
       STATUS_DB_HOST: postgres
       STATUS_DB_NAME: ${POSTGRES_DB}
       STATUS_DB_USER: ${POSTGRES_USER}
       STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      STATUS_SSL_HOST: utbildningsintyg.se
+      STATUS_SSL_HOST: https://utbildningsintyg.se
       STATUS_NGINX_HOST: nginx
       STATUS_NGINX_PORT: "80"
     expose:
