@@ -1,5 +1,6 @@
 import io
 
+from PIL import Image
 from werkzeug.datastructures import FileStorage
 
 import app
@@ -36,3 +37,27 @@ def test_save_pdf_for_user(empty_db):
     filename, decrypted = functions.get_pdf_content(personnummer_hash, row.id)
     assert filename == result["filename"]
     assert decrypted == pdf_bytes
+
+
+def test_save_png_converts_to_pdf(empty_db):
+    image = Image.new("RGB", (10, 10), (255, 0, 0))
+    png_buffer = io.BytesIO()
+    image.save(png_buffer, format="PNG")
+    png_bytes = png_buffer.getvalue()
+    file_storage = FileStorage(
+        stream=io.BytesIO(png_bytes),
+        filename="bevis.png",
+        content_type="image/png",
+    )
+
+    category = COURSE_CATEGORIES[0][0]
+    result = app.save_pdf_for_user("19900101-1234", file_storage, [category])
+
+    assert result["filename"].endswith(".pdf")
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900101-1234")
+    )
+    filename, decrypted = functions.get_pdf_content(personnummer_hash, result["id"])
+    assert filename == result["filename"]
+    assert decrypted.startswith(b"%PDF-")
+    assert decrypted != png_bytes

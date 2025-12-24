@@ -23,8 +23,30 @@
         <p class="support-text visually-hidden" id="supportRemovalHint">
             Behöver du radera dina uppgifter? Kontakta oss så hjälper vi dig.
         </p>
+
     </div>
+    <section class="upload-panel" aria-label="Ladda upp egna intyg">
+        <h2>Ladda upp intyg</h2>
+        <p>Du kan ladda upp PDF, PNG eller JPG. Bilder konverteras automatiskt till PDF.</p>
+        <form action="{{ url_for('user_upload_pdf_route') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <div class="form-field">
+                <label for="certificate">Välj fil</label>
+                <input type="file" id="certificate" name="certificate" accept=".pdf,.png,.jpg,.jpeg" required>
+            </div>
+            <div class="form-field">
+                <label for="category">Kurskategori</label>
+                <select id="category" name="category" required>
+                    <option value="">Välj kategori</option>
+                    {% for slug, label in course_categories %}
+                        <option value="{{ slug }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn">Ladda upp intyg</button>
+        </form>
+    </section>
     {% if pending_link_requests %}
+
     <section class="connection-panel" aria-label="Väntande kopplingsförfrågningar">
         <h2>Väntande kopplingsförfrågningar</h2>
         <p>Företagskonton som vill koppla sig till ditt användarkonto.</p>

@@ -586,7 +586,7 @@ def apply_standardkonto():
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
                     form_errors.append(
-                        "Du måste intyga att du har läst och förstått villkoren och GDPR policyn innan du skickar ansökan."
+                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
                 if not form_errors:
                     try:
@@ -671,7 +671,7 @@ def apply_foretagskonto():
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
                     form_errors.append(
-                        "Du måste intyga att du har läst och förstått villkoren och GDPR policyn innan du skickar ansökan."
+                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
                 if not form_errors:
                     try:
@@ -766,6 +766,7 @@ def login():
         if functions.check_personnummer_password(personnummer, password):
             session['user_logged_in'] = True
             session['personnummer'] = personnummer_hash
+            session['personnummer_raw'] = personnummer
             session['username'] = functions.get_username_by_personnummer_hash(
                 personnummer_hash
             )
@@ -850,6 +851,41 @@ def dashboard():
         pending_link_requests=pending_link_requests,
         supervisor_connections=supervisor_connections,
     )
+
+
+@app.post('/dashboard/ladda-upp')
+def user_upload_pdf_route():
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+
+    personnummer = session.get('personnummer_raw')
+    if not personnummer:
+        flash('Kunde inte identifiera användaren. Logga in igen.', 'error')
+        return redirect('/dashboard')
+
+    uploaded_file = request.files.get('certificate')
+    category = request.form.get('category', '')
+
+    if not uploaded_file or uploaded_file.filename == "":
+        flash('Ingen fil vald.', 'error')
+        return redirect('/dashboard')
+
+    if not category:
+        flash('Välj en kurskategori.', 'error')
+        return redirect('/dashboard')
+
+    try:
+        save_pdf_for_user(personnummer, uploaded_file, [category], logger)
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect('/dashboard')
+    except Exception:
+        logger.exception("Kunde inte spara intyg för användare")
+        flash('Ett fel inträffade när intyget skulle sparas.', 'error')
+        return redirect('/dashboard')
+
+    flash('Intyget har laddats upp och sparats som PDF.', 'success')
+    return redirect('/dashboard')
 
 
 @app.post('/dashboard/kopplingsforfragan/<supervisor_hash>/godkann')
@@ -1807,6 +1843,7 @@ def logout():
     session.pop('admin_logged_in', None)
     session.pop('admin_username', None)
     session.pop('personnummer', None)
+    session.pop('personnummer_raw', None)
     session.pop('supervisor_logged_in', None)
     session.pop('supervisor_email_hash', None)
     session.pop('supervisor_name', None)
