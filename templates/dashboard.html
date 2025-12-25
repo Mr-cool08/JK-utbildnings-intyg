@@ -94,19 +94,6 @@
         </ul>
     </section>
     {% endif %}
-    {% if category_summary %}
-    <section class="category-list" aria-label="Tillgängliga kurskategorier">
-        <h2>Kurskategorier</h2>
-        <ul>
-            {% for category in category_summary %}
-            <li>
-                <span class="category-label">{{ category.label }}</span>
-                <span class="category-count-badge">{{ category.count }} intyg</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </section>
-    {% endif %}
 
     {% if grouped_pdfs %}
     <div class="share-selection" aria-label="Delning av flera intyg">
