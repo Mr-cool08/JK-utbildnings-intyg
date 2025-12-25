@@ -62,35 +62,35 @@ via Cloudflare. För utveckling kan du istället lägga PEM-innehållet i
 ``TLS_KEY_PATH``) så att applikationen startar med TLS även lokalt.
 
 
-## How it works for administrators
+## Så fungerar det för administratörer
 
-* **Login** – Administrators sign in with credentials configured by the owner. A valid session grants access to the admin panel.
-* **Register pending users** – Through the admin panel an administrator submits a learner’s email, username and Swedish personal number together with a PDF certificate. The system normalises the personal number and stores the certificate in a folder named after that number.
-* **Database entry** – If the learner is not yet active, an entry is created in the `pending_users` table pointing to the uploaded PDF. Should the learner already exist, only the PDF is added to their folder.
-* **Security checks** – Uploaded files are verified to be genuine PDFs before storage. Each file receives a timestamped name to avoid collisions.
+* **Inloggning** – Administratörer loggar in med autentiseringsuppgifter konfigurerade av ägaren. En giltig session ger åtkomst till admin-panelen.
+* **Registrera väntande användare** – Via admin-panelen skickar en administratör in en elevs e-postadress, användarnamn och svenskt personnummer tillsammans med ett PDF-intyg. Systemet normaliserar personnumret och lagrar intyget i en mapp namngiven efter det numret.
+* **Databaspost** – Om eleven inte är aktiv ännu skapas en post i tabellen `pending_users` som pekar på den uppladdade PDF-filen. Om eleven redan existerar läggs endast PDF-filen till i deras mapp.
+* **Säkerhetskontroller** – Uppladdade filer verifieras för att vara äkta PDF-filer före lagring. Varje fil får ett tidsstämplat namn för att undvika kollisioner.
 
-## How it works for users
+## Så fungerar det för användare
 
-* **Account activation** – After an administrator registers them, the learner visits a personalised account creation link and sets a password. The pending entry is moved into the `users` table.
-* **Login and dashboard** – Users sign in with their personal number and password. A successful login opens a dashboard listing all PDF certificates stored for that personal number.
-* **Downloading certificates** – Each listed PDF links to a direct download route so the learner can retrieve their documents whenever needed.
-* **Session management** – Logging out clears the session for both user and admin roles, ensuring access is protected.
+* **Kontoaktivering** – Efter att en administratör registrerar dem besöker eleven en personaliserad kontoskaplingslänk och sätter ett lösenord. Den väntande posten flyttas till tabellen `users`.
+* **Inloggning och kontrollpanel** – Användare loggar in med sitt personnummer och lösenord. En lyckad inloggning öppnar en kontrollpanel som listar alla PDF-intyg lagrade för det personnumret.
+* **Ladda ner intyg** – Varje listad PDF länkar till en direktnedladdningsväg så att eleven kan hämta sina dokument när som helst.
+* **Sessionshantering** – Utloggning rensar sessionen för både användar- och adminroller, vilket säkerställer att åtkomsten är skyddad.
 
-## Data storage
+## Datalagring
 
-* **File system** – Certificates reside in an `uploads/<personnummer>/` directory structure. The application only accepts PDF files to prevent accidental uploads of other formats.
-* **Hashed credentials** – Passwords are hashed with a per-user salt using PBKDF2 via Werkzeug, while personal numbers and emails are deterministically hashed with a global salt so sensitive data isn't stored in plain text.
+* **Filsystem** – Intyg finns i en `uploads/<personnummer>/`-katalogstruktur. Applikationen accepterar endast PDF-filer för att förhindra oavsiktlig uppladdning av andra format.
+* **Hashad autentiseringsuppgifter** – Lösenord hashas med en användarspecifik salt med PBKDF2 via Werkzeug, medan personnummer och e-postadresser hashas deterministiskt med en global salt så att känslig data inte lagras i klartext.
 
-## Persistent data with Docker
+## Beständiga data med Docker
 
-Running the application with Docker Compose stores mutable data in named volumes so that updates to the container image do not remove important files:
+Att köra applikationen med Docker Compose lagrar föränderliga data i namngivna volymer så att uppdateringar av containeravbildningen inte tar bort viktiga filer:
 
-* `env_data` – contains the `.env` configuration file mounted at `/config/.env` inside the container.
-* `uploads_data` – keeps user uploads available at `/app/uploads`.
-* `logs_data` – retains application logs under `/app/logs/`.
-These volumes have fixed names so existing data is reused across container rebuilds.
+* `env_data` – innehåller `.env`-konfigurationsfilen monterad på `/config/.env` inuti containern.
+* `uploads_data` – håller användaruppladdningar tillgängliga på `/app/uploads`.
+* `logs_data` – bevarar programloggar under `/app/logs/`.
+Dessa volymer har fasta namn så befintliga data återanvänds över containerombyggnader.
 
-Ensure the `env_data` volume includes a valid `.env` file before starting the container to provide required configuration values for the external PostgreSQL server.
+Se till att volymen `env_data` innehåller en giltig `.env`-fil innan du startar containern för att tillhandahålla erforderliga konfigurationsvärden för den externa PostgreSQL-servern.
 
 ### Anpassa publikt nätverk
 
@@ -140,7 +140,7 @@ flowchart TD
     J --> G
 ```
 
-## Running tests
+## Kör tester
 
 ```bash
 pytest
