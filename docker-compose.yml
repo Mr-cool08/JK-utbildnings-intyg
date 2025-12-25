@@ -42,7 +42,7 @@ services:
     build: .
     user: "0:0"
     env_file:
-      - stack.env
+      - dev_stack.env
     environment:
       ENABLE_DEMO_MODE: "true"
       ENABLE_LOCAL_TEST_DB: "true"
