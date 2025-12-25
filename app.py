@@ -956,6 +956,32 @@ def user_remove_supervisor_connection_route(supervisor_hash: str):
     return redirect('/dashboard')
 
 
+@app.post('/dashboard/intyg/<int:pdf_id>/ta-bort')
+def user_delete_pdf_route(pdf_id: int):
+    if not session.get('user_logged_in'):
+        return redirect('/login')
+
+    if not validate_csrf_token(allow_if_absent=True):
+        flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
+        return redirect('/dashboard')
+
+    personnummer = session.get('personnummer_raw')
+    if not personnummer:
+        flash('Kunde inte identifiera användaren. Logga in igen.', 'error')
+        return redirect('/dashboard')
+
+    try:
+        if functions.delete_user_pdf(personnummer, pdf_id):
+            flash('Intyget har tagits bort.', 'success')
+        else:
+            flash('Intyget kunde inte tas bort.', 'error')
+    except Exception:
+        logger.exception("Kunde inte ta bort intyg %s för användare", pdf_id)
+        flash('Ett fel inträffade när intyget skulle tas bort.', 'error')
+
+    return redirect('/dashboard')
+
+
 @app.route('/my_pdfs/<int:pdf_id>')
 def download_pdf(pdf_id: int):
     # Serve a stored PDF for the logged-in user from the database.
