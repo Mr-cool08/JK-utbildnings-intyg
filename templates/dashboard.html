@@ -85,7 +85,7 @@
                     <strong>{{ connection.supervisor_name }}</strong>
                     <span class="connection-meta">Har åtkomst till ditt konto</span>
                 </div>
-                <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email) }}" onsubmit="return confirm('Vill du ta bort kopplingen?');">
+                <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email) }}" data-remove-connection>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-danger">Ta bort koppling</button>
                 </form>
@@ -158,6 +158,12 @@
                             </span>
                         </div>
                     </div>
+                    <div class="pdf-actions">
+                        <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn btn-danger">Ta bort intyg</button>
+                        </form>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
@@ -195,5 +201,35 @@
         <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
     </div>
 </dialog>
+
+<script>
+(function(){
+    function dubbelBekraftelse(selector, forstaText, andraText){
+        var formulär = document.querySelectorAll(selector);
+        formulär.forEach(function(form){
+            form.addEventListener('submit', function(event){
+                if(!confirm(forstaText)){
+                    event.preventDefault();
+                    return;
+                }
+                if(!confirm(andraText)){
+                    event.preventDefault();
+                }
+            });
+        });
+    }
+
+    dubbelBekraftelse('[data-remove-connection]', 'Vill du ta bort kopplingen?', 'Är du helt säker? Företagskontot tappar åtkomst till dina intyg.');
+
+    var taBortIntygFormular = document.querySelectorAll('[data-delete-pdf]');
+    taBortIntygFormular.forEach(function(form){
+        form.addEventListener('submit', function(event){
+            if(!confirm('Är du säker på att du vill ta bort intyget? Detta går inte att ångra.')){
+                event.preventDefault();
+            }
+        });
+    });
+})();
+</script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
