@@ -18,7 +18,7 @@
             <section class="panel" id="user-{{ user.personnummer_hash }}">
                 <div class="panel-header">
                     <h2>{{ user.username }}</h2>
-                    <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" onsubmit="return confirm('Är du säker på att du vill ta bort kopplingen?');">
+                    <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
                         <button type="submit" class="btn btn-danger">Ta bort koppling</button>
@@ -71,4 +71,20 @@
     {% else %}
         <p>Det finns inga kopplade användarkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
     {% endif %}
+<script>
+(function(){
+    var formulär = document.querySelectorAll('[data-supervisor-remove]');
+    formulär.forEach(function(form){
+        form.addEventListener('submit', function(event){
+            if(!confirm('Vill du ta bort kopplingen till användaren?')){
+                event.preventDefault();
+                return;
+            }
+            if(!confirm('Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.')){
+                event.preventDefault();
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

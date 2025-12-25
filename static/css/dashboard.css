@@ -151,6 +151,16 @@
     gap: 0.9rem;
 }
 
+.pdf-actions {
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 0.6rem;
+}
+
+.pdf-actions form {
+    margin: 0;
+}
+
 .pdf-select {
     width: 18px;
     height: 18px;
