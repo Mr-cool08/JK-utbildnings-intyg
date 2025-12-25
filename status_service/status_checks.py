@@ -193,11 +193,11 @@ def get_http_check_targets():
     targets = [
         {
             "name": "Huvudsidan",
-            "url": os.getenv("STATUS_MAIN_URL", "http://utbildningsintyg.se/health"),
+            "url": os.getenv("STATUS_MAIN_URL", "http://app/health"),
         },
         {
             "name": "Demosidan",
-            "url": os.getenv("STATUS_DEMO_URL", "http://demo.utbildningsintyg.se/health"),
+            "url": os.getenv("STATUS_DEMO_URL", "http://app_demo/health"),
         },
     ]
     raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "http://google.com/")

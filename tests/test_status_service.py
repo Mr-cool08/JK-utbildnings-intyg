@@ -69,6 +69,19 @@ def test_get_http_check_targets_includes_extras(monkeypatch):
     ]
 
 
+def test_get_http_check_targets_defaults_to_internal_services(monkeypatch):
+    monkeypatch.delenv("STATUS_MAIN_URL", raising=False)
+    monkeypatch.delenv("STATUS_DEMO_URL", raising=False)
+    monkeypatch.delenv("STATUS_EXTRA_HTTP_CHECKS", raising=False)
+
+    targets = status_checks.get_http_check_targets()
+
+    assert targets == [
+        {"name": "Huvudsidan", "url": "http://app/health"},
+        {"name": "Demosidan", "url": "http://app_demo/health"},
+    ]
+
+
 def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
     def fake_connection(*_args, **_kwargs):
         raise ConnectionRefusedError(111, "Connection refused")
