@@ -102,3 +102,40 @@ def test_demo_menu_link_points_to_main_domain(monkeypatch):
     assert response.status_code == 200
     assert b'L\xc3\xa4mna demomilj\xc3\xb6' in response.data
     assert b'href="https://exempel.se"' in response.data
+
+
+def test_reset_demo_database_recreates_defaults(tmp_path, monkeypatch):
+    db_path = tmp_path / "demo-reset.db"
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("ENABLE_LOCAL_TEST_DB", "true")
+    monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_path))
+    functions.reset_engine()
+    functions.create_database()
+
+    demo_defaults = DEMO_PARAMS.copy()
+    functions.ensure_demo_data(**demo_defaults)
+
+    with functions.get_engine().begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Extra",  # nosec - testdata
+                email=functions.hash_value("extra@example.com"),
+                password=functions.hash_password("ExtraLosen1!"),
+                personnummer=functions.hash_value("9002021234"),
+            )
+        )
+
+    assert db_path.exists()
+    assert functions.reset_demo_database(demo_defaults)
+
+    engine = functions.get_engine()
+    with engine.connect() as conn:
+        user_count = conn.execute(
+            select(func.count()).select_from(functions.users_table)
+        ).scalar_one()
+        pdf_count = conn.execute(
+            select(func.count()).select_from(functions.user_pdfs_table)
+        ).scalar_one()
+
+    assert user_count == 1
+    assert pdf_count == len(functions.DEMO_PDF_DEFINITIONS)

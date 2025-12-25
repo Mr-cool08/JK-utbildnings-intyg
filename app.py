@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import partial
 import logging
 import os
+import threading
 import time
 from typing import Any, Sequence
 
@@ -116,6 +117,23 @@ def _enable_debug_mode(app: Flask) -> None:
     print("Debug mode is on, test user created")
 
 
+def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
+    # Start a bakgrundstråd som återställer demodatabasen var femte minut.
+    interval_seconds = 5 * 60
+
+    def _reset_loop() -> None:
+        while True:
+            with app.app_context():
+                try:
+                    functions.reset_demo_database(demo_defaults)
+                except Exception:
+                    logger.exception("Automatisk demoreset misslyckades")
+            time.sleep(interval_seconds)
+
+    thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
+    thread.start()
+
+
 
 def create_app() -> Flask:
     # Create and configure the Flask application.
@@ -146,6 +164,7 @@ def create_app() -> Flask:
         "supervisor_orgnr": demo_defaults["supervisor_orgnr"],
         "supervisor_password": demo_defaults["supervisor_password"],
     }
+    app.config["DEMO_DEFAULTS"] = demo_defaults
 
     if app.config["IS_DEMO"]:
         logger.info("Demoläge aktiverat – initierar exempeldata")
@@ -159,6 +178,7 @@ def create_app() -> Flask:
             supervisor_password=demo_defaults["supervisor_password"],
             supervisor_orgnr=demo_defaults["supervisor_orgnr"],
         )
+        _start_demo_reset_scheduler(app, demo_defaults)
 
     with app.app_context():
         if app.debug:
