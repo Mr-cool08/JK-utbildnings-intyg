@@ -1,29 +1,35 @@
 {% extends 'base.html' %}
 {% block title %}Företagskontoinloggning{% endblock %}
 {% block content %}
-    <h1>Företagskontoinloggning</h1>
-    <p>Ange företagets organisationsnummer och lösenord för att hantera kopplade användarkonton och intyg.</p>
-    {% if error %}
-        <p class="message error">{{ error }}</p>
-    {% endif %}
-    <form method="post" class="form-card">
-        <label for="orgnr">Organisationsnummer</label>
-        <input type="text" id="orgnr" name="orgnr" inputmode="numeric" pattern="[0-9-\s]{6,12}" required placeholder="Exempel: 556016-0680">
+    <div class="auth-layout">
+        <div class="auth-main">
+            <h1>Företagskontoinloggning</h1>
+            <p>Ange företagets organisationsnummer och lösenord för att hantera kopplade användarkonton och intyg.</p>
+            {% if error %}
+                <p class="message error">{{ error }}</p>
+            {% endif %}
+            <form method="post" class="form-card">
+                <label for="orgnr">Organisationsnummer</label>
+                <input type="text" id="orgnr" name="orgnr" inputmode="numeric" pattern="[0-9-\s]{6,12}" required placeholder="Exempel: 556016-0680">
 
-        <label for="password">Lösenord</label>
-        <input type="password" id="password" name="password" required>
+                <label for="password">Lösenord</label>
+                <input type="password" id="password" name="password" required>
 
-        <button type="submit" class="btn">Logga in</button>
-    </form>
-    {% if IS_DEMO %}
-        <section class="demo-credentials" aria-label="Demoinloggning för företagskonto">
-            <h2>Snabbtest av demokonto</h2>
-            <ul>
-                <li><strong>Organisationsnummer:</strong> {{ DEMO_CREDENTIALS.supervisor_orgnr }}</li>
-                <li><strong>Lösenord:</strong> {{ DEMO_CREDENTIALS.supervisor_password }}</li>
-                <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
-            </ul>
-            <p class="demo-hint">Använd uppgifterna ovan för att se hur företagsportalen fungerar i demoläget.</p>
-        </section>
-    {% endif %}
+                <button type="submit" class="btn">Logga in</button>
+            </form>
+        </div>
+        {% if IS_DEMO %}
+            <aside class="auth-aside" aria-label="Demoinloggning för företagskonto">
+                <section class="demo-credentials">
+                    <h2>Snabbtest av demokonto</h2>
+                    <ul>
+                        <li><strong>Organisationsnummer:</strong> {{ DEMO_CREDENTIALS.supervisor_orgnr }}</li>
+                        <li><strong>Lösenord:</strong> {{ DEMO_CREDENTIALS.supervisor_password }}</li>
+                        <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
+                    </ul>
+                    <p class="demo-hint">Använd uppgifterna ovan för att se hur företagsportalen fungerar i demoläget.</p>
+                </section>
+            </aside>
+        {% endif %}
+    </div>
 {% endblock %}

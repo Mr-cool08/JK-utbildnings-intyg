@@ -915,6 +915,32 @@ small.hint {
     flex-wrap: wrap;
 }
 
+.auth-layout {
+    display: flex;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-top: 0.5rem;
+}
+
+.auth-main {
+    flex: 1 1 360px;
+    min-width: min(100%, 360px);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.auth-aside {
+    flex: 1 1 320px;
+    min-width: min(100%, 320px);
+}
+
+.auth-aside .demo-credentials {
+    margin-top: 0;
+    height: 100%;
+}
+
 .demo-info {
     background: var(--color-surface);
     border-radius: var(--radius-lg);

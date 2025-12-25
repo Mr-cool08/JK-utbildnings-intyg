@@ -1,23 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}Användarkontoinloggning{% endblock %}
 {% block content %}
-    <h1>Användarkontoinloggning</h1>
-    {% if error %}<p class="message error">{{ error }}</p>{% endif %}
-    <form action="/login" method="POST" class="form-card">
-        <label for="personnummer">Personnummer:</label>
-        <input type="text" id="personnummer" name="personnummer" required placeholder="ÅÅMMDDXXXX">
-        <label for="password">Lösenord:</label>
-        <input type="password" id="password" name="password" required>
-        <button type="submit" class="btn">Logga in</button>
-    </form>
-    {% if IS_DEMO %}
-        <section class="demo-credentials" aria-label="Demoinloggning för användarkonto">
-            <h2>Snabbtest av demoinloggning</h2>
-            <ul>
-                <li><strong>Personnummer:</strong> {{ DEMO_CREDENTIALS.user_personnummer }}</li>
-                <li><strong>Lösenord:</strong> {{ DEMO_CREDENTIALS.user_password }}</li>
-            </ul>
-            <p class="demo-hint">Uppgifterna fungerar endast i denna demodatabas.</p>
-        </section>
-    {% endif %}
+    <div class="auth-layout">
+        <div class="auth-main">
+            <h1>Användarkontoinloggning</h1>
+            {% if error %}<p class="message error">{{ error }}</p>{% endif %}
+            <form action="/login" method="POST" class="form-card">
+                <label for="personnummer">Personnummer:</label>
+                <input type="text" id="personnummer" name="personnummer" required placeholder="ÅÅMMDDXXXX">
+                <label for="password">Lösenord:</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit" class="btn">Logga in</button>
+            </form>
+        </div>
+        {% if IS_DEMO %}
+            <aside class="auth-aside" aria-label="Demoinloggning för användarkonto">
+                <section class="demo-credentials">
+                    <h2>Snabbtest av demoinloggning</h2>
+                    <ul>
+                        <li><strong>Personnummer:</strong> {{ DEMO_CREDENTIALS.user_personnummer }}</li>
+                        <li><strong>Lösenord:</strong> {{ DEMO_CREDENTIALS.user_password }}</li>
+                    </ul>
+                    <p class="demo-hint">Uppgifterna fungerar endast i denna demodatabas.</p>
+                </section>
+            </aside>
+        {% endif %}
+    </div>
 {% endblock %}
