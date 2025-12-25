@@ -15,4 +15,15 @@
 
         <button type="submit" class="btn">Logga in</button>
     </form>
+    {% if IS_DEMO %}
+        <section class="demo-credentials" aria-label="Demoinloggning för företagskonto">
+            <h2>Snabbtest av demokonto</h2>
+            <ul>
+                <li><strong>Organisationsnummer:</strong> {{ DEMO_CREDENTIALS.supervisor_orgnr }}</li>
+                <li><strong>Lösenord:</strong> {{ DEMO_CREDENTIALS.supervisor_password }}</li>
+                <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
+            </ul>
+            <p class="demo-hint">Använd uppgifterna ovan för att se hur företagsportalen fungerar i demoläget.</p>
+        </section>
+    {% endif %}
 {% endblock %}
