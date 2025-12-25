@@ -2,7 +2,7 @@
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-This web application manages the issuance and storage of course certificates. It separates responsibilities between administrators and end users so each party can focus on their own tasks.
+Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg i PDF-format för svenska användare. Administratörer kan registrera intyg för användare baserat på deras personnummer, och användare kan logga in för att ladda ner sina intyg.
 
 ## Snabbstart
 
