@@ -4,21 +4,39 @@
 
 This web application manages the issuance and storage of course certificates. It separates responsibilities between administrators and end users so each party can focus on their own tasks.
 
-## Getting started
+## Snabbstart
 
-1. **Install dependencies**
+### Lokal utveckling
+
+1. **Installera beroenden**
    ```bash
    python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Configure environment variables** – copy `.example.env` to `.env` and update the values to match your setup. Provide the credentials for your external PostgreSQL server by setting `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and optionally `POSTGRES_PORT`. The container derives the SQLAlchemy connection string from these values whenever `DATABASE_URL` is empty. If you prefer, you can instead set `DATABASE_URL` directly to a PostgreSQL connection string. For local development or automated tests you may temporarily enable `ENABLE_LOCAL_TEST_DB` to let the app create a SQLite database file defined by `LOCAL_TEST_DB_PATH`; the flag is disabled by default so production deployments still require PostgreSQL. När applikationen körs bakom en omvänd proxy kan du ställa in `TRUSTED_PROXY_COUNT` för att ange hur många hopp som ska litas på.
+2. **Konfigurera miljövariabler** – kopiera `.example.env` till `.env` och fyll i värdena. Ange din externa PostgreSQL-server via `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (samt valfritt `POSTGRES_PORT`). Om `DATABASE_URL` är tom byggs anslutningssträngen automatiskt från dessa värden; du kan även sätta `DATABASE_URL` direkt. För lokal utveckling eller tester kan `ENABLE_LOCAL_TEST_DB` aktiveras tillfälligt så att en SQLite-fil enligt `LOCAL_TEST_DB_PATH` används. När applikationen körs bakom omvänd proxy styr `TRUSTED_PROXY_COUNT` hur många hopp som ska litas på.
 
-3. **Run the application**
+3. **Kör applikationen**
    ```bash
    python app.py
    ```
-   The app will be available on <http://localhost:80>. For container-based deployment see [DEPLOYMENT.md](DEPLOYMENT.md).
+   Appen svarar på <http://localhost:80>.
+
+### Docker och produktion
+
+- **Utveckling med Docker Compose**
+  ```bash
+  docker compose up --build
+  ```
+  Demoläget kan startas separat med `docker compose up --build app_demo`.
+
+- **Produktion** – se den fullständiga guiden i [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) för GHCR/Docker Hub, volymer och Portainer.
+
+## Dokumentation och struktur
+
+- Översiktlig struktur finns i [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md).
+- Drift- och säkerhetsdokumentation finns i `docs/` samt `SECURITY.md`.
+- Hjälpskript ligger i `scripts/`; exempelvis SMTP-testet `scripts/send_test_email.py`.
 
 ### Anpassa TLS-certifikat
 
