@@ -2318,11 +2318,6 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
         return False
 
     try:
-        engine.dispose()
-    except Exception:
-        logger.exception("Kunde inte stänga anslutningar före demoreset")
-
-    try:
         Path(database).unlink(missing_ok=True)
     except OSError:
         logger.exception("Demodatabasen kunde inte tas bort")
