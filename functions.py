@@ -604,6 +604,11 @@ def _build_engine() -> Engine:
 def reset_engine() -> None:
     # Reset the cached SQLAlchemy engine.
     global _ENGINE
+    if _ENGINE is not None:
+        try:
+            _ENGINE.dispose()
+        except Exception:
+            logger.exception("Kunde inte stänga databasmotorn vid återställning")
     _ENGINE = None
 
 
@@ -2290,6 +2295,40 @@ def ensure_demo_data(
         )
 
     _ensure_demo_pdfs(pnr_hash)
+
+
+def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
+    """Rensa demodatabasen och återställ standardinnehållet.
+
+    Funktionen är endast avsedd att användas i demoläge där en lokal
+    SQLite-databas nyttjas. Om databasen inte är SQLite eller körs i minnet
+    görs ingen återställning.
+    """
+
+    engine = get_engine()
+    url = engine.url
+
+    if url.get_backend_name() != "sqlite":
+        logger.info("Demodatabasen hoppades över eftersom bakänden inte är SQLite")
+        return False
+
+    database = url.database or ""
+    if database in ("", ":memory:"):
+        logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
+        return False
+
+    try:
+        Path(database).unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Demodatabasen kunde inte tas bort")
+        return False
+
+    reset_engine()
+    create_database()
+    ensure_demo_data(**demo_defaults)
+
+    logger.info("Demodatabasen har rensats och återställts till standarddata")
+    return True
 
 
 DEMO_PDF_DEFINITIONS = [
