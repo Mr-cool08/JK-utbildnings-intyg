@@ -25,14 +25,44 @@
                 </div>
             {% endif %}
 
+            {% set name_error = field_errors.get('name') %}
             <label for="name">Fullständigt namn</label>
-            <input id="name" name="name" type="text" value="{{ form_data.name }}" required autocomplete="name">
+            <input
+                id="name"
+                name="name"
+                type="text"
+                value="{{ form_data.name }}"
+                required
+                autocomplete="name"
+                class="{% if name_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if name_error else 'false' }}"
+            >
 
+            {% set email_error = field_errors.get('email') %}
             <label for="email">E-postadress</label>
-            <input id="email" name="email" type="email" value="{{ form_data.email }}" required autocomplete="email">
+            <input
+                id="email"
+                name="email"
+                type="email"
+                value="{{ form_data.email }}"
+                required
+                autocomplete="email"
+                class="{% if email_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if email_error else 'false' }}"
+            >
 
+            {% set company_error = field_errors.get('company_name') %}
             <label for="company_name">Företag</label>
-            <input id="company_name" name="company_name" type="text" value="{{ form_data.company_name }}" required autocomplete="organization">
+            <input
+                id="company_name"
+                name="company_name"
+                type="text"
+                value="{{ form_data.company_name }}"
+                required
+                autocomplete="organization"
+                class="{% if company_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if company_error else 'false' }}"
+            >
 
             {% set orgnr_error = field_errors.get('orgnr') %}
             <label for="orgnr">Organisationsnummer</label>
@@ -56,22 +86,65 @@
 
             <fieldset class="field-group" id="invoiceSection">
                 <legend>Faktureringsuppgifter</legend>
+                {% set invoice_address_error = field_errors.get('invoice_address') %}
                 <label for="invoice_address">Fakturaadress</label>
-                <textarea id="invoice_address" name="invoice_address" rows="3" required>{{ form_data.invoice_address }}</textarea>
+                <textarea
+                    id="invoice_address"
+                    name="invoice_address"
+                    rows="3"
+                    required
+                    class="{% if invoice_address_error %}input-error{% endif %}"
+                    aria-invalid="{{ 'true' if invoice_address_error else 'false' }}"
+                >{{ form_data.invoice_address }}</textarea>
                 <small class="hint">Ange fullständig adress inklusive eventuell referens.</small>
 
+                {% set invoice_contact_error = field_errors.get('invoice_contact') %}
                 <label for="invoice_contact">Kontaktperson</label>
-                <input id="invoice_contact" name="invoice_contact" type="text" value="{{ form_data.invoice_contact }}" required>
+                <input
+                    id="invoice_contact"
+                    name="invoice_contact"
+                    type="text"
+                    value="{{ form_data.invoice_contact }}"
+                    required
+                    class="{% if invoice_contact_error %}input-error{% endif %}"
+                    aria-invalid="{{ 'true' if invoice_contact_error else 'false' }}"
+                >
 
+                {% set invoice_reference_error = field_errors.get('invoice_reference') %}
                 <label for="invoice_reference">Märkning</label>
-                <input id="invoice_reference" name="invoice_reference" type="text" value="{{ form_data.invoice_reference }}" required>
+                <input
+                    id="invoice_reference"
+                    name="invoice_reference"
+                    type="text"
+                    value="{{ form_data.invoice_reference }}"
+                    required
+                    class="{% if invoice_reference_error %}input-error{% endif %}"
+                    aria-invalid="{{ 'true' if invoice_reference_error else 'false' }}"
+                >
             </fieldset>
 
+            {% set comment_error = field_errors.get('comment') %}
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
-            <textarea id="comment" name="comment" rows="4">{{ form_data.comment }}</textarea>
+            <textarea
+                id="comment"
+                name="comment"
+                rows="4"
+                class="{% if comment_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if comment_error else 'false' }}"
+            >{{ form_data.comment }}</textarea>
 
+            {% set terms_error = field_errors.get('terms_confirmed') %}
             <div class="form-consent">
-                <input id="terms_confirmed" name="terms_confirmed" type="checkbox" value="1" {% if form_data.terms_confirmed %}checked{% endif %} required>
+                <input
+                    id="terms_confirmed"
+                    name="terms_confirmed"
+                    type="checkbox"
+                    value="1"
+                    {% if form_data.terms_confirmed %}checked{% endif %}
+                    required
+                    class="{% if terms_error %}input-error{% endif %}"
+                    aria-invalid="{{ 'true' if terms_error else 'false' }}"
+                >
                 <label for="terms_confirmed">
                     Jag har läst och förstått <a href="{{ url_for('terms_of_service') }}">användarvillkoren</a> och
                     <a href="{{ url_for('gdpr_info') }}">GDPR-policyn</a>.
