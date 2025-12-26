@@ -586,13 +586,43 @@ def apply_account():
     return render_template('apply.html')
 
 
+def _flag_application_field_error(message: str, field_errors: dict[str, bool]) -> None:
+    # Markera specifika fält som ska flaggas i formuläret utifrån felmeddelanden.
+    lowered = message.lower()
+    if "namn" in lowered:
+        field_errors["name"] = True
+    if "e-post" in lowered or "email" in lowered:
+        field_errors["email"] = True
+    if "organisationsnummer" in lowered:
+        field_errors["orgnr"] = True
+    if "företagsnamn" in lowered:
+        field_errors["company_name"] = True
+    if "fakturaadress" in lowered:
+        field_errors["invoice_address"] = True
+    if "kontaktperson" in lowered:
+        field_errors["invoice_contact"] = True
+    if "märkning" in lowered:
+        field_errors["invoice_reference"] = True
+
+
 @app.route('/ansok/standardkonto', methods=['GET', 'POST'])
 def apply_standardkonto():
     """Visa och hantera ansökan för standardkonto."""
 
     account_type = "standard"
     form_errors: list[str] = []
-    field_errors = {"orgnr": False}
+    base_field_errors = {
+        "name": False,
+        "email": False,
+        "orgnr": False,
+        "company_name": False,
+        "invoice_address": False,
+        "invoice_contact": False,
+        "invoice_reference": False,
+        "comment": False,
+        "terms_confirmed": False,
+    }
+    field_errors = dict(base_field_errors)
     status_code = 200
 
     base_form_data = {
@@ -618,6 +648,7 @@ def apply_standardkonto():
                 form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
+                    field_errors["terms_confirmed"] = True
                     form_errors.append(
                         "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
@@ -642,8 +673,7 @@ def apply_standardkonto():
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
-                        if "organisationsnummer" in message.lower():
-                            field_errors["orgnr"] = True
+                        _flag_application_field_error(message, field_errors)
                     except Exception as exc:  # pragma: no cover - defensiv loggning
                         logger.exception("Kunde inte spara ansökan")
                         form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
@@ -674,7 +704,18 @@ def apply_foretagskonto():
 
     account_type = "foretagskonto"
     form_errors: list[str] = []
-    field_errors = {"orgnr": False}
+    base_field_errors = {
+        "name": False,
+        "email": False,
+        "orgnr": False,
+        "company_name": False,
+        "invoice_address": False,
+        "invoice_contact": False,
+        "invoice_reference": False,
+        "comment": False,
+        "terms_confirmed": False,
+    }
+    field_errors = dict(base_field_errors)
     status_code = 200
 
     base_form_data = {
@@ -703,6 +744,7 @@ def apply_foretagskonto():
                 form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
             else:
                 if not as_bool(form_data.get("terms_confirmed")):
+                    field_errors["terms_confirmed"] = True
                     form_errors.append(
                         "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
                     )
@@ -727,8 +769,7 @@ def apply_foretagskonto():
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
-                        if "organisationsnummer" in message.lower():
-                            field_errors["orgnr"] = True
+                        _flag_application_field_error(message, field_errors)
                     except Exception as exc:  # pragma: no cover - defensiv loggning
                         logger.exception("Kunde inte spara ansökan")
                         form_errors.append("Det gick inte att skicka ansökan just nu. Försök igen senare.")
