@@ -713,6 +713,18 @@ textarea:focus {
     gap: 1rem;
 }
 
+.panel-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.panel-subtitle {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+}
+
 .filter-group {
     display: flex;
     flex-wrap: wrap;
@@ -1840,6 +1852,20 @@ small.hint {
     font-size: 0.95rem;
 }
 
+.application-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    color: var(--color-text-muted);
+}
+
+.meta-chip {
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-pill);
+    padding: 0.35rem 0.7rem;
+    font-size: 0.9rem;
+}
+
 /* Status color accents */
 .application-status {
     font-weight: 500;
@@ -1855,6 +1881,35 @@ small.hint {
 
 .status-rejected {
     color: var(--status-rejected, #b91c1c); /* red */
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: var(--radius-pill);
+    padding: 0.35rem 0.75rem;
+    font-weight: 600;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
+}
+
+.badge-pending {
+    background: #fff7ed;
+    color: var(--status-pending, #d97706);
+    border-color: rgba(217, 119, 6, 0.25);
+}
+
+.badge-approved {
+    background: #ecfdf3;
+    color: var(--status-approved, #15803d);
+    border-color: rgba(21, 128, 61, 0.25);
+}
+
+.badge-rejected {
+    background: #fef2f2;
+    color: var(--status-rejected, #b91c1c);
+    border-color: rgba(185, 28, 28, 0.25);
 }
 
 /* Buttons */
@@ -1876,6 +1931,28 @@ small.hint {
     border: 1px solid var(--border-color, #ddd);
     border-radius: 0.5rem;
     padding: 0.75rem 1rem;
+}
+
+.message.success {
+    background: var(--color-success-bg);
+    border-color: var(--color-success-border);
+    color: var(--color-success-text);
+}
+
+.message.error {
+    background: var(--color-error-bg);
+    border-color: var(--color-error-border);
+    color: var(--color-error-text);
+}
+
+.empty-state {
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
 }
 
 /* Smooth appearance for hidden/visible toggles */
@@ -1969,4 +2046,35 @@ small.hint {
 
 .application-actions .btn {
     min-width: 9rem;
+}
+
+.application-detail-toggle summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--color-primary);
+    margin-bottom: 0.35rem;
+}
+
+.application-detail-toggle[open] summary {
+    color: var(--color-text);
+}
+
+.reject-panel {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    background: var(--color-surface-soft);
+    padding: 0.75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+}
+
+.reject-panel textarea {
+    width: 100%;
+}
+
+.reject-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
