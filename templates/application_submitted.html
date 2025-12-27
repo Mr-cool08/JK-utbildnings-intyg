@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Ansökan skickad – Utbildningsintyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Vi har tagit emot din ansökan. Läs om vad som händer härnäst och hur du förbereder dig.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="submitted-title">
+    <div class="apply-hero-content">
+        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet">&#x2190; Tillbaka</a>
+
+        <div class="apply-intro">
+            <h1 id="submitted-title">Ansökan inskickad</h1>
+            <p>Vi har tagit emot din ansökan om {{ account_type }}. Här beskriver vi vad som händer nu och hur du kan förbereda dig.</p>
+        </div>
+
+        <div class="message success" role="status" aria-live="polite">
+            Tack för ditt intresse! Du får en bekräftelse via e-post så snart vi har påbörjat granskningen.
+        </div>
+
+        <section class="apply-steps" aria-labelledby="steps-title">
+            <div class="apply-steps-header">
+                <div>
+                    <p class="eyebrow">Nästa steg</p>
+                    <h2 id="steps-title">Så här tar vi din ansökan vidare</h2>
+                </div>
+            </div>
+            <ol class="apply-step-list">
+                <li>
+                    <h3>Bekräftelse och första kontroll</h3>
+                    <p>Vi verifierar att kontaktuppgifterna stämmer och skickar en kort bekräftelse till angiven e-postadress. Kontrollera även skräpposten.</p>
+                </li>
+                <li>
+                    <h3>Granskning och eventuell komplettering</h3>
+                    <p>Om något saknas, till exempel organisationsnummer eller fakturauppgifter, hör vi av oss med en förfrågan om komplettering.</p>
+                </li>
+                <li>
+                    <h3>Aktivering av konto</h3>
+                    <p>När ansökan är godkänd skickar vi inloggningsinstruktioner och en sammanfattning av villkoren. För företagskonton kan avtalsunderlag bifogas.</p>
+                </li>
+                <li>
+                    <h3>Kom igång</h3>
+                    <p>Efter aktivering kan du logga in, ladda upp intyg och koppla användare. Vi skickar samtidigt tips för att snabbt komma igång.</p>
+                </li>
+            </ol>
+        </section>
+
+        <div class="cta-actions">
+            <a class="btn" href="/">Till startsidan</a>
+            <a class="btn btn-secondary" href="{{ url_for('pricing') }}">Se priser</a>
+            <a class="btn-link" href="{{ url_for('terms_of_service') }}">Läs villkoren</a>
+        </div>
+
+        <p>Har du frågor under tiden? Hör av dig till <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a> så hjälper vi dig.</p>
+    </div>
+</section>
+
+<section class="apply-info" aria-labelledby="prep-title">
+    <h2 id="prep-title">Förberedelser medan vi behandlar ansökan</h2>
+    <ul class="feature-list">
+        <li>
+            <h3>Samla intyg och kursmaterial</h3>
+            <p>Förbered filer du vill ladda upp direkt vid aktivering. Det går snabbt att komma igång om materialet finns nära till hands.</p>
+        </li>
+        <li>
+            <h3>Stäm av kontaktvägar</h3>
+            <p>Säkerställ att e-postadressen du angav är bevakad och att support@utbildningsintyg.se är tillagd som betrodd avsändare.</p>
+        </li>
+        <li>
+            <h3>Planera behörigheter</h3>
+            <p>Fundera på vilka kollegor som ska ha tillgång. När kontot är aktiverat kan du bjuda in fler användare direkt.</p>
+        </li>
+    </ul>
+</section>
+{% endblock %}

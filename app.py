@@ -681,8 +681,7 @@ def apply_standardkonto():
                         # Make the client-facing confirmation explicit about which account type was submitted
                         display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
                         flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
-                        target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
-                        return redirect(url_for(target))
+                        return redirect(url_for('application_submitted', account_type=account_type))
 
     csrf_token = ensure_csrf_token()
 
@@ -777,8 +776,7 @@ def apply_foretagskonto():
                         # Make the client-facing confirmation explicit about which account type was submitted
                         display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
                         flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
-                        target = 'apply_foretagskonto' if account_type == 'foretagskonto' else 'apply_standardkonto'
-                        return redirect(url_for(target))
+                        return redirect(url_for('application_submitted', account_type=account_type))
 
     csrf_token = ensure_csrf_token()
 
@@ -798,6 +796,15 @@ def terms_of_service():
     """Visa sidan med villkor."""
 
     return render_template('terms_of_service.html')
+
+
+@app.route('/ansok/klart', methods=['GET'])
+def application_submitted():
+    """Visa bekräftelse och nästa steg efter inskickad ansökan."""
+
+    raw_type = request.args.get('account_type', '').strip().lower()
+    account_type = 'företagskonto' if raw_type == 'foretagskonto' else 'standardkonto'
+    return render_template('application_submitted.html', account_type=account_type)
 
 
 
