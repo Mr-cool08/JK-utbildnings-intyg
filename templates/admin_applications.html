@@ -2,31 +2,14 @@
 {% block title %}Admin — Ansökningar{% endblock %}
 {% block content %}
 <h1>Admin — Ansökningar</h1>
-<p>Hantera inkomna kontoansökningar. Alla ändringar loggas och godkännanden skickar automatiskt ett e-postmeddelande till kontaktpersonen.</p>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const detailButtons = document.querySelectorAll('.show-details-btn');
-
-    detailButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const appId = btn.getAttribute('data-app-id');
-            const details = document.getElementById(`details-${appId}`);
-
-            if (details.hasAttribute('hidden')) {
-                details.removeAttribute('hidden');
-                btn.textContent = 'Dölj information';
-            } else {
-                details.setAttribute('hidden', '');
-                btn.textContent = 'Visa mer information';
-            }
-        });
-    });
-});
-</script>
+<p>Hantera inkomna kontoansökningar med ett klick. Alla ändringar loggas automatiskt och rätt mejl skickas ut.</p>
 
 <section class="panel admin-applications" data-csrf-token="{{ csrf_token }}">
     <header class="panel-header">
-        <h2>Inkomna ansökningar</h2>
+        <div class="panel-title">
+            <h2>Inkomna ansökningar</h2>
+            <p class="panel-subtitle">Välj ett filter och godkänn eller avslå direkt utan att lämna sidan.</p>
+        </div>
         <div class="filter-group">
             <label for="statusFilter">Visa status</label>
             <select id="statusFilter">
@@ -34,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option value="approved">Godkända</option>
                 <option value="rejected">Avslagna</option>
                 <option value="alla">Alla</option>
-
             </select>
             <button type="button" class="btn" id="refreshApplications">Uppdatera lista</button>
         </div>
@@ -42,77 +24,261 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <div id="applicationsMessage" class="message" role="status" aria-live="polite" hidden></div>
 
-    <div class="table-scroll">
-    <div id="applicationsList" class="applications-list">
-        {% if application == [] %}
-        <p>Inga ansökningar mottagna än.</p>
-        {% endif %}
-
-        {% for application in applications %}
-        <article class="application-item" data-status="{{ application.status }}">
-            <input type="checkbox"
-                   id="applicationToggle{{ application.id }}"
-                   class="application-toggle"
-                   data-application-id="{{ application.id }}">
-
-            <div class="application-card">
-                <label for="applicationToggle{{ application.id }}" class="application-summary">
-                    <div class="application-info">
-                        <span class="application-name">{{ application.name }}</span>
-                        <span class="application-email">&lt;{{ application.email }}&gt;</span>
-                        <span class="application-type">Typ: {{ application.account_type }}</span>
-                        <span class="application-status
-                            {% if application.status == 'pending' %}status-pending
-                            {% elif application.status == 'approved' %}status-approved
-                            {% elif application.status == 'rejected' %}status-rejected{% endif %}">
-                            Status: {{ application.status|capitalize }}
-                        </span>
-                    </div>
-                </label>
-
-                <div class="application-actions-inline">
-                    <button type="button"
-                            class="btn btn-small show-details-btn"
-                            data-app-id="{{ application.id }}">
-                        Visa mer information
-                    </button>
-                </div>
-
-                <div class="application-details" id="details-{{ application.id }}" hidden>
-                    <p><strong>Organisationsnummer:</strong> {{ application.orgnr_normalized or "—" }}</p>
-                    <p><strong>Företagsnamn:</strong> {{ application.company_name or "—" }}</p>
-                    <p><strong>Fakturaadress:</strong> {{ application.invoice_address or "—" }}</p>
-                    <p><strong>Kontaktperson:</strong> {{ application.invoice_contact or "—" }}</p>
-                    <p><strong>Kommentar:</strong> {{ application.comment or "—" }}</p>
-                    <p><strong>Skapad:</strong> {{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-                </div>
-
-                <div class="application-actions">
-                    <form method="POST" action="{{ url_for('admin_applications') }}">
-                        <input type="hidden" name="application_id" value="{{ application.id }}">
-                        <input type="hidden" name="application_status" value="approved">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-small btn-approve">
-                            Godkänn
-                        </button>
-                    </form>
-
-                    <form method="POST" action="{{ url_for('admin_applications') }}">
-                        <input type="hidden" name="application_id" value="{{ application.id }}">
-                        <input type="hidden" name="application_status" value="rejected">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-small btn-deny">
-                            Avvisa
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </article>
-        {% endfor %}
-    </div>
+    <div id="applicationsList" class="applications-list" role="list">
+        <p class="empty-state">Laddar ansökningar …</p>
     </div>
 </section>
 <a class="btn-link" href="{{ url_for('admin') }}">Tillbaka till adminpanelen</a>
+
+<script>
+(() => {
+    const csrfToken = document.querySelector('.admin-applications')?.dataset.csrfToken || '';
+    const list = document.getElementById('applicationsList');
+    const message = document.getElementById('applicationsMessage');
+    const statusFilter = document.getElementById('statusFilter');
+    const refreshButton = document.getElementById('refreshApplications');
+
+    const statusLabels = {
+        pending: 'Väntar på granskning',
+        approved: 'Godkänd',
+        rejected: 'Avslagen',
+    };
+
+    function formatDate(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function setMessage(text, variant = 'info', extraNode = null) {
+        message.textContent = text;
+        if (extraNode) {
+            message.appendChild(document.createTextNode(' '));
+            message.appendChild(extraNode);
+        }
+        message.className = `message ${variant}`;
+        message.hidden = false;
+    }
+
+    function clearMessage() {
+        message.hidden = true;
+        message.textContent = '';
+    }
+
+    function toggleLoading(isLoading) {
+        refreshButton.disabled = isLoading;
+        statusFilter.disabled = isLoading;
+        list.classList.toggle('is-loading', isLoading);
+    }
+
+    function updateStatusBadge(card, status) {
+        const badge = card.querySelector('.status-badge');
+        card.dataset.status = status;
+        badge.textContent = statusLabels[status] || status;
+        badge.className = `status-badge badge-${status}`;
+    }
+
+    function buildDetailList(application) {
+        return `
+            <dl class="application-detail">
+                <div>
+                    <dt>Organisationsnummer</dt>
+                    <dd>${application.orgnr_normalized || '—'}</dd>
+                </div>
+                <div>
+                    <dt>Företagsnamn</dt>
+                    <dd>${application.company_name || '—'}</dd>
+                </div>
+                <div>
+                    <dt>Fakturaadress</dt>
+                    <dd>${application.invoice_address || '—'}</dd>
+                </div>
+                <div>
+                    <dt>Kontaktperson</dt>
+                    <dd>${application.invoice_contact || '—'}</dd>
+                </div>
+                <div>
+                    <dt>Kommentar</dt>
+                    <dd>${application.comment || '—'}</dd>
+                </div>
+                <div>
+                    <dt>Inskickad</dt>
+                    <dd>${formatDate(application.created_at)}</dd>
+                </div>
+            </dl>
+        `;
+    }
+
+    function buildCard(application) {
+        const card = document.createElement('article');
+        card.className = 'application-item';
+        card.dataset.status = application.status;
+        card.dataset.appId = application.id;
+
+        card.innerHTML = `
+            <div class="application-card">
+                <div class="application-summary">
+                    <div class="application-info">
+                        <span class="application-name">${application.name}</span>
+                        <span class="application-email">${application.email}</span>
+                        <span class="application-type">${application.account_type === 'foretagskonto' ? 'Företagskonto' : 'Standardkonto'}</span>
+                    </div>
+                    <span class="status-badge badge-${application.status}">${statusLabels[application.status] || application.status}</span>
+                </div>
+                <div class="application-meta">
+                    <span class="meta-chip">${application.account_type === 'foretagskonto' ? 'Företag' : 'Standard'}</span>
+                    <span class="meta-chip">${formatDate(application.created_at)}</span>
+                </div>
+                <details class="application-detail-toggle">
+                    <summary>Visa detaljer</summary>
+                    ${buildDetailList(application)}
+                </details>
+                <div class="application-actions">
+                    <button type="button" class="btn btn-small btn-approve" data-action="approve">Godkänn direkt</button>
+                    <button type="button" class="btn btn-small btn-deny" data-action="reject">Avslå</button>
+                </div>
+                <div class="reject-panel" hidden>
+                    <label for="reject-reason-${application.id}">Motivering (valfritt)</label>
+                    <textarea id="reject-reason-${application.id}" rows="2" placeholder="Kort motivering till avslaget"></textarea>
+                    <div class="reject-actions">
+                        <button type="button" class="btn btn-small btn-deny" data-action="confirm-reject">Skicka avslag</button>
+                        <button type="button" class="btn btn-small btn-secondary" data-action="cancel-reject">Avbryt</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        hookCardActions(card, application.id);
+        return card;
+    }
+
+    function setButtonsDisabled(card, disabled) {
+        card.querySelectorAll('button').forEach((btn) => {
+            btn.disabled = disabled;
+        });
+    }
+
+    async function approveApplication(card, applicationId) {
+        setButtonsDisabled(card, true);
+        setMessage('Godkänner ansökan …');
+        try {
+            const response = await fetch(`/admin/api/ansokningar/${applicationId}/godkann`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify({ csrf_token: csrfToken }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Kunde inte godkänna ansökan.');
+            }
+
+            updateStatusBadge(card, 'approved');
+            const creationText = data.creation_link
+                ? document.createTextNode(`Aktiveringslänk: ${data.creation_link}`)
+                : null;
+            setMessage('Ansökan godkänd.', 'success', creationText);
+        } catch (error) {
+            console.error(error);
+            setMessage(error.message || 'Ett fel uppstod vid godkännande.', 'error');
+        } finally {
+            setButtonsDisabled(card, false);
+        }
+    }
+
+    async function rejectApplication(card, applicationId, reason) {
+        setButtonsDisabled(card, true);
+        setMessage('Avslår ansökan …');
+        try {
+            const response = await fetch(`/admin/api/ansokningar/${applicationId}/avslag`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify({ csrf_token: csrfToken, reason }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Kunde inte avslå ansökan.');
+            }
+
+            updateStatusBadge(card, 'rejected');
+            setMessage('Ansökan avslogs.', 'success');
+            card.querySelector('.reject-panel').hidden = true;
+        } catch (error) {
+            console.error(error);
+            setMessage(error.message || 'Ett fel uppstod vid avslag.', 'error');
+        } finally {
+            setButtonsDisabled(card, false);
+        }
+    }
+
+    function hookCardActions(card, applicationId) {
+        const approveButton = card.querySelector('[data-action="approve"]');
+        const rejectButton = card.querySelector('[data-action="reject"]');
+        const rejectPanel = card.querySelector('.reject-panel');
+        const confirmReject = card.querySelector('[data-action="confirm-reject"]');
+        const cancelReject = card.querySelector('[data-action="cancel-reject"]');
+        const reasonField = card.querySelector('textarea');
+
+        approveButton?.addEventListener('click', () => approveApplication(card, applicationId));
+        rejectButton?.addEventListener('click', () => {
+            rejectPanel.hidden = false;
+            reasonField.focus();
+        });
+        cancelReject?.addEventListener('click', () => {
+            rejectPanel.hidden = true;
+            reasonField.value = '';
+        });
+        confirmReject?.addEventListener('click', () => {
+            rejectApplication(card, applicationId, reasonField.value.trim());
+        });
+    }
+
+    function renderApplications(applications) {
+        list.innerHTML = '';
+        if (!applications.length) {
+            list.innerHTML = '<p class="empty-state">Inga ansökningar hittades för det här filtret.</p>';
+            return;
+        }
+
+        applications.forEach((application) => {
+            list.appendChild(buildCard(application));
+        });
+    }
+
+    async function fetchApplications() {
+        toggleLoading(true);
+        clearMessage();
+        const status = statusFilter.value;
+        const query = status === 'alla' ? '' : `?status=${encodeURIComponent(status)}`;
+        try {
+            const response = await fetch(`/admin/api/ansokningar${query}`);
+            const data = await response.json();
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Kunde inte läsa ansökningarna.');
+            }
+            renderApplications(data.data || []);
+        } catch (error) {
+            console.error(error);
+            setMessage(error.message || 'Ett fel uppstod när ansökningarna skulle hämtas.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    }
+
+    statusFilter.addEventListener('change', fetchApplications);
+    refreshButton.addEventListener('click', fetchApplications);
+
+    fetchApplications();
+})();
+</script>
 
 {% endblock %}
 {% block head %}{{ super() }}<meta name="robots" content="noindex">{% endblock %}
