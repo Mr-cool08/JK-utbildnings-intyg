@@ -168,6 +168,13 @@ def send_email(
     """Create an ``EmailMessage`` and send it to ``recipient_email``."""
 
     normalized_email = normalize_valid_email(recipient_email)
+    recipient_mask = mask_hash(functions.hash_value(normalized_email))
+    logger.info(
+        "Förbereder e-post med ämne '%s' till %s (bilagor: %s)",
+        subject,
+        recipient_mask,
+        len(attachments) if attachments else 0,
+    )
     settings = load_smtp_settings()
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
@@ -188,6 +195,9 @@ def send_email(
             )
 
     send_email_message(msg, normalized_email, settings)
+    logger.info(
+        "E-post med ämne '%s' skickad till %s", subject, recipient_mask
+    )
 
 
 def send_creation_email(to_email: str, link: str) -> None:
