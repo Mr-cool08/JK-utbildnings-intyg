@@ -7,6 +7,8 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,8 +28,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-cov coverage
 
-      - name: Run tests
-        run: |
-          pytest
+      - name: Kör tester
+        if: ${{ env.CODACY_PROJECT_TOKEN == '' }}
+        run: pytest
+
+      - name: Kör tester med täckning
+        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
+        run: pytest --cov=. --cov-report xml
+
+      - name: Rapportera täckning till Codacy
+        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
+        with:
+          api-token: ${{ env.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage.xml
