@@ -24,6 +24,37 @@ def default_compose_file() -> str:
     return str(root / "docker-compose.yml")
 
 
+def send_notification(action: str, details: str = "") -> None:
+    """Send email notification about compose action (if configured)."""
+    try:
+        # Add repo root to path to import services
+        sys.path.insert(0, str(repo_root()))
+        from services import email as email_service
+        
+        action_labels = {
+            "stop": "Docker Compose tjänsterna stoppades",
+            "pull": "Docker bilder uppdaterades",
+            "up": "Docker Compose tjänsterna startades",
+            "cycle": "Docker Compose tjänsterna startades om (cycle)",
+            "git-pull": "Git uppdatering genomfördes",
+        }
+        
+        event_type = "compose_action"
+        title = action_labels.get(action, f"Docker Compose åtgärd: {action}")
+        
+        try:
+            email_service.send_critical_event_alert(
+                event_type,
+                f"Åtgärd: {title}\nDetaljer: {details}" if details else title
+            )
+        except Exception as e:
+            # Log but don't fail if email sending fails
+            print(f"Varning: Kunde inte skicka avisering: {e}", file=sys.stderr)
+    except Exception:
+        # Silently fail if email module isn't available
+        pass
+
+
 def build_compose_args(
     compose_file: str | None,
     env_file: str | None,
@@ -54,27 +85,36 @@ def run_compose_action(
     compose_args: Sequence[str],
     action: str,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    notify: bool = True,
 ) -> None:
     # Run a single compose action.
     if action == "stop":
         print("Stoppar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["stop"], runner)
         print("Klar.")
+        if notify:
+            send_notification("stop")
         return
     if action == "pull":
         print("Hämtar senaste Docker-bilderna...")
         run_compose_command(compose_args, ["pull"], runner)
         print("Klar.")
+        if notify:
+            send_notification("pull")
         return
     if action == "git-pull":
         print("Hämtar senaste ändringarna med git pull...")
         runner(["git", "pull"], check=True)
         print("Klar.")
+        if notify:
+            send_notification("git-pull")
         return
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["up", "-d"], runner)
         print("Klar.")
+        if notify:
+            send_notification("up")
         return
     if action == "cycle":
         print("Stoppar och tar bort Docker Compose-tjänsterna...")
@@ -90,6 +130,8 @@ def run_compose_action(
         run_compose_command(compose_args, ["up", "-d"], runner)
 
         print("Klar.")
+        if notify:
+            send_notification("cycle", "Fullständig omstart av alla tjänster genomförd")
         return
     raise ValueError("Okänd åtgärd vald.")
 
@@ -123,6 +165,7 @@ def run_menu(
     compose_args: Sequence[str],
     input_func: Callable[[str], str] = input,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    notify: bool = True,
 ) -> int:
     # Run an interactive menu for compose actions.
     while True:
@@ -133,7 +176,7 @@ def run_menu(
         if selection == "invalid":
             print("Ogiltigt val. Försök igen.")
             continue
-        run_compose_action(compose_args, selection, runner)
+        run_compose_action(compose_args, selection, runner, notify=notify)
         return 0
 
 
@@ -161,6 +204,11 @@ def parse_args() -> argparse.Namespace:
         choices=["stop", "pull", "up", "cycle", "git-pull"],
         help="Kör en specifik åtgärd utan meny.",
     )
+    parser.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Skicka inte e-postaviseringar (kräver CRITICAL_ALERTS_EMAIL att vara konfigurerad).",
+    )
     return parser.parse_args()
 
 
@@ -172,11 +220,12 @@ def main() -> int:
         args.env_file,
         args.project_name,
     )
+    notify = not args.no_notify
     try:
         if args.action:
-            run_compose_action(compose_args, args.action)
+            run_compose_action(compose_args, args.action, notify=notify)
         else:
-            return run_menu(compose_args)
+            return run_menu(compose_args, notify=notify)
     except subprocess.CalledProcessError:
         print("Ett fel uppstod när Docker Compose-kommandot kördes.", file=sys.stderr)
         return 1
