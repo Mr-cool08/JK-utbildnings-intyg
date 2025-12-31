@@ -4,16 +4,28 @@
 #
 #    pip-compile --output-file=requirements.lock requirements.txt
 #
+bitarray==3.8.0
+    # via pdfreader
 blinker==1.9.0
     # via flask
 certifi==2025.11.12
     # via requests
+cffi==2.0.0
+    # via cryptography
 charset-normalizer==3.4.4
     # via requests
 click==8.3.1
     # via
     #   -r requirements.txt
     #   flask
+colorclass==2.2.2
+    # via oletools
+cryptography==46.0.3
+    # via
+    #   msoffcrypto-tool
+    #   quicksand
+easygui==0.98.3
+    # via oletools
 flask==3.1.2
     # via -r requirements.txt
 greenlet==3.3.0
@@ -38,26 +50,59 @@ markupsafe==3.0.3
     #   flask
     #   jinja2
     #   werkzeug
+msoffcrypto-tool==5.4.2
+    # via
+    #   oletools
+    #   quicksand
+olefile==0.47
+    # via
+    #   msoffcrypto-tool
+    #   oletools
+    #   quicksand
+oletools==0.60.2
+    # via
+    #   pcodedmp
+    #   quicksand
 packaging==25.0
     # via
     #   gunicorn
     #   pytest
+pcodedmp==1.2.6
+    # via oletools
+pdfreader==0.1.15
+    # via quicksand
 pillow==12.0.0
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   pdfreader
 pluggy==1.6.0
     # via pytest
+psutil==7.2.1
+    # via -r requirements.txt
 psycopg==3.3.2
     # via -r requirements.txt
 psycopg2-binary==2.9.11
     # via -r requirements.txt
+pycparser==2.23
+    # via cffi
+pycryptodome==3.23.0
+    # via pdfreader
 pygments==2.19.2
     # via pytest
+pyparsing==3.3.1
+    # via oletools
 pytest==9.0.2
     # via -r requirements.txt
+python-dateutil==2.9.0.post0
+    # via pdfreader
 python-dotenv==1.2.1
+    # via -r requirements.txt
+quicksand==2.1.2
     # via -r requirements.txt
 requests==2.32.5
     # via -r requirements.txt
+six==1.17.0
+    # via python-dateutil
 sqlalchemy==2.0.45
     # via -r requirements.txt
 typing-extensions==4.15.0
@@ -70,3 +115,7 @@ werkzeug==3.1.4
     # via
     #   -r requirements.txt
     #   flask
+yara-python==4.5.4
+    # via quicksand
+zipfile38==0.0.3
+    # via quicksand

@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 import functions
 from course_categories import normalize_category_slugs
 from logging_utils import mask_hash
+from services.pdf_scanner import ScanVerdict, scan_pdf_bytes
 
 ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
 
@@ -86,6 +87,16 @@ def save_pdf_for_user(
         logger.info(
             "Konverterade %s till PDF för %s", mime, mask_hash(pnr_hash)
         )
+
+    verdict: ScanVerdict = scan_pdf_bytes(content, logger)
+    logger.info(
+        "PDF-skanning för %s: %s (fynd: %s)",
+        mask_hash(pnr_hash),
+        verdict.decision,
+        ", ".join(verdict.findings) if verdict.findings else "inga",
+    )
+    if verdict.decision != "ALLOW":
+        raise ValueError("PDF:en blockerades av säkerhetsskannern.")
     pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
     logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
     return {"id": pdf_id, "filename": filename, "categories": selected_categories}

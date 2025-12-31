@@ -1,11 +1,14 @@
 import io
 
+import pytest
+
 from PIL import Image
 from werkzeug.datastructures import FileStorage
 
 import app
 import functions
 from course_categories import COURSE_CATEGORIES
+from services.pdf_scanner import ScanVerdict
 
 
 def test_save_pdf_for_user(empty_db):
@@ -61,3 +64,23 @@ def test_save_png_converts_to_pdf(empty_db):
     assert filename == result["filename"]
     assert decrypted.startswith(b"%PDF-")
     assert decrypted != png_bytes
+
+
+def test_save_pdf_rejects_blocked_scan(monkeypatch, empty_db):
+    pdf_bytes = b"%PDF-1.4 block"  # nosec - testdata
+    personnummer = "19900101-1234"
+    category = COURSE_CATEGORIES[0][0]
+
+    def _reject_scan(_content: bytes, _logger=None):
+        return ScanVerdict("REJECT", ["JavaScript"])
+
+    monkeypatch.setattr("services.pdf.scan_pdf_bytes", _reject_scan)
+
+    file_storage = FileStorage(
+        stream=io.BytesIO(pdf_bytes),
+        filename="malicious.pdf",
+        content_type="application/pdf",
+    )
+
+    with pytest.raises(ValueError):
+        app.save_pdf_for_user(personnummer, file_storage, [category])
