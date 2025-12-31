@@ -117,22 +117,33 @@ def run_compose_action(
             send_notification("up")
         return
     if action == "cycle":
+        # Run the full cycle and ensure we notify on success or failure.
         print("Stoppar och tar bort Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
+        try:
+            run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
 
-        print("Hämtar senaste ändringarna med git pull...")
-        runner(["git", "pull"], check=True)
+            print("Hämtar senaste ändringarna med git pull...")
+            runner(["git", "pull"], check=True)
 
-        print("Bygger om Docker Compose-tjänsterna utan cache...")
-        run_compose_command(compose_args, ["build", "--no-cache"], runner)
+            print("Bygger om Docker Compose-tjänsterna utan cache...")
+            run_compose_command(compose_args, ["build", "--no-cache"], runner)
 
-        print("Startar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["up", "-d"], runner)
+            print("Startar Docker Compose-tjänsterna...")
+            run_compose_command(compose_args, ["up", "-d"], runner)
 
-        print("Klar.")
-        if notify:
-            send_notification("cycle", "Fullständig omstart av alla tjänster genomförd")
-        return
+            print("Klar.")
+            if notify:
+                send_notification("cycle", "Fullständig omstart av alla tjänster genomförd")
+            return
+        except Exception as exc:
+            # Try to notify about the failure, but don't hide the original exception.
+            try:
+                if notify:
+                    send_notification("cycle", f"Fullständig omstart misslyckades: {exc}")
+            except Exception:
+                # Ignore notification failure
+                pass
+            raise
     raise ValueError("Okänd åtgärd vald.")
 
 
