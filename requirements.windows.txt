@@ -5,7 +5,7 @@ Jinja2
 itsdangerous
 click
 SQLAlchemy
-psycopg[binary]
+psycopg2-binary
 # psycopg2-binary kräver pg_config och byggverktyg på Windows; psycopg med binary-extra har färdiga hjul.
 MarkupSafe
 # Gunicorn fungerar främst på Unix. Använd valfri WSGI-server på Windows vid behov.
