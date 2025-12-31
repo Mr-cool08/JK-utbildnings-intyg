@@ -14,6 +14,7 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
    source venv/bin/activate
    pip install -r requirements.txt
    ```
+   På Windows kan du istället köra `pip install -r requirements.windows.txt` för att använda binära hjul utan `pg_config`.
 2. **Konfigurera miljövariabler** – kopiera `.example.env` till `.env` och fyll i värdena. Ange din externa PostgreSQL-server via `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (samt valfritt `POSTGRES_PORT`). Om `DATABASE_URL` är tom byggs anslutningssträngen automatiskt från dessa värden; du kan även sätta `DATABASE_URL` direkt. För lokal utveckling eller tester kan `ENABLE_LOCAL_TEST_DB` aktiveras tillfälligt så att en SQLite-fil enligt `LOCAL_TEST_DB_PATH` används. När applikationen körs bakom omvänd proxy styr `TRUSTED_PROXY_COUNT` hur många hopp som ska litas på.
 
 3. **Kör applikationen**
