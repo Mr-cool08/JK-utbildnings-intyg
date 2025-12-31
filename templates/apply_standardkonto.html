@@ -58,7 +58,7 @@
                 name="orgnr"
                 type="text"
                 inputmode="numeric"
-                pattern="[0-9-\s]{6,12}"
+                pattern="[0-9\s-]{6,12}"
                 value="{{ form_data.orgnr }}"
                 placeholder="Exempel: 556016-0680"
                 class="{% if orgnr_error %}input-error{% endif %}"
