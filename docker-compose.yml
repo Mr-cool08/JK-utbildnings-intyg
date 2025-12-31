@@ -64,6 +64,20 @@ services:
       - "8081:80"
     restart: unless-stopped
 
+  antivirus:
+    build: ./services/antivirus
+    profiles: [security]
+    environment:
+      SCAN_PATHS: ${ANTIVIRUS_SCAN_PATHS:-/host}
+      SCAN_SCHEDULE: ${ANTIVIRUS_SCAN_SCHEDULE:-0 */6 * * *}
+      QUARANTINE_PATH: ${ANTIVIRUS_QUARANTINE_PATH:-}
+      EXTRA_CLAMSCAN_ARGS: ${ANTIVIRUS_EXTRA_ARGS:-}
+    volumes:
+      - /:/host:ro
+      - antivirus_logs:/var/log/clamav
+      - antivirus_quarantine:/quarantine
+    restart: unless-stopped
+
   status_page:
     build:
       context: .
@@ -78,6 +92,8 @@ services:
 
 volumes:
   pgdata:
+  antivirus_logs:
+  antivirus_quarantine:
 
 networks:
   postgres_db:

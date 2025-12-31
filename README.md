@@ -33,6 +33,23 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
 
 - **Produktion** – se den fullständiga guiden i [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) för GHCR/Docker Hub, volymer och Portainer.
 
+### Antivirus-skanner som container
+
+En ClamAV-baserad skanner kan köras som en separat container för att regelbundet genomsöka filer och loggar utan att påverka huvudapplikationen. Tjänsten ligger under profilen `security` och startas vid behov:
+
+```bash
+docker compose --profile security up --build antivirus
+```
+
+I produktion finns samma tjänst i `docker-compose.prod.yml`; aktivera med `--profile security` när skannern ska användas. Standardinställningen skannar hela serverns filsystem via en read-only mount av `/` var sjätte timme och skriver resultat i volymen `antivirus_logs`. Filborttagning sker aldrig automatiskt, men om du anger `ANTIVIRUS_QUARANTINE_PATH` flyttas infekterade filer till den volymmonterade karantänmappen.
+
+Miljövariabler för finjustering:
+
+* `ANTIVIRUS_SCAN_PATHS` – mellanslagsseparerade sökvägar att skanna (standard `/host` för att omfatta hela värdmaskinen; justera för att begränsa skanningen vid behov).
+* `ANTIVIRUS_SCAN_SCHEDULE` – cron-uttryck för skanningsintervallet (standard `0 */6 * * *`).
+* `ANTIVIRUS_QUARANTINE_PATH` – destination för karantän om filer ska flyttas i stället för att bara rapporteras.
+* `ANTIVIRUS_EXTRA_ARGS` – valfria ytterligare flaggor till `clamscan`.
+
 ## Dokumentation och struktur
 
 - Översiktlig struktur finns i [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md).
