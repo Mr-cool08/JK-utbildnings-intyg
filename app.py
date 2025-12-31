@@ -288,16 +288,20 @@ def inject_flags():
 def robots_txt():
     """Servera robots.txt från den statiska katalogen."""
     # Serve robots.txt to disallow all crawlers.
+    if app.static_folder is None:
+        return jsonify({'error': 'Not Found'}), 404
     return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
     """Servera sitemap.xml med publika URL:er."""
     # Serve sitemap.xml with public URLs only.
+    if app.static_folder is None:
+        return jsonify({'error': 'Not Found'}), 404
     return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
-def create_user(pnr_hash):
+def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     # Allow a pending user to set a password and activate the account.
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == 'POST':
@@ -305,12 +309,10 @@ def create_user(pnr_hash):
         logger.debug("Creating user with hash %s", pnr_hash)
         functions.user_create_user(password, pnr_hash)
         return redirect('/login')
-    elif request.method == 'GET':
-        if functions.check_pending_user_hash(pnr_hash):
-            return render_template('create_user.html')
-        else:
-            logger.warning("User hash %s not found during create_user", pnr_hash)
-            return "Fel: Standardkontot hittades inte"
+    if functions.check_pending_user_hash(pnr_hash):
+        return render_template('create_user.html')
+    logger.warning("User hash %s not found during create_user", pnr_hash)
+    return "Fel: Standardkontot hittades inte"
 
 
 @app.route('/foretagskonto/skapa/<email_hash>', methods=['GET', 'POST'])
@@ -730,7 +732,7 @@ def apply_standardkonto():
                     else:
                         # Make the client-facing confirmation explicit about which account type was submitted
                         display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
-                        flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
+                        flash(f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.", 'success')
                         return redirect(url_for('application_submitted', account_type=account_type))
 
     csrf_token = ensure_csrf_token()
@@ -825,7 +827,7 @@ def apply_foretagskonto():
                     else:
                         # Make the client-facing confirmation explicit about which account type was submitted
                         display_type = 'företagskonto' if account_type == 'foretagskonto' else 'standardkonto'
-                        flash(("success", f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan."))
+                        flash(f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.", "success")
                         return redirect(url_for('application_submitted', account_type=account_type))
 
     csrf_token = ensure_csrf_token()
@@ -925,6 +927,8 @@ def dashboard():
         user_name = functions.get_username_by_personnummer_hash(pnr_hash)
         if user_name:
             session['username'] = user_name
+    if not pnr_hash:
+        return redirect('/login')
     pdfs = functions.get_user_pdfs(pnr_hash)
     for pdf in pdfs:
         pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
@@ -971,7 +975,7 @@ def dashboard():
     pending_link_requests = functions.list_user_link_requests(pnr_hash)
     supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
-    user_name = user_name.capitalize()
+    user_name = (user_name or '').capitalize()
     csrf_token = ensure_csrf_token()
     return render_template(
         'dashboard.html',
@@ -1037,6 +1041,9 @@ def user_accept_link_request_route(supervisor_hash: str):
         flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
         return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
+    if not personnummer_hash:
+        flash('Inte inloggad.', 'error')
+        return redirect('/login')
     if functions.user_accept_link_request(personnummer_hash, supervisor_hash):
         flash('Kopplingen är nu aktiv.', 'success')
     else:
@@ -1052,6 +1059,9 @@ def user_reject_link_request_route(supervisor_hash: str):
         flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
         return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
+    if not personnummer_hash:
+        flash('Inte inloggad.', 'error')
+        return redirect('/login')
     if functions.user_reject_link_request(personnummer_hash, supervisor_hash):
         flash('Kopplingsförfrågan har avböjts.', 'success')
     else:
@@ -1067,6 +1077,9 @@ def user_remove_supervisor_connection_route(supervisor_hash: str):
         flash('Formuläret är inte längre giltigt. Ladda om sidan och försök igen.', 'error')
         return redirect('/dashboard')
     personnummer_hash = session.get('personnummer')
+    if not personnummer_hash:
+        flash('Inte inloggad.', 'error')
+        return redirect('/login')
     if functions.user_remove_supervisor_connection(personnummer_hash, supervisor_hash):
         flash('Kopplingen har tagits bort.', 'success')
     else:
@@ -1107,6 +1120,8 @@ def download_pdf(pdf_id: int):
         logger.debug("Unauthenticated download attempt for %s", pdf_id)
         return redirect('/login')
     pnr_hash = session.get('personnummer')
+    if not pnr_hash:
+        return redirect('/login')
     as_attachment = request.args.get('download', '1') != '0'
     pdf = functions.get_pdf_content(pnr_hash, pdf_id)
     if not pdf:
@@ -1248,6 +1263,8 @@ def view_pdf(pdf_id: int):
         logger.debug("Unauthenticated view attempt for %s", pdf_id)
         return redirect('/login')
     pnr_hash = session.get('personnummer')
+    if not pnr_hash:
+        return redirect('/login')
     pdf = functions.get_pdf_metadata(pnr_hash, pdf_id)
     if not pdf:
         logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
@@ -1382,8 +1399,8 @@ def admin_applications():  # pragma: no cover
             return jsonify({'status': 'error', 'message': 'Formuläret är inte längre giltigt. Ladda om sidan och försök igen.'}), 400
         application_id = request.form.get('application_id')
         application_status = request.form.get('application_status')
-        print(application_status)
-        print(application_id)
+        if not application_id:
+            return jsonify({'status': 'error', 'message': 'Ansökans ID saknas.'}), 400
         if application_status == "approved":
             functions.approve_application_request(int(application_id), 'admin')
             logger.debug('Ansökan har godkänts, success')
@@ -1397,7 +1414,6 @@ def admin_applications():  # pragma: no cover
             return jsonify({'status': 'error', 'message': 'Ogiltig status för ansökan.'}), 400
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
-        print(applications_requests)
         for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
             logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
         csrf_token = ensure_csrf_token()
@@ -1418,6 +1434,13 @@ def admin_invoicing():  # pragma: no cover
 
 
 def _serialize_application_row(row: dict) -> dict:  # pragma: no cover
+    def _safe_isoformat(value: Any) -> str | None:
+        if value is None:
+            return None
+        if hasattr(value, 'isoformat'):
+            return value.isoformat()
+        return None
+    
     return {
         "id": row.get("id"),
         "account_type": row.get("account_type"),
@@ -1432,9 +1455,9 @@ def _serialize_application_row(row: dict) -> dict:  # pragma: no cover
         "status": row.get("status"),
         "reviewed_by": row.get("reviewed_by"),
         "decision_reason": row.get("decision_reason"),
-        "created_at": row.get("created_at").isoformat() if row.get("created_at") else None,
-        "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
-        "reviewed_at": row.get("reviewed_at").isoformat() if row.get("reviewed_at") else None,
+        "created_at": _safe_isoformat(row.get("created_at")),
+        "updated_at": _safe_isoformat(row.get("updated_at")),
+        "reviewed_at": _safe_isoformat(row.get("reviewed_at")),
     }
 
 @app.get('/admin/api/ansokningar')
@@ -1593,15 +1616,14 @@ def admin_user_overview():  # pragma: no cover
     pdfs = functions.get_user_pdfs(pnr_hash)
     overview = []
     for pdf in pdfs:
+        uploaded_at = pdf.get('uploaded_at')
         overview.append(
             {
                 'id': pdf['id'],
                 'filename': pdf['filename'],
                 'categories': pdf.get('categories') or [],
                 'category_labels': labels_for_slugs(pdf.get('categories') or []),
-                'uploaded_at': pdf.get('uploaded_at').isoformat()
-                if pdf.get('uploaded_at')
-                else None,
+                'uploaded_at': uploaded_at.isoformat() if (uploaded_at and hasattr(uploaded_at, 'isoformat')) else None,
             }
         )
 
