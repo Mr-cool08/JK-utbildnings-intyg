@@ -372,3 +372,53 @@ def send_application_rejection_email(
         </html>
     """
     send_email(to_email, subject, body)
+
+
+def send_critical_event_alert(event_type: str, details: str = "") -> None:
+    """Skicka kritisk händelseavisering till systemadministratör."""
+
+    alert_email = os.getenv("CRITICAL_ALERTS_EMAIL", "liam@suorsa.se")
+    
+    if not alert_email:
+        logger.warning("CRITICAL_ALERTS_EMAIL not configured, cannot send alert")
+        return
+    
+    event_labels = {
+        "startup": "Applikationen startade",
+        "shutdown": "Applikationen stängdes av",
+        "restart": "Applikationen startades om",
+        "crash": "Applikationen kraschade",
+        "error": "Kritiskt fel inträffade",
+    }
+    
+    event_label = event_labels.get(event_type, event_type)
+    safe_details = escape(details) if details else "Ingen ytterligare information."
+    
+    subject = f"[KRITISK HÄNDELSE] {event_label}"
+    
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    hostname = os.getenv("HOSTNAME", "okänd")
+    
+    body = f"""
+        <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.5; color: #333;'>
+                <h2 style='color: #d9534f;'>Kritisk systemhändelse</h2>
+                <p><strong>Händelse:</strong> {event_label}</p>
+                <p><strong>Tid:</strong> {timestamp}</p>
+                <p><strong>Server:</strong> {escape(hostname)}</p>
+                <p><strong>Detaljer:</strong></p>
+                <pre style='background-color: #f5f5f5; padding: 10px; border-radius: 4px;'>{safe_details}</pre>
+                <hr>
+                <p style='font-size: 12px; color: #666;'>
+                    Detta är ett automatiskt meddelande från JK Utbildningsintyg systemövervakning.
+                </p>
+            </body>
+        </html>
+    """
+    
+    try:
+        send_email(alert_email, subject, body)
+        logger.info("Critical event alert sent for event_type=%s", event_type)
+    except RuntimeError as e:
+        logger.error("Failed to send critical event alert: %s", e)

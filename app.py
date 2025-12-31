@@ -37,6 +37,7 @@ from course_categories import (
 
 from services import email as email_service
 from services.pdf import save_pdf_for_user
+from services import critical_events
 from security_utils import ensure_csrf_token, validate_csrf_token
 from request_utils import as_bool, get_request_ip, register_public_submission
 
@@ -185,10 +186,59 @@ def create_app() -> Flask:
             _enable_debug_mode(app)
 
     logger.debug("Application created and database initialized")
+    
+    try:
+        email_service.send_critical_event_alert("startup", "Applikationen har startats upp.")
+    except Exception as e:
+        logger.warning("Failed to send startup alert: %s", e)
+    
     return app
 
 
 app = create_app()
+
+
+@app.before_request
+def _before_first_request():
+    # Send startup notification once when the app starts
+    if not hasattr(app, '_startup_notification_sent'):
+        try:
+            import socket
+            hostname = socket.gethostname()
+        except Exception:
+            hostname = "Unknown"
+        
+        try:
+            critical_events.send_startup_notification(hostname=hostname)
+            setattr(app, '_startup_notification_sent', True)
+            logger.info("Startupp-notifikation skickad")
+        except Exception as e:
+            logger.warning("Kunde inte skicka startupp-notifikation: %s", str(e))
+
+
+def _send_shutdown_notification():
+    # Send shutdown notification when the app is shutting down
+    try:
+        critical_events.send_shutdown_notification(
+            reason="Applikationen stängs ner"
+        )
+        logger.info("Nedstängning-notifikation skickad")
+    except Exception as e:
+        logger.warning("Kunde inte skicka nedstängning-notifikation: %s", str(e))
+
+
+@app.teardown_appcontext
+def _teardown(exception=None):
+    # Called when the app context is being torn down
+    if exception is not None:
+        logger.error("Applikation stängs ner på grund av exception: %s", str(exception))
+        try:
+            critical_events.send_crash_notification(
+                error_message=str(exception),
+                traceback=__import__('traceback').format_exc()
+            )
+        except Exception as e:
+            logger.warning("Kunde inte skicka crash-notifikation: %s", str(e))
 
 
 @app.route("/health")
@@ -1985,9 +2035,23 @@ def error():  # pragma: no cover
     # Intentionally raise an error to test the 500 page.
     # This will cause a 500 Internal Server Error
     raise Exception("Testing 500 error page")
+
 @app.errorhandler(500)
 def internal_server_error(_):  # pragma: no cover
     logger.error("500 Internal Server Error: %s", request.path)
+    
+    try:
+        user_ip = get_request_ip()
+        endpoint = request.path
+        error_msg = f"Endpoint: {endpoint}\nMetod: {request.method}\nIP: {user_ip}"
+        critical_events.send_critical_error_notification(
+            error_message=error_msg,
+            endpoint=endpoint,
+            user_ip=user_ip
+        )
+    except Exception as e:
+        logger.warning("Kunde inte skicka error-notifikation: %s", e)
+    
     # Visa en användarvänlig 500-sida när ett serverfel inträffar.
     error_code = 500
     error_message = "Ett internt serverfel har inträffat. Vänligen försök igen senare."
@@ -2030,10 +2094,26 @@ def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):  # pragma: no cover
 if __name__ == '__main__':  # pragma: no cover
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     logger.critical("Starting app from app.py, Debug is %s", "ENABLED" if debug_mode else "DISABLED")
-    app.run(
-        debug=debug_mode,
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 8000)),
-    )
+    
+    try:
+        app.run(
+            debug=debug_mode,
+            host='0.0.0.0',
+            port=int(os.getenv('PORT', 8000)),
+        )
+    except KeyboardInterrupt:
+        logger.info("Application interrupted by user")
+        try:
+            email_service.send_critical_event_alert("shutdown", "Applikationen stängdes av normalt.")
+        except Exception as e:
+            logger.warning("Failed to send shutdown alert: %s", e)
+    except Exception as e:
+        logger.critical("Application crashed with exception: %s", e, exc_info=True)
+        try:
+            error_details = f"Exception: {type(e).__name__}\nMessage: {str(e)}"
+            email_service.send_critical_event_alert("crash", error_details)
+        except Exception as alert_error:
+            logger.warning("Failed to send crash alert: %s", alert_error)
+        raise
 
 # © 2025 Liam Suorsa. All rights reserved.
