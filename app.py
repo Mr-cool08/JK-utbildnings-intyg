@@ -186,10 +186,31 @@ def create_app() -> Flask:
             _enable_debug_mode(app)
 
     logger.debug("Application created and database initialized")
-    
+    # If configured, attach a logging handler to email ERROR-level (non-critical) logs.
+    try:
+        if os.getenv("ERROR_ALERTS_EMAIL"):
+            try:
+                from services.error_notifications import EmailErrorHandler
+
+                handler = EmailErrorHandler()
+                # Give it a simple formatter
+                handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+                root = logging.getLogger()
+                # Avoid adding duplicate handlers
+                if not any(isinstance(h, EmailErrorHandler) for h in root.handlers):
+                    root.addHandler(handler)
+                if not any(isinstance(h, EmailErrorHandler) for h in app.logger.handlers):
+                    app.logger.addHandler(handler)
+                logger.info("EmailErrorHandler attached for ERROR_ALERTS_EMAIL")
+            except Exception:
+                logger.warning("Could not attach EmailErrorHandler for ERROR_ALERTS_EMAIL")
+    except Exception:
+        # ignore any issues when checking environment
+        pass
+
     # Startup email is sent from the first request handler to avoid duplicate
     # notifications from multiple app creation points (reloader or multiple workers).
-    
+
     return app
 
 

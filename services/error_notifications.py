@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime, timezone
+from email.utils import format_datetime, make_msgid
+from html import escape
+from threading import Thread
+from typing import Iterable, List, Tuple
+
+from services import email as email_service
+
+
+class EmailErrorHandler(logging.Handler):
+    """Logging handler that emails ERROR-level (non-critical) records to configured recipients.
+
+    It sends only records with level ERROR (>= ERROR and < CRITICAL) to avoid duplicating
+    the existing critical-event notifications which handle CRITICAL/exceptional cases.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.ERROR)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            # Only handle ERROR but not CRITICAL (to avoid duplication)
+            if record.levelno < logging.ERROR or record.levelno >= logging.CRITICAL:
+                return
+
+            recipients = os.getenv("ERROR_ALERTS_EMAIL", "")
+            if not recipients:
+                return
+
+            recipient_list = [e.strip() for e in recipients.split(",") if e.strip()]
+            if not recipient_list:
+                return
+
+            subject = f"[FEL] Applikationsfel: {record.levelname}"
+
+            timestamp = datetime.now(timezone.utc)
+            ts = format_datetime(timestamp)
+
+            message = self.format(record)
+
+            body = (
+                f"<html><body style='font-family: Arial, sans-serif;'>"
+                f"<h3>Applikationsfel (nivå: {escape(record.levelname)})</h3>"
+                f"<p><strong>Tid:</strong> {ts}</p>"
+                f"<p><strong>Loggmeddelande:</strong></p>"
+                f"<pre style='background:#f5f5f5;padding:10px;border-radius:4px;'>{escape(message)}</pre>"
+                f"</body></html>"
+            )
+
+            # Send attachments (last chunk of file handlers) in background thread
+            thread = Thread(
+                target=self._send_with_attachments,
+                args=(recipient_list, subject, body),
+                daemon=True,
+            )
+            thread.start()
+
+        except Exception:
+            # Never raise from a logging handler
+            pass
+
+    def _send_with_attachments(self, recipients: List[str], subject: str, body: str) -> None:
+        # Collect file-based handlers on the root logger
+        attachments: List[Tuple[str, bytes]] = []
+        try:
+            root = logging.getLogger()
+            files = set()
+            for h in root.handlers:
+                path = getattr(h, "baseFilename", None)
+                if path:
+                    files.add(path)
+
+            # Read last portion of each file to avoid huge attachments
+            max_bytes = 200 * 1024  # 200 KB
+            for path in files:
+                try:
+                    with open(path, "rb") as fh:
+                        fh.seek(0, 2)
+                        size = fh.tell()
+                        if size > max_bytes:
+                            fh.seek(-max_bytes, 2)
+                            data = fh.read()
+                            header = f"== Trimmed log: last {max_bytes} bytes of {path} ==\n".encode("utf-8")
+                            content = header + data
+                        else:
+                            fh.seek(0)
+                            content = fh.read()
+                    filename = os.path.basename(path)
+                    attachments.append((filename, content))
+                except Exception:
+                    # ignore failures reading logs
+                    continue
+        except Exception:
+            attachments = []
+
+        for recipient in recipients:
+            try:
+                if attachments:
+                    email_service.send_email(recipient, subject, body, attachments=attachments)
+                else:
+                    email_service.send_email(recipient, subject, body)
+            except Exception:
+                # Swallow to avoid logging loops
+                continue

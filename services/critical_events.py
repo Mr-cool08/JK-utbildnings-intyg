@@ -55,9 +55,53 @@ def _send_email_async(
     recipients: list[str], subject: str, html_body: str
 ) -> None:
     """Send email asynchronously to multiple recipients to avoid blocking the application."""
+    # Collect log file attachments (if any file handlers are configured)
+    attachments: list[tuple[str, bytes]] = []
+    try:
+        # Find file-based handlers on the root logger
+        root = logging.getLogger()
+        files = set()
+        for h in root.handlers:
+            path = getattr(h, "baseFilename", None)
+            if path:
+                files.add(path)
+
+        # Also check module logger handlers just in case
+        for h in logger.handlers:
+            path = getattr(h, "baseFilename", None)
+            if path:
+                files.add(path)
+
+        # Read last portion of each file to avoid huge attachments
+        max_bytes = 200 * 1024  # 200 KB
+        for path in files:
+            try:
+                with open(path, "rb") as fh:
+                    fh.seek(0, 2)
+                    size = fh.tell()
+                    if size > max_bytes:
+                        fh.seek(-max_bytes, 2)
+                        data = fh.read()
+                        header = f"== Trimmed log: last {max_bytes} bytes of {path} ==\n".encode("utf-8")
+                        content = header + data
+                    else:
+                        fh.seek(0)
+                        content = fh.read()
+                filename = Path(path).name
+                attachments.append((filename, content))
+            except Exception:
+                # If reading a log file fails, continue without it
+                logger.debug("Kunde inte läsa loggfilen för bilaga: %s", path)
+    except Exception:
+        # Non-fatal: do not prevent sending emails
+        attachments = []
+
     for recipient in recipients:
         try:
-            email_service.send_email(recipient, subject, html_body)
+            if attachments:
+                email_service.send_email(recipient, subject, html_body, attachments=attachments)
+            else:
+                email_service.send_email(recipient, subject, html_body)
         except Exception as e:
             logger.error("Misslyckades att skicka kritisk event-email till %s: %s", recipient, str(e))
 
