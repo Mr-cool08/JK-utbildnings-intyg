@@ -12,19 +12,37 @@ class TestCriticalEventsNotifications:
     @pytest.fixture(autouse=True)
     def setup(self, monkeypatch):
         # Set up the required environment variables
-        monkeypatch.setenv("ADMIN_EMAIL", "liam@suorsa.se")
+        monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
         monkeypatch.setenv("APP_NAME", "JK Utbildningsintyg")
 
     def test_get_admin_email(self):
         """Test that admin email is retrieved correctly."""
-        email = critical_events._get_admin_email()
-        assert email == "liam@suorsa.se"
+        emails = critical_events._get_admin_emails()
+        assert emails == ["admin@example.com"]
+
+    def test_get_admin_emails_multiple(self, monkeypatch):
+        """Test that multiple admin emails are retrieved correctly."""
+        monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com,admin2@example.com,admin3@example.com")
+        emails = critical_events._get_admin_emails()
+        assert emails == ["admin@example.com", "admin2@example.com", "admin3@example.com"]
+
+    def test_get_admin_emails_with_whitespace(self, monkeypatch):
+        """Test that email addresses with surrounding whitespace are stripped."""
+        monkeypatch.setenv("ADMIN_EMAIL", "  admin@example.com  ,  admin2@example.com  ")
+        emails = critical_events._get_admin_emails()
+        assert emails == ["admin@example.com", "admin2@example.com"]
 
     def test_get_admin_email_missing(self, monkeypatch):
         """Test that error is raised when ADMIN_EMAIL is not set."""
         monkeypatch.delenv("ADMIN_EMAIL", raising=False)
         with pytest.raises(RuntimeError):
-            critical_events._get_admin_email()
+            critical_events._get_admin_emails()
+
+    def test_get_admin_email_empty(self, monkeypatch):
+        """Test that error is raised when ADMIN_EMAIL is empty."""
+        monkeypatch.setenv("ADMIN_EMAIL", "")
+        with pytest.raises(RuntimeError):
+            critical_events._get_admin_emails()
 
     def test_get_app_name(self):
         """Test that app name is retrieved correctly."""
@@ -49,8 +67,23 @@ class TestCriticalEventsNotifications:
         # Verify email was sent
         assert mock_send_email.called
         call_args = mock_send_email.call_args
-        assert "liam@suorsa.se" in str(call_args)
+        assert "admin@example.com" in str(call_args)
         assert "startad" in str(call_args).lower()
+
+    @patch('services.critical_events.email_service.send_email')
+    def test_send_startup_notification_multiple_recipients(self, mock_send_email, monkeypatch):
+        """Test startup notification is sent to multiple recipients."""
+        monkeypatch.setenv("ADMIN_EMAIL", "admin1@example.com,admin2@example.com")
+        critical_events.send_startup_notification(hostname="test-server")
+        
+        import time
+        time.sleep(0.1)
+        
+        # Verify email was sent to both recipients
+        assert mock_send_email.call_count == 2
+        calls = [str(call) for call in mock_send_email.call_args_list]
+        assert any("admin1@example.com" in call for call in calls)
+        assert any("admin2@example.com" in call for call in calls)
 
     @patch('services.critical_events.email_service.send_email')
     def test_send_shutdown_notification(self, mock_send_email):
@@ -62,7 +95,7 @@ class TestCriticalEventsNotifications:
         
         assert mock_send_email.called
         call_args = mock_send_email.call_args
-        assert "liam@suorsa.se" in str(call_args)
+        assert "admin@example.com" in str(call_args)
 
     @patch('services.critical_events.email_service.send_email')
     def test_send_crash_notification(self, mock_send_email):
@@ -77,7 +110,7 @@ class TestCriticalEventsNotifications:
         
         assert mock_send_email.called
         call_args = mock_send_email.call_args
-        assert "liam@suorsa.se" in str(call_args)
+        assert "admin@example.com" in str(call_args)
         assert "kraschat" in str(call_args).lower()
 
     @patch('services.critical_events.email_service.send_email')
@@ -94,7 +127,7 @@ class TestCriticalEventsNotifications:
         
         assert mock_send_email.called
         call_args = mock_send_email.call_args
-        assert "liam@suorsa.se" in str(call_args)
+        assert "admin@example.com" in str(call_args)
 
     def test_send_critical_event_email_with_error_message(self):
         """Test that critical event email includes error message."""
@@ -148,6 +181,64 @@ class TestCriticalEventsNotifications:
         time.sleep(0.1)
         
         assert mock_send_email.called
+
+
+class TestEmailServiceCriticalAlerts:
+    """Test suite for send_critical_event_alert function."""
+
+    @patch('services.email.send_email')
+    def test_send_critical_event_alert_single_email(self, mock_send_email, monkeypatch):
+        """Test critical event alert is sent to a single email address."""
+        from services import email
+        monkeypatch.setenv("CRITICAL_ALERTS_EMAIL", "admin@example.com")
+        
+        email.send_critical_event_alert("startup", "Test details")
+        
+        # Verify email was sent
+        assert mock_send_email.called
+        call_args = mock_send_email.call_args
+        assert "admin@example.com" in str(call_args)
+
+    @patch('services.email.send_email')
+    def test_send_critical_event_alert_multiple_emails(self, mock_send_email, monkeypatch):
+        """Test critical event alert is sent to multiple email addresses."""
+        from services import email
+        monkeypatch.setenv("CRITICAL_ALERTS_EMAIL", "admin1@example.com,admin2@example.com,admin3@example.com")
+        
+        email.send_critical_event_alert("crash", "Critical error details")
+        
+        # Verify email was sent to all recipients
+        assert mock_send_email.call_count == 3
+        calls = [str(call) for call in mock_send_email.call_args_list]
+        assert any("admin1@example.com" in call for call in calls)
+        assert any("admin2@example.com" in call for call in calls)
+        assert any("admin3@example.com" in call for call in calls)
+
+    @patch('services.email.send_email')
+    def test_send_critical_event_alert_with_whitespace(self, mock_send_email, monkeypatch):
+        """Test critical event alert handles email addresses with whitespace."""
+        from services import email
+        monkeypatch.setenv("CRITICAL_ALERTS_EMAIL", "  admin1@example.com  ,  admin2@example.com  ")
+        
+        email.send_critical_event_alert("error", "Error details")
+        
+        # Verify email was sent to both recipients despite whitespace
+        assert mock_send_email.call_count == 2
+        calls = [str(call) for call in mock_send_email.call_args_list]
+        assert any("admin1@example.com" in call for call in calls)
+        assert any("admin2@example.com" in call for call in calls)
+
+    @patch('services.email.send_email')
+    def test_send_critical_event_alert_empty_email(self, mock_send_email, monkeypatch):
+        """Test critical event alert handles empty email gracefully."""
+        from services import email
+        monkeypatch.setenv("CRITICAL_ALERTS_EMAIL", "")
+        
+        # Should not raise an exception, just return early
+        email.send_critical_event_alert("startup", "Details")
+        
+        # Verify no email was sent
+        assert not mock_send_email.called
 
 
 class TestCriticalEventIntegration:

@@ -16,7 +16,7 @@
 - **File:** `stack.env`
 - **Added:**
   ```env
-  ADMIN_EMAIL=liam@suorsa.se
+  ADMIN_EMAIL=admin@example.com
   APP_NAME=JK Utbildningsintyg
   ```
 
@@ -57,7 +57,7 @@ Async Email Sender (Background Thread)
     ↓
 SMTP Server
     ↓
-liam@suorsa.se ✉️
+admin@example.com ✉️
 ```
 
 ## Events Monitored
@@ -76,7 +76,7 @@ liam@suorsa.se ✉️
 Only need to ensure these environment variables are set:
 
 ```env
-ADMIN_EMAIL=liam@suorsa.se
+ADMIN_EMAIL=admin@example.com
 APP_NAME=JK Utbildningsintyg
 ```
 
@@ -109,7 +109,7 @@ SMTP configuration already exists in `stack.env`:
 ```python
 from services import critical_events
 
-# Will automatically send to liam@suorsa.se
+# Will automatically send to admin@example.com
 critical_events.send_startup_notification(hostname="production-server")
 critical_events.send_crash_notification(error_message="Database offline")
 critical_events.send_critical_error_notification(
@@ -136,4 +136,4 @@ The implementation is:
 - ✅ Secure
 - ✅ Documented
 - ✅ Following PEP8 conventions
-- ✅ Configured for liam@suorsa.se
+- ✅ Configured for admin@example.com

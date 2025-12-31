@@ -11,15 +11,17 @@ The application now sends automatic email notifications to an admin email addres
 Add these variables to your `.env` or `stack.env` file:
 
 ```env
-# Admin email for critical events notifications
-ADMIN_EMAIL=liam@suorsa.se
+# Admin emails for critical events notifications (comma-separated for multiple)
+ADMIN_EMAIL=admin@example.com
+# Or for multiple recipients:
+# ADMIN_EMAIL=admin1@example.com,admin2@example.com,admin3@example.com
 
 # Application name (displayed in emails)
 APP_NAME=JK Utbildningsintyg
 ```
 
 **Required:**
-- `ADMIN_EMAIL`: The email address to which critical event notifications will be sent
+- `ADMIN_EMAIL`: Email address(es) to which critical event notifications will be sent. Supports single or multiple addresses separated by commas.
 - Existing SMTP configuration (`smtp_server`, `smtp_user`, `smtp_password`, `smtp_port`)
 
 **Optional:**
@@ -158,7 +160,7 @@ python -m pytest tests/test_critical_events.py -v
 
 1. **Check ADMIN_EMAIL is set:**
    ```bash
-   echo $ADMIN_EMAIL  # Should output: liam@suorsa.se
+   echo $ADMIN_EMAIL  # Should output: admin@example.com
    ```
 
 2. **Verify SMTP configuration:**
@@ -184,7 +186,7 @@ RuntimeError: ADMIN_EMAIL environment variable is not set
 
 Add to your `.env`:
 ```env
-ADMIN_EMAIL=liam@suorsa.se
+ADMIN_EMAIL=admin@example.com
 ```
 
 ## Future Enhancements
@@ -192,7 +194,6 @@ ADMIN_EMAIL=liam@suorsa.se
 Potential improvements:
 - [ ] Database logging of sent notifications
 - [ ] Notification history dashboard
-- [ ] Multiple recipient emails
 - [ ] Notification level filtering (critical only, all events, etc.)
 - [ ] Scheduled digest emails
 - [ ] Webhook notifications as alternative to email
@@ -210,4 +211,4 @@ Potential improvements:
 ## Author Notes
 
 Last updated: 2025-12-31
-Configured for: liam@suorsa.se
+Configured for: admin@example.com

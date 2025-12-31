@@ -375,12 +375,23 @@ def send_application_rejection_email(
 
 
 def send_critical_event_alert(event_type: str, details: str = "") -> None:
-    """Skicka kritisk händelseavisering till systemadministratör."""
-
-    alert_email = os.getenv("CRITICAL_ALERTS_EMAIL", "liam@suorsa.se")
+    """Skicka kritisk händelseavisering till en eller flera systemadministratörer.
     
-    if not alert_email:
+    Supports multiple email addresses separated by commas:
+    CRITICAL_ALERTS_EMAIL=admin1@example.com,admin2@example.com
+    """
+
+    alert_email_str = os.getenv("CRITICAL_ALERTS_EMAIL", "admin@example.com")
+    
+    if not alert_email_str:
         logger.warning("CRITICAL_ALERTS_EMAIL not configured, cannot send alert")
+        return
+    
+    # Split by comma and strip whitespace
+    alert_emails = [e.strip() for e in alert_email_str.split(",") if e.strip()]
+    
+    if not alert_emails:
+        logger.warning("CRITICAL_ALERTS_EMAIL is empty, cannot send alert")
         return
     
     event_labels = {
@@ -417,8 +428,10 @@ def send_critical_event_alert(event_type: str, details: str = "") -> None:
         </html>
     """
     
-    try:
-        send_email(alert_email, subject, body)
-        logger.info("Critical event alert sent for event_type=%s", event_type)
-    except RuntimeError as e:
-        logger.error("Failed to send critical event alert: %s", e)
+    # Send to all configured email addresses
+    for email_address in alert_emails:
+        try:
+            send_email(email_address, subject, body)
+            logger.info("Critical event alert sent to %s for event_type=%s", email_address, event_type)
+        except RuntimeError as e:
+            logger.error("Failed to send critical event alert to %s: %s", email_address, e)

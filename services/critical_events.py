@@ -21,12 +21,23 @@ logger.setLevel(logging.INFO)
 load_environment()
 
 
-def _get_admin_email() -> str:
-    """Get the admin email address from environment."""
-    email = os.getenv("ADMIN_EMAIL")
-    if not email:
+def _get_admin_emails() -> list[str]:
+    """Get admin email addresses from environment.
+    
+    Supports both single and multiple emails:
+    - Single: ADMIN_EMAIL=email@example.com
+    - Multiple: ADMIN_EMAIL=email1@example.com,email2@example.com
+    """
+    email_str = os.getenv("ADMIN_EMAIL")
+    if not email_str:
         raise RuntimeError("ADMIN_EMAIL environment variable is not set")
-    return email
+    
+    # Split by comma and strip whitespace
+    emails = [e.strip() for e in email_str.split(",") if e.strip()]
+    if not emails:
+        raise RuntimeError("ADMIN_EMAIL environment variable is empty")
+    
+    return emails
 
 
 def _get_app_name() -> str:
@@ -41,13 +52,14 @@ def _get_timestamp() -> str:
 
 
 def _send_email_async(
-    recipient: str, subject: str, html_body: str
+    recipients: list[str], subject: str, html_body: str
 ) -> None:
-    """Send email asynchronously to avoid blocking the application."""
-    try:
-        email_service.send_email(recipient, subject, html_body)
-    except Exception as e:
-        logger.error("Misslyckades att skicka kritisk event-email: %s", str(e))
+    """Send email asynchronously to multiple recipients to avoid blocking the application."""
+    for recipient in recipients:
+        try:
+            email_service.send_email(recipient, subject, html_body)
+        except Exception as e:
+            logger.error("Misslyckades att skicka kritisk event-email till %s: %s", recipient, str(e))
 
 
 def send_critical_event_email(
@@ -66,7 +78,7 @@ def send_critical_event_email(
         error_message: Optional error/exception message
     """
     try:
-        admin_email = _get_admin_email()
+        admin_emails = _get_admin_emails()
         app_name = _get_app_name()
         timestamp = _get_timestamp()
         
@@ -128,15 +140,16 @@ def send_critical_event_email(
         # Send email asynchronously to avoid blocking
         thread = Thread(
             target=_send_email_async,
-            args=(admin_email, title, html_body),
+            args=(admin_emails, title, html_body),
             daemon=True
         )
         thread.start()
         
         logger.info(
-            "Kritisk event-email skickad för %s: %s",
+            "Kritisk event-email skickad för %s: %s till %d mottagare",
             event_type,
-            title
+            title,
+            len(admin_emails)
         )
         
     except RuntimeError as e:
