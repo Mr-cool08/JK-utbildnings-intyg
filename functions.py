@@ -2338,13 +2338,14 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
         logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
         return False
 
+    reset_engine()
+
     try:
         Path(database).unlink(missing_ok=True)
     except OSError:
         logger.exception("Demodatabasen kunde inte tas bort")
         return False
 
-    reset_engine()
     create_database()
     ensure_demo_data(**demo_defaults)
 
