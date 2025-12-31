@@ -3,6 +3,10 @@
 {% block head %}
     <meta name="description" content="Ansök om företagskonto och få tillgång till Utbildningsintygets företagsportal.">
 {% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form_error_highlight.js') }}" defer></script>
+{% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title">
     <div class="apply-hero-content">
