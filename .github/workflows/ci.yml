@@ -28,9 +28,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov coverage
 
-      - name: Run tests with coverage
-        run: |
-          pytest --cov=. --cov-report xml
+      - name: Kör tester
+        if: ${{ secrets.CODACY_PROJECT_TOKEN == '' }}
+        run: pytest
+
+      - name: Kör tester med täckning
+        if: ${{ secrets.CODACY_PROJECT_TOKEN != '' }}
+        run: pytest --cov=. --cov-report xml
 
       - name: Rapportera täckning till Codacy
         if: ${{ secrets.CODACY_PROJECT_TOKEN != '' }}
