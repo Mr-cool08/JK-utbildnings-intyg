@@ -187,10 +187,8 @@ def create_app() -> Flask:
 
     logger.debug("Application created and database initialized")
     
-    try:
-        email_service.send_critical_event_alert("startup", "Applikationen har startats upp.")
-    except Exception as e:
-        logger.warning("Failed to send startup alert: %s", e)
+    # Startup email is sent from the first request handler to avoid duplicate
+    # notifications from multiple app creation points (reloader or multiple workers).
     
     return app
 
