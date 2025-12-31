@@ -13,6 +13,19 @@
   const deleteBtn = document.getElementById('deleteBtn');
   const editorMessage = document.getElementById('editorMessage');
   let currentSchema = [];
+  const allowedTables = new Set(
+    Array.from(tableSelect?.options || [])
+      .map((option) => option.value)
+      .filter(Boolean)
+  );
+
+  function getSelectedTable() {
+    const tableName = tableSelect.value;
+    if (!allowedTables.has(tableName)) {
+      throw new Error('Ogiltigt tabellval.');
+    }
+    return tableName;
+  }
 
   function setTableStatus(message, isError) {
     if (!tableStatus) return;
@@ -103,9 +116,11 @@
   }
 
   async function refresh() {
-    const tableName = tableSelect.value;
-    if (!tableName) {
-      setTableStatus('Välj en tabell först.', true);
+    let tableName;
+    try {
+      tableName = getSelectedTable();
+    } catch (err) {
+      setTableStatus(err.message, true);
       return;
     }
     setTableStatus('Laddar…', false);
@@ -129,7 +144,7 @@
       setEditorMessage('Skapar rad…', false);
       try {
         const payload = parsePayload();
-        const tableName = tableSelect.value;
+        const tableName = getSelectedTable();
         const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -157,7 +172,7 @@
         if (!id) {
           throw new Error('Ange ett giltigt rad-ID.');
         }
-        const tableName = tableSelect.value;
+        const tableName = getSelectedTable();
         const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -183,7 +198,7 @@
         if (!id) {
           throw new Error('Ange ett giltigt rad-ID.');
         }
-        const tableName = tableSelect.value;
+        const tableName = getSelectedTable();
         const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
           method: 'DELETE'
         });
