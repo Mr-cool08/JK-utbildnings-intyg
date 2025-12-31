@@ -106,3 +106,91 @@ def test_check_http_status_handles_connection_refused(monkeypatch, caplog):
 
     assert result == {"name": "Test", "status": "Fel", "details": "Anslutning nekades"}
     assert "kunde inte ansluta" in caplog.text
+
+def test_get_load_average_handles_missing_support(monkeypatch, caplog):
+    def raise_os_error():
+        raise OSError("unsupported")
+
+    monkeypatch.setattr(status_checks.os, "getloadavg", raise_os_error)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.get_load_average()
+
+    assert result == {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
+    assert "Systemlast kunde inte läsas" in caplog.text
+
+
+def test_summarize_latency_handles_empty_input():
+    result = status_checks.summarize_latency([])
+
+    assert result == {"status": "Inte tillgänglig", "details": "Inga mätningar"}
+
+
+def test_build_latency_series_skips_invalid_items():
+    http_checks = [
+        {"name": "Test", "response_time_ms": 120, "status": "OK", "details": "HTTP 200"},
+        "not-a-dict",
+    ]
+
+    series = status_checks.build_latency_series(http_checks)
+
+    assert series == [
+        {
+            "label": "Test",
+            "value": 120,
+            "status": "OK",
+            "details": "HTTP 200",
+        }
+    ]
+
+
+def test_check_http_status_handles_http_error(monkeypatch, caplog):
+    class FakeResponse:
+        def __init__(self, status):
+            self.status = status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(*_args, **_kwargs):
+        return FakeResponse(503)
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.check_http_status("Test", "http://test")
+
+    assert result["status"] == "Fel"
+    assert result["details"] == "HTTP 503"
+    assert "oväntad statuskod" in caplog.text
+
+
+def test_check_tcp_returns_false_on_error(monkeypatch, caplog):
+    def fake_connection(*_args, **_kwargs):
+        raise OSError("connection failed")
+
+    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
+
+    with caplog.at_level(logging.ERROR):
+        result = status_checks.check_tcp("localhost", 1234, timeout=0.1)
+
+    assert result is False
+
+
+def test_get_cpu_and_ram_procent_handle_exceptions(monkeypatch, caplog):
+    def raise_exception(*_args, **_kwargs):
+        raise Exception("boom")
+
+    monkeypatch.setattr(status_checks.psutil, "cpu_percent", raise_exception)
+    monkeypatch.setattr(status_checks.psutil, "virtual_memory", raise_exception)
+
+    with caplog.at_level(logging.WARNING):
+        cpu_result = status_checks.get_cpu_procent()
+        ram_result = status_checks.get_ram_procent()
+
+    assert cpu_result == {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
+    assert ram_result == {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
+    assert "kunde inte läsas" in caplog.text
