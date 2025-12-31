@@ -134,6 +134,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/form_error_highlight.js') }}" defer></script>
 <script>
 // Show an immediate toast when the user submits the application form to improve UX.
 // This does not change server behaviour — it only displays a local "sending" state

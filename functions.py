@@ -684,15 +684,32 @@ def hash_value(value: str) -> str:
 def normalize_email(email: str) -> str:
     # Normalize e-mail addresses before hashing or sending messages.
     if email is None:
-        raise ValueError("Saknar e-postadress")
+        raise ValueError(
+            "E-postadress saknas. Lägg till en adress så vi kan återkoppla till dig."
+        )
 
     if "\n" in email or "\r" in email:
-        raise ValueError("Ogiltig e-postadress")
+        raise ValueError(
+            "Ogiltig e-postadress: adressen får inte innehålla radbrytningar."
+        )
 
     cleaned = email.strip()
 
     if not cleaned:
-        raise ValueError("Ogiltig e-postadress")
+        raise ValueError(
+            "Ogiltig e-postadress: fyll i adressen enligt formatet namn@example.com."
+        )
+
+    if "@" not in cleaned or cleaned.startswith("@") or cleaned.endswith("@"):
+        raise ValueError(
+            "Ogiltig e-postadress: ange en adress med @ och domän, till exempel namn@example.com."
+        )
+
+    local_part, _, domain_part = cleaned.partition("@")
+    if not local_part or "." not in domain_part or domain_part.startswith("."):
+        raise ValueError(
+            "Ogiltig e-postadress: kontrollera stavningen och inkludera domännamn, till exempel namn@example.com."
+        )
 
     normalized = cleaned.lower()
     logger.debug("Normalizing email address")
@@ -730,7 +747,9 @@ def normalize_orgnr(orgnr: str) -> str:
 
     digits = re.sub(r"\D", "", orgnr)
     if len(digits) != 10:
-        raise ValueError("Organisationsnumret måste bestå av tio siffror.")
+        raise ValueError(
+            "Organisationsnumret måste bestå av exakt tio siffror, till exempel 5560160680."
+        )
     return digits
 
 
@@ -749,7 +768,9 @@ def validate_orgnr(orgnr: str) -> str:
 
     checksum = (10 - (total % 10)) % 10
     if checksum != int(normalized[-1]):
-        raise ValueError("Ogiltigt organisationsnummer.")
+        raise ValueError(
+            "Ogiltigt organisationsnummer. Kontrollera siffrorna och försök igen."
+        )
     return normalized
 
 
@@ -2460,7 +2481,9 @@ def create_application_request(
 
     cleaned_name = (name or "").strip()
     if not cleaned_name:
-        raise ValueError("Namn saknas.")
+        raise ValueError(
+            "Namn saknas. Ange ditt fullständiga namn så att vi kan behandla ansökan."
+        )
 
     normalized_email = normalize_email(email)
     raw_orgnr = (orgnr or "").strip()
@@ -2470,7 +2493,9 @@ def create_application_request(
         validated_orgnr = validate_orgnr(raw_orgnr)
     cleaned_company = (company_name or "").strip()
     if normalized_type == "foretagskonto" and not cleaned_company:
-        raise ValueError("Företagsnamn krävs för företagskonton.")
+        raise ValueError(
+            "Företagsnamn krävs för företagskonton. Ange namnet precis som det ska visas i portalen och på fakturan."
+        )
 
     cleaned_comment = _clean_optional_text(comment)
     cleaned_invoice_address = _clean_optional_text(invoice_address, max_length=1000)
@@ -2479,11 +2504,17 @@ def create_application_request(
 
     if normalized_type == "foretagskonto":
         if not cleaned_invoice_address:
-            raise ValueError("Fakturaadress krävs för företagskonton.")
+            raise ValueError(
+                "Fakturaadress krävs för företagskonton. Lägg till gatuadress, postnummer och ort så att vi kan fakturera rätt."
+            )
         if not cleaned_invoice_contact:
-            raise ValueError("Kontaktperson för fakturering krävs för företagskonton.")
+            raise ValueError(
+                "Kontaktperson för fakturering krävs för företagskonton. Skriv vem vi kan kontakta om fakturan."
+            )
         if not cleaned_invoice_reference:
-            raise ValueError("Märkning för fakturering krävs för företagskonton.")
+            raise ValueError(
+                "Märkning för fakturering krävs för företagskonton. Lägg till eventuell referens eller beställningskod."
+            )
     else:
         cleaned_invoice_address = None
         cleaned_invoice_contact = None
@@ -2509,7 +2540,7 @@ def create_application_request(
         existing_pending = conn.execute(pending_query).first()
         if existing_pending:
             raise ValueError(
-                'Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support.'
+                "Du har redan skickat samma typ av ansökan. Vänta på beslut eller kontakta support om du behöver ändra uppgifterna."
             )
         result = conn.execute(
             insert(application_requests_table).values(
