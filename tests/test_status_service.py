@@ -111,7 +111,7 @@ def test_get_load_average_handles_missing_support(monkeypatch, caplog):
     def raise_os_error():
         raise OSError("unsupported")
 
-    monkeypatch.setattr(status_checks.os, "getloadavg", raise_os_error)
+    monkeypatch.setattr(status_checks.os, "getloadavg", raise_os_error, raising=False)
 
     with caplog.at_level(logging.WARNING):
         result = status_checks.get_load_average()
@@ -165,6 +165,7 @@ def test_check_http_status_handles_http_error(monkeypatch, caplog):
 
     assert result["status"] == "Fel"
     assert result["details"] == "HTTP 503"
+    assert "response_time_ms" in result
     assert "oväntad statuskod" in caplog.text
 
 
