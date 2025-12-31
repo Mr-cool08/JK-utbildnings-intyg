@@ -10,6 +10,7 @@ psycopg2-binary
 MarkupSafe
 # Gunicorn fungerar främst på Unix. Använd valfri WSGI-server på Windows vid behov.
 pytest
+pytest-cov
 requests
 Pillow>=11.3.0
 psutil
