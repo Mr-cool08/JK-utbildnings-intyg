@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 import app  # noqa: E402
 import functions  # noqa: E402
+from services.pdf_scanner import ScanVerdict  # noqa: E402
 
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
@@ -20,6 +21,16 @@ def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     functions.reset_engine()
     functions.create_database()
     app.app.secret_key = "test-secret"
+
+
+@pytest.fixture(autouse=True)
+def allow_pdf_scanning(monkeypatch: pytest.MonkeyPatch):
+    """Stubba PDF-skanning för tester som inte behöver säkerhetskontrollen."""
+
+    def _allow_scan(_content: bytes, _logger=None):
+        return ScanVerdict("ALLOW", [])
+
+    monkeypatch.setattr("services.pdf.scan_pdf_bytes", _allow_scan)
 
 
 @pytest.fixture
