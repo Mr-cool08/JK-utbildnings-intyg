@@ -24,6 +24,47 @@ def default_compose_file() -> str:
     return str(root / "docker-compose.yml")
 
 
+def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
+    """Run a command and return (success, stdout+stderr)."""
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        out = "".join([proc.stdout or "", proc.stderr or ""]).strip()
+        return (proc.returncode == 0, out)
+    except Exception as e:
+        return (False, str(e))
+
+
+def _gather_statuses(compose_args: Sequence[str]) -> str:
+    """Collect container and basic server statuses for notification."""
+    parts: list[str] = []
+
+    # Container status via docker compose ps
+    cmd = ["docker", "compose", *compose_args, "ps", "--all"]
+    ok, out = _run_and_capture(cmd)
+    parts.append("== Containers (docker compose ps) ==")
+    parts.append(out if out else "<no output or docker not available>")
+
+    # Server status: uname, uptime, df -h /, free -h (best-effort)
+    try:
+        import platform
+
+        parts.append("\n== Server Info ==")
+        parts.append(f"Platform: {platform.platform()}")
+
+        ok, out = _run_and_capture(["uptime"])  # may fail on Windows
+        parts.append("Uptime: " + (out if ok and out else "<unavailable>"))
+
+        ok, out = _run_and_capture(["df", "-h", "/"])  # may fail on Windows
+        parts.append("Disk: " + (out if ok and out else "<unavailable>"))
+
+        ok, out = _run_and_capture(["free", "-h"])  # may fail on some systems
+        parts.append("Memory: " + (out if ok and out else "<unavailable>"))
+    except Exception as e:
+        parts.append(f"Server status unavailable: {e}")
+
+    return "\n".join(parts)
+
+
 def send_notification(action: str, details: str = "") -> None:
     """Send email notification about compose action (if configured)."""
     try:
@@ -117,7 +158,13 @@ def run_compose_action(
             send_notification("up")
         return
     if action == "cycle":
-        # Run the full cycle and ensure we notify on success or failure.
+        # Notify that cycle is starting
+        if notify:
+            try:
+                send_notification("cycle", "Startar fullständig omstart av alla tjänster")
+            except Exception:
+                pass
+
         print("Stoppar och tar bort Docker Compose-tjänsterna...")
         try:
             run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
@@ -132,18 +179,29 @@ def run_compose_action(
             run_compose_command(compose_args, ["up", "-d"], runner)
 
             print("Klar.")
+            # Gather statuses and notify with details
             if notify:
-                send_notification("cycle", "Fullständig omstart av alla tjänster genomförd")
+                try:
+                    status = _gather_statuses(compose_args)
+                    send_notification("cycle", f"Fullständig omstart av alla tjänster genomförd\n\n{status}")
+                except Exception:
+                    # ignore notification failure
+                    pass
             return
         except Exception as exc:
-            # Try to notify about the failure, but don't hide the original exception.
+            # Gather available statuses and notify about failure, then re-raise
             try:
                 if notify:
-                    send_notification("cycle", f"Fullständig omstart misslyckades: {exc}")
-            except Exception:
-                # Ignore notification failure
-                pass
-            raise
+                    try:
+                        status = _gather_statuses(compose_args)
+                    except Exception:
+                        status = "<could not gather statuses>"
+                    try:
+                        send_notification("cycle", f"Fullständig omstart misslyckades: {exc}\n\n{status}")
+                    except Exception:
+                        pass
+            finally:
+                raise
     raise ValueError("Okänd åtgärd vald.")
 
 
