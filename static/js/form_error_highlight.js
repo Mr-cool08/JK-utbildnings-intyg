@@ -23,7 +23,18 @@
     control.addEventListener('change', () => markValidity(control));
   });
 
-  form.addEventListener('submit', () => {
-    controls.forEach(markValidity);
+  form.addEventListener('submit', (e) => {
+    let hasInvalidControl = false;
+
+    controls.forEach((control) => {
+      markValidity(control);
+      if (!control.checkValidity()) {
+        hasInvalidControl = true;
+      }
+    });
+
+    if (hasInvalidControl) {
+      e.preventDefault();
+    }
   });
 })();
