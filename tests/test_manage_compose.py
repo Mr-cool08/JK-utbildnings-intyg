@@ -44,6 +44,8 @@ def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
     calls: list[tuple[list[str], bool]] = []
 
+    module.build_pytest_command = lambda root: ["venv/bin/pytest"]
+
     def fake_runner(cmd, check):
         calls.append((list(cmd), check))
         return subprocess.CompletedProcess(cmd, 0)
@@ -53,6 +55,7 @@ def test_run_compose_action_cycle_orders_commands():
     assert calls == [
         (["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"], True),
         (["git", "pull"], True),
+        (["venv/bin/pytest"], True),
         (["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"], True),
         (["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], True),
     ]
@@ -62,7 +65,7 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "6"
+        return "7"
 
     assert module.select_action(fake_input) is None
 
@@ -78,6 +81,15 @@ def test_run_compose_action_git_pull_runs_git():
     module.run_compose_action(["-f", "docker-compose.yml"], "git-pull", runner=fake_runner)
 
     assert calls == [(["git", "pull"], True)]
+
+
+def test_build_pytest_command_uses_repo_venv(tmp_path):
+    module = _load_module()
+    pytest_path = tmp_path / "venv" / "bin" / "pytest"
+    pytest_path.parent.mkdir(parents=True)
+    pytest_path.write_text("#!/bin/sh\n")
+
+    assert module.build_pytest_command(tmp_path) == [str(pytest_path)]
 
 
 def test_run_menu_executes_selected_action():
