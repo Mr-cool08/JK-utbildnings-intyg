@@ -31,10 +31,12 @@ def index():
 
 @app.route("/pytest")
 def pytest_site():
-    print("Starting pytest...")
+    LOGGER.info("Startar pytest-körning via status-tjänsten.")
     pytest_result = pytest.main()
-    print("Pytest result:", pytest_result)
-    return pytest_result
+    LOGGER.info("Pytest-resultat: %s", pytest_result)
+    if pytest_result == 0:
+        return "Pytest klart: lyckades."
+    return f"Pytest klart: misslyckades ({pytest_result})."
 
 
     
