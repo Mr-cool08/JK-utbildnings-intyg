@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from email.utils import format_datetime, make_msgid
 from html import escape
 from threading import Thread
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 from services import email as email_service
+from logging_utils import collect_log_attachments
 
 
 class EmailErrorHandler(logging.Handler):
@@ -54,7 +55,7 @@ class EmailErrorHandler(logging.Handler):
                 f"</body></html>"
             )
 
-            # Send attachments (last chunk of file handlers) in background thread
+            # Send attachments in background thread
             thread = Thread(
                 target=self._send_with_attachments,
                 args=(recipient_list, subject, body),
@@ -67,38 +68,7 @@ class EmailErrorHandler(logging.Handler):
             pass
 
     def _send_with_attachments(self, recipients: List[str], subject: str, body: str) -> None:
-        # Collect file-based handlers on the root logger
-        attachments: List[Tuple[str, bytes]] = []
-        try:
-            root = logging.getLogger()
-            files = set()
-            for h in root.handlers:
-                path = getattr(h, "baseFilename", None)
-                if path:
-                    files.add(path)
-
-            # Read last portion of each file to avoid huge attachments
-            max_bytes = 200 * 1024  # 200 KB
-            for path in files:
-                try:
-                    with open(path, "rb") as fh:
-                        fh.seek(0, 2)
-                        size = fh.tell()
-                        if size > max_bytes:
-                            fh.seek(-max_bytes, 2)
-                            data = fh.read()
-                            header = f"== Trimmed log: last {max_bytes} bytes of {path} ==\n".encode("utf-8")
-                            content = header + data
-                        else:
-                            fh.seek(0)
-                            content = fh.read()
-                    filename = os.path.basename(path)
-                    attachments.append((filename, content))
-                except Exception:
-                    # ignore failures reading logs
-                    continue
-        except Exception:
-            attachments = []
+        attachments: List[Tuple[str, bytes]] = collect_log_attachments()
 
         for recipient in recipients:
             try:

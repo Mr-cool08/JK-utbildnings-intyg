@@ -1,5 +1,4 @@
 import logging
-import os
 
 
 def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path):
@@ -7,11 +6,18 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
     log_file = tmp_path / "test.log"
     sample_bytes = b"First line\nSecond line\n"
     log_file.write_bytes(sample_bytes)
+    secondary_log_file = tmp_path / "secondary.log"
+    secondary_bytes = b"Secondary log line\n"
+    secondary_log_file.write_bytes(secondary_bytes)
 
     root = logging.getLogger()
     file_handler = logging.FileHandler(str(log_file))
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     root.addHandler(file_handler)
+    secondary_logger = logging.getLogger("secondary")
+    secondary_handler = logging.FileHandler(str(secondary_log_file))
+    secondary_handler.setFormatter(logging.Formatter("%(message)s"))
+    secondary_logger.addHandler(secondary_handler)
 
     # Capture send_email calls
     calls = []
@@ -54,6 +60,7 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
         assert attachments is not None
         # attachments is a sequence of (filename, bytes)
         assert any(sample_bytes.splitlines()[0] in content for (_fn, content) in attachments)
+        assert any(secondary_bytes.splitlines()[0] in content for (_fn, content) in attachments)
 
     # Clear captured calls and ensure CRITICAL does NOT trigger the handler
     calls.clear()
@@ -62,4 +69,5 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
 
     # Cleanup handlers we added
     root.removeHandler(file_handler)
+    secondary_logger.removeHandler(secondary_handler)
     root.removeHandler(handler)

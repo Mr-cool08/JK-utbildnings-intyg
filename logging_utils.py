@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Iterable
 
 MASK_PLACEHOLDER = "***"
@@ -47,6 +48,37 @@ def configure_module_logger(name: str) -> logging.Logger:
     logger.propagate = False
     setattr(logger, "_jk_configured", True)
     return logger
+
+
+def _iter_configured_loggers() -> Iterable[logging.Logger]:
+    root = logging.getLogger()
+    yield root
+    manager = logging.Logger.manager
+    for logger in manager.loggerDict.values():
+        if isinstance(logger, logging.PlaceHolder):
+            continue
+        if isinstance(logger, logging.Logger):
+            yield logger
+
+
+def collect_log_attachments() -> list[tuple[str, bytes]]:
+    # Collect log files from all configured loggers.
+    paths: set[str] = set()
+    for logger in _iter_configured_loggers():
+        for handler in logger.handlers:
+            path = getattr(handler, "baseFilename", None)
+            if path:
+                paths.add(path)
+
+    attachments: list[tuple[str, bytes]] = []
+    for path in sorted(paths):
+        try:
+            with open(path, "rb") as fh:
+                content = fh.read()
+            attachments.append((Path(path).name, content))
+        except Exception:
+            continue
+    return attachments
 
 
 def mask_hash(value: str, prefix: int = 10) -> str:
