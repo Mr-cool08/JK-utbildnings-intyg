@@ -34,7 +34,7 @@ def pytest_site():
     print("Starting pytest...")
     pytest_result = pytest.main()
     print("Pytest result:", pytest_result)
-    return "Pytest executed"
+    return pytest_result
 
 
     
