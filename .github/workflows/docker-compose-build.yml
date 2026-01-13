@@ -7,20 +7,6 @@ on:
 jobs:
   build-compose:
     runs-on: ubuntu-latest
-    env:
-      DEMO_SITE_URL: https://example.invalid
-      DEMO_SECRET_KEY: demo
-      DEMO_HASH_SALT: demo
-      DEMO_USER_NAME: Demo
-      DEMO_USER_PASSWORD: demo
-      DEMO_SUPERVISOR_EMAIL: demo@example.invalid
-      DEMO_SUPERVISOR_PASSWORD: demo
-      DEMO_USER_EMAIL: demo-user@example.invalid
-      DEMO_USER_PERSONNUMMER: "190001011234"
-      DEMO_SUPERVISOR_NAME: Demo
-      POSTGRES_USER: demo
-      POSTGRES_PASSWORD: demo
-      POSTGRES_DB: demo
     steps:
       - name: Checka ut kod
         uses: actions/checkout@v4
@@ -29,7 +15,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Bygg docker-compose.yml
-        run: docker compose -f docker-compose.yml build
+        run: docker compose --env-file .example.env -f docker-compose.yml build
 
       - name: Bygg docker-compose.prod.yml
-        run: docker compose -f docker-compose.prod.yml build
+        run: docker compose --env-file .example.env -f docker-compose.prod.yml build
