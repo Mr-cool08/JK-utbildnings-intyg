@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime, timezone
-
+import pytest
 from flask import Flask, render_template
 
 from status_service.status_checks import build_status
@@ -29,6 +29,15 @@ def index():
     return render_template("status.html", status=status, checked_at=get_display_timestamp())
 
 
+@app.route("/pytest")
+def pytest_site():
+    print("Starting pytest...")
+    pytest_result = pytest.main()
+    print("Pytest result:", pytest_result)
+    return "Pytest executed"
+
+
+    
 if __name__ == "__main__":
     port = int(os.getenv("STATUS_PORT", "80"))
     app.run(host="0.0.0.0", port=port)
