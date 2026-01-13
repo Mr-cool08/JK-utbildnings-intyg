@@ -81,7 +81,7 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "7"
+        return "8"
 
     assert module.select_action(fake_input) is None
 
@@ -97,6 +97,23 @@ def test_run_compose_action_git_pull_runs_git():
     module.run_compose_action(["-f", "docker-compose.yml"], "git-pull", runner=fake_runner)
 
     assert calls == [(["git", "pull"], True)]
+
+
+def test_run_compose_action_pull_github_runs_compose_pull():
+    module = _load_module()
+    calls: list[tuple[list[str], bool]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append((list(cmd), check))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(
+        ["-f", "docker-compose.yml"],
+        "pull-github",
+        runner=fake_runner,
+    )
+
+    assert calls == [(["docker", "compose", "-f", "docker-compose.yml", "pull"], True)]
 
 
 def test_build_pytest_command_uses_repo_venv(tmp_path):

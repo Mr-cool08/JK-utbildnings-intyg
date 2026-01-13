@@ -90,6 +90,7 @@ def send_notification(action: str, details: str = "") -> None:
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",
             "pull": "Docker bilder uppdaterades",
+            "pull-github": "Docker bilder hämtades från GitHub Actions",
             "up": "Docker Compose tjänsterna startades",
             "cycle": "Docker Compose tjänsterna startades om (cycle)",
             "git-pull": "Git uppdatering genomfördes",
@@ -167,6 +168,18 @@ def run_compose_action(
         print("Klar.")
         if notify:
             send_notification("pull")
+        return
+    if action == "pull-github":
+        print("Hämtar senaste Docker-bilderna från GitHub Actions...")
+        try:
+            run_compose_command(compose_args, ["pull"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker-bilderna från GitHub Actions skulle hämtas."
+            ) from exc
+        print("Klar.")
+        if notify:
+            send_notification("pull-github")
         return
     if action == "git-pull":
         print("Hämtar senaste ändringarna med git pull...")
@@ -261,10 +274,11 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
         "6) Kör pytest\n"
-        "7) Avsluta\n"
+        "7) Hämta senaste bilder från GitHub Actions\n"
+        "8) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-7): ").strip()
+    choice = input_func("Ange ditt val (1-8): ").strip()
 
     mapping = {
         "1": "stop",
@@ -273,7 +287,8 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4": "cycle",
         "5": "git-pull",
         "6": "pytest",
-        "7": None,
+        "7": "pull-github",
+        "8": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -318,7 +333,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--action",
-        choices=["stop", "pull", "up", "cycle", "git-pull", "pytest"],
+        choices=["stop", "pull", "pull-github", "up", "cycle", "git-pull", "pytest"],
         help="Kör en specifik åtgärd utan meny.",
     )
     parser.add_argument(
