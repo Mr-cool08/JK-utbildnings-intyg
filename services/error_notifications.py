@@ -26,6 +26,9 @@ class EmailErrorHandler(logging.Handler):
             # Only handle ERROR but not CRITICAL (to avoid duplication)
             if record.levelno < logging.ERROR or record.levelno >= logging.CRITICAL:
                 return
+            if getattr(record, "_email_error_handler_sent", False):
+                return
+            record._email_error_handler_sent = True
 
             recipients = os.getenv("ERROR_ALERTS_EMAIL", "")
             if not recipients:
