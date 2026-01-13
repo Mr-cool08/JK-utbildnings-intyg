@@ -4,6 +4,7 @@ import subprocess
 from datetime import datetime, timezone
 from flask import Flask, Response, render_template, stream_with_context
 
+from services import critical_events
 from status_service.status_checks import build_status
 
 app = Flask(__name__)
@@ -35,6 +36,7 @@ def pytest_site():
 
     def generate_output():
         yield "Startar pytest...\n"
+        captured_output = []
         process = subprocess.Popen(
             ["pytest"],
             stdout=subprocess.PIPE,
@@ -43,13 +45,23 @@ def pytest_site():
             bufsize=1,
         )
         for line in process.stdout:
+            captured_output.append(line)
             yield line
         process.wait()
         LOGGER.info("Pytest-resultat: %s", process.returncode)
         if process.returncode == 0:
             yield "Pytest klart: lyckades.\n"
         else:
-            yield f"Pytest klart: misslyckades ({process.returncode}).\n"
+            critical_events.send_critical_event_email(
+                event_type="error",
+                title="🔴 Pytest misslyckades",
+                description=(
+                    "Pytest-körningen misslyckades via status-tjänsten.\n"
+                    f"Tidsstämpel: {get_display_timestamp()}"
+                ),
+                error_message="".join(captured_output),
+            )
+            yield "Pytest misslyckades. Kritisk händelse har skickats.\n"
 
     return Response(stream_with_context(generate_output()), mimetype="text/plain; charset=utf-8")
 
