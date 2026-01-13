@@ -189,20 +189,15 @@ def run_compose_action(
         return
     if action == "pull-github":
         print("Hämtar senaste Docker-bilderna från GitHub Actions...")
-        ghcr_repo_url = os.environ.get("GHCR_REPO_URL")
-        if ghcr_repo_url:
-            print(f"GHCR-länk: {ghcr_repo_url}")
         try:
-            github_compose_args = build_github_compose_args(compose_args)
-            run_compose_command(github_compose_args, ["pull"], runner)
+            run_compose_command(compose_args, ["pull"], runner)
         except subprocess.CalledProcessError as exc:
             raise ActionError(
                 "Ett fel uppstod när Docker-bilderna från GitHub Actions skulle hämtas."
             ) from exc
         print("Klar.")
         if notify:
-            details = f"GHCR-länk: {ghcr_repo_url}" if ghcr_repo_url else ""
-            send_notification("pull-github", details)
+            send_notification("pull-github")
         return
     if action == "git-pull":
         print("Hämtar senaste ändringarna med git pull...")
