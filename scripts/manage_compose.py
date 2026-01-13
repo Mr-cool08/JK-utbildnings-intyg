@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 
+class ActionError(RuntimeError):
+    pass
+
+
 def repo_root() -> Path:
     # Resolve the repository root directory from this script location.
     return Path(__file__).resolve().parents[1]
@@ -142,21 +146,34 @@ def run_compose_action(
     # Run a single compose action.
     if action == "stop":
         print("Stoppar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["stop"], runner)
+        try:
+            run_compose_command(compose_args, ["stop"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle stoppas."
+            ) from exc
         print("Klar.")
         if notify:
             send_notification("stop")
         return
     if action == "pull":
         print("Hämtar senaste Docker-bilderna...")
-        run_compose_command(compose_args, ["pull"], runner)
+        try:
+            run_compose_command(compose_args, ["pull"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker-bilderna skulle hämtas."
+            ) from exc
         print("Klar.")
         if notify:
             send_notification("pull")
         return
     if action == "git-pull":
         print("Hämtar senaste ändringarna med git pull...")
-        runner(["git", "pull"], check=True)
+        try:
+            runner(["git", "pull"], check=True)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError("Ett fel uppstod när git pull kördes.") from exc
         print("Klar.")
         if notify:
             send_notification("git-pull")
@@ -164,12 +181,20 @@ def run_compose_action(
     if action == "pytest":
         print("Kör pytest...")
         pytest_cmd = build_pytest_command(repo_root())
-        runner(pytest_cmd, check=True)
+        try:
+            runner(pytest_cmd, check=True)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError("Ett fel uppstod när pytest kördes.") from exc
         print("Klar.")
         return
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
-        run_compose_command(compose_args, ["up", "-d"], runner)
+        try:
+            run_compose_command(compose_args, ["up", "-d"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle startas."
+            ) from exc
         print("Klar.")
         if notify:
             send_notification("up")
@@ -222,7 +247,7 @@ def run_compose_action(
                     except Exception:
                         pass
             finally:
-                raise
+                raise ActionError("Fullständig omstart misslyckades.") from exc
     raise ValueError("Okänd åtgärd vald.")
 
 
@@ -318,8 +343,8 @@ def main() -> int:
             run_compose_action(compose_args, args.action, notify=notify)
         else:
             return run_menu(compose_args, notify=notify)
-    except subprocess.CalledProcessError:
-        print("Ett fel uppstod när Docker Compose-kommandot kördes.", file=sys.stderr)
+    except ActionError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
     except ValueError:
         print("Ogiltigt val. Försök igen.", file=sys.stderr)
