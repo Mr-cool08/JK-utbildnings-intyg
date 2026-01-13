@@ -42,22 +42,38 @@ def test_default_compose_file_uses_repo_root():
 
 def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
-    calls: list[tuple[list[str], bool]] = []
+    calls: list[dict[str, object]] = []
 
     module.build_pytest_command = lambda root: ["venv/bin/pytest"]
 
-    def fake_runner(cmd, check):
-        calls.append((list(cmd), check))
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(
+            {
+                "cmd": list(cmd),
+                "check": check,
+                "cwd": kwargs.get("cwd"),
+            }
+        )
         return subprocess.CompletedProcess(cmd, 0)
 
     module.run_compose_action(["-f", "docker-compose.yml"], "cycle", runner=fake_runner)
 
+    repo_root = Path(module.__file__).resolve().parents[1]
+
     assert calls == [
-        (["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"], True),
-        (["git", "pull"], True),
-        (["venv/bin/pytest"], True),
-        (["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"], True),
-        (["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], True),
+        {
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"],
+            "check": True,
+            "cwd": None,
+        },
+        {"cmd": ["git", "pull"], "check": True, "cwd": None},
+        {"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+        {
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],
+            "check": True,
+            "cwd": None,
+        },
+        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], "check": True, "cwd": None},
     ]
 
 
@@ -74,7 +90,7 @@ def test_run_compose_action_git_pull_runs_git():
     module = _load_module()
     calls: list[tuple[list[str], bool]] = []
 
-    def fake_runner(cmd, check):
+    def fake_runner(cmd, check, **kwargs):
         calls.append((list(cmd), check))
         return subprocess.CompletedProcess(cmd, 0)
 
@@ -92,6 +108,29 @@ def test_build_pytest_command_uses_repo_venv(tmp_path):
     assert module.build_pytest_command(tmp_path) == [str(pytest_path)]
 
 
+def test_run_compose_action_pytest_uses_repo_root():
+    module = _load_module()
+    calls: list[dict[str, object]] = []
+
+    module.build_pytest_command = lambda root: ["venv/bin/pytest"]
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(
+            {
+                "cmd": list(cmd),
+                "check": check,
+                "cwd": kwargs.get("cwd"),
+            }
+        )
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "pytest", runner=fake_runner)
+
+    repo_root = Path(module.__file__).resolve().parents[1]
+
+    assert calls == [{"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root}]
+
+
 def test_run_menu_executes_selected_action():
     module = _load_module()
     calls: list[str] = []
@@ -99,7 +138,7 @@ def test_run_menu_executes_selected_action():
     def fake_input(prompt):
         return "1"
 
-    def fake_runner(cmd, check):
+    def fake_runner(cmd, check, **kwargs):
         calls.append(" ".join(cmd))
         return subprocess.CompletedProcess(cmd, 0)
 

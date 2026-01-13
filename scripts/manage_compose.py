@@ -182,7 +182,7 @@ def run_compose_action(
         print("Kör pytest...")
         pytest_cmd = build_pytest_command(repo_root())
         try:
-            runner(pytest_cmd, check=True)
+            runner(pytest_cmd, check=True, cwd=repo_root())
         except subprocess.CalledProcessError as exc:
             raise ActionError("Ett fel uppstod när pytest kördes.") from exc
         print("Klar.")
@@ -216,7 +216,7 @@ def run_compose_action(
 
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
-            runner(pytest_cmd, check=True)
+            runner(pytest_cmd, check=True, cwd=repo_root())
 
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
