@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from functools import partial
 import logging
 import os
@@ -233,7 +234,8 @@ def _before_first_request():
             logger.info("Startupp-notifikation skickad")
         except Exception as e:
             logger.warning("Kunde inte skicka startupp-notifikation: %s", str(e))
-
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(days=178)
 
 def _send_shutdown_notification():
     # Send shutdown notification when the app is shutting down
@@ -318,6 +320,12 @@ def sitemap_xml():
     if app.static_folder is None:
         return jsonify({'error': 'Not Found'}), 404
     return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
+
+
+@app.route('/debug/clear-session', methods=['GET'])
+def debug_clear_session():
+    session.clear()
+    return redirect('/')
 
 @app.route('/create_user/<pnr_hash>', methods=['POST', 'GET'])
 def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
@@ -437,6 +445,10 @@ def supervisor_login():
         return redirect(url_for('supervisor_dashboard'))
 
     return render_template('supervisor_login.html')
+
+
+
+
 
 
 @app.route('/foretagskonto', methods=['GET'])
