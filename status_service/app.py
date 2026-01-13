@@ -1,8 +1,8 @@
 import logging
 import os
+import subprocess
 from datetime import datetime, timezone
-import pytest
-from flask import Flask, render_template
+from flask import Flask, Response, render_template, stream_with_context
 
 from status_service.status_checks import build_status
 
@@ -32,11 +32,26 @@ def index():
 @app.route("/pytest")
 def pytest_site():
     LOGGER.info("Startar pytest-körning via status-tjänsten.")
-    pytest_result = pytest.main()
-    LOGGER.info("Pytest-resultat: %s", pytest_result)
-    if pytest_result == 0:
-        return "Pytest klart: lyckades."
-    return f"Pytest klart: misslyckades ({pytest_result})."
+
+    def generate_output():
+        yield "Startar pytest...\n"
+        process = subprocess.Popen(
+            ["pytest"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        for line in process.stdout:
+            yield line
+        process.wait()
+        LOGGER.info("Pytest-resultat: %s", process.returncode)
+        if process.returncode == 0:
+            yield "Pytest klart: lyckades.\n"
+        else:
+            yield f"Pytest klart: misslyckades ({process.returncode}).\n"
+
+    return Response(stream_with_context(generate_output()), mimetype="text/plain; charset=utf-8")
 
 
     
