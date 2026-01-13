@@ -65,6 +65,17 @@ def _gather_statuses(compose_args: Sequence[str]) -> str:
     return "\n".join(parts)
 
 
+def build_pytest_command(root: Path) -> list[str]:
+    # Build the pytest command using the venv in the repository root.
+    if sys.platform.startswith("win"):
+        pytest_path = root / "venv" / "Scripts" / "pytest.exe"
+    else:
+        pytest_path = root / "venv" / "bin" / "pytest"
+    if not pytest_path.is_file():
+        raise FileNotFoundError("Kunde inte hitta pytest i venv-katalogen.")
+    return [str(pytest_path)]
+
+
 def send_notification(action: str, details: str = "") -> None:
     """Send email notification about compose action (if configured)."""
     try:
@@ -150,6 +161,12 @@ def run_compose_action(
         if notify:
             send_notification("git-pull")
         return
+    if action == "pytest":
+        print("Kör pytest...")
+        pytest_cmd = build_pytest_command(repo_root())
+        runner(pytest_cmd, check=True)
+        print("Klar.")
+        return
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
         run_compose_command(compose_args, ["up", "-d"], runner)
@@ -171,6 +188,10 @@ def run_compose_action(
 
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
+
+            print("Kör pytest...")
+            pytest_cmd = build_pytest_command(repo_root())
+            runner(pytest_cmd, check=True)
 
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
@@ -212,12 +233,13 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "1) Stoppa tjänsterna\n"
         "2) Hämta senaste bilder\n"
         "3) Starta tjänsterna\n"
-        "4) Stoppa/ta bort + git pull + bygg/starta\n"
+        "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
-        "6) Avsluta\n"
+        "6) Kör pytest\n"
+        "7) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-6): ").strip()
+    choice = input_func("Ange ditt val (1-7): ").strip()
 
     mapping = {
         "1": "stop",
@@ -225,7 +247,8 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "3": "up",
         "4": "cycle",
         "5": "git-pull",
-        "6": None,
+        "6": "pytest",
+        "7": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -270,7 +293,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--action",
-        choices=["stop", "pull", "up", "cycle", "git-pull"],
+        choices=["stop", "pull", "up", "cycle", "git-pull", "pytest"],
         help="Kör en specifik åtgärd utan meny.",
     )
     parser.add_argument(
