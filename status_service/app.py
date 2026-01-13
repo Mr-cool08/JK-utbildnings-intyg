@@ -1,9 +1,11 @@
 import logging
 import os
+import subprocess
+import sys
 from datetime import datetime, timezone
-import pytest
-from flask import Flask, render_template
+from flask import Flask, Response, render_template, stream_with_context
 
+from services import critical_events
 from status_service.status_checks import build_status
 
 app = Flask(__name__)
@@ -31,10 +33,63 @@ def index():
 
 @app.route("/pytest")
 def pytest_site():
-    print("Starting pytest...")
-    pytest_result = pytest.main()
-    print("Pytest result:", pytest_result)
-    return pytest_result
+    LOGGER.info("Startar pytest-körning via status-tjänsten.")
+
+    def generate_output():
+        yield "Startar pytest...\n"
+        captured_output = []
+        try:
+            process = subprocess.Popen(
+                [sys.executable, "-m", "pytest"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+        except (FileNotFoundError, OSError) as exc:
+            LOGGER.exception("Kunde inte starta pytest: %s", exc)
+            critical_events.send_critical_event_email(
+                event_type="error",
+                title="🔴 Pytest kunde inte starta",
+                description=(
+                    "Pytest-körningen kunde inte startas via status-tjänsten.\n"
+                    f"Tidsstämpel: {get_display_timestamp()}"
+                ),
+                error_message=str(exc),
+            )
+            yield "Pytest kunde inte starta. Kritisk händelse har skickats.\n"
+            return
+        if process.stdout is None:
+            LOGGER.error("Pytest saknar stdout-ström.")
+            output, _ = process.communicate()
+            if output:
+                for line in output.splitlines(keepends=True):
+                    captured_output.append(line)
+                    yield line
+            else:
+                captured_output.append("Ingen utdata från pytest.\n")
+                yield "Ingen utdata från pytest.\n"
+        else:
+            for line in process.stdout:
+                captured_output.append(line)
+                yield line
+            process.wait()
+        LOGGER.info("Pytest-resultat: %s", process.returncode)
+        if process.returncode == 0:
+            yield "Pytest klart: lyckades.\n"
+        else:
+            critical_events.send_critical_event_email(
+                event_type="error",
+                title="🔴 Pytest misslyckades",
+                description=(
+                    "Pytest-körningen misslyckades via status-tjänsten.\n"
+                    f"Tidsstämpel: {get_display_timestamp()}"
+                ),
+                error_message="".join(captured_output),
+            )
+            yield "Pytest misslyckades. Kritisk händelse har skickats.\n"
+
+    return Response(stream_with_context(generate_output()), mimetype="text/plain; charset=utf-8")
 
 
     
