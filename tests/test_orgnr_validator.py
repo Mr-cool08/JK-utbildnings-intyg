@@ -4,7 +4,7 @@ import functions
 
 
 def test_validate_orgnr_accepts_hyphen():
-    assert functions.validate_orgnr("556016-0680") == "5569668337"
+    assert functions.validate_orgnr("556966-8337") == "5569668337"
 
 
 def test_validate_orgnr_strips_spaces():

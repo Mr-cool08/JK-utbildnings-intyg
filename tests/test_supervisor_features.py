@@ -24,7 +24,7 @@ def supervisor_setup(empty_db):
     user_email = "user@example.com"
     user_name = "Test Användare"
     personnummer = "19900101-1234"
-    orgnr = "556016-0680"
+    orgnr = "556966-8337"
     normalized_orgnr = functions.validate_orgnr(orgnr)
 
     assert functions.admin_create_user(user_email, user_name, personnummer)

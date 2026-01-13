@@ -14,7 +14,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
         account_type="foretagskonto",
         name="Test Företagskonto",
         email="applicant@example.com",
-        orgnr="556016-0680",
+        orgnr="556966-8337",
         company_name="Testbolag AB",
         comment="Vill komma igång",
         invoice_address="Testvägen 1\n123 45 Teststad",
