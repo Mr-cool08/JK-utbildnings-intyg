@@ -102,6 +102,8 @@ def test_run_compose_action_git_pull_runs_git():
 def test_run_compose_action_pull_github_runs_compose_pull(tmp_path):
     module = _load_module()
     calls: list[tuple[list[str], bool]] = []
+
+    # Fake the GitHub compose override file so build_github_compose_args can append it.
     github_file = tmp_path / "compose.github.yml"
     github_file.write_text("services: {}\n", encoding="utf-8")
     module.github_compose_file = lambda: github_file
