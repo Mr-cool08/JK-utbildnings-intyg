@@ -4,9 +4,9 @@ WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
 COPY status_service/requirements.txt /app/status_service/requirements.txt
-RUN apk add --no-cache postgresql-dev build-base \
+RUN apk add --no-cache postgresql-dev build-base zlib zlib-dev libffi libffi-dev \
     && pip install --no-cache-dir -r /app/requirements.txt -r /app/status_service/requirements.txt \
-    && apk del build-base
+    && apk del build-base zlib-dev libffi-dev
 
 COPY . /app
 
