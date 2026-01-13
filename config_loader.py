@@ -54,8 +54,8 @@ def load_environment() -> None:
     candidates = _resolve_unique_paths(
         (
             os.getenv("CONFIG_PATH"),
-            Path("/config/.env"),
-            app_root / ".env",
+            Path("/config/stack.env"),
+            app_root / "stack.env",
         )
     )
 

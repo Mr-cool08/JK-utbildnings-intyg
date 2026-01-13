@@ -23,7 +23,7 @@ services:
     build: .
     user: "0:0"
     env_file:
-      - stack.env
+      - dev_stack.env
     environment:
       DEMO_SITE_URL: ${DEMO_SITE_URL}
     depends_on:
