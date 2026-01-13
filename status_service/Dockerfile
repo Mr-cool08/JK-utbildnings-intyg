@@ -8,6 +8,8 @@ RUN apk add --no-cache postgresql-dev build-base \
     && apk del build-base
 
 COPY status_service /app/status_service
+COPY services /app/services
+COPY config_loader.py logging_utils.py functions.py /app/
 
 ENV STATUS_PORT=80
 
