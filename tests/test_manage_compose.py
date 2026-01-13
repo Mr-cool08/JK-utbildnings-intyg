@@ -19,13 +19,13 @@ def _load_module():
 
 def test_build_compose_args_includes_expected_flags():
     module = _load_module()
-    args = module.build_compose_args("docker-compose.prod.yml", "./stack.env", "demo")
+    args = module.build_compose_args("docker-compose.prod.yml", "./.env", "demo")
 
     assert args == [
         "-f",
         "docker-compose.prod.yml",
         "--env-file",
-        "./stack.env",
+        "./.env",
         "--project-name",
         "demo",
     ]

@@ -26,7 +26,7 @@ services:
   app:
     build: .
     env_file:
-      - stack.env
+      - .env
     environment:
       LOG_DIR: /app/logs
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -47,7 +47,7 @@ services:
   app_demo:
     build: .
     env_file:
-      - stack.env
+      - .env
     environment:
       LOG_DIR: /app/logs
       ENABLE_DEMO_MODE: "true"
@@ -78,7 +78,7 @@ services:
       context: .
       dockerfile: status_service/Dockerfile
     env_file:
-      - stack.env
+      - .env
     environment:
       STATUS_DB_HOST: postgres
       STATUS_DB_NAME: ${POSTGRES_DB}

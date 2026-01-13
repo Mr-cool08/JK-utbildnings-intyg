@@ -13,7 +13,7 @@
   - Thread-safe implementation
 
 ### 2. Updated Configuration
-- **File:** `stack.env`
+- **File:** `.env`
 - **Added:**
   ```env
   ADMIN_EMAIL=admin@example.com
@@ -80,7 +80,7 @@ ADMIN_EMAIL=admin@example.com
 APP_NAME=JK Utbildningsintyg
 ```
 
-SMTP configuration already exists in `stack.env`:
+SMTP configuration already exists in `.env`:
 - `smtp_server=webmail.internetport.se`
 - `smtp_port=465`
 - `smtp_user=no-reply@utbildningsintyg.se`
@@ -123,7 +123,7 @@ critical_events.send_critical_error_notification(
 
 1. ✅ `services/critical_events.py` - NEW (314 lines)
 2. ✅ `app.py` - MODIFIED (added imports + event handlers)
-3. ✅ `stack.env` - MODIFIED (added ADMIN_EMAIL, APP_NAME)
+3. ✅ `.env` - MODIFIED (added ADMIN_EMAIL, APP_NAME)
 4. ✅ `tests/test_critical_events.py` - NEW (172 lines)
 5. ✅ `docs/CRITICAL_EVENTS_NOTIFICATIONS.md` - NEW (comprehensive guide)
 

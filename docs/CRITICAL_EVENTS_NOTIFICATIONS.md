@@ -8,7 +8,7 @@ The application now sends automatic email notifications to an admin email addres
 
 ### Environment Variables
 
-Add these variables to your `.env` or `stack.env` file:
+Add these variables to your `.env` or `.env` file:
 
 ```env
 # Admin emails for critical events notifications (comma-separated for multiple)
@@ -85,7 +85,7 @@ All notification emails include:
    - Error handlers with email notifications
    - Shutdown notification via `@app.teardown_appcontext`
 
-3. **`stack.env`** - Configuration
+3. **`.env`** - Configuration
    - ADMIN_EMAIL and APP_NAME settings
 
 ### Design Considerations
