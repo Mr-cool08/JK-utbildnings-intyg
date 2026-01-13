@@ -2,14 +2,13 @@ FROM python:3.15-rc-alpine3.22
 
 WORKDIR /app
 
-COPY status_service/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
+COPY status_service/requirements.txt /app/status_service/requirements.txt
 RUN apk add --no-cache postgresql-dev build-base \
-    && pip install --no-cache-dir -r /app/requirements.txt \
+    && pip install --no-cache-dir -r /app/requirements.txt -r /app/status_service/requirements.txt \
     && apk del build-base
 
-COPY status_service /app/status_service
-COPY services /app/services
-COPY config_loader.py logging_utils.py functions.py /app/
+COPY . /app
 
 ENV STATUS_PORT=80
 
