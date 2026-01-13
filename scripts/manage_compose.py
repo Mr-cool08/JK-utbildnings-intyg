@@ -21,7 +21,7 @@ def default_compose_file() -> str:
     prod_file = root / "docker-compose.prod.yml"
     if prod_file.is_file():
         return str(prod_file)
-    return str(root / "docker-compose.yml")
+    return str(root / "docker-compose.prod.yml")
 
 
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
