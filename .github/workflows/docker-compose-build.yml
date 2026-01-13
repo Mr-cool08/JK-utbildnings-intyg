@@ -1,0 +1,21 @@
+name: Bygg Docker Compose
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checka ut kod
+        uses: actions/checkout@v4
+
+      - name: Sätt upp Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Bygg docker-compose.yml
+        run: docker compose -f docker-compose.yml build
+
+      - name: Bygg docker-compose.prod.yml
+        run: docker compose -f docker-compose.prod.yml build
