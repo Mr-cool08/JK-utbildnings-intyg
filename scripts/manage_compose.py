@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,10 +23,23 @@ def repo_root() -> Path:
 def default_compose_file() -> str:
     # Select a sensible default compose file if available.
     root = repo_root()
+
+    # Prefer production compose if it exists, otherwise fall back to standard compose.
     prod_file = root / "docker-compose.prod.yml"
     if prod_file.is_file():
         return str(prod_file)
-    return str(root / "docker-compose.prod.yml")
+
+    default_file = root / "docker-compose.yml"
+    if default_file.is_file():
+        return str(default_file)
+
+    # Last resort: keep the old default path (useful if the user intends to create it).
+    return str(prod_file)
+
+
+def github_compose_file() -> Path:
+    # Return the compose override for GitHub Actions images.
+    return repo_root() / "docker-compose.github.yml"
 
 
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
@@ -71,13 +85,29 @@ def _gather_statuses(compose_args: Sequence[str]) -> str:
 
 def build_pytest_command(root: Path) -> list[str]:
     # Build the pytest command using the venv in the repository root.
+    # Support both venv/ and .venv/.
+    candidates: list[Path] = []
+
     if sys.platform.startswith("win"):
-        pytest_path = root / "venv" / "Scripts" / "pytest.exe"
+        candidates.extend(
+            [
+                root / "venv" / "Scripts" / "pytest.exe",
+                root / ".venv" / "Scripts" / "pytest.exe",
+            ]
+        )
     else:
-        pytest_path = root / "venv" / "bin" / "pytest"
-    if not pytest_path.is_file():
-        raise FileNotFoundError("Kunde inte hitta pytest i venv-katalogen.")
-    return [str(pytest_path)]
+        candidates.extend(
+            [
+                root / "venv" / "bin" / "pytest",
+                root / ".venv" / "bin" / "pytest",
+            ]
+        )
+
+    for pytest_path in candidates:
+        if pytest_path.is_file():
+            return [str(pytest_path)]
+
+    raise FileNotFoundError("Kunde inte hitta pytest i venv/.venv-katalogen.")
 
 
 def send_notification(action: str, details: str = "") -> None:
@@ -86,7 +116,7 @@ def send_notification(action: str, details: str = "") -> None:
         # Add repo root to path to import services
         sys.path.insert(0, str(repo_root()))
         from services import email as email_service
-        
+
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",
             "pull": "Docker bilder uppdaterades",
@@ -95,14 +125,14 @@ def send_notification(action: str, details: str = "") -> None:
             "cycle": "Docker Compose tjänsterna startades om (cycle)",
             "git-pull": "Git uppdatering genomfördes",
         }
-        
+
         event_type = "compose_action"
         title = action_labels.get(action, f"Docker Compose åtgärd: {action}")
-        
+
         try:
             email_service.send_critical_event_alert(
                 event_type,
-                f"Åtgärd: {title}\nDetaljer: {details}" if details else title
+                f"Åtgärd: {title}\nDetaljer: {details}" if details else title,
             )
         except Exception as e:
             # Log but don't fail if email sending fails
@@ -128,6 +158,18 @@ def build_compose_args(
     return args
 
 
+def build_github_compose_args(compose_args: Sequence[str]) -> list[str]:
+    # Add the GitHub Actions override file for image pulls.
+    args = list(compose_args)
+    github_file = github_compose_file()
+    if not github_file.is_file():
+        raise ActionError(
+            "Kunde inte hitta docker-compose.github.yml för GitHub Actions-bilder."
+        )
+    args.extend(["-f", str(github_file)])
+    return args
+
+
 def run_compose_command(
     compose_args: Sequence[str],
     command: Iterable[str],
@@ -145,6 +187,7 @@ def run_compose_action(
     notify: bool = True,
 ) -> None:
     # Run a single compose action.
+
     if action == "stop":
         print("Stoppar Docker Compose-tjänsterna...")
         try:
@@ -157,30 +200,39 @@ def run_compose_action(
         if notify:
             send_notification("stop")
         return
+
     if action == "pull":
         print("Hämtar senaste Docker-bilderna...")
         try:
             run_compose_command(compose_args, ["pull"], runner)
         except subprocess.CalledProcessError as exc:
-            raise ActionError(
-                "Ett fel uppstod när Docker-bilderna skulle hämtas."
-            ) from exc
+            raise ActionError("Ett fel uppstod när Docker-bilderna skulle hämtas.") from exc
         print("Klar.")
         if notify:
             send_notification("pull")
         return
+
     if action == "pull-github":
         print("Hämtar senaste Docker-bilderna från GitHub Actions...")
+
+        ghcr_repo_url = os.environ.get("GHCR_REPO_URL")
+        if ghcr_repo_url:
+            print(f"GHCR-länk: {ghcr_repo_url}")
+
         try:
-            run_compose_command(compose_args, ["pull"], runner)
+            gh_args = build_github_compose_args(compose_args)
+            run_compose_command(gh_args, ["pull"], runner)
         except subprocess.CalledProcessError as exc:
             raise ActionError(
                 "Ett fel uppstod när Docker-bilderna från GitHub Actions skulle hämtas."
             ) from exc
+
         print("Klar.")
         if notify:
-            send_notification("pull-github")
+            details = f"GHCR-länk: {ghcr_repo_url}" if ghcr_repo_url else ""
+            send_notification("pull-github", details)
         return
+
     if action == "git-pull":
         print("Hämtar senaste ändringarna med git pull...")
         try:
@@ -191,6 +243,7 @@ def run_compose_action(
         if notify:
             send_notification("git-pull")
         return
+
     if action == "pytest":
         print("Kör pytest...")
         pytest_cmd = build_pytest_command(repo_root())
@@ -200,6 +253,7 @@ def run_compose_action(
             raise ActionError("Ett fel uppstod när pytest kördes.") from exc
         print("Klar.")
         return
+
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
         try:
@@ -212,6 +266,7 @@ def run_compose_action(
         if notify:
             send_notification("up")
         return
+
     if action == "cycle":
         # Notify that cycle is starting
         if notify:
@@ -242,7 +297,10 @@ def run_compose_action(
             if notify:
                 try:
                     status = _gather_statuses(compose_args)
-                    send_notification("cycle", f"Fullständig omstart av alla tjänster genomförd\n\n{status}")
+                    send_notification(
+                        "cycle",
+                        "Fullständig omstart av alla tjänster genomförd\n\n" + status,
+                    )
                 except Exception:
                     # ignore notification failure
                     pass
@@ -256,11 +314,15 @@ def run_compose_action(
                     except Exception:
                         status = "<could not gather statuses>"
                     try:
-                        send_notification("cycle", f"Fullständig omstart misslyckades: {exc}\n\n{status}")
+                        send_notification(
+                            "cycle",
+                            f"Fullständig omstart misslyckades: {exc}\n\n{status}",
+                        )
                     except Exception:
                         pass
             finally:
                 raise ActionError("Fullständig omstart misslyckades.") from exc
+
     raise ValueError("Okänd åtgärd vald.")
 
 
@@ -353,6 +415,7 @@ def main() -> int:
         args.project_name,
     )
     notify = not args.no_notify
+
     try:
         if args.action:
             run_compose_action(compose_args, args.action, notify=notify)
@@ -364,6 +427,7 @@ def main() -> int:
     except ValueError:
         print("Ogiltigt val. Försök igen.", file=sys.stderr)
         return 1
+
     return 0
 
 
