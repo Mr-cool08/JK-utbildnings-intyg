@@ -748,7 +748,7 @@ def normalize_orgnr(orgnr: str) -> str:
     digits = re.sub(r"\D", "", orgnr)
     if len(digits) != 10:
         raise ValueError(
-            "Organisationsnumret måste bestå av exakt tio siffror, till exempel 5560160680."
+            "Organisationsnumret måste bestå av exakt tio siffror, till exempel 5569668337."
         )
     return digits
 

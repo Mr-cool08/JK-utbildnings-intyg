@@ -153,7 +153,7 @@ def create_app() -> Flask:
         "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.foretagskonto@example.com"),
         "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demoföretagskonto"),
         "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoForetagskonto1!"),
-        "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5560160680"),
+        "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5569668337"),
     }
 
     app.config["IS_DEMO"] = as_bool(os.getenv("ENABLE_DEMO_MODE"))

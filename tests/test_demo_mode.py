@@ -13,7 +13,7 @@ DEMO_PARAMS = dict(
     supervisor_email="demo.foretagskonto@example.com",
     supervisor_name="Demoföretagskonto",
     supervisor_password="DemoForetagskonto1!",
-    supervisor_orgnr="5560160680",
+    supervisor_orgnr="5569668337",
 )
 
 

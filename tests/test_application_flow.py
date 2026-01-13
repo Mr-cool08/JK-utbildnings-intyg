@@ -26,7 +26,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
 
     assert result["company_created"] is True
     assert result["account_type"] == "foretagskonto"
-    assert result["orgnr"] == "5560160680"
+    assert result["orgnr"] == "5569668337"
     assert result["company_name"] == "Testbolag AB"
     assert result["pending_supervisor_created"] is True
     assert result["supervisor_activation_required"] is True
@@ -71,7 +71,7 @@ def test_application_rejection_stores_reason(fresh_app_db):
         account_type="foretagskonto",
         name="Företagskonto Test",
         email="foretagskonto@example.com",
-        orgnr="5560160680",
+        orgnr="5569668337",
         company_name="Handledarbolaget",
         comment="Behöver åtkomst",
         invoice_address="Bolagsgatan 2",
@@ -102,7 +102,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         account_type="foretagskonto",
         name="Företagskonton",
         email="foretagskonto@example.com",
-        orgnr="5560160680",
+        orgnr="5569668337",
         company_name="Bolaget AB",
         comment=None,
         invoice_address="Bolagsvägen 3",
@@ -113,7 +113,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         account_type="standard",
         name="Första Användaren",
         email="first@example.com",
-        orgnr="5560160680",
+        orgnr="5569668337",
         company_name="",
         comment=None,
         invoice_address=None,
@@ -158,7 +158,7 @@ def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
             account_type="foretagskonto",
             name="Test",
             email="missing@example.com",
-            orgnr="5560160680",
+            orgnr="5569668337",
             company_name="Bolaget",
             comment=None,
             invoice_address=None,
@@ -172,7 +172,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         account_type="foretagskonto",
         name="Företagskonto 1",
         email="foretagskonto1@example.com",
-        orgnr="5560160680",
+        orgnr="5569668337",
         company_name="Bolag 1",
         comment=None,
         invoice_address="Adress 1",
@@ -183,7 +183,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         account_type="standard",
         name="Användare 1",
         email="user1@example.com",
-        orgnr="5560160680",
+        orgnr="5569668337",
         company_name="",
         comment=None,
     )
@@ -195,7 +195,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert len(companies) == 1
     company = companies[0]
     assert company["name"] == "Bolag 1"
-    assert company["orgnr"] == "5560160680"
+    assert company["orgnr"] == "5569668337"
     assert company["invoice_address"] == "Adress 1"
     assert company["invoice_contact"] == "Kontakt 1"
     assert company["invoice_reference"] == "Ref 1"

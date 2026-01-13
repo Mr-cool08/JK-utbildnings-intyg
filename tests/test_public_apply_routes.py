@@ -57,7 +57,7 @@ def test_foretagskonto_application_submission(empty_db):
                 'invoice_address': 'Fakturagatan 1',
                 'invoice_contact': 'Helena Företagskonto',
                 'invoice_reference': 'Märkning 123',
-                'orgnr': '5560160680',
+                'orgnr': '5569668337',
                 'comment': 'Vi vill administrera våra kursdeltagare.',
                 'terms_confirmed': '1',
             },
