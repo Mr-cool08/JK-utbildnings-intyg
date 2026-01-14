@@ -81,7 +81,7 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "8"
+        return "9"
 
     assert module.select_action(fake_input) is None
 
@@ -129,6 +129,19 @@ def test_run_compose_action_pytest_uses_repo_root():
     repo_root = Path(module.__file__).resolve().parents[1]
 
     assert calls == [{"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root}]
+
+
+def test_run_compose_action_prune_volumes_runs_docker_volume_prune():
+    module = _load_module()
+    calls: list[tuple[list[str], bool]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append((list(cmd), check))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "prune-volumes", runner=fake_runner)
+
+    assert calls == [(["docker", "volume", "prune", "--force"], True)]
 
 
 def test_run_menu_executes_selected_action():
