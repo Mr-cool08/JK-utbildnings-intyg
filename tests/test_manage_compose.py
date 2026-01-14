@@ -61,12 +61,12 @@ def test_run_compose_action_cycle_orders_commands():
     repo_root = Path(module.__file__).resolve().parents[1]
 
     assert calls == [
+        {"cmd": ["git", "pull"], "check": True, "cwd": None},
         {
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"],
             "check": True,
             "cwd": None,
         },
-        {"cmd": ["git", "pull"], "check": True, "cwd": None},
         {"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
         {
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],

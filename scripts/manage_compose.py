@@ -257,21 +257,22 @@ def run_compose_action(
 
         print("Stoppar och tar bort Docker Compose-tjänsterna...")
         try:
-            run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
-
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
-
+            
+            run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
+            
+            
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
             runner(pytest_cmd, check=True, cwd=repo_root())
-
+            
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
-
+            
             print("Startar Docker Compose-tjänsterna...")
             run_compose_command(compose_args, ["up", "-d"], runner)
-
+            
             print("Klar.")
             # Gather statuses and notify with details
             if notify:
