@@ -9,9 +9,10 @@ from typing import Sequence
 from PIL import Image
 from werkzeug.utils import secure_filename
 
-import functions
 from course_categories import normalize_category_slugs
-from logging_utils import mask_hash
+from functions.logging.logging_utils import mask_hash
+from functions.pdf.storage import store_pdf_blob
+from functions.security.hashing import hash_value, normalize_personnummer
 from services.pdf_scanner import ScanVerdict, scan_pdf_bytes
 
 ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
@@ -64,8 +65,8 @@ def save_pdf_for_user(
         logger.error("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
-    pnr_norm = functions.normalize_personnummer(pnr)
-    pnr_hash = functions.hash_value(pnr_norm)
+    pnr_norm = normalize_personnummer(pnr)
+    pnr_hash = hash_value(pnr_norm)
     logger.debug("Saving PDF for person %s", mask_hash(pnr_hash))
 
     selected_categories = normalize_category_slugs(categories)
@@ -97,6 +98,6 @@ def save_pdf_for_user(
     )
     if verdict.decision != "ALLOW":
         raise ValueError("PDF:en blockerades av säkerhetsskannern.")
-    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
+    pdf_id = store_pdf_blob(pnr_hash, filename, content, selected_categories)
     logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
     return {"id": pdf_id, "filename": filename, "categories": selected_categories}

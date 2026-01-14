@@ -127,7 +127,7 @@ def send_notification(action: str, details: str = "") -> None:
     try:
         # Add repo root to path to import services
         sys.path.insert(0, str(repo_root()))
-        from services import email as email_service
+        from functions.emails import email as email_service
 
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",

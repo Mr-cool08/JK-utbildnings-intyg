@@ -1,6 +1,6 @@
 import logging
 
-import logging_utils
+from functions.logging import logging_utils
 
 
 def test_configure_module_logger_inits_without_root_handlers():

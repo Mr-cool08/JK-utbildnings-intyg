@@ -74,7 +74,7 @@ All notification emails include:
 
 ### Key Files
 
-1. **`services/critical_events.py`** - Core notification service
+1. **`functions/notifications/critical_events.py`** - Core notification service
    - Email formatting and sending logic
    - Thread-safe async email delivery
    - HTML escaping for security
@@ -101,7 +101,7 @@ All notification emails include:
 ### Main Functions
 
 ```python
-from services import critical_events
+from functions.notifications import critical_events
 
 # Send startup notification
 critical_events.send_startup_notification(hostname="server.example.com")

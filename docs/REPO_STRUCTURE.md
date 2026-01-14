@@ -5,7 +5,7 @@ Den här filen beskriver hur repositoryt är organiserat och var nya filer bör 
 ## Katalogöversikt
 
 - `app.py`, `wsgi.py` – Flask-applikationen och WSGI-entrypoint.
-- `services/`, `templates/`, `static/` – Affärslogik, vyer och statiska resurser.
+- `functions/`, `services/`, `templates/`, `static/` – Affärslogik, hjälptjänster (t.ex. antivirus) samt vyer och statiska resurser.
 - `scripts/` – Drifts- och underhållsskript. Lägg manuella hjälpskript här i stället för i rotkatalogen.
 - `docs/` – Dokumentation, installationsguider och driftinstruktioner.
 - `deploy/`, `docker-compose*.yml`, `Dockerfile` – Container- och orkestreringsfiler.

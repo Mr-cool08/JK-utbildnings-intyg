@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from services import email as email_service
+from functions.emails import email as email_service
 
 
 def _capture_send_email(monkeypatch):

@@ -74,7 +74,7 @@ def test_save_pdf_rejects_blocked_scan(monkeypatch, empty_db):
     def _reject_scan(_content: bytes, _logger=None):
         return ScanVerdict("REJECT", ["JavaScript"])
 
-    monkeypatch.setattr("services.pdf.scan_pdf_bytes", _reject_scan)
+    monkeypatch.setattr("functions.pdf.pdf.scan_pdf_bytes", _reject_scan)
 
     file_storage = FileStorage(
         stream=io.BytesIO(pdf_bytes),

@@ -1,4 +1,4 @@
- # Helpers for consistent logging configuration across the project.
+# Helpers for consistent logging configuration across the project.
 
 from __future__ import annotations
 

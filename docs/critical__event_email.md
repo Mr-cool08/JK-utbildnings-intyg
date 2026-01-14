@@ -3,7 +3,7 @@
 ## What Was Done
 
 ### 1. Created New Service Module
-- **File:** `services/critical_events.py`
+- **File:** `functions/notifications/critical_events.py`
 - **Purpose:** Handles all critical event email notifications
 - **Features:**
   - Async email delivery (non-blocking)
@@ -107,7 +107,7 @@ SMTP configuration already exists in `.env`:
 ## Usage Example
 
 ```python
-from services import critical_events
+from functions.notifications import critical_events
 
 # Will automatically send to admin@example.com
 critical_events.send_startup_notification(hostname="production-server")
@@ -121,7 +121,7 @@ critical_events.send_critical_error_notification(
 
 ## Files Modified
 
-1. ✅ `services/critical_events.py` - NEW (314 lines)
+1. ✅ `functions/notifications/critical_events.py` - NEW (314 lines)
 2. ✅ `app.py` - MODIFIED (added imports + event handlers)
 3. ✅ `.env` - MODIFIED (added ADMIN_EMAIL, APP_NAME)
 4. ✅ `tests/test_critical_events.py` - NEW (172 lines)

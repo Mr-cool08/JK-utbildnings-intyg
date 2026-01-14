@@ -19,9 +19,8 @@ from smtplib import (
 from typing import Sequence
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger, mask_hash
-
-import functions
+from functions.logging.logging_utils import configure_module_logger, mask_hash
+from functions.security.hashing import hash_value, normalize_email
 
 
 logger = configure_module_logger(__name__)
@@ -63,7 +62,7 @@ def load_smtp_settings() -> SMTPSettings:
 def normalize_valid_email(address: str) -> str:
     """Normalize an email address and ensure it appears valid."""
 
-    normalized = functions.normalize_email(address)
+    normalized = normalize_email(address)
     if "@" not in normalized:
         raise ValueError("Ogiltig e-postadress.")
 
@@ -86,7 +85,7 @@ def send_email_message(
     """Send ``msg`` to ``normalized_recipient`` using ``settings``."""
 
     context = ssl.create_default_context()
-    recipient_mask = mask_hash(functions.hash_value(normalized_recipient))
+    recipient_mask = mask_hash(hash_value(normalized_recipient))
 
     try:
         use_ssl = settings.port == 465
@@ -168,7 +167,7 @@ def send_email(
     """Create an ``EmailMessage`` and send it to ``recipient_email``."""
 
     normalized_email = normalize_valid_email(recipient_email)
-    recipient_mask = mask_hash(functions.hash_value(normalized_email))
+    recipient_mask = mask_hash(hash_value(normalized_email))
     logger.info(
         "Förbereder e-post med ämne '%s' till %s (bilagor: %s)",
         subject,
