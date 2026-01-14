@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,13 @@ def default_compose_file() -> str:
 
     # Last resort: keep the old default path (useful if the user intends to create it).
     return str(prod_file)
+
+
+def default_project_name() -> str:
+    # Use a stable project name to avoid duplicate prefixed volumes.
+    name = repo_root().name.lower()
+    name = re.sub(r"[^a-z0-9_-]+", "-", name).strip("-")
+    return name or "jk-utbildnings-intyg"
 
 
 def github_compose_file() -> Path:
@@ -386,6 +394,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--project-name",
+        default=default_project_name(),
         help="Valfritt projektnamn för docker compose.",
     )
     parser.add_argument(
