@@ -326,8 +326,10 @@ def sitemap_xml():
     return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
 
 
-@app.route('/debug/clear-session', methods=['GET'])
+@app.route('/debug/clear-session', methods=['GET', 'POST'])
 def debug_clear_session():
+    if not current_app.debug:
+        abort(404)
     session.clear()
     return redirect('/')
 

@@ -32,6 +32,7 @@ def test_register_public_submission_rate_limits(monkeypatch):
 
 
 def test_get_request_ip_prefers_forwarded_header(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "1")
     headers = {"X-Forwarded-For": "203.0.113.1, 198.51.100.2"}
     dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.3"})
     monkeypatch.setattr(ru, "request", dummy_request)
@@ -43,6 +44,15 @@ def test_get_request_ip_prefers_forwarded_header(monkeypatch):
     monkeypatch.setattr(ru, "request", dummy_request)
 
     assert ru.get_request_ip() == "198.51.100.4"
+
+
+def test_get_request_ip_ignores_forwarded_header_when_untrusted(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
+    headers = {"X-Forwarded-For": "203.0.113.9"}
+    dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.9"})
+    monkeypatch.setattr(ru, "request", dummy_request)
+
+    assert ru.get_request_ip() == "198.51.100.9"
 
 
 def test_as_bool_interpretations():
