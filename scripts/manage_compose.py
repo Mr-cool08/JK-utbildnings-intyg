@@ -95,11 +95,23 @@ def build_pytest_command(root: Path) -> list[str]:
                 root / ".venv" / "Scripts" / "pytest.exe",
             ]
         )
+        candidates.extend(
+            [
+                root / "venv" / "bin" / "pytest",
+                root / ".venv" / "bin" / "pytest",
+            ]
+        )
     else:
         candidates.extend(
             [
                 root / "venv" / "bin" / "pytest",
                 root / ".venv" / "bin" / "pytest",
+            ]
+        )
+        candidates.extend(
+            [
+                root / "venv" / "Scripts" / "pytest.exe",
+                root / ".venv" / "Scripts" / "pytest.exe",
             ]
         )
 
