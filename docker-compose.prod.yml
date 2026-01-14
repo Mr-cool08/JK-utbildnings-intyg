@@ -97,7 +97,7 @@ services:
       - db_net
     restart: unless-stopped
     depends_on:
-      - app:
+      app:
         condition: service_healthy
 
   postgres:
