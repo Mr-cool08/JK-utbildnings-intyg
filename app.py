@@ -49,6 +49,10 @@ load_environment()
 
 import functions
 
+ensure_csrf_token = sec.ensure_csrf_token
+validate_csrf_token = sec.validate_csrf_token
+save_pdf_for_user = pdf.save_pdf_for_user
+
 
 
 logger = configure_module_logger(__name__)
@@ -768,7 +772,7 @@ def apply_standardkonto():
                         flash(f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.", 'success')
                         return redirect(url_for('application_submitted', account_type=account_type))
 
-    csrf_token = sec.sec.ensure_csrf_token()
+    csrf_token = sec.ensure_csrf_token()
 
     return (
         render_template(
