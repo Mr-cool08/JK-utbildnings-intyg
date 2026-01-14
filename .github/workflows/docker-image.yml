@@ -15,5 +15,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build via Docker Compose
+      - name: Build production compose
+        env:
+          ORIGIN_CERT_PATH: /dev/null
+          ORIGIN_KEY_PATH: /dev/null
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+          DEMO_USER_NAME: ci
+          DEMO_USER_EMAIL: ci@example.com
+          DEMO_USER_PASSWORD: ci
+          DEMO_SUPERVISOR_ORGNR: ci
+          DEMO_SECRET_KEY: ci
+          DEMO_SUPERVISOR_PASSWORD: ci
+          DEMO_SUPERVISOR_EMAIL: ci@example.com
+          DEMO_SUPERVISOR_NAME: ci
+          DEMO_HASH_SALT: ci
+          DEMO_USER_PERSONNUMMER: 199001011234
         run: docker compose -f docker-compose.prod.yml build
+
+      - name: Build development compose
+        run: docker compose -f docker-compose.yml build
