@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timezone
 from flask import Flask, Response, render_template, stream_with_context
 
-from services import critical_events
+from functions.notifications import critical_events
 from status_service.status_checks import build_status
 
 app = Flask(__name__)

@@ -1,6 +1,6 @@
 import pytest
 
-from services import email as email_service
+from functions.emails import email as email_service
 
 
 def test_send_creation_email_uses_env_credentials(monkeypatch):

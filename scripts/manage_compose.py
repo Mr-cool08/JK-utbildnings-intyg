@@ -125,9 +125,9 @@ def build_pytest_command(root: Path) -> list[str]:
 def send_notification(action: str, details: str = "") -> None:
     """Send email notification about compose action (if configured)."""
     try:
-        # Add repo root to path to import services
+        # Add repo root to path to import functions
         sys.path.insert(0, str(repo_root()))
-        from services import email as email_service
+        from functions.emails import email as email_service
 
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",

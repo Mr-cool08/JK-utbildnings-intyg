@@ -10,9 +10,8 @@ from threading import Thread
 from typing import Optional
 
 from config_loader import load_environment
-from logging_utils import collect_log_attachments, configure_module_logger
-
-import services.email as email_service
+from functions.emails import email as email_service
+from functions.logging.logging_utils import collect_log_attachments, configure_module_logger
 
 
 logger = configure_module_logger(__name__)

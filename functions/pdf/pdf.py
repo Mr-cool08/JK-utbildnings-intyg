@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 import functions
 from course_categories import normalize_category_slugs
-from logging_utils import mask_hash
+from functions.logging.logging_utils import mask_hash
 from services.pdf_scanner import ScanVerdict, scan_pdf_bytes
 
 ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
