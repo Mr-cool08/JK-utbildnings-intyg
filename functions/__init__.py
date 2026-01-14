@@ -48,7 +48,6 @@ from functions.demo import (
 )
 from functions.hashing import (
     SALT,
-    _hash_personnummer,
     _is_valid_hash,
     hash_password,
     hash_value,
@@ -185,6 +184,7 @@ __all__ = [
     "password_resets_table",
     "pending_supervisors_table",
     "pending_users_table",
+    "reject_application_request",
     "reset_demo_database",
     "reset_engine",
     "reset_password_with_token",
