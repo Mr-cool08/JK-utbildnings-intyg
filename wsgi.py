@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from app import app as application
+from functions.requests import as_bool
 
 # Expose ``app`` for servers expecting this name (e.g., gunicorn's ``wsgi:app``)
 app = application
@@ -48,7 +49,7 @@ def get_ssl_context():
     return None
 
 
-debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
+debug = as_bool(os.getenv("DEV_MODE")) or as_bool(os.getenv("FLASK_DEBUG"))
 
 
 if __name__ == "__main__":

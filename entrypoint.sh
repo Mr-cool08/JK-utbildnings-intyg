@@ -28,7 +28,11 @@ chown -R app:app "${LOG_DIR}"
 
 # Validate external PostgreSQL configuration or enable local SQLite fallback.
 if [ -z "${DATABASE_URL:-}" ]; then
-  enable_local_db="$(printf '%s' "${ENABLE_LOCAL_TEST_DB:-false}" | tr '[:upper:]' '[:lower:]')"
+  enable_local_db="${ENABLE_LOCAL_TEST_DB:-}"
+  if [ -z "${enable_local_db}" ]; then
+    enable_local_db="${DEV_MODE:-false}"
+  fi
+  enable_local_db="$(printf '%s' "${enable_local_db}" | tr '[:upper:]' '[:lower:]')"
 
   case "${enable_local_db}" in
     1|true|on|yes|ja|sant)
@@ -47,7 +51,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
       ;;
     *)
       if [ -z "${POSTGRES_HOST:-}" ]; then
-        echo "Set DATABASE_URL, enable ENABLE_LOCAL_TEST_DB or configure POSTGRES_HOST with credentials" >&2
+        echo "Set DATABASE_URL, enable DEV_MODE/ENABLE_LOCAL_TEST_DB or configure POSTGRES_HOST with credentials" >&2
         exit 1
       fi
 
