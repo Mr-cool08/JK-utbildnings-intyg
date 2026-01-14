@@ -39,6 +39,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      nginx:
+        condition: service_started
     networks:
       - public_net
       - db_net
@@ -73,6 +75,7 @@ services:
       - public_net
     restart: unless-stopped
 
+
   status_page:
     build:
       context: .
@@ -93,6 +96,9 @@ services:
       - public_net
       - db_net
     restart: unless-stopped
+    depends_on:
+      - app:
+        condition: service_healthy
 
   postgres:
     image: postgres:16
