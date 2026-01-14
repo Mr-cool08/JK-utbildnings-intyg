@@ -50,6 +50,7 @@ def github_compose_file() -> Path:
     return repo_root() / "docker-compose.github.yml"
 
 
+
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
     """Run a command and return (success, stdout+stderr)."""
     try:
@@ -140,8 +141,8 @@ def send_notification(action: str, details: str = "") -> None:
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",
             "pull": "Docker bilder uppdaterades",
-            "pull-github": "Docker bilder hämtades från GitHub Actions",
             "up": "Docker Compose tjänsterna startades",
+            "build-up": "Docker Compose tjänsterna byggdes och startades",
             "cycle": "Docker Compose tjänsterna startades om (cycle)",
             "git-pull": "Git uppdatering genomfördes",
             "prune-volumes": "Oanvända Docker-volymer togs bort",
@@ -254,6 +255,26 @@ def run_compose_action(
         print("Klar.")
         if notify:
             send_notification("up")
+        return
+
+    if action == "build-up":
+        print("Bygger om Docker Compose-tjänsterna...")
+        try:
+            run_compose_command(compose_args, ["build"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle byggas."
+            ) from exc
+        print("Startar Docker Compose-tjänsterna...")
+        try:
+            run_compose_command(compose_args, ["up", "-d"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle startas."
+            ) from exc
+        print("Klar.")
+        if notify:
+            send_notification("build-up")
         return
 
     if action == "cycle":

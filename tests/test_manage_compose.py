@@ -77,6 +77,28 @@ def test_run_compose_action_cycle_orders_commands():
     ]
 
 
+def test_run_compose_action_build_up_orders_commands():
+    module = _load_module()
+    calls: list[dict[str, object]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(
+            {
+                "cmd": list(cmd),
+                "check": check,
+                "cwd": kwargs.get("cwd"),
+            }
+        )
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "build-up", runner=fake_runner)
+
+    assert calls == [
+        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "build"], "check": True, "cwd": None},
+        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], "check": True, "cwd": None},
+    ]
+
+
 def test_select_action_returns_none_for_exit():
     module = _load_module()
 
