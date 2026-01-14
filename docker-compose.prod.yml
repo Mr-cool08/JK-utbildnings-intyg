@@ -34,7 +34,6 @@ services:
       - "80"
     volumes:
       - env_data:/config
-      - uploads_data:/app/uploads
       - app_logs:/app/logs
     depends_on:
       postgres:
@@ -67,7 +66,6 @@ services:
       - "80"
     volumes:
       - env_data:/config
-      - uploads_data:/app/uploads
       - app_logs:/app/logs
     networks:
       - public_net
@@ -153,7 +151,6 @@ services:
 
 volumes:
   env_data:
-  uploads_data:
   app_logs:
   nginx_logs:
   pgdata:
