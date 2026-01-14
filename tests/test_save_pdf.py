@@ -14,7 +14,7 @@ if project_root not in sys.path:
 
 import app  # noqa: E402
 import functions  # noqa: E402
-from app import save_pdf_for_user  # noqa: E402
+from app import app.pdf.save_pdf_for_user  # noqa: E402
 from course_categories import COURSE_CATEGORIES  # noqa: E402
 from werkzeug.datastructures import FileStorage
 
@@ -27,7 +27,7 @@ def _file_storage(data: bytes, filename: str, mimetype: str = "application/pdf")
 def test_save_pdf_stores_in_database(empty_db):
     pdf = _file_storage(b"%PDF-1.4 test", "9001011234_resume.pdf")
     category = COURSE_CATEGORIES[0][0]
-    result = save_pdf_for_user("9001011234", pdf, [category])
+    result = app.pdf.save_pdf_for_user("9001011234", pdf, [category])
 
     assert "id" in result and "filename" in result
     assert "9001011234" not in result["filename"]
@@ -53,16 +53,16 @@ def test_save_pdf_rejects_invalid_files(empty_db):
     not_pdf = _file_storage(b"not pdf", "doc.pdf")
     category = COURSE_CATEGORIES[0][0]
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", not_pdf, [category])
+        app.pdf.save_pdf_for_user("9001011234", not_pdf, [category])
     wrong_mime = _file_storage(b"%PDF-1.4 test", "doc.pdf", mimetype="text/plain")
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", wrong_mime, [category])
+        app.pdf.save_pdf_for_user("9001011234", wrong_mime, [category])
 
 
 def test_save_pdf_requires_category(empty_db):
     pdf = _file_storage(b"%PDF-1.4 test", "certificate.pdf")
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", pdf, [])
+        app.pdf.save_pdf_for_user("9001011234", pdf, [])
 
 
 def test_save_pdf_rejects_multiple_categories(empty_db):
@@ -70,4 +70,4 @@ def test_save_pdf_rejects_multiple_categories(empty_db):
     category_one = COURSE_CATEGORIES[0][0]
     category_two = COURSE_CATEGORIES[1][0]
     with pytest.raises(ValueError):
-        save_pdf_for_user("9001011234", pdf, [category_one, category_two])
+        app.pdf.save_pdf_for_user("9001011234", pdf, [category_one, category_two])

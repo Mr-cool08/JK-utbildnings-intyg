@@ -172,7 +172,7 @@ def test_user_upload_and_dashboard_actions(monkeypatch, client):
     monkeypatch.setattr(app, "save_pdf_for_user", lambda *args, **kwargs: None)
     monkeypatch.setattr(app.functions, "list_user_link_requests", lambda *_: [])
     monkeypatch.setattr(app.functions, "list_user_supervisor_connections", lambda *_: [])
-    monkeypatch.setattr(app.ensure_csrf_token, "__call__", lambda *_args, **_kwargs: "token")
+    monkeypatch.setattr(app.sec.ensure_csrf_token, "__call__", lambda *_args, **_kwargs: "token")
 
     with client.session_transaction() as sess:
         _login_user(sess)

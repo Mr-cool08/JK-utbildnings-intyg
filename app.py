@@ -37,9 +37,11 @@ from course_categories import (
 )
 
 from services import email as email_service
-from services.pdf import save_pdf_for_user
+from services import pdf
 from services import critical_events
-from security_utils import ensure_csrf_token, validate_csrf_token
+
+#from security_utils import ensure_csrf_token, validate_csrf_token
+from services import security_utils as sec
 from request_utils import as_bool, get_request_ip, register_public_submission
 
 
@@ -456,7 +458,7 @@ def supervisor_dashboard():
     if not session.get('supervisor_logged_in'):
         return redirect(url_for('supervisor_login'))
     email_hash, supervisor_name = _require_supervisor()
-    csrf_token = ensure_csrf_token()
+    csrf_token = sec.ensure_csrf_token()
     connections = functions.list_supervisor_connections(email_hash)
     users = []
     for entry in connections:
@@ -766,7 +768,7 @@ def apply_standardkonto():
                         flash(f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.", 'success')
                         return redirect(url_for('application_submitted', account_type=account_type))
 
-    csrf_token = ensure_csrf_token()
+    csrf_token = sec.sec.ensure_csrf_token()
 
     return (
         render_template(
@@ -861,7 +863,7 @@ def apply_foretagskonto():
                         flash(f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.", "success")
                         return redirect(url_for('application_submitted', account_type=account_type))
 
-    csrf_token = ensure_csrf_token()
+    csrf_token = sec.ensure_csrf_token()
 
     return (
         render_template(
@@ -1007,7 +1009,7 @@ def dashboard():
     supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
     logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
     user_name = (user_name or '').capitalize()
-    csrf_token = ensure_csrf_token()
+    csrf_token = sec.ensure_csrf_token()
     return render_template(
         'dashboard.html',
         pdfs=pdfs,
@@ -1051,7 +1053,7 @@ def user_upload_pdf_route():
         return redirect('/dashboard')
 
     try:
-        save_pdf_for_user(personnummer, uploaded_file, [category], logger)
+        pdf.save_pdf_for_user(personnummer, uploaded_file, [category], logger)
     except ValueError as exc:
         flash(str(exc), 'error')
         return redirect('/dashboard')
@@ -1362,7 +1364,7 @@ def admin():  # pragma: no cover
 
             # --- Save PDFs ---
             pdf_records = [
-                save_pdf_for_user(personnummer, file_storage, [category], logger)
+                pdf.save_pdf_for_user(personnummer, file_storage, [category], logger)
                 for file_storage, category in zip(pdf_files, normalized_categories)
             ]
 
@@ -1447,7 +1449,7 @@ def admin_applications():  # pragma: no cover
         applications_requests = functions.list_application_requests()
         for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
             logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
-        csrf_token = ensure_csrf_token()
+        csrf_token = sec.ensure_csrf_token()
         return render_template('admin_applications.html', applications=applications_requests, csrf_token=csrf_token)
     else:
         return render_template('error.html', code=405, message='Method Not Allowed'), 405

@@ -20,7 +20,7 @@ def test_save_pdf_for_user(empty_db):
     )
 
     category = COURSE_CATEGORIES[0][0]
-    result = app.save_pdf_for_user("19900101-1234", file_storage, [category])
+    result = app.pdf.save_pdf_for_user("19900101-1234", file_storage, [category])
     assert result["id"] > 0
     assert result["categories"] == [category]
 
@@ -54,7 +54,7 @@ def test_save_png_converts_to_pdf(empty_db):
     )
 
     category = COURSE_CATEGORIES[0][0]
-    result = app.save_pdf_for_user("19900101-1234", file_storage, [category])
+    result = app.pdf.save_pdf_for_user("19900101-1234", file_storage, [category])
 
     assert result["filename"].endswith(".pdf")
     personnummer_hash = functions.hash_value(
@@ -83,4 +83,4 @@ def test_save_pdf_rejects_blocked_scan(monkeypatch, empty_db):
     )
 
     with pytest.raises(ValueError):
-        app.save_pdf_for_user(personnummer, file_storage, [category])
+        app.pdf.save_pdf_for_user(personnummer, file_storage, [category])
