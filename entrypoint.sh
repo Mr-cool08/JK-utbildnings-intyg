@@ -51,7 +51,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
       ;;
     *)
       if [ -z "${POSTGRES_HOST:-}" ]; then
-        echo "Set DATABASE_URL, enable ENABLE_LOCAL_TEST_DB or configure POSTGRES_HOST with credentials" >&2
+        echo "Set DATABASE_URL, enable DEV_MODE/ENABLE_LOCAL_TEST_DB or configure POSTGRES_HOST with credentials" >&2
         exit 1
       fi
 
