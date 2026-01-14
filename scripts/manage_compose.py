@@ -45,12 +45,6 @@ def default_project_name() -> str:
     return name or "jk-utbildnings-intyg"
 
 
-def github_compose_file() -> Path:
-    # Return the compose override for GitHub Actions images.
-    return repo_root() / "docker-compose.github.yml"
-
-
-
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
     """Run a command and return (success, stdout+stderr)."""
     try:
@@ -358,12 +352,11 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
         "6) Kör pytest\n"
-        "7) Hämta senaste bilder från GitHub Actions\n"
-        "8) Ta bort oanvända volymer\n"
-        "9) Avsluta\n"
+        "7) Ta bort oanvända volymer\n"
+        "8) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-9): ").strip()
+    choice = input_func("Ange ditt val (1-8): ").strip()
 
     mapping = {
         "1": "stop",
@@ -372,9 +365,8 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4": "cycle",
         "5": "git-pull",
         "6": "pytest",
-        "7": "pull-github",
-        "8": "prune-volumes",
-        "9": None,
+        "7": "prune-volumes",
+        "8": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -423,7 +415,6 @@ def parse_args() -> argparse.Namespace:
         choices=[
             "stop",
             "pull",
-            "pull-github",
             "up",
             "cycle",
             "git-pull",
