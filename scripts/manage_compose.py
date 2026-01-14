@@ -37,11 +37,6 @@ def default_compose_file() -> str:
     return str(prod_file)
 
 
-def github_compose_file() -> Path:
-    # Return the compose override for GitHub Actions images.
-    return repo_root() / "docker-compose.github.yml"
-
-
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
     """Run a command and return (success, stdout+stderr)."""
     try:
@@ -132,8 +127,8 @@ def send_notification(action: str, details: str = "") -> None:
         action_labels = {
             "stop": "Docker Compose tjänsterna stoppades",
             "pull": "Docker bilder uppdaterades",
-            "pull-github": "Docker bilder hämtades från GitHub Actions",
             "up": "Docker Compose tjänsterna startades",
+            "build-up": "Docker Compose tjänsterna byggdes och startades",
             "cycle": "Docker Compose tjänsterna startades om (cycle)",
             "git-pull": "Git uppdatering genomfördes",
         }
@@ -247,6 +242,26 @@ def run_compose_action(
             send_notification("up")
         return
 
+    if action == "build-up":
+        print("Bygger om Docker Compose-tjänsterna...")
+        try:
+            run_compose_command(compose_args, ["build"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle byggas."
+            ) from exc
+        print("Startar Docker Compose-tjänsterna...")
+        try:
+            run_compose_command(compose_args, ["up", "-d"], runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker Compose-tjänsterna skulle startas."
+            ) from exc
+        print("Klar.")
+        if notify:
+            send_notification("build-up")
+        return
+
     if action == "cycle":
         # Notify that cycle is starting
         if notify:
@@ -317,7 +332,7 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
         "6) Kör pytest\n"
-        "7) Hämta senaste bilder från GitHub Actions\n"
+        "7) Bygg och starta tjänsterna\n"
         "8) Avsluta\n"
     )
     print(menu)
@@ -330,7 +345,7 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4": "cycle",
         "5": "git-pull",
         "6": "pytest",
-        "7": "pull-github",
+        "7": "build-up",
         "8": None,
     }
     return mapping.get(choice, "invalid")
@@ -376,7 +391,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--action",
-        choices=["stop", "pull", "pull-github", "up", "cycle", "git-pull", "pytest"],
+        choices=["stop", "pull", "up", "build-up", "cycle", "git-pull", "pytest"],
         help="Kör en specifik åtgärd utan meny.",
     )
     parser.add_argument(
