@@ -99,64 +99,6 @@ def test_run_compose_action_git_pull_runs_git():
     assert calls == [(["git", "pull"], True)]
 
 
-def test_run_compose_action_pull_github_runs_compose_pull(tmp_path):
-    module = _load_module()
-    calls: list[list[str]] = []
-
-    # Fake the GitHub compose override file so build_github_compose_args can append it.
-    github_file = tmp_path / "compose.github.yml"
-    github_file.write_text("services: {}\n", encoding="utf-8")
-    module.github_compose_file = lambda: github_file
-
-    def fake_run_and_capture(cmd):
-        calls.append(list(cmd))
-        return (True, "")
-
-    module._run_and_capture = fake_run_and_capture
-
-    module.run_compose_action(
-        ["-f", "docker-compose.yml"],
-        "pull-github",
-        runner=None,
-        notify=False,
-    )
-
-    assert calls == [
-        [
-            "docker",
-            "compose",
-            "-f",
-            "docker-compose.yml",
-            "-f",
-            str(github_file),
-            "pull",
-        ]
-    ]
-
-
-def test_run_compose_action_pull_github_denied_adds_guidance(tmp_path):
-    module = _load_module()
-
-    github_file = tmp_path / "compose.github.yml"
-    github_file.write_text("services: {}\n", encoding="utf-8")
-    module.github_compose_file = lambda: github_file
-
-    module._run_and_capture = lambda cmd: (False, "error from registry: denied")
-
-    try:
-        module.run_compose_action(
-            ["-f", "docker-compose.yml"],
-            "pull-github",
-            runner=None,
-            notify=False,
-        )
-    except Exception as exc:
-        assert isinstance(exc, module.ActionError)
-        assert "docker login ghcr.io" in str(exc)
-    else:
-        raise AssertionError("Förväntade ett ActionError vid denied.")
-
-
 def test_build_pytest_command_uses_repo_venv(tmp_path):
     module = _load_module()
     pytest_path = tmp_path / "venv" / "bin" / "pytest"

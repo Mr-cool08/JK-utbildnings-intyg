@@ -158,17 +158,6 @@ def build_compose_args(
     return args
 
 
-def build_github_compose_args(compose_args: Sequence[str]) -> list[str]:
-    # Add the GitHub Actions override file for image pulls.
-    args = list(compose_args)
-    github_file = github_compose_file()
-    if not github_file.is_file():
-        raise ActionError(
-            "Kunde inte hitta docker-compose.github.yml för GitHub Actions-bilder."
-        )
-    args.extend(["-f", str(github_file)])
-    return args
-
 
 def run_compose_command(
     compose_args: Sequence[str],
@@ -210,36 +199,6 @@ def run_compose_action(
         print("Klar.")
         if notify:
             send_notification("pull")
-        return
-
-    if action == "pull-github":
-        print("Hämtar senaste Docker-bilderna från GitHub Actions...")
-
-        ghcr_repo_url = os.environ.get("GHCR_REPO_URL")
-        if ghcr_repo_url:
-            print(f"GHCR-länk: {ghcr_repo_url}")
-
-        gh_args = build_github_compose_args(compose_args)
-        cmd = ["docker", "compose", *gh_args, "pull"]
-        ok, out = _run_and_capture(cmd)
-        if out:
-            print(out)
-        if not ok:
-            guidance = (
-                " Kontrollera att du är inloggad i GHCR (docker login ghcr.io) "
-                "och har rätt behörighet."
-                if "denied" in out.lower()
-                else ""
-            )
-            raise ActionError(
-                "Ett fel uppstod när Docker-bilderna från GitHub Actions skulle hämtas."
-                + guidance
-            )
-
-        print("Klar.")
-        if notify:
-            details = f"GHCR-länk: {ghcr_repo_url}" if ghcr_repo_url else ""
-            send_notification("pull-github", details)
         return
 
     if action == "git-pull":
