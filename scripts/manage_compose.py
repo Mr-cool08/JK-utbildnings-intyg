@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -185,6 +186,110 @@ def run_compose_command(
     runner(cmd, check=True)
 
 
+def _get_project_name(compose_args: Sequence[str]) -> str | None:
+    # Resolve the docker compose project name from args.
+    for index, value in enumerate(compose_args):
+        if value in {"--project-name", "-p"} and index + 1 < len(compose_args):
+            return compose_args[index + 1]
+    return None
+
+
+def _load_compose_config(
+    compose_args: Sequence[str],
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> dict:
+    # Load docker compose config as JSON.
+    cmd = ["docker", "compose", *compose_args, "config", "--format", "json"]
+    result = runner(cmd, check=True, capture_output=True, text=True)
+    output = (result.stdout or "").strip()
+    if not output:
+        raise ActionError("Kunde inte läsa docker compose-konfigurationen.")
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise ActionError("Kunde inte tolka docker compose-konfigurationen.") from exc
+
+
+def _resolve_volume_name(
+    volume_key: str,
+    volume_spec: dict,
+    project_name: str | None,
+) -> str:
+    # Determine the resolved docker volume name.
+    name = None
+    if isinstance(volume_spec, dict):
+        name = volume_spec.get("name")
+    if name:
+        return str(name)
+    if project_name:
+        return f"{project_name}_{volume_key}"
+    return volume_key
+
+
+def _inspect_volume(
+    volume_name: str,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> dict | None:
+    # Inspect a docker volume and return its metadata if available.
+    try:
+        result = runner(
+            ["docker", "volume", "inspect", volume_name],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError:
+        return None
+    output = (result.stdout or "").strip()
+    if not output:
+        return None
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(data, list) and data:
+        return data[0]
+    return None
+
+
+def _ensure_volume_present(
+    volume_name: str,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> bool:
+    # Ensure a docker volume exists and has a valid mountpoint.
+    info = _inspect_volume(volume_name, runner=runner)
+    if not info:
+        print(f"Skapar Docker-volym: {volume_name}")
+        runner(["docker", "volume", "create", volume_name], check=True)
+        return True
+    mountpoint = info.get("Mountpoint")
+    if mountpoint and os.path.exists(mountpoint):
+        return False
+    print(f"Återskapar Docker-volym: {volume_name}")
+    runner(["docker", "volume", "rm", volume_name], check=True)
+    runner(["docker", "volume", "create", volume_name], check=True)
+    return True
+
+
+def _ensure_compose_volumes(
+    compose_args: Sequence[str],
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> None:
+    # Ensure all volumes from docker compose config exist before starting services.
+    config = _load_compose_config(compose_args, runner=runner)
+    volumes = config.get("volumes", {}) or {}
+    if not volumes:
+        return
+    project_name = _get_project_name(compose_args)
+    print("Säkerställer att Docker-volymer finns...")
+    for volume_key, volume_spec in volumes.items():
+        if isinstance(volume_spec, dict) and volume_spec.get("external") is True:
+            # Hoppa över externa volymer som hanteras utanför compose.
+            continue
+        volume_name = _resolve_volume_name(volume_key, volume_spec, project_name)
+        _ensure_volume_present(volume_name, runner=runner)
+
+
 def run_compose_action(
     compose_args: Sequence[str],
     action: str,
@@ -241,6 +346,7 @@ def run_compose_action(
     if action == "up":
         print("Startar Docker Compose-tjänsterna...")
         try:
+            _ensure_compose_volumes(compose_args, runner=runner)
             run_compose_command(compose_args, ["up", "-d"], runner)
         except subprocess.CalledProcessError as exc:
             raise ActionError(
@@ -261,6 +367,7 @@ def run_compose_action(
             ) from exc
         print("Startar Docker Compose-tjänsterna...")
         try:
+            _ensure_compose_volumes(compose_args, runner=runner)
             run_compose_command(compose_args, ["up", "-d"], runner)
         except subprocess.CalledProcessError as exc:
             raise ActionError(
@@ -295,6 +402,7 @@ def run_compose_action(
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
             
             print("Startar Docker Compose-tjänsterna...")
+            _ensure_compose_volumes(compose_args, runner=runner)
             run_compose_command(compose_args, ["up", "-d"], runner)
             
             print("Klar.")
