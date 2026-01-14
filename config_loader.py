@@ -3,10 +3,34 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 from typing import Iterable
 
 from dotenv import load_dotenv
+
+
+logger = logging.getLogger(__name__)
+
+
+def _as_bool(value: str | None) -> bool:
+    # Tolka strängar som booleska värden.
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "on", "ja", "yes"}
+
+
+def _apply_dev_mode_defaults() -> None:
+    # Synka utvecklingsinställningar med DEV_MODE för konsekvent konfiguration.
+    raw = os.getenv("DEV_MODE")
+    if raw is None or raw.strip() == "":
+        return
+
+    dev_mode = _as_bool(raw)
+    normalized = "true" if dev_mode else "false"
+    for key in ("FLASK_DEBUG", "ENABLE_DEMO_MODE", "ENABLE_LOCAL_TEST_DB"):
+        os.environ[key] = normalized
+    logger.info("DEV_MODE är %s och styr utvecklingsrelaterade flaggor.", normalized)
 
 
 def _resolve_unique_paths(paths: Iterable[str | os.PathLike[str] | None]) -> list[Path]:
@@ -67,3 +91,5 @@ def load_environment() -> None:
 
     if not loaded:
         load_dotenv(override=False)
+
+    _apply_dev_mode_defaults()
