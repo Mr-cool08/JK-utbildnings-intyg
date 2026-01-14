@@ -42,13 +42,17 @@ def test_default_compose_file_uses_repo_root():
 
 def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
-    calls: list[dict[str, object]] = []
+    events: list[dict[str, object]] = []
 
     module.build_pytest_command = lambda root: ["venv/bin/pytest"]
+    module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
+        {"event": "ensure"}
+    )
 
     def fake_runner(cmd, check, **kwargs):
-        calls.append(
+        events.append(
             {
+                "event": "cmd",
                 "cmd": list(cmd),
                 "check": check,
                 "cwd": kwargs.get("cwd"),
@@ -60,30 +64,43 @@ def test_run_compose_action_cycle_orders_commands():
 
     repo_root = Path(module.__file__).resolve().parents[1]
 
-    assert calls == [
-        {"cmd": ["git", "pull"], "check": True, "cwd": None},
+    assert events == [
+        {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
         {
+            "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"],
             "check": True,
             "cwd": None,
         },
-        {"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+        {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
         {
+            "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],
             "check": True,
             "cwd": None,
         },
-        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], "check": True, "cwd": None},
+        {"event": "ensure"},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"],
+            "check": True,
+            "cwd": None,
+        },
     ]
 
 
 def test_run_compose_action_build_up_orders_commands():
     module = _load_module()
-    calls: list[dict[str, object]] = []
+    events: list[dict[str, object]] = []
+
+    module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
+        {"event": "ensure"}
+    )
 
     def fake_runner(cmd, check, **kwargs):
-        calls.append(
+        events.append(
             {
+                "event": "cmd",
                 "cmd": list(cmd),
                 "check": check,
                 "cwd": kwargs.get("cwd"),
@@ -93,9 +110,20 @@ def test_run_compose_action_build_up_orders_commands():
 
     module.run_compose_action(["-f", "docker-compose.yml"], "build-up", runner=fake_runner)
 
-    assert calls == [
-        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "build"], "check": True, "cwd": None},
-        {"cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], "check": True, "cwd": None},
+    assert events == [
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build"],
+            "check": True,
+            "cwd": None,
+        },
+        {"event": "ensure"},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"],
+            "check": True,
+            "cwd": None,
+        },
     ]
 
 
@@ -164,6 +192,97 @@ def test_run_compose_action_prune_volumes_runs_docker_volume_prune():
     module.run_compose_action(["-f", "docker-compose.yml"], "prune-volumes", runner=fake_runner)
 
     assert calls == [(["docker", "volume", "prune", "--force"], True)]
+
+
+def test_run_compose_action_up_ensures_volumes_first():
+    module = _load_module()
+    events: list[dict[str, object]] = []
+
+    module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
+        {"event": "ensure"}
+    )
+
+    def fake_runner(cmd, check, **kwargs):
+        events.append(
+            {
+                "event": "cmd",
+                "cmd": list(cmd),
+                "check": check,
+            }
+        )
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "up", runner=fake_runner)
+
+    assert events == [
+        {"event": "ensure"},
+        {"event": "cmd", "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"], "check": True},
+    ]
+
+
+def test_ensure_compose_volumes_creates_missing_volume():
+    module = _load_module()
+    calls: list[list[str]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(list(cmd))
+        if cmd[:4] == ["docker", "compose", "-f", "docker-compose.yml"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout='{"volumes": {"env_data": {}}}',
+                stderr="",
+            )
+        if cmd[:3] == ["docker", "volume", "inspect"]:
+            raise subprocess.CalledProcessError(1, cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    module._ensure_compose_volumes(
+        ["-f", "docker-compose.yml", "--project-name", "demo"],
+        runner=fake_runner,
+    )
+
+    assert calls == [
+        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "demo", "config", "--format", "json"],
+        ["docker", "volume", "inspect", "demo_env_data"],
+        ["docker", "volume", "create", "demo_env_data"],
+    ]
+
+
+def test_ensure_compose_volumes_recreates_missing_mountpoint(tmp_path):
+    module = _load_module()
+    calls: list[list[str]] = []
+    missing_mount = tmp_path / "missing"
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(list(cmd))
+        if cmd[:4] == ["docker", "compose", "-f", "docker-compose.yml"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout='{"volumes": {"env_data": {}}}',
+                stderr="",
+            )
+        if cmd[:3] == ["docker", "volume", "inspect"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=f'[{{"Mountpoint": "{missing_mount}"}}]',
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    module._ensure_compose_volumes(
+        ["-f", "docker-compose.yml", "--project-name", "demo"],
+        runner=fake_runner,
+    )
+
+    assert calls == [
+        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "demo", "config", "--format", "json"],
+        ["docker", "volume", "inspect", "demo_env_data"],
+        ["docker", "volume", "rm", "demo_env_data"],
+        ["docker", "volume", "create", "demo_env_data"],
+    ]
 
 
 def test_run_menu_executes_selected_action():
