@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,19 @@ def default_compose_file() -> str:
 
     # Last resort: keep the old default path (useful if the user intends to create it).
     return str(prod_file)
+
+
+def default_project_name() -> str:
+    # Use a stable project name to avoid duplicate prefixed volumes.
+    name = repo_root().name.lower()
+    name = re.sub(r"[^a-z0-9_-]+", "-", name).strip("-")
+    return name or "jk-utbildnings-intyg"
+
+
+def github_compose_file() -> Path:
+    # Return the compose override for GitHub Actions images.
+    return repo_root() / "docker-compose.github.yml"
+
 
 
 def _run_and_capture(cmd: list[str]) -> tuple[bool, str]:
@@ -131,6 +145,7 @@ def send_notification(action: str, details: str = "") -> None:
             "build-up": "Docker Compose tjänsterna byggdes och startades",
             "cycle": "Docker Compose tjänsterna startades om (cycle)",
             "git-pull": "Git uppdatering genomfördes",
+            "prune-volumes": "Oanvända Docker-volymer togs bort",
         }
 
         event_type = "compose_action"
@@ -319,6 +334,17 @@ def run_compose_action(
             finally:
                 raise ActionError("Fullständig omstart misslyckades.") from exc
 
+    if action == "prune-volumes":
+        print("Tar bort oanvända Docker-volymer...")
+        try:
+            runner(["docker", "volume", "prune", "--force"], check=True)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError("Ett fel uppstod när oanvända Docker-volymer togs bort.") from exc
+        print("Klar.")
+        if notify:
+            send_notification("prune-volumes")
+        return
+
     raise ValueError("Okänd åtgärd vald.")
 
 
@@ -332,11 +358,12 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
         "6) Kör pytest\n"
-        "7) Bygg och starta tjänsterna\n"
-        "8) Avsluta\n"
+        "7) Hämta senaste bilder från GitHub Actions\n"
+        "8) Ta bort oanvända volymer\n"
+        "9) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-8): ").strip()
+    choice = input_func("Ange ditt val (1-9): ").strip()
 
     mapping = {
         "1": "stop",
@@ -345,8 +372,9 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4": "cycle",
         "5": "git-pull",
         "6": "pytest",
-        "7": "build-up",
-        "8": None,
+        "7": "pull-github",
+        "8": "prune-volumes",
+        "9": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -387,11 +415,21 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--project-name",
+        default=default_project_name(),
         help="Valfritt projektnamn för docker compose.",
     )
     parser.add_argument(
         "--action",
-        choices=["stop", "pull", "up", "build-up", "cycle", "git-pull", "pytest"],
+        choices=[
+            "stop",
+            "pull",
+            "pull-github",
+            "up",
+            "cycle",
+            "git-pull",
+            "pytest",
+            "prune-volumes",
+        ],
         help="Kör en specifik åtgärd utan meny.",
     )
     parser.add_argument(
