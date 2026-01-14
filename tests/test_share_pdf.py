@@ -3,7 +3,7 @@ import functions
 import pytest
 
 from course_categories import COURSE_CATEGORIES
-from services import email as email_service
+from functions.emails import service as email_service
 
 
 def _login_default_user(client):

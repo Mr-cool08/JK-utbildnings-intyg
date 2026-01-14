@@ -30,7 +30,7 @@ def allow_pdf_scanning(monkeypatch: pytest.MonkeyPatch):
     def _allow_scan(_content: bytes, _logger=None):
         return ScanVerdict("ALLOW", [])
 
-    monkeypatch.setattr("services.pdf.scan_pdf_bytes", _allow_scan)
+    monkeypatch.setattr("functions.pdf.service.scan_pdf_bytes", _allow_scan)
 
 
 @pytest.fixture

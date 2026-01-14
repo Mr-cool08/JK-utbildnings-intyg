@@ -8,8 +8,8 @@ from html import escape
 from threading import Thread
 from typing import List, Tuple
 
-from services import email as email_service
-from logging_utils import collect_log_attachments
+from functions.emails import service as email_service
+from functions.logging import collect_log_attachments
 
 
 class EmailErrorHandler(logging.Handler):
