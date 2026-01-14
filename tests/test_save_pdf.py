@@ -14,7 +14,6 @@ if project_root not in sys.path:
 
 import app  # noqa: E402
 import functions  # noqa: E402
-from app import app.pdf.save_pdf_for_user  # noqa: E402
 from course_categories import COURSE_CATEGORIES  # noqa: E402
 from werkzeug.datastructures import FileStorage
 
