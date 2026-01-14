@@ -19,7 +19,7 @@ from smtplib import (
 from typing import Sequence
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger, mask_hash
+from functions.logging import configure_module_logger, mask_hash
 
 import functions
 

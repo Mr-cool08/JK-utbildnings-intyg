@@ -1,4 +1,4 @@
-import request_utils as ru
+from functions import requests as ru
 
 
 def test_register_public_submission_cleans_stale_attempts(monkeypatch):

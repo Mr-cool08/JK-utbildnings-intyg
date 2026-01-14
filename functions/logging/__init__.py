@@ -1,4 +1,4 @@
- # Helpers for consistent logging configuration across the project.
+# Helpers for consistent logging configuration across the project.
 
 from __future__ import annotations
 
@@ -11,18 +11,6 @@ MASK_PLACEHOLDER = "***"
 
 def configure_module_logger(name: str) -> logging.Logger:
     # Return a module logger configured to avoid duplicate log output.
-
-    # The application runs under different WSGI servers depending on the
-    # environment (development Flask server, gunicorn, tests, etc.).  Several of
-    # these set up their own handlers on the root logger which can result in the
-    # same log record being emitted multiple times when module loggers propagate
-    # to the root.
-
-    # This helper reuses the root handlers but disables propagation on the module
-    # logger so that each log record is handled exactly once, regardless of how
-    # many handlers the root logger has.  If no root handlers exist we create a
-    # simple ``StreamHandler`` so logs are still visible during local execution.
-
     logger = logging.getLogger(name)
     if getattr(logger, "_jk_configured", False):
         return logger
@@ -82,8 +70,7 @@ def collect_log_attachments() -> list[tuple[str, bytes]]:
 
 
 def mask_hash(value: str, prefix: int = 10) -> str:
-    """Return a shortened representation of a hash value for logging."""
-
+    # Return a shortened representation of a hash value for logging.
     if not value:
         return MASK_PLACEHOLDER
 
@@ -92,8 +79,7 @@ def mask_hash(value: str, prefix: int = 10) -> str:
 
 
 def mask_personnummer(value: str) -> str:
-    """Mask all but the last four digits of a personnummer for logging."""
-
+    # Mask all but the last four digits of a personnummer for logging.
     digits = "".join(ch for ch in value if ch.isdigit())
     if not digits:
         return MASK_PLACEHOLDER
@@ -103,8 +89,7 @@ def mask_personnummer(value: str) -> str:
 
 
 def mask_email(value: str) -> str:
-    """Mask the local part of an email address for logging purposes."""
-
+    # Mask the local part of an email address for logging purposes.
     if not value or "@" not in value:
         return MASK_PLACEHOLDER
 

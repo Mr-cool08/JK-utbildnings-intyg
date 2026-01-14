@@ -28,7 +28,7 @@ from flask import (
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
-from logging_utils import configure_module_logger, mask_hash
+from functions.logging import configure_module_logger, mask_hash
 
 from course_categories import (
     COURSE_CATEGORIES,
@@ -36,13 +36,11 @@ from course_categories import (
     normalize_category_slugs,
 )
 
-from services import email as email_service
-from services import pdf
-from services import critical_events
-
-#from security_utils import ensure_csrf_token, validate_csrf_token
-from services import security_utils as sec
-from request_utils import as_bool, get_request_ip, register_public_submission
+from functions.emails import service as email_service
+from functions.pdf import service as pdf
+from functions.notifications import critical_events
+from functions import security as sec
+from functions.requests import as_bool, get_request_ip, register_public_submission
 
 
 load_environment()
@@ -197,7 +195,7 @@ def create_app() -> Flask:
     try:
         if os.getenv("ERROR_ALERTS_EMAIL"):
             try:
-                from services.error_notifications import EmailErrorHandler
+                from functions.notifications.error_notifications import EmailErrorHandler
 
                 handler = EmailErrorHandler()
                 # Give it a simple formatter
