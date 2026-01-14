@@ -948,7 +948,9 @@ def reset_password_with_token(token: str, new_password: str) -> bool:
         if created_at and created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
         if created_at and now - created_at > timedelta(days=2):
-            logger.warning("Utgånget återställningstoken för %s", row.personnummer)
+            logger.warning(
+                "Utgånget återställningstoken för %s", mask_hash(row.personnummer)
+            )
             return False
 
         conn.execute(
@@ -963,5 +965,5 @@ def reset_password_with_token(token: str, new_password: str) -> bool:
         )
 
     verify_certificate.cache_clear()
-    logger.info("Lösenord återställt för %s", row.personnummer)
+    logger.info("Lösenord återställt för %s", mask_hash(row.personnummer))
     return True

@@ -125,13 +125,19 @@ def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) ->
             with open(path, "rb") as legacy_file:
                 content = legacy_file.read()
         except OSError:
-            logger.exception("Failed to read legacy PDF %s for %s", path, personnummer_hash)
+            logger.exception(
+                "Failed to read legacy PDF %s for %s", path, mask_hash(personnummer_hash)
+            )
             continue
 
         try:
             store_pdf_blob(personnummer_hash, entry, content)
         except Exception:  # pragma: no cover - defensive; store_pdf_blob rarely fails
-            logger.exception("Failed to import legacy PDF %s for %s", entry, personnummer_hash)
+            logger.exception(
+                "Failed to import legacy PDF %s for %s",
+                entry,
+                mask_hash(personnummer_hash),
+            )
             continue
 
         existing_filenames.add(entry)
@@ -141,7 +147,7 @@ def _import_legacy_pdfs(personnummer_hash: str, existing_filenames: Set[str]) ->
         logger.info(
             "Imported %s legacy PDF(s) for %s from %s",
             imported_count,
-            personnummer_hash,
+            mask_hash(personnummer_hash),
             legacy_dir,
         )
         return True

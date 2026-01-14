@@ -462,24 +462,7 @@ def _is_truthy(value: Optional[str]) -> bool:
     if value is None:
         return False
 
-    return value.strip().lower() in {
-        "1",
-        "ja",
-        "on",
-        "sant",
-        "true",
-        "t",
-        "yes",
-        "y",
-        "True",
-        "TRUE",
-        "Ja",
-        "JA",
-        "On",
-        "ON",
-        "Sant",
-        "SANT",
-    }
+    return value.strip().lower() in {"1", "ja", "on", "sant", "true", "t", "yes", "y"}
 
 
 def _build_engine() -> Engine:
@@ -563,7 +546,7 @@ def _build_engine() -> Engine:
 
     if url.get_backend_name() == "sqlite":
         database = url.database or ""
-        if database not in ("", ":memory:"):
+        if database and database not in ("", ":memory:"):
             os.makedirs(os.path.dirname(database), exist_ok=True)
         connect_args = engine_kwargs.setdefault("connect_args", {})
         connect_args["check_same_thread"] = False

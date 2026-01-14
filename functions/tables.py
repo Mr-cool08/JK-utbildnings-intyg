@@ -103,7 +103,9 @@ def create_table_row(table_name: str, values: Dict[str, Any]) -> Dict[str, Any]:
         result = conn.execute(insert(table).values(**prepared))
         new_id = None
         if "id" in table.c:
-            new_id = result.inserted_primary_key[0]
+            pk_values = result.inserted_primary_key
+            if pk_values and len(pk_values) > 0:
+                new_id = pk_values[0]
         if new_id is None:
             return prepared
         row = conn.execute(select(table).where(table.c.id == new_id)).mappings().first()
