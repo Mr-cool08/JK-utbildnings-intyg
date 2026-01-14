@@ -34,6 +34,10 @@ def index():
 @app.route("/pytest")
 def pytest_site():
     LOGGER.info("Startar pytest-körning via status-tjänsten.")
+    project_root = os.getenv(
+        "STATUS_PROJECT_ROOT",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+    )
 
     def generate_output():
         yield "Startar pytest...\n"
@@ -45,6 +49,7 @@ def pytest_site():
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                cwd=project_root,
             )
         except (FileNotFoundError, OSError) as exc:
             LOGGER.exception("Kunde inte starta pytest: %s", exc)
