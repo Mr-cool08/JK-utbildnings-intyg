@@ -46,14 +46,6 @@ def _is_truthy(value: Optional[str]) -> bool:
         "t",
         "yes",
         "y",
-        "True",
-        "TRUE",
-        "Ja",
-        "JA",
-        "On",
-        "ON",
-        "Sant",
-        "SANT",
     }
 
 

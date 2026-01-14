@@ -24,6 +24,8 @@ logger = configure_module_logger(__name__)
 
 def list_supervisor_connections(email_hash: str) -> List[Dict[str, Any]]:
     # Return connected users for the given supervisor hash.
+    if not _is_valid_hash(email_hash):
+        raise ValueError("Ogiltig hash för e-post.")
     with get_engine().connect() as conn:
         rows = conn.execute(
             select(
@@ -375,6 +377,8 @@ def admin_link_supervisor_to_user(
 
 def get_supervisor_overview(email_hash: str) -> Optional[Dict[str, Any]]:
     # Return supervisor info together with connected users.
+    if not _is_valid_hash(email_hash):
+        raise ValueError("Ogiltig hash för e-post.")
     with get_engine().connect() as conn:
         supervisor_row = conn.execute(
             select(supervisors_table.c.name).where(

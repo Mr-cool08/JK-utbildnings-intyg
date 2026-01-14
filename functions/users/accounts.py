@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
@@ -290,6 +290,8 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
     # Move a pending supervisor into the active supervisor table.
     if not password or len(password) < 8:
         raise ValueError("Lösenordet måste vara minst 8 tecken.")
+    if not _is_valid_hash(email_hash):
+        raise ValueError("Ogiltig hash för e-post.")
 
     try:
         with get_engine().begin() as conn:

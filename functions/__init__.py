@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import logging as std_logging
 
 from sqlalchemy import create_engine
 
@@ -12,7 +11,6 @@ from functions.logging.logging_utils import configure_module_logger
 load_environment()
 
 logger = configure_module_logger(__name__)
-logger.setLevel(std_logging.DEBUG)
 
 from functions.applications.requests import (  # noqa: E402
     _clean_optional_text,
@@ -162,6 +160,7 @@ __all__ = [
     "get_username_by_personnummer_hash",
     "hash_password",
     "hash_value",
+    "importlib",
     "list_application_requests",
     "list_companies_for_invoicing",
     "list_supervisor_connections",

@@ -19,6 +19,7 @@ from sqlalchemy import (
 
 from functions.db.engine import get_engine
 from functions.db.schema import TABLE_REGISTRY
+from functions.users.accounts import verify_certificate
 
 
 def _get_table(table_name: str):
@@ -131,4 +132,7 @@ def delete_table_row(table_name: str, row_id: int) -> bool:
     table = _get_table(table_name)
     with get_engine().begin() as conn:
         result = conn.execute(delete(table).where(table.c.id == row_id))
-    return result.rowcount > 0
+    deleted = result.rowcount > 0
+    if deleted and table_name == "users":
+        verify_certificate.cache_clear()
+    return deleted
