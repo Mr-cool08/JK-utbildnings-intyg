@@ -103,7 +103,7 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "9"
+        return "8"
 
     assert module.select_action(fake_input) is None
 
