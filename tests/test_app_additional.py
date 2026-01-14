@@ -113,3 +113,28 @@ def test_create_app_enables_demo_mode(monkeypatch):
     assert demo_app.config["IS_DEMO"] is True
     assert demo_app.config["DEMO_DEFAULTS"]["user_email"] == "demo@example.com"
     assert demo_app.secret_key == "demo-secret"
+
+
+def test_debug_clear_session_requires_debug(monkeypatch):
+    app.app.secret_key = "test-secret"
+    monkeypatch.setattr(app.app, "debug", False)
+
+    client = app.app.test_client()
+    response = client.get("/debug/clear-session")
+
+    assert response.status_code == 404
+
+
+def test_debug_clear_session_clears_session_in_debug(monkeypatch):
+    app.app.secret_key = "test-secret"
+    monkeypatch.setattr(app.app, "debug", True)
+
+    client = app.app.test_client()
+    with client.session_transaction() as sess:
+        sess["keep"] = "nope"
+
+    response = client.get("/debug/clear-session")
+
+    assert response.status_code == 302
+    with client.session_transaction() as sess:
+        assert "keep" not in sess

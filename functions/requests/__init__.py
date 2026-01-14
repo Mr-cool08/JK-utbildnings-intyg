@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from collections import deque
 
@@ -12,11 +13,26 @@ _CLEANUP_INTERVAL = 10 * 60
 _last_cleanup: float = 0.0
 
 
+def _trusted_proxy_count() -> int:
+    raw_value = os.getenv("TRUSTED_PROXY_COUNT")
+    if raw_value is None or raw_value.strip() == "":
+        return 1
+    try:
+        hops = int(raw_value)
+    except ValueError:
+        return 1
+    if hops < 0:
+        return 0
+    return hops
+
+
 def get_request_ip() -> str:
     """Hämta klientens IP-adress med hänsyn till X-Forwarded-For."""
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    if forwarded and _trusted_proxy_count() > 0:
+        candidate = forwarded.split(",")[0].strip()
+        if candidate:
+            return candidate
     return request.remote_addr or "0.0.0.0"
 
 
