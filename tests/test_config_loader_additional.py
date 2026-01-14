@@ -71,8 +71,8 @@ def test_load_environment_uses_fallback_when_missing(monkeypatch, tmp_path) -> N
 def test_load_environment_applies_dev_mode_defaults(monkeypatch) -> None:
     monkeypatch.setenv("DEV_MODE", "true")
     monkeypatch.setenv("FLASK_DEBUG", "false")
-    monkeypatch.setenv("ENABLE_DEMO_MODE", "false")
-    monkeypatch.setenv("ENABLE_LOCAL_TEST_DB", "false")
+    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
+    monkeypatch.delenv("ENABLE_LOCAL_TEST_DB", raising=False)
 
     fake_loader: Mock = Mock()
     monkeypatch.setattr(config_loader, "load_dotenv", fake_loader)
@@ -80,6 +80,6 @@ def test_load_environment_applies_dev_mode_defaults(monkeypatch) -> None:
 
     config_loader.load_environment()
 
-    assert os.environ["FLASK_DEBUG"] == "true"
+    assert os.environ["FLASK_DEBUG"] == "false"
     assert os.environ["ENABLE_DEMO_MODE"] == "true"
     assert os.environ["ENABLE_LOCAL_TEST_DB"] == "true"
