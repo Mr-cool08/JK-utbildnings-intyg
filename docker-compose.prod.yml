@@ -39,8 +39,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      nginx:
-        condition: service_started
     networks:
       - public_net
       - db_net
