@@ -24,7 +24,7 @@ sudo chmod 600 /etc/ssl/cloudflare/origin.*
 
 ## 3. Konfigurera .env och starta stacken
 
-1. Skapa `.env` från `.env.example` och fyll i riktiga värden.
+1. Skapa `.env` från `.example.env` och fyll i riktiga värden.
 2. Sätt `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` till filerna från steget ovan.
 3. Säkerställ att `TRUSTED_PROXY_COUNT=1` (Nginx är enda betrodda proxyn mot Flask).
 4. Uppdatera Cloudflare IP-listor vid behov:

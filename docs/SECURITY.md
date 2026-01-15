@@ -1,4 +1,4 @@
-## Reporting a Vulnerability
+## Rapportera en sårbarhet
 
 Vi tar säkerhet på största allvar och uppskattar att du hjälper oss att skydda våra system och användare.
 
@@ -23,4 +23,3 @@ Inte utnyttjar sårbarheten för annat än att verifiera dess existens.
 Inte delar informationen offentligt förrän vi har hunnit åtgärda problemet.
 
 Tillsammans kan vi skapa en tryggare digital miljö.
-
