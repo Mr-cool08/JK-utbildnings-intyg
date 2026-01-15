@@ -1,91 +1,80 @@
-# Deployment
+# Driftsättning
 
-This project ships with a Docker setup and a GitHub Actions workflow that automatically builds a container image and publishes it to the GitHub Container Registry (GHCR) and Docker Hub.
+Den här guiden beskriver hur du kör applikationen med Docker lokalt samt hur du sätter upp produktion med Nginx, PostgreSQL och valfri Cloudflare-proxy.
 
-## Prerequisites
+## Förutsättningar
 
-- Docker or Docker Desktop installed
+- Docker och Docker Compose
+- En `.env`-fil baserad på `.example.env`
 
-## Local development
+## Lokal Docker-utveckling
 
-You can build and run the container locally with Docker Compose:
+För en lokal utvecklingsstack använder du `docker-compose.yml`. Den startar app, demoapp, status-sida samt en PostgreSQL-container.
 
 ```bash
 docker compose up --build
 ```
 
-The app will be available on <https://localhost> and <http://localhost>.
+När stacken är igång:
 
-Behöver du att proxyn ansluter till ett redan existerande Docker-nätverk med en
-specifik adresspool kan du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan du
-kör `docker compose up`. Då används det angivna nätverkets namn i stället för
-standardnamnet och containern får en adress från rätt nät.
+- Appen: <http://localhost:8080>
+- Demoapp: <http://localhost:8081>
+- Statussida: <http://localhost:8082>
 
-To launch only the demo environment with its temporary SQLite database run:
+Vill du endast starta demoappen:
 
 ```bash
 docker compose up --build app_demo
 ```
 
-Demoversionen lyssnar på <http://localhost:8080> och återställer sina data vid varje omstart.
+Behöver proxyn ansluta till ett redan existerande Docker-nätverk kan du sätta miljövariabeln `PUBLIC_NETWORK_NAME` innan `docker compose up` körs. Då används det angivna nätverket i stället för standardnamnet.
 
-## Production deployment
+## Produktion med Docker Compose
 
-Images are built and pushed to GHCR and Docker Hub on every push to the `main` branch. Run the latest image as follows:
+Produktionstacken ligger i `docker-compose.prod.yml` och inkluderar Nginx, app, demoapp, status-sida, PostgreSQL, backup-jobb och valfri antiviruscontainer.
 
-```bash
-docker pull ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
+1. **Skapa `.env`**
+   ```bash
+   cp .example.env .env
+   ```
+2. **Fyll i nödvändiga värden** för PostgreSQL och övriga tjänster.
+3. **Starta stacken**
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
 
-docker run -d -p 80:80 -p 443:443 \
-  -v env_data:/config \
-  -v uploads_data:/app/uploads \
-  -v logs_data:/app/logs \
-  ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
-```
+Nginx lyssnar på port 80/443 och vidarebefordrar trafik till appen.
 
-The named volumes are created automatically if they do not exist and reused if present. On first start the container copies `.example.env` into the `env_data` volume as `.env`. Edit this file and restart the container to update environment variables. Provide the connection details for your external PostgreSQL server either in this `.env` file or via `docker run` environment variables such as `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+### Beständig data i produktion
 
-### Manual volume creation
+Standardstacken skapar volymer för:
 
-If you prefer to create the named volumes yourself before starting the container, run:
+- `env_data` – `.env`-filen som monteras till `/config`
+- `app_logs` – applikationsloggar
+- `nginx_logs` – proxyloggar
+- `pgdata` – PostgreSQL-data
+- `pgdata_backups` – databaskopior
 
-```bash
-docker volume create env_data
-docker volume create uploads_data
-docker volume create logs_data
-```
-
-Then run the container and attach the volumes:
-
-```bash
-docker run -d --name jk_utbildnings_intyg \
-  -p 80:80 -p 443:443 \
-  -v env_data:/config \
-  -v uploads_data:/app/uploads \
-  -v logs_data:/app/logs \
-  ghcr.io/mr-cool08/jk-utbildnings-intyg:latest
-```
+Uppladdade filer lagras i `/app/uploads` i appcontainern. Om du vill göra uppladdningar beständiga, lägg till en volymmontering för `/app/uploads` i `docker-compose.prod.yml`.
 
 ### Portainer
 
-To deploy the container with [Portainer](https://www.portainer.io/):
+Vill du driftsätta via Portainer kan du använda `docker-compose.prod.yml` som stack:
 
-1. In Portainer, navigate to **Volumes** and create volumes named `env_data`, `uploads_data`, and `logs_data`.
-2. Add a new container (or stack) using the `ghcr.io/mr-cool08/jk-utbildnings-intyg:latest` image.
-   - Map the volumes to `/config`, `/app/uploads`, and `/app/logs` respectively.
-   - Provide the external PostgreSQL credentials via environment variables (for example `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`).
-   - Publish ports `80` and `443`.
+1. Skapa volymerna ovan.
+2. Klistra in Compose-filen som stack och starta den.
+3. Se till att `.env` finns och innehåller korrekta värden.
 
-To use your own TLS certificate, provide the PEM-encoded certificate and key via `TLS_CERT` and `TLS_KEY` in `.env`. If no certificate is supplied a self-signed one is generated automatically.
+### Starta app + PostgreSQL med hjälpskript
 
-If you later change any values in the `.env` file, restart the container so the new configuration takes effect.
-
-### Start the app together with PostgreSQL automatically
-
-For hosts that prefer running PostgreSQL in a dedicated container managed alongside the application, the repository includes `scripts/start_postgres_stack.sh`. The helper script expects a populated `.env` file (copied from `.example.env`) and launches both containers with matching PostgreSQL credentials in one command:
+Skriptet `scripts/start_postgres_stack.sh` startar en lokal PostgreSQL-container och appen i en gemensam stack. Det förutsätter att `.env` finns och är korrekt ifylld.
 
 ```bash
 ./scripts/start_postgres_stack.sh
 ```
 
-On its first run the script creates a Docker network plus volumes for uploads and logs. Afterwards it provisions a `jk_utbildningsintyg_db` container using the official `postgres:15-alpine` image and starts the application container with `DATABASE_URL` pointed at that database. Subsequent executions reuse the same resources, so the database contents survive restarts or upgrades. You can override names and images by exporting variables such as `APP_IMAGE`, `APP_CONTAINER`, or `POSTGRES_VOLUME` before invoking the script.
+Skriptet skapar nätverk och volymer första gången och återanvänder dem vid nästa körning.
+
+## TLS och Cloudflare
+
+Om du använder Cloudflare och Origin CA ska `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` peka på certifikatfilerna på värden. Se även [PUBLIC_DEPLOYMENT_CLOUDFLARE.md](PUBLIC_DEPLOYMENT_CLOUDFLARE.md) för en steg-för-steg-guide.
