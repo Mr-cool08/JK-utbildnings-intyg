@@ -24,6 +24,26 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
    ```
    Appen svarar på <http://localhost:80>.
 
+#### Utvecklingsläge utan Docker
+
+För att köra i utvecklingsläge utan Docker kan du använda den lokala `.env`-filen och slå på `DEV_MODE`. Det aktiverar Flask-debuggning, demoläge, lokal SQLite (`ENABLE_LOCAL_TEST_DB`) och mer detaljerad loggning utan extra konfiguration.
+
+1. **Skapa lokal konfiguration**
+   ```bash
+   cp .example.env .env
+   ```
+2. **Aktivera utvecklingsläge** – sätt följande i `.env`:
+   ```env
+   DEV_MODE=True
+   PORT=8080
+   ```
+   `DEV_MODE` tvingar fram lokal SQLite, så du behöver inte konfigurera PostgreSQL för att komma igång.
+3. **Starta applikationen**
+   ```bash
+   python app.py
+   ```
+   Appen svarar på <http://localhost:8080>.
+
 ### Docker och produktion
 
 - **Utveckling med Docker Compose**
