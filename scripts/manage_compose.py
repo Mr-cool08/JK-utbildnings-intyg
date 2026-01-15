@@ -246,7 +246,11 @@ def _inspect_volume(
     try:
         data = json.loads(output)
     except json.JSONDecodeError:
-        return None
+        # Hantera ogiltiga backslash-sekvenser i vissa miljöer (t.ex. Windows).
+        try:
+            data = json.loads(output.replace("\\", "\\\\"))
+        except json.JSONDecodeError:
+            return None
     if isinstance(data, list) and data:
         return data[0]
     return None
