@@ -24,6 +24,26 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
    ```
    Appen svarar på <http://localhost:80>.
 
+#### Utvecklingsläge utan Docker
+
+För att köra i utvecklingsläge utan Docker kan du använda den lokala `.env`-filen och slå på `DEV_MODE`. Det aktiverar Flask-debuggning, demoläge, lokal SQLite (`ENABLE_LOCAL_TEST_DB`) och mer detaljerad loggning utan extra konfiguration.
+
+1. **Skapa lokal konfiguration**
+   ```bash
+   cp .example.env .env
+   ```
+2. **Aktivera utvecklingsläge** – sätt följande i `.env`:
+   ```env
+   DEV_MODE=True
+   PORT=8080
+   ```
+   `DEV_MODE` tvingar fram lokal SQLite, så du behöver inte konfigurera PostgreSQL för att komma igång.
+3. **Starta applikationen**
+   ```bash
+   python app.py
+   ```
+   Appen svarar på <http://localhost:8080>.
+
 ### Docker och produktion
 
 - **Utveckling med Docker Compose**
@@ -53,8 +73,9 @@ Miljövariabler för finjustering:
 
 ## Dokumentation och struktur
 
+- All samlad dokumentation finns i [docs/INDEX.md](docs/INDEX.md).
 - Översiktlig struktur finns i [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md).
-- Drift- och säkerhetsdokumentation finns i `docs/` samt `SECURITY.md`.
+- Drift- och säkerhetsdokumentation finns i [docs/](docs/) och [docs/SECURITY.md](docs/SECURITY.md).
 - Hjälpskript ligger i `scripts/`; exempelvis SMTP-testet `scripts/send_test_email.py`.
 
 ### Anpassa TLS-certifikat
@@ -102,14 +123,17 @@ via Cloudflare. För utveckling kan du istället lägga PEM-innehållet i
 
 ## Beständiga data med Docker
 
-Att köra applikationen med Docker Compose lagrar föränderliga data i namngivna volymer så att uppdateringar av containeravbildningen inte tar bort viktiga filer:
+I produktionstacken (`docker-compose.prod.yml`) skapas namngivna volymer för `.env`, loggar och PostgreSQL-data så att uppdateringar inte raderar viktiga filer:
 
-* `env_data` – innehåller `.env`-konfigurationsfilen monterad på `/config/.env` inuti containern.
-* `uploads_data` – håller användaruppladdningar tillgängliga på `/app/uploads`.
-* `logs_data` – bevarar programloggar under `/app/logs/`.
-Dessa volymer har fasta namn så befintliga data återanvänds över containerombyggnader.
+* `env_data` – innehåller `.env`-konfigurationen monterad på `/config`.
+* `app_logs` – applikationsloggar i `/app/logs`.
+* `nginx_logs` – proxyloggar i `/var/log/nginx`.
+* `pgdata` – PostgreSQL-data.
+* `pgdata_backups` – databasbackuper.
 
-Se till att volymen `env_data` innehåller en giltig `.env`-fil innan du startar containern för att tillhandahålla erforderliga konfigurationsvärden för den externa PostgreSQL-servern.
+Uppladdade filer ligger i `/app/uploads` i appcontainern. Om du vill göra uppladdningar beständiga kan du lägga till en volym för `/app/uploads` i produktionstacken.
+
+Se till att volymen `env_data` innehåller en giltig `.env`-fil innan du startar containrarna.
 
 ### Anpassa publikt nätverk
 
