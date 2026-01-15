@@ -1,3 +1,6 @@
+# -----------------------
+# Core (alla plattformar)
+# -----------------------
 Flask
 python-dotenv
 Werkzeug
@@ -5,15 +8,39 @@ Jinja2
 itsdangerous
 click
 SQLAlchemy
-psycopg
-psycopg2-binary
 MarkupSafe
-gunicorn
-pysqlite3-binary>=0.5.3; python_version < "3.12"
 pytest
 requests
 Pillow>=11.3.0
 psutil
-quicksand
-# Optional (for PDF validation if you later add more advanced checks)
+
+# -----------------------
+# PostgreSQL
+# -----------------------
+# Windows: använd binary wheels
+psycopg2-binary; platform_system == "Windows"
+
+# Linux: modern psycopg + ev. fallback
+psycopg; platform_system == "Linux"
+psycopg2-binary; platform_system == "Linux"
+
+# -----------------------
+# WSGI-server
+# -----------------------
+# Gunicorn fungerar endast på Unix
+gunicorn; platform_system == "Linux"
+
+# -----------------------
+# SQLite (Linux < 3.12)
+# -----------------------
+pysqlite3-binary>=0.5.3; platform_system == "Linux" and python_version < "3.12"
+
+# -----------------------
+# Linux-only extras
+# -----------------------
+quicksand; platform_system == "Linux"
+
+# -----------------------
+# Optional
+# -----------------------
 # PyPDF2==3.0.0
