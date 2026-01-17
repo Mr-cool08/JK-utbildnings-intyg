@@ -18,7 +18,7 @@ COPY . .
 
 # Skapa och äg kataloger
 RUN mkdir -p /app/uploads /app/logs /config \
-    && cp .example.env /config/.env || true \
+    && cp .env /config/.env || true \
     && chown -R app:app /app /config /app/uploads /app/logs
 
 # Miljö
