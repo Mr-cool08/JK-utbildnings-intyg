@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Tests for PDF storage helpers in :mod:`functions`."""
 
 from __future__ import annotations

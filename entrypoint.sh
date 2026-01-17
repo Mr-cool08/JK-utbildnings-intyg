@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright (c) Liam Suorsa
 set -euo pipefail
 
 STOPPING=0

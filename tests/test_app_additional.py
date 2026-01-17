@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import logging
 
 from flask import Flask

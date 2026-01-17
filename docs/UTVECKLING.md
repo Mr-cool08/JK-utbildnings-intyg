@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Utveckling
 
 Den här guiden beskriver hur du kör applikationen lokalt med eller utan Docker.

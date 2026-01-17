@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Driftsättning
 
 Den här guiden beskriver hur du kör applikationen med Docker lokalt samt hur du sätter upp produktion med Nginx, PostgreSQL och valfri Cloudflare-proxy.

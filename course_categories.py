@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Konstanter och hjälpmetoder för kurskategorier.
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Dokumentationsindex
 
 All dokumentation är sorterad efter ämne nedan så att det är lätt att hitta rätt guide.

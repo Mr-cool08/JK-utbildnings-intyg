@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 from pathlib import Path
 import re
 

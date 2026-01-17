@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import app
 import functions
 import pytest

@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 Flask
 psycopg2-binary
 gunicorn

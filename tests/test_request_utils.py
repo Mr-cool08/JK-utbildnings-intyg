@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 from functions import requests as ru
 
 

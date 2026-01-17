@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) Liam Suorsa
 set -euo pipefail
 
 SCAN_SCHEDULE="${SCAN_SCHEDULE:-0 */6 * * *}"

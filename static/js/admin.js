@@ -1,3 +1,4 @@
+// # Copyright (c) Liam Suorsa
 (() => {
   const form = document.getElementById('adminForm');
   const result = document.getElementById('result');

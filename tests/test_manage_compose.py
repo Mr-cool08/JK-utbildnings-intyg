@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Tests for the manage_compose script.
 
 from __future__ import annotations

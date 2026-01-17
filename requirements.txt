@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # -----------------------
 # Core (alla plattformar)
 # -----------------------

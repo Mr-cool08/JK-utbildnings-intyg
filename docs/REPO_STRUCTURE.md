@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Struktur för JK Utbildningsintyg
 
 Den här filen beskriver hur repositoryt är organiserat och var nya filer bör placeras framöver.

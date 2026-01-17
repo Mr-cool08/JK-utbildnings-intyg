@@ -1,3 +1,4 @@
+// # Copyright (c) Liam Suorsa
 'use strict';
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Flask application for issuing and serving course certificates.
 
 from __future__ import annotations

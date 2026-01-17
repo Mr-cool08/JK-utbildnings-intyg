@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Autogenererad Cloudflare IP-lista
 # Uppdaterad: manuellt, kör scripts/generate_cloudflare_ips.sh för ny lista
 173.245.48.0/20

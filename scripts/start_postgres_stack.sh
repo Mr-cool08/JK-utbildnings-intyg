@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Liam Suorsa
 set -euo pipefail
 
 # Default configuration

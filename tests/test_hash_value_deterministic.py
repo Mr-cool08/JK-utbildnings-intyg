@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import pytest
 from functions import hash_value
 
