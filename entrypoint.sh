@@ -106,8 +106,6 @@ echo "Starting Gunicorn: $GUNICORN_CMD"
 sh -c "$GUNICORN_CMD" &
 GUNICORN_PID=$!
 
-shutdown
-
 set +e
 if [ -n "${GUNICORN_PID}" ]; then
   wait "${GUNICORN_PID}" 2>/dev/null
