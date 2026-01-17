@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Liam Suorsa
 set -euo pipefail
 
 # Enkel UFW-brandvägg för att bara tillåta Cloudflare IP-ranges mot 80/443

@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import importlib
 import wsgi
 

@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 ## Rapportera en sårbarhet
 
 Vi tar säkerhet på största allvar och uppskattar att du hjälper oss att skydda våra system och användare.

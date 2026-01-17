@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # GitHub Actions-arbetsflöden
 
 Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows` är tänkta att användas.

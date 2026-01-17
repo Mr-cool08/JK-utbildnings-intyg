@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import app
 import functions
 from course_categories import COURSE_CATEGORIES

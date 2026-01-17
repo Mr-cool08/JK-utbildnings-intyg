@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 from status_service.app import app
 
 

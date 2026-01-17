@@ -1,3 +1,4 @@
+// # Copyright (c) Liam Suorsa
 (function () {
   const form = document.querySelector('.apply-form');
   if (!form) {

@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Tests for the public sitemap endpoint."""
 
 import unittest

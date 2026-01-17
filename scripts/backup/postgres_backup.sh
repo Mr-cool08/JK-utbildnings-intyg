@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Liam Suorsa
 set -euo pipefail
 
 # Säkerhetskopiera PostgreSQL till en volym med roterande retention

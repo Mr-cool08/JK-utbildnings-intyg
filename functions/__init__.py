@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Aggregate module for application helper functions."""
 
 from __future__ import annotations

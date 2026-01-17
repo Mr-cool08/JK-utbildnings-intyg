@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Utilities for loading environment variables from configuration files.
 
 from __future__ import annotations

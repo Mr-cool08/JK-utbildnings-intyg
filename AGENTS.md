@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # AGENTS Guidelines
 
 - Run pytest to execute the test suite.
