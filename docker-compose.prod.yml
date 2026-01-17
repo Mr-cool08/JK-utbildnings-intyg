@@ -145,7 +145,6 @@ services:
 
   antivirus:
     build: ./services/antivirus
-    profiles: [security]
     environment:
       SCAN_PATHS: ${ANTIVIRUS_SCAN_PATHS:-/host}
       SCAN_SCHEDULE: ${ANTIVIRUS_SCAN_SCHEDULE:-0 */6 * * *}
@@ -155,6 +154,23 @@ services:
       - /:/host:ro
       - antivirus_logs:/var/log/clamav
       - antivirus_quarantine:/quarantine
+    restart: unless-stopped
+
+  borgmatic:
+    image: ghcr.io/borgmatic-collective/borgmatic:latest
+    env_file:
+      - .env
+    volumes:
+      - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
+      - /etc:/etc:ro
+      - /var:/var:ro
+      - /home:/home:ro
+      - /root:/root:ro
+      - /root/.ssh:/root/.ssh:ro
+    entrypoint: >
+      /bin/sh -c
+      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress' > /etc/crontabs/root
+      && crond -f -l 2"
     restart: unless-stopped
 
 volumes:
