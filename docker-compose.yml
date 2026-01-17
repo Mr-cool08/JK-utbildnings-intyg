@@ -45,7 +45,6 @@ services:
       - dev_stack.env
     environment:
       ENABLE_DEMO_MODE: "true"
-      ENABLE_LOCAL_TEST_DB: "true"
       LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
       SECRET_KEY: ${DEMO_SECRET_KEY}
       HASH_SALT: ${DEMO_HASH_SALT}
