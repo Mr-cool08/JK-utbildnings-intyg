@@ -13,7 +13,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
 *.log
 *.sqlite
 node_modules/

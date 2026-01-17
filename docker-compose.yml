@@ -27,6 +27,7 @@ services:
       - dev_stack.env
     environment:
       DEMO_SITE_URL: ${DEMO_SITE_URL}
+      LOG_DIR: /app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,6 +38,8 @@ services:
       - "80"
     ports:
       - "8080:80"
+    volumes:
+      - app_logs:/app/logs
     restart: unless-stopped
 
   app_demo:
@@ -46,6 +49,7 @@ services:
       - dev_stack.env
     environment:
       ENABLE_DEMO_MODE: "true"
+      LOG_DIR: /app/logs
       LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
       SECRET_KEY: ${DEMO_SECRET_KEY}
       HASH_SALT: ${DEMO_HASH_SALT}
@@ -62,6 +66,8 @@ services:
       - "80"
     ports:
       - "8081:80"
+    volumes:
+      - demo_logs:/app/logs
     restart: unless-stopped
 
   antivirus:
@@ -82,12 +88,20 @@ services:
     build:
       context: .
       dockerfile: status_service/Dockerfile
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /app/logs && gunicorn -w 2 -b 0.0.0.0:80 --access-logfile /app/logs/gunicorn-access.log --error-logfile /app/logs/gunicorn-error.log status_service.app:app"
+      ]
     networks:
       - public_net
     expose:
       - "80"
     ports:
       - "8082:80"
+    volumes:
+      - status_logs:/app/logs
     restart: unless-stopped
 
   borgmatic:
@@ -109,6 +123,12 @@ services:
 
 volumes:
   pgdata:
+  app_logs:
+    name: jk-utbildnings-intyg_app_logs
+  demo_logs:
+    name: jk-utbildnings-intyg_demo_logs
+  status_logs:
+    name: jk-utbildnings-intyg_status_logs
   antivirus_logs:
   antivirus_quarantine:
 
