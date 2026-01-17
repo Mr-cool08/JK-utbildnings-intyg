@@ -136,6 +136,7 @@ def send_email_message(
                     settings.user, [normalized_recipient], msg.as_string()
                 )
 
+            logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
             if refused:
                 logger.error("SMTP server refused recipients: %s", recipient_mask)
                 raise RuntimeError("E-postservern accepterade inte mottagaren.")
@@ -177,6 +178,12 @@ def send_email(
         len(attachments) if attachments else 0,
     )
     settings = load_smtp_settings()
+    logger.debug(
+        "SMTP-inställningar laddade: server=%s port=%s användare=%s",
+        settings.server,
+        settings.port,
+        mask_hash(functions.hash_value(settings.user)),
+    )
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = subject

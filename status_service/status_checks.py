@@ -140,11 +140,19 @@ def check_http_status(name, url, timeout=3):
         return {"name": name, "status": "Inte konfigurerad", "details": "Saknar URL"}
 
     try:
+        LOGGER.debug("HTTP-kontroll startar: %s %s", name, url)
         req = request.Request(url, method="GET", headers={"User-Agent": "StatusCheck"})
         start_time = time.monotonic()
         with request.urlopen(req, timeout=timeout) as response:
             status_code = response.status
         elapsed_ms = (time.monotonic() - start_time) * 1000
+        LOGGER.debug(
+            "HTTP-kontroll svar: %s %s status=%s tid_ms=%s",
+            name,
+            url,
+            status_code,
+            round(elapsed_ms),
+        )
         if 200 <= status_code < 400:
             return {
                 "name": name,
