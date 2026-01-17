@@ -16,7 +16,7 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
    pip install -r requirements.txt
    ```
    På Windows kan du istället köra `pip install -r requirements.windows.txt` för att använda binära hjul utan `pg_config`.
-2. **Konfigurera miljövariabler** – kopiera `.example.env` till `.env` och fyll i värdena. Ange din externa PostgreSQL-server via `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (samt valfritt `POSTGRES_PORT`). Om `DATABASE_URL` är tom byggs anslutningssträngen automatiskt från dessa värden; du kan även sätta `DATABASE_URL` direkt. För lokal utveckling kan du använda `DEV_MODE` för att samtidigt aktivera Flask-debuggning, demoläge, lokal SQLite samt mer omfattande debug-loggar utan att behöva duplicera inställningar. När applikationen körs bakom omvänd proxy styr `TRUSTED_PROXY_COUNT` hur många hopp som ska litas på.
+2. **Konfigurera miljövariabler** – kopiera `.example.env` till `.env` och fyll i värdena. Ange din externa PostgreSQL-server via `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (samt valfritt `POSTGRES_PORT`). Om `DATABASE_URL` är tom byggs anslutningssträngen automatiskt från dessa värden; du kan även sätta `DATABASE_URL` direkt. För lokal utveckling kan du använda `DEV_MODE` för att aktivera Flask-debuggning, lokal SQLite samt mer omfattande debug-loggar utan att behöva duplicera inställningar. Demoläge styrs via `ENABLE_DEMO_MODE`. När applikationen körs bakom omvänd proxy styr `TRUSTED_PROXY_COUNT` hur många hopp som ska litas på.
 
 3. **Kör applikationen**
    ```bash
@@ -26,7 +26,7 @@ Den här applikationen hanterar uppladdning och nedladdning av utbildningsintyg 
 
 #### Utvecklingsläge utan Docker
 
-För att köra i utvecklingsläge utan Docker kan du använda den lokala `.env`-filen och slå på `DEV_MODE`. Det aktiverar Flask-debuggning, demoläge, lokal SQLite och mer detaljerad loggning utan extra konfiguration.
+För att köra i utvecklingsläge utan Docker kan du använda den lokala `.env`-filen och slå på `DEV_MODE`. Det aktiverar Flask-debuggning, lokal SQLite och mer detaljerad loggning utan extra konfiguration. Demoläge styrs separat via `ENABLE_DEMO_MODE`.
 
 1. **Skapa lokal konfiguration**
    ```bash
