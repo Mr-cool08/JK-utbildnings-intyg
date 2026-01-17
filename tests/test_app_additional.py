@@ -120,7 +120,6 @@ def test_create_app_enables_debug_mode_via_dev_mode(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
     monkeypatch.setenv("secret_key", "demo-secret")
     monkeypatch.setenv("DEV_MODE", "true")
-    monkeypatch.setenv("FLASK_DEBUG", "false")
 
     monkeypatch.setattr(app.functions, "create_database", lambda: None)
     monkeypatch.setattr(app, "_enable_debug_mode", lambda app_obj: None)

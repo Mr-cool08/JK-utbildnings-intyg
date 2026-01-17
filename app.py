@@ -151,7 +151,7 @@ def create_app() -> Flask:
     app.secret_key = os.getenv('secret_key')
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
     dev_mode = as_bool(os.getenv("DEV_MODE"))
-    debug_mode = dev_mode or as_bool(os.getenv("FLASK_DEBUG"))
+    debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
 
     demo_defaults = {
@@ -2155,7 +2155,7 @@ def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):  # pragma: no cover
     return datetime.datetime.fromtimestamp(value).strftime(format)
 
 if __name__ == '__main__':  # pragma: no cover
-    debug_mode = as_bool(os.getenv("DEV_MODE")) or as_bool(os.getenv("FLASK_DEBUG"))
+    debug_mode = as_bool(os.getenv("DEV_MODE"))
     logger.critical("Starting app from app.py, Debug is %s", "ENABLED" if debug_mode else "DISABLED")
     
     try:

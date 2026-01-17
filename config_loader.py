@@ -21,18 +21,14 @@ def _as_bool(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "on", "ja", "yes"}
 
 
-def _apply_dev_mode_defaults() -> None:
-    # Synka utvecklingsinställningar med DEV_MODE för konsekvent konfiguration.
+def _log_dev_mode_status() -> None:
+    # Logga om DEV_MODE är aktiverat för utvecklingsrelaterad felsökning.
     raw = os.getenv("DEV_MODE")
     if raw is None or raw.strip() == "":
         return
 
     dev_mode = _as_bool(raw)
     normalized = "true" if dev_mode else "false"
-    for key in ("FLASK_DEBUG", "ENABLE_DEMO_MODE"):
-        current_value = os.getenv(key)
-        if current_value is None or current_value.strip() == "":
-            os.environ[key] = normalized
     logger.info("DEV_MODE är %s och styr utvecklingsrelaterade flaggor.", normalized)
 
 
@@ -95,4 +91,4 @@ def load_environment() -> None:
     if not loaded:
         load_dotenv(override=False)
 
-    _apply_dev_mode_defaults()
+    _log_dev_mode_status()

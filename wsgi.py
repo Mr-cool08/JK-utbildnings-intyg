@@ -50,7 +50,7 @@ def get_ssl_context():
     return None
 
 
-debug = as_bool(os.getenv("DEV_MODE")) or as_bool(os.getenv("FLASK_DEBUG"))
+debug = as_bool(os.getenv("DEV_MODE"))
 
 
 if __name__ == "__main__":
