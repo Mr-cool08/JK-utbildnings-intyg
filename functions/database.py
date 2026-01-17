@@ -19,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     case,
     create_engine as sqlalchemy_create_engine,
+    event,
     func,
     insert,
     inspect,
@@ -30,7 +31,7 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.pool import StaticPool
 
 from config_loader import load_environment
-from functions.logging import configure_module_logger
+from functions.logging import configure_module_logger, mask_sensitive_data
 
 
 logger = configure_module_logger(__name__)
@@ -595,7 +596,31 @@ def _build_engine() -> Engine:
     except Exception:
         create_engine_fn = sqlalchemy_create_engine
 
-    return create_engine_fn(url, **engine_kwargs)
+    engine = create_engine_fn(url, **engine_kwargs)
+    _attach_query_logger(engine)
+    return engine
+
+
+def _attach_query_logger(engine: Engine) -> None:
+    # Logga SQL-frågor och parametrar för felsökning.
+    if not isinstance(engine, Engine):
+        logger.debug("Hoppar över SQL-loggning för okänd engine-typ: %s", type(engine))
+        return
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def _log_query(
+        conn,
+        cursor,
+        statement,
+        parameters,
+        context,
+        executemany,
+    ) -> None:
+        logger.debug(
+            "SQL körs: %s | parametrar=%s",
+            statement,
+            mask_sensitive_data(parameters),
+        )
 
 
 def reset_engine() -> None:

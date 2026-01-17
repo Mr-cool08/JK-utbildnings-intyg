@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import atexit
 from functools import partial
 import logging
 import os
@@ -17,6 +18,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    g,
     jsonify,
     send_from_directory,
     make_response,
@@ -26,10 +28,17 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
-from functions.logging import configure_module_logger, mask_hash
+from functions.logging import (
+    configure_module_logger,
+    configure_root_logging,
+    mask_hash,
+    mask_headers,
+    mask_sensitive_data,
+)
 
 from course_categories import (
     COURSE_CATEGORIES,
@@ -44,6 +53,7 @@ from functions import security as sec
 from functions.requests import as_bool, get_request_ip, register_public_submission
 
 
+configure_root_logging()
 load_environment()
 
 import functions
@@ -129,9 +139,11 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
     interval_seconds = 5 * 60
 
     def _reset_loop() -> None:
+        logger.debug("Bakgrundsjobb för demoreset startat")
         while True:
             with app.app_context():
                 try:
+                    logger.debug("Bakgrundsjobb kör demoreset")
                     functions.reset_demo_database(demo_defaults)
                 except Exception:
                     logger.exception("Automatisk demoreset misslyckades")
@@ -139,11 +151,13 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
 
     thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
     thread.start()
+    logger.debug("Bakgrundstråd startad: %s", thread.name)
 
 
 
 def create_app() -> Flask:
     # Create and configure the Flask application.
+    logger.debug("Applikationen initieras")
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
     app = Flask(__name__)
@@ -219,11 +233,22 @@ def create_app() -> Flask:
 
     # Startup email is sent from the first request handler to avoid duplicate
     # notifications from multiple app creation points (reloader or multiple workers).
-
+    logger.debug("Applikationen är konfigurerad och redo")
     return app
 
 
+def _register_shutdown_hook() -> None:
+    # Registrera en hook som alltid försöker logga nedstängning.
+    def _shutdown() -> None:
+        logging.raiseExceptions = False
+        logger.debug("Applikationen håller på att stängas ner")
+        _send_shutdown_notification()
+
+    atexit.register(_shutdown)
+
+
 app = create_app()
+_register_shutdown_hook()
 
 
 @app.before_request
@@ -244,6 +269,87 @@ def _before_first_request():
             logger.warning("Kunde inte skicka startupp-notifikation: %s", str(e))
     session.permanent = True
     app.permanent_session_lifetime = timedelta(days=178)
+
+
+@app.before_request
+def _log_request_start() -> None:
+    g.request_start = time.monotonic()
+    g.view_start = g.request_start
+    view_func = app.view_functions.get(request.endpoint) if request.endpoint else None
+    if view_func:
+        g.view_func_name = view_func.__name__
+        logger.debug(
+            "Vy startar: %s args=%s",
+            view_func.__name__,
+            mask_sensitive_data(request.view_args or {}),
+        )
+    client_ip = get_request_ip()
+    logger.debug(
+        "Begäran startad: %s %s (IP=%s, agent=%s)",
+        request.method,
+        request.path,
+        mask_hash(client_ip) if client_ip else "okänd",
+        request.headers.get("User-Agent", "okänd"),
+    )
+    logger.debug(
+        "Begäran headers: %s",
+        mask_headers(dict(request.headers)),
+    )
+    logger.debug(
+        "Begäran query-parametrar: %s",
+        mask_sensitive_data(request.args.to_dict(flat=False)),
+    )
+    if request.is_json:
+        logger.debug(
+            "Begäran JSON-body: %s",
+            mask_sensitive_data(request.get_json(silent=True)),
+        )
+
+
+@app.after_request
+def _log_request_end(response: Response) -> Response:
+    start = getattr(g, "request_start", None)
+    duration = time.monotonic() - start if isinstance(start, (int, float)) else 0.0
+    status_code = response.status_code
+    if status_code >= 500:
+        level = logging.ERROR
+    elif status_code >= 400:
+        level = logging.WARNING
+    else:
+        level = logging.INFO
+    logger.log(
+        level,
+        "Begäran slutförd: %s %s -> %s (%.3fs)",
+        request.method,
+        request.path,
+        status_code,
+        duration,
+    )
+    logger.debug(
+        "Svar headers: %s",
+        mask_headers(dict(response.headers)),
+    )
+    if response.is_json:
+        logger.debug(
+            "Svar JSON-body: %s",
+            mask_sensitive_data(response.get_json(silent=True)),
+        )
+    view_start = getattr(g, "view_start", None)
+    view_duration = time.monotonic() - view_start if isinstance(view_start, (int, float)) else 0.0
+    view_func_name = getattr(g, "view_func_name", None)
+    if view_func_name:
+        logger.debug(
+            "Vy avslutad: %s (%.3fs)",
+            view_func_name,
+            view_duration,
+        )
+    return response
+
+
+@app.teardown_request
+def _log_request_exception(exception: Exception | None) -> None:
+    if exception is not None:
+        logger.exception("Undantag under begäran: %s", str(exception))
 
 def _send_shutdown_notification():
     # Send shutdown notification when the app is shutting down
@@ -2119,6 +2225,15 @@ def internal_server_error(_):  # pragma: no cover
     error_code = 500
     error_message = "Ett internt serverfel har inträffat. Vänligen försök igen senare."
     return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 500
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error: Exception):  # pragma: no cover
+    # Logga oväntade fel och låt HTTP-fel hanteras av sina egna handlers.
+    if isinstance(error, HTTPException):
+        return error
+    logger.exception("Oväntat fel inträffade: %s", str(error))
+    return internal_server_error(error)
 
 @app.errorhandler(401)
 def unauthorized_error(_):  # pragma: no cover

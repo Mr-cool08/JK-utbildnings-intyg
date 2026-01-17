@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import logging
+import os
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping, Sequence, Any
 
 MASK_PLACEHOLDER = "***"
 
@@ -37,6 +39,82 @@ def configure_module_logger(name: str) -> logging.Logger:
     logger.propagate = False
     setattr(logger, "_jk_configured", True)
     return logger
+
+
+_SENSITIVE_KEYS = {
+    "password",
+    "pass",
+    "passwd",
+    "token",
+    "secret",
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "database_url",
+    "postgres_password",
+    "secret_key",
+    "smtp_password",
+    "api_key",
+    "apikey",
+    "key",
+}
+
+
+def mask_sensitive_data(data: Any) -> Any:
+    # Mask sensitive fields in dicts/lists to avoid leaking secrets to logs.
+    if isinstance(data, Mapping):
+        masked: dict[Any, Any] = {}
+        for key, value in data.items():
+            key_str = str(key).lower()
+            if key_str in _SENSITIVE_KEYS:
+                masked[key] = "***"
+            else:
+                masked[key] = mask_sensitive_data(value)
+        return masked
+    if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
+        return [mask_sensitive_data(item) for item in data]
+    return data
+
+
+def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    # Mask sensitive headers for logging.
+    masked: dict[str, str] = {}
+    for key, value in headers.items():
+        if key.lower() in _SENSITIVE_KEYS:
+            masked[key] = "***"
+        else:
+            masked[key] = value
+    return masked
+
+
+def configure_root_logging() -> None:
+    # Configure root logging with console + rotating file handler.
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_file = os.getenv("LOG_FILE", "logs/app.log")
+    max_bytes = int(os.getenv("LOG_MAX_BYTES", str(5 * 1024 * 1024)))
+    backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
+
+    root = logging.getLogger()
+    if root.handlers:
+        return
+
+    os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s"
+    )
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+    )
+    file_handler.setFormatter(formatter)
+
+    root.setLevel(log_level)
+    root.addHandler(console_handler)
+    root.addHandler(file_handler)
 
 
 def _iter_configured_loggers() -> Iterable[logging.Logger]:

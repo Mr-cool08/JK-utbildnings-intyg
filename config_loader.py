@@ -91,4 +91,41 @@ def load_environment() -> None:
     if not loaded:
         load_dotenv(override=False)
 
+    _log_loaded_configuration()
     _log_dev_mode_status()
+
+
+def _mask_sensitive_data(values: dict[str, str | None]) -> dict[str, str | None]:
+    # Maska känsliga konfigurationsvärden i loggar.
+    sensitive = {
+        "DATABASE_URL",
+        "POSTGRES_PASSWORD",
+        "SECRET_KEY",
+        "SMTP_PASSWORD",
+    }
+    masked: dict[str, str | None] = {}
+    for key, value in values.items():
+        if key in sensitive and value is not None:
+            masked[key] = "***"
+        else:
+            masked[key] = value
+    return masked
+
+
+def _log_loaded_configuration() -> None:
+    # Logga konfigurationsvärden som är säkra att visa i loggar.
+    keys = [
+        "DEV_MODE",
+        "ENABLE_DEMO_MODE",
+        "DEMO_SITE_URL",
+        "TRUSTED_PROXY_COUNT",
+        "DATABASE_URL",
+        "POSTGRES_HOST",
+        "POSTGRES_DB",
+        "STATUS_MAIN_URL",
+        "STATUS_DEMO_URL",
+        "LOG_LEVEL",
+        "LOG_FILE",
+    ]
+    values = {key: os.getenv(key) for key in keys if os.getenv(key) is not None}
+    logger.debug("Laddade konfigurationsvärden: %s", _mask_sensitive_data(values))
