@@ -185,6 +185,7 @@ configs:
           sendfile        on;
           keepalive_timeout  65;
           server_tokens off;
+          resolver 127.0.0.11 valid=30s ipv6=off;
 
           map $$http_upgrade $$connection_upgrade {
               default upgrade;
@@ -202,15 +203,15 @@ configs:
       #include /etc/nginx/conf.d/cloudflare-realip.conf; 
 
       upstream jk_utbildningsintyg_app {
-          server app:80;
+          server app:80 resolve;
       }
 
       upstream jk_utbildningsintyg_app_demo {
-          server app_demo:80;
+          server app_demo:80 resolve;
       }
 
       upstream jk_utbildningsintyg_status_page {
-          server status_page:80;
+          server status_page:80 resolve;
       }
 
       server {
