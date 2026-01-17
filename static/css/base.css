@@ -1676,9 +1676,9 @@ small.hint {
 }
 
 .site-footer {
-    background: linear-gradient(135deg, #2a2f36, #1f2329);
-    color: rgba(255, 255, 255, 0.9);
-    padding: 3rem 0 2rem;
+    background: linear-gradient(135deg, rgba(42, 47, 54, 0.82), rgba(31, 35, 41, 0.82));
+    color: rgba(255, 255, 255, 0.8);
+    padding: 1.5rem 0 1rem;
     margin-top: auto;
 }
 
@@ -1686,53 +1686,53 @@ small.hint {
     width: min(100%, var(--container-max));
     margin: 0 auto;
     padding: 0 var(--container-padding);
-    font-size: 0.95rem;
+    font-size: 0.88rem;
 }
 
 .footer-grid {
     display: grid;
     grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
-    gap: clamp(1.5rem, 4vw, 3rem);
+    gap: clamp(1rem, 2.5vw, 2rem);
     align-items: start;
 }
 
 .footer-brand {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.4rem;
 }
 
 .footer-logo {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     letter-spacing: 0.01em;
     color: #fff;
 }
 
 .footer-logo img {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
     background: #fff;
-    padding: 0.3rem;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    padding: 0.2rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 .footer-description {
     margin: 0;
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 255, 255, 0.7);
     max-width: 28ch;
 }
 
 .footer-heading {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin: 0 0 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 0.4rem;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .footer-links ul {
@@ -1740,11 +1740,11 @@ small.hint {
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.5rem;
+    gap: 0.3rem;
 }
 
 .footer-links a {
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.78);
     text-decoration: none;
     transition: color 0.2s ease, transform 0.2s ease;
     display: inline-flex;
@@ -1754,20 +1754,20 @@ small.hint {
 
 .footer-links a:hover,
 .footer-links a:focus-visible {
-    color: #fff;
+    color: rgba(255, 255, 255, 0.95);
     transform: translateX(2px);
 }
 
 .footer-bottom {
-    margin-top: 2.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    margin-top: 1.5rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1.5rem;
+    gap: 0.4rem 1rem;
     justify-content: space-between;
-    color: rgba(255, 255, 255, 0.65);
-    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.82rem;
 }
 
 .sr-only {
