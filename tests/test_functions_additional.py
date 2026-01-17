@@ -55,12 +55,12 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
     assert functions.verify_certificate(personnummer)
 
 
-def test_enable_local_test_db_creates_sqlite(tmp_path, monkeypatch):
+def test_dev_mode_creates_sqlite(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("POSTGRES_HOST", raising=False)
     monkeypatch.delenv("POSTGRES_USER", raising=False)
     monkeypatch.delenv("POSTGRES_DB", raising=False)
-    monkeypatch.setenv("ENABLE_LOCAL_TEST_DB", "true")
+    monkeypatch.setenv("DEV_MODE", "true")
     db_file = tmp_path / "lokal.db"
     monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
 

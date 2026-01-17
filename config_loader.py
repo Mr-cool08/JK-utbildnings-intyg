@@ -28,7 +28,7 @@ def _apply_dev_mode_defaults() -> None:
 
     dev_mode = _as_bool(raw)
     normalized = "true" if dev_mode else "false"
-    for key in ("FLASK_DEBUG", "ENABLE_DEMO_MODE", "ENABLE_LOCAL_TEST_DB"):
+    for key in ("FLASK_DEBUG", "ENABLE_DEMO_MODE"):
         current_value = os.getenv(key)
         if current_value is None or current_value.strip() == "":
             os.environ[key] = normalized

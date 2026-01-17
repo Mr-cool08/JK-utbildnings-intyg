@@ -27,7 +27,7 @@ Den här guiden beskriver hur du kör applikationen lokalt med eller utan Docker
    DEV_MODE=True
    PORT=8080
    ```
-   `DEV_MODE` aktiverar Flask-debuggning, demoläge, lokal SQLite (`ENABLE_LOCAL_TEST_DB`) samt mer detaljerade loggar.
+   `DEV_MODE` aktiverar Flask-debuggning, demoläge, lokal SQLite samt mer detaljerade loggar.
 4. **Starta applikationen**
    ```bash
    python app.py

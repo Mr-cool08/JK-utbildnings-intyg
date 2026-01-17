@@ -503,7 +503,7 @@ def _build_engine() -> Engine:
     db_url = os.getenv("DATABASE_URL")
     sqlite_database_path: Optional[str] = None
     if not db_url:
-        if _is_truthy(os.getenv("ENABLE_LOCAL_TEST_DB", "True")):
+        if _is_truthy(os.getenv("DEV_MODE", "False")):
             test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
             if test_db_path == ":memory:":
                 db_url = "sqlite:///:memory:"
@@ -521,7 +521,7 @@ def _build_engine() -> Engine:
             host = os.getenv("POSTGRES_HOST")
             if not host:
                 raise RuntimeError(
-                    "Set DATABASE_URL, enable ENABLE_LOCAL_TEST_DB or provide POSTGRES_HOST with PostgreSQL credentials"
+                    "Sätt DATABASE_URL, aktivera DEV_MODE eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
                 )
 
             user = os.getenv("POSTGRES_USER")
