@@ -216,14 +216,17 @@ configs:
       #include /etc/nginx/conf.d/cloudflare-realip.conf; 
 
       upstream jk_utbildningsintyg_app {
+          zone jk_utbildningsintyg_app 64k;
           server app:80 resolve;
       }
 
       upstream jk_utbildningsintyg_app_demo {
+          zone jk_utbildningsintyg_app_demo 64k;
           server app_demo:80 resolve;
       }
 
       upstream jk_utbildningsintyg_status_page {
+          zone jk_utbildningsintyg_status_page 64k;
           server status_page:80 resolve;
       }
 
