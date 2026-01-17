@@ -213,6 +213,11 @@
             var shouldShow = viewportBottom >= threshold;
             footer.classList.toggle('is-hidden', !shouldShow);
             footer.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+            if (shouldShow) {
+                footer.inert = false;
+            } else {
+                footer.inert = true;
+            }
         }
         updateFooter();
         window.addEventListener('scroll', updateFooter, { passive: true });
@@ -221,4 +226,5 @@
     </script>
     {% block scripts %}{% endblock %}
 </body>
+<!-- Copyright 2025 Liam Suorsa -->
 </html>
