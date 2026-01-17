@@ -110,7 +110,6 @@ services:
       - .env
     volumes:
       - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
-      - /etc:/etc:ro
       - /var:/var:ro
       - /home:/home:ro
       - /root:/root:ro
