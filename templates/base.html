@@ -78,7 +78,7 @@
     <main id="main-content">
         {% block content %}{% endblock %}
     </main>
-    <footer class="site-footer">
+    <footer class="site-footer is-hidden">
         <div class="footer-inner">
             {% block footer %}
             <div class="footer-grid">
@@ -207,12 +207,10 @@
     (function(){
         var footer = document.querySelector('.site-footer');
         if(!footer) return;
-        var docEl = document.documentElement;
         function updateFooter(){
-            var scrollHeight = docEl.scrollHeight;
             var viewportBottom = window.scrollY + window.innerHeight;
-            var threshold = scrollHeight - 4;
-            var shouldShow = scrollHeight <= window.innerHeight + 4 || viewportBottom >= threshold;
+            var threshold = document.documentElement.scrollHeight - 4;
+            var shouldShow = viewportBottom >= threshold;
             footer.classList.toggle('is-hidden', !shouldShow);
             footer.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
         }
