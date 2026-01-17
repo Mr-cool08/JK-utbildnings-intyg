@@ -1683,7 +1683,7 @@ small.hint {
 
 .footer-inner {
     width: min(100%, var(--container-max));
-    margin: 10 auto;
+    margin: 0 auto;
     padding: 0 var(--container-padding);
     text-align: center;
     font-size: 0.95rem;
