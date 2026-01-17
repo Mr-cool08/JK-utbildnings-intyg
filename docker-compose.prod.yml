@@ -66,7 +66,7 @@ services:
       - "80"
     volumes:
       - env_data:/config
-      - app_logs:/app/logs
+      - demo_logs:/app/logs
     networks:
       - public_net
     restart: unless-stopped
@@ -76,6 +76,12 @@ services:
     build:
       context: .
       dockerfile: status_service/Dockerfile
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /app/logs && gunicorn -w 2 -b 0.0.0.0:80 --access-logfile /app/logs/gunicorn-access.log --error-logfile /app/logs/gunicorn-error.log status_service.app:app"
+      ]
     env_file:
       - .env
     environment:
@@ -91,6 +97,8 @@ services:
     networks:
       - public_net
       - db_net
+    volumes:
+      - status_logs:/app/logs
     restart: unless-stopped
     depends_on:
       app:
@@ -152,6 +160,11 @@ services:
 volumes:
   env_data:
   app_logs:
+    name: jk-utbildnings-intyg_app_logs
+  demo_logs:
+    name: jk-utbildnings-intyg_demo_logs
+  status_logs:
+    name: jk-utbildnings-intyg_status_logs
   nginx_logs:
   pgdata:
   pgdata_backups:
