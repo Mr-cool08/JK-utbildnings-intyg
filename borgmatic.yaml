@@ -1,0 +1,38 @@
+# Borgmatic-konfiguration för servern
+# Anpassa sökvägar, repository och nycklar innan användning.
+
+location:
+  source_directories:
+    - /etc
+    - /home
+    - /var
+    - /root
+  repositories:
+    - ssh://backup@backup.example.com/./borg/${HOSTNAME}
+  exclude_patterns:
+    - '*.tmp'
+    - '*.cache'
+    - /home/*/.cache
+    - /root/.cache
+  one_file_system: true
+
+storage:
+  compression: lz4
+  encryption_passphrase: "${BORG_PASSPHRASE}"
+  archive_name_format: "{hostname}-{now}"
+  remote_path: borg1
+
+retention:
+  keep_daily: 7
+  keep_weekly: 4
+  keep_monthly: 6
+  keep_yearly: 1
+  prefix: "{hostname}-"
+
+consistency:
+  checks:
+    - repository
+    - archives
+  check_last: 3
+
+# Copyright (c) Liam Suorsa
