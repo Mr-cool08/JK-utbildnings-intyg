@@ -1680,6 +1680,13 @@ small.hint {
     color: rgba(255, 255, 255, 0.9);
     padding: 3rem 0 2rem;
     margin-top: auto;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.site-footer.is-hidden {
+    opacity: 0;
+    transform: translateY(24px);
+    pointer-events: none;
 }
 
 .footer-inner {

@@ -203,6 +203,24 @@
         }
     })();
     </script>
+    <script>
+    (function(){
+        var footer = document.querySelector('.site-footer');
+        if(!footer) return;
+        var docEl = document.documentElement;
+        function updateFooter(){
+            var scrollHeight = docEl.scrollHeight;
+            var viewportBottom = window.scrollY + window.innerHeight;
+            var threshold = scrollHeight - 4;
+            var shouldShow = scrollHeight <= window.innerHeight + 4 || viewportBottom >= threshold;
+            footer.classList.toggle('is-hidden', !shouldShow);
+            footer.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+        }
+        updateFooter();
+        window.addEventListener('scroll', updateFooter, { passive: true });
+        window.addEventListener('resize', updateFooter);
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
