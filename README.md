@@ -83,9 +83,9 @@ Miljövariabler för finjustering:
 
 Om du vill köra Flask-appen med TLS lokalt anger du PEM-innehållet via
 ``TLS_CERT`` och ``TLS_KEY`` i
-din `.env`-fil eller pekar på filer med ``TLS_CERT_PATH`` och
-``TLS_KEY_PATH``. När båda värdena finns skrivs innehållet till
-`/config/certs/server.crt` och `/config/certs/server.key` i containern.
+din `.env`-fil eller pekar på filer med ``ORIGIN_CERT_PATH`` och
+``ORIGIN_KEY_PATH``. När båda värdena finns skrivs innehållet till
+`/etc/ssl/cloudflare/origin.crt` och `/etc/ssl/cloudflare/origin.key` i containern.
 
 ### Driftsättning med Cloudflare Origin CA
 
@@ -99,8 +99,8 @@ din `.env`-fil eller pekar på filer med ``TLS_CERT_PATH`` och
 
 Observera att Cloudflare Origin CA-certifikat endast fungerar när trafiken går
 via Cloudflare. För utveckling kan du istället lägga PEM-innehållet i
-``TLS_CERT`` och ``TLS_KEY`` i `.env` (eller använda ``TLS_CERT_PATH`` och
-``TLS_KEY_PATH``) så att applikationen startar med TLS även lokalt.
+``TLS_CERT`` och ``TLS_KEY`` i `.env` (eller använda ``ORIGIN_CERT_PATH`` och
+``ORIGIN_KEY_PATH``) så att applikationen startar med TLS även lokalt.
 
 
 ## Så fungerar det för administratörer
