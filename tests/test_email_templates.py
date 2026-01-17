@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Tester för e-postmallar."""
 
 from __future__ import annotations

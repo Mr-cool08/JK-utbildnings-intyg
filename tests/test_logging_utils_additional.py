@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import logging
 
 from functions import logging as logging_utils

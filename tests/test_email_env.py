@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import pytest
 
 from functions.emails import service as email_service

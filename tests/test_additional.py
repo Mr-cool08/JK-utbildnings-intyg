@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Additional tests for hashing and personal number utilities."""
 
 import os

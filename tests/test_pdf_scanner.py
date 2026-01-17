@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import json
 import logging
 import subprocess

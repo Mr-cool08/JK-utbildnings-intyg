@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import os
 from pathlib import Path
 from app import app as application

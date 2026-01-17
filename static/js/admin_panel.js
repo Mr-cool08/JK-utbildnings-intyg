@@ -1,3 +1,4 @@
+// # Copyright (c) Liam Suorsa
 (function () {
   const pdfLookupForm = document.getElementById('pdfLookupForm');
   const pdfLookupMessage = document.getElementById('pdfLookupMessage');

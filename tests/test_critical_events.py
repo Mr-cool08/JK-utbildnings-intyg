@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 # Test for critical events email notifications
 
 import pytest

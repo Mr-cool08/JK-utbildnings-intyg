@@ -1,3 +1,4 @@
+// # Copyright (c) Liam Suorsa
 // static/js/dashboard.js
 
 (() => {

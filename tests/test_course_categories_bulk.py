@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 """Omfattande tester för kurskategori-hjälpfunktioner."""
 
 import pytest

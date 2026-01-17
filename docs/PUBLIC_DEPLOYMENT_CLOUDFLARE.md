@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Publik driftsättning med Cloudflare (Full strict)
 
 Den här guiden beskriver hur du driftsätter JK Utbildningsintyg bakom Cloudflare

@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 from flask import request
 from markupsafe import escape
 from werkzeug.middleware.proxy_fix import ProxyFix

@@ -1,3 +1,4 @@
+<!-- # Copyright (c) Liam Suorsa -->
 # Kritiska händelser och e-postaviseringar
 
 Applikationen skickar automatiska e-postaviseringar vid kritiska händelser, till exempel uppstart, nedstängning och 500-fel. Aviseringarna går till administratörer som anges i miljövariablerna.

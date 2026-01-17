@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 from __future__ import annotations
 
 import base64

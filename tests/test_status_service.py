@@ -1,3 +1,4 @@
+# Copyright (c) Liam Suorsa
 import logging
 from datetime import timedelta
 from urllib import error
