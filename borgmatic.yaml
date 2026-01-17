@@ -6,14 +6,14 @@ location:
     - /etc
     - /home
     - /var
-    - /root
+    - /host_root
   repositories:
     - ssh://backup@backup.example.com/./borg/${HOSTNAME}
   exclude_patterns:
     - '*.tmp'
     - '*.cache'
     - /home/*/.cache
-    - /root/.cache
+    - /host_root/.cache
   one_file_system: true
 
 storage:

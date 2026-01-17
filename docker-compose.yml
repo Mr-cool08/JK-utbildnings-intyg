@@ -112,7 +112,7 @@ services:
       - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
       - /var:/var:ro
       - /home:/home:ro
-      - /root:/root:ro
+      - /root:/host_root:ro
       - /root/.ssh:/root/.ssh:ro
     entrypoint: >
       /bin/sh -c
