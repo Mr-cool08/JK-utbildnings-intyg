@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import atexit
 from functools import partial
 import logging
 import os
@@ -17,6 +18,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    g,
     jsonify,
     send_from_directory,
     make_response,
@@ -26,6 +28,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
@@ -144,6 +147,7 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
 
 def create_app() -> Flask:
     # Create and configure the Flask application.
+    logger.info("Applikationen initieras")
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
     app = Flask(__name__)
@@ -219,11 +223,22 @@ def create_app() -> Flask:
 
     # Startup email is sent from the first request handler to avoid duplicate
     # notifications from multiple app creation points (reloader or multiple workers).
-
+    logger.info("Applikationen är konfigurerad och redo")
     return app
 
 
+def _register_shutdown_hook() -> None:
+    # Registrera en hook som alltid försöker logga nedstängning.
+    def _shutdown() -> None:
+        logging.raiseExceptions = False
+        logger.info("Applikationen håller på att stängas ner")
+        _send_shutdown_notification()
+
+    atexit.register(_shutdown)
+
+
 app = create_app()
+_register_shutdown_hook()
 
 
 @app.before_request
@@ -244,6 +259,41 @@ def _before_first_request():
             logger.warning("Kunde inte skicka startupp-notifikation: %s", str(e))
     session.permanent = True
     app.permanent_session_lifetime = timedelta(days=178)
+
+
+@app.before_request
+def _log_request_start() -> None:
+    g.request_start = time.monotonic()
+    client_ip = get_request_ip()
+    logger.debug(
+        "Begäran startad: %s %s (IP=%s, agent=%s)",
+        request.method,
+        request.path,
+        mask_hash(client_ip) if client_ip else "okänd",
+        request.headers.get("User-Agent", "okänd"),
+    )
+
+
+@app.after_request
+def _log_request_end(response: Response) -> Response:
+    start = getattr(g, "request_start", None)
+    duration = time.monotonic() - start if isinstance(start, (int, float)) else 0.0
+    status_code = response.status_code
+    if status_code >= 500:
+        level = logging.ERROR
+    elif status_code >= 400:
+        level = logging.WARNING
+    else:
+        level = logging.INFO
+    logger.log(
+        level,
+        "Begäran slutförd: %s %s -> %s (%.3fs)",
+        request.method,
+        request.path,
+        status_code,
+        duration,
+    )
+    return response
 
 def _send_shutdown_notification():
     # Send shutdown notification when the app is shutting down
@@ -2119,6 +2169,15 @@ def internal_server_error(_):  # pragma: no cover
     error_code = 500
     error_message = "Ett internt serverfel har inträffat. Vänligen försök igen senare."
     return render_template('error.html', error_code=error_code, error_message=error_message, time=time.time()), 500
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error: Exception):  # pragma: no cover
+    # Logga oväntade fel och låt HTTP-fel hanteras av sina egna handlers.
+    if isinstance(error, HTTPException):
+        return error
+    logger.exception("Oväntat fel inträffade: %s", str(error))
+    return internal_server_error(error)
 
 @app.errorhandler(401)
 def unauthorized_error(_):  # pragma: no cover
