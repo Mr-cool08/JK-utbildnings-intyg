@@ -209,8 +209,9 @@
         if(!footer) return;
         function updateFooter(){
             var viewportBottom = window.scrollY + window.innerHeight;
-            var threshold = document.documentElement.scrollHeight - 4;
-            var shouldShow = viewportBottom >= threshold;
+            var scrollHeight = document.documentElement.scrollHeight;
+            var threshold = scrollHeight - 4;
+            var shouldShow = scrollHeight <= window.innerHeight + 4 || viewportBottom >= threshold;
             footer.classList.toggle('is-hidden', !shouldShow);
             footer.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
             if (shouldShow) {
