@@ -90,6 +90,23 @@ services:
       - "8082:80"
     restart: unless-stopped
 
+  borgmatic:
+    image: ghcr.io/borgmatic-collective/borgmatic:latest
+    env_file:
+      - .env
+    volumes:
+      - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
+      - /etc:/etc:ro
+      - /var:/var:ro
+      - /home:/home:ro
+      - /root:/root:ro
+      - /root/.ssh:/root/.ssh:ro
+    entrypoint: >
+      /bin/sh -c
+      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress' > /etc/crontabs/root
+      && crond -f -l 2"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   antivirus_logs:
