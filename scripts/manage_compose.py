@@ -32,10 +32,6 @@ def default_compose_file() -> str:
     if prod_file.is_file():
         return str(prod_file)
 
-    default_file = root / "docker-compose.yml"
-    if default_file.is_file():
-        return str(default_file)
-
     # Last resort: keep the old default path (useful if the user intends to create it).
     return str(prod_file)
 
