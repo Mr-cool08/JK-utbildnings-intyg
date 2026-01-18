@@ -247,6 +247,36 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
     user_activation_required = False
     user_personnummer_hash: Optional[str] = None
 
+    with get_engine().connect() as conn:
+        application = conn.execute(
+            select(application_requests_table).where(
+                application_requests_table.c.id == application_id
+            )
+        ).first()
+    if not application:
+        raise ValueError("Ansökan hittades inte.")
+    if application.status != "pending":
+        raise ValueError("Ansökan är redan hanterad.")
+    if application.account_type == "standard":
+        stored_personnummer_hash = (application.personnummer_hash or "").strip()
+        if not stored_personnummer_hash:
+            logger.warning(
+                "Standardansökan %s saknar personnummer och kan inte aktiveras",
+                application_id,
+            )
+            with get_engine().begin() as conn:
+                conn.execute(
+                    update(application_requests_table)
+                    .where(application_requests_table.c.id == application.id)
+                    .values(
+                        decision_reason=(
+                            "Personnummer saknas för standardkontot. "
+                            "Komplettera ansökan innan den godkänns."
+                        )
+                    )
+                )
+            raise ValueError("Ansökan saknar personnummer och kan inte godkännas.")
+
     with get_engine().begin() as conn:
         application = conn.execute(
             select(application_requests_table).where(
@@ -301,64 +331,45 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
 
         if application.account_type == "standard":
             stored_personnummer_hash = (application.personnummer_hash or "").strip()
-            if not stored_personnummer_hash:
-                logger.warning(
-                    "Standardansökan %s saknar personnummer och kan inte aktiveras",
-                    application_id,
+            user_personnummer_hash = stored_personnummer_hash
+            email_hash = hash_value(normalized_email)
+            existing_user = conn.execute(
+                select(users_table.c.id).where(
+                    users_table.c.personnummer == stored_personnummer_hash
                 )
-                conn.execute(
-                    update(application_requests_table)
-                    .where(application_requests_table.c.id == application.id)
-                    .values(
-                        decision_reason=(
-                            "Personnummer saknas för standardkontot. "
-                            "Komplettera ansökan innan den godkänns."
-                        )
-                    )
+            ).first()
+            existing_email_user = conn.execute(
+                select(users_table.c.id).where(users_table.c.email == email_hash)
+            ).first()
+            pending_user = conn.execute(
+                select(pending_users_table.c.id).where(
+                    pending_users_table.c.personnummer == stored_personnummer_hash
                 )
-                raise ValueError(
-                    "Ansökan saknar personnummer och kan inte godkännas."
+            ).first()
+            pending_email = conn.execute(
+                select(pending_users_table.c.id).where(
+                    pending_users_table.c.email == email_hash
                 )
-            else:
-                user_personnummer_hash = stored_personnummer_hash
-                email_hash = hash_value(normalized_email)
-                existing_user = conn.execute(
-                    select(users_table.c.id).where(
-                        users_table.c.personnummer == stored_personnummer_hash
-                    )
-                ).first()
-                existing_email_user = conn.execute(
-                    select(users_table.c.id).where(users_table.c.email == email_hash)
-                ).first()
-                pending_user = conn.execute(
-                    select(pending_users_table.c.id).where(
-                        pending_users_table.c.personnummer == stored_personnummer_hash
-                    )
-                ).first()
-                pending_email = conn.execute(
-                    select(pending_users_table.c.id).where(
-                        pending_users_table.c.email == email_hash
-                    )
-                ).first()
+            ).first()
 
-                if not existing_user and not existing_email_user:
-                    if pending_user or pending_email:
-                        user_activation_required = True
-                    else:
-                        try:
-                            conn.execute(
-                                insert(pending_users_table).values(
-                                    username=application.name,
-                                    email=email_hash,
-                                    personnummer=stored_personnummer_hash,
-                                )
+            if not existing_user and not existing_email_user:
+                if pending_user or pending_email:
+                    user_activation_required = True
+                else:
+                    try:
+                        conn.execute(
+                            insert(pending_users_table).values(
+                                username=application.name,
+                                email=email_hash,
+                                personnummer=stored_personnummer_hash,
                             )
-                        except IntegrityError:
-                            logger.info(
-                                "Pending standardkonto finns redan för %s",
-                                mask_hash(stored_personnummer_hash),
-                            )
-                        user_activation_required = True
+                        )
+                    except IntegrityError:
+                        logger.info(
+                            "Pending standardkonto finns redan för %s",
+                            mask_hash(stored_personnummer_hash),
+                        )
+                    user_activation_required = True
 
         if application.account_type == "foretagskonto":
             supervisor_email_hash = hash_value(normalized_email)
