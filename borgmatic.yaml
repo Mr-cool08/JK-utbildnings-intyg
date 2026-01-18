@@ -8,7 +8,8 @@ location:
     - /var
     - /host_root
   repositories:
-    - ssh://backup@backup.example.com/./borg/${HOSTNAME}
+
+    - ${BORG_RSH}/${HOSTNAME}
   exclude_patterns:
     - '*.tmp'
     - '*.cache'
