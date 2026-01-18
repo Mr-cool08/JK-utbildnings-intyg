@@ -34,6 +34,8 @@ Behöver proxyn ansluta till ett redan existerande Docker-nätverk kan du sätta
 
 Produktionstacken ligger i `docker-compose.prod.yml` och inkluderar Nginx, app, demoapp, status-sida, PostgreSQL, backup-jobb och valfri antiviruscontainer.
 
+Antiviruscontainern kan även skicka varningsmejl när infekterade filer hittas. Konfigurera SMTP med `ANTIVIRUS_ALERT_EMAIL_TO`, `ANTIVIRUS_ALERT_EMAIL_FROM`, `ANTIVIRUS_ALERT_SMTP_HOST` samt eventuella inloggningsuppgifter (`ANTIVIRUS_ALERT_SMTP_USER`, `ANTIVIRUS_ALERT_SMTP_PASSWORD`). TLS styrs via `ANTIVIRUS_ALERT_SMTP_TLS` och standardporten är `587`.
+
 1. **Skapa `.env`**
    ```bash
    cp .example.env .env

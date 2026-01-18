@@ -7,6 +7,31 @@ source /etc/antivirus.env
 LOG_FILE=${LOG_FILE:-/var/log/clamav/scan.log}
 TIMESTAMP=$(date -Iseconds)
 QUARANTINE_MODE=${QUARANTINE_MODE:-copy}
+ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
+ALERT_EMAIL_FROM=${ALERT_EMAIL_FROM:-}
+ALERT_SMTP_HOST=${ALERT_SMTP_HOST:-}
+ALERT_SMTP_PORT=${ALERT_SMTP_PORT:-587}
+ALERT_EMAIL_SUBJECT=${ALERT_EMAIL_SUBJECT:-"Varning: antivirus hittade infekterade filer"}
+
+send_alert_email() {
+  if [ -z "${ALERT_EMAIL_TO}" ] || [ -z "${ALERT_EMAIL_FROM}" ] || [ -z "${ALERT_SMTP_HOST}" ]; then
+    return 0
+  fi
+
+  local mail_body
+  mail_body=$(cat <<EOF
+Antivirusskanningen hittade infekterade filer.
+
+Tidpunkt: ${TIMESTAMP}
+Skannade sökvägar: ${SCAN_PATHS}
+Loggfil: ${LOG_FILE}
+
+Kontrollera loggen för detaljer och vidta åtgärder omedelbart.
+EOF
+  )
+
+  echo "${mail_body}" | mail -s "${ALERT_EMAIL_SUBJECT}" -r "${ALERT_EMAIL_FROM}" "${ALERT_EMAIL_TO}"
+}
 
 echo "[${TIMESTAMP}] Startar virusskanning (paths: ${SCAN_PATHS})" | tee -a "${LOG_FILE}"
 
@@ -71,6 +96,7 @@ if [ ${STATUS} -eq 0 ]; then
   echo "[$(date -Iseconds)] Skanningen slutfördes utan infekterade filer." | tee -a "${LOG_FILE}"
 elif [ ${STATUS} -eq 1 ]; then
   echo "[$(date -Iseconds)] Skanningen hittade infekterade filer. Se loggen för detaljer." | tee -a "${LOG_FILE}"
+  send_alert_email
 else
   if [ "${QUARANTINE_MODE}" = "move" ]; then
     echo "[$(date -Iseconds)] Karantänflytt misslyckades. Kontrollera att QUARANTINE_PATH är skrivbar eller använd QUARANTINE_MODE=copy." | tee -a "${LOG_FILE}"
