@@ -792,6 +792,8 @@ def _flag_application_field_error(message: str, field_errors: dict[str, bool]) -
         field_errors["name"] = True
     if "e-post" in lowered or "email" in lowered:
         field_errors["email"] = True
+    if "personnummer" in lowered:
+        field_errors["personnummer"] = True
     if "organisationsnummer" in lowered:
         field_errors["orgnr"] = True
     if "företagsnamn" in lowered:
@@ -813,6 +815,7 @@ def apply_standardkonto():
     base_field_errors = {
         "name": False,
         "email": False,
+        "personnummer": False,
         "orgnr": False,
         "company_name": False,
         "invoice_address": False,
@@ -827,6 +830,7 @@ def apply_standardkonto():
     base_form_data = {
         "name": "",
         "email": "",
+        "personnummer": "",
         "orgnr": "",
         "comment": "",
         "terms_confirmed": "",
@@ -863,6 +867,7 @@ def apply_standardkonto():
                             form_data.get("invoice_address"),
                             form_data.get("invoice_contact"),
                             form_data.get("invoice_reference"),
+                            form_data.get("personnummer"),
                         )
                         logger.info(
                             "Ny ansökan %s mottagen från %s",
@@ -1646,7 +1651,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         #   'account_type': 'standard'|'foretagskonto',
         #   'company_name': 'Exempel AB'|None,
         #   'user_activation_required': True|False,
-        #   'user_email_hash': 'abc123'|None,
+        #   'user_personnummer_hash': 'abc123'|None,
         #   'supervisor_activation_required': True|False,
         #   'supervisor_email_hash': 'def456'|None
         # }
@@ -1671,8 +1676,12 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         email_warnings.append('Konto godkänt men bekräftelsemejlet kunde inte skickas.')
 
     # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
-    if result.get('user_activation_required') and result.get('user_email_hash'):
-        link = url_for('user_create', email_hash=result['user_email_hash'], _external=True)
+    if result.get('user_activation_required') and result.get('user_personnummer_hash'):
+        link = url_for(
+            'create_user',
+            pnr_hash=result['user_personnummer_hash'],
+            _external=True,
+        )
         try:
             email_service.send_creation_email(result['email'], link)
             creation_link = link  # <- spara till payload

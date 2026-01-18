@@ -27,6 +27,7 @@ def test_user_application_submission(empty_db):
                 'csrf_token': 'test-token',
                 'name': 'Anna Användare',
                 'email': 'anna@example.com',
+                'personnummer': '9001011234',
                 'comment': 'Ser fram emot att använda portalen.',
                 'terms_confirmed': '1',
             },
@@ -42,6 +43,7 @@ def test_user_application_submission(empty_db):
         assert row.account_type == 'standard'
         assert row.invoice_address is None
         assert row.orgnr_normalized == ''
+        assert row.personnummer_hash == functions.hash_value('9001011234')
 
 
 def test_foretagskonto_application_submission(empty_db):

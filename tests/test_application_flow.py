@@ -120,6 +120,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         invoice_address=None,
         invoice_contact=None,
         invoice_reference=None,
+        personnummer="9001011234",
     )
 
     foretagskonto_result = functions.approve_application_request(
@@ -136,6 +137,8 @@ def test_approval_reuses_existing_company(fresh_app_db):
     assert user_result["pending_supervisor_created"] is False
     assert user_result["supervisor_activation_required"] is False
     assert user_result["supervisor_email_hash"] is None
+    assert user_result["user_activation_required"] is True
+    assert user_result["user_personnummer_hash"] == functions.hash_value("9001011234")
 
     with fresh_app_db.connect() as conn:
         companies = conn.execute(functions.companies_table.select()).fetchall()
@@ -166,6 +169,20 @@ def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
         )
 
 
+@pytest.mark.usefixtures("fresh_app_db")
+def test_standard_application_requires_personnummer():
+    with pytest.raises(ValueError):
+        functions.create_application_request(
+            account_type="standard",
+            name="Test",
+            email="user@example.com",
+            orgnr="",
+            company_name="",
+            comment=None,
+            personnummer="",
+        )
+
+
 def test_list_companies_for_invoicing(fresh_app_db):
     foretagskonto_id = functions.create_application_request(
         account_type="foretagskonto",
@@ -185,6 +202,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         orgnr="5569668337",
         company_name="",
         comment=None,
+        personnummer="9012311234",
     )
 
     functions.approve_application_request(foretagskonto_id, "admin")
@@ -210,6 +228,7 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
         orgnr="",
         company_name="",
         comment="",
+        personnummer="8801011234",
     )
 
     with fresh_app_db.connect() as conn:
@@ -228,12 +247,18 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
     assert result["pending_supervisor_created"] is False
     assert result["supervisor_activation_required"] is False
     assert result["supervisor_email_hash"] is None
+    assert result["user_activation_required"] is True
+    assert result["user_personnummer_hash"] == functions.hash_value("8801011234")
 
     with fresh_app_db.connect() as conn:
         user = conn.execute(functions.company_users_table.select()).first()
         assert user is not None
         assert user.email == "utan-orgnr@example.com"
         assert user.company_id is None
+
+        pending_user = conn.execute(functions.pending_users_table.select()).first()
+        assert pending_user is not None
+        assert pending_user.personnummer == functions.hash_value("8801011234")
 
         companies = conn.execute(functions.companies_table.select()).fetchall()
         assert companies == []

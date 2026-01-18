@@ -52,6 +52,26 @@
                 aria-invalid="{{ 'true' if email_error else 'false' }}"
             >
 
+            {% set personnummer_error = field_errors.get('personnummer') %}
+            <label for="personnummer">Personnummer</label>
+            <input
+                id="personnummer"
+                name="personnummer"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9\\s-]{10,13}"
+                value="{{ form_data.personnummer }}"
+                placeholder="ÅÅMMDDXXXX"
+                required
+                class="{% if personnummer_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if personnummer_error else 'false' }}"
+                aria-describedby="personnummer-hint{% if personnummer_error %} personnummer-error{% endif %}"
+            >
+            <small class="hint" id="personnummer-hint">Skriv personnumret utan mellanslag, till exempel 8001011234.</small>
+            {% if personnummer_error %}
+                <p class="field-error-message" id="personnummer-error">Ange ett giltigt personnummer i formatet ÅÅMMDDXXXX.</p>
+            {% endif %}
+
             {% set orgnr_error = field_errors.get('orgnr') %}
             <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
             <input
