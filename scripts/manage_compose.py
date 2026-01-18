@@ -91,6 +91,15 @@ def _run_docker_system_df(
     runner(["docker", "system", "df"], check=True)
 
 
+def _run_docker_prune_commands(
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> None:
+    # Run docker prune commands to clean up unused data.
+    runner(["docker", "image", "prune", "-a"], check=True)
+    runner(["docker", "builder", "prune"], check=True)
+    runner(["docker", "system", "prune", "-a"], check=True)
+
+
 def build_pytest_command(root: Path) -> list[str]:
     # Build the pytest command using the venv in the repository root.
     # Support both venv/ and .venv/.
@@ -407,6 +416,9 @@ def run_compose_action(
 
             print("Visar Docker diskstatus...")
             _run_docker_system_df(runner=runner)
+
+            print("Rensar oanvända Docker-artefakter...")
+            _run_docker_prune_commands(runner=runner)
 
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
