@@ -84,6 +84,13 @@ def _gather_statuses(compose_args: Sequence[str]) -> str:
     return "\n".join(parts)
 
 
+def _run_docker_system_df(
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> None:
+    # Run docker system df to show disk usage.
+    runner(["docker", "system", "df"], check=True)
+
+
 def build_pytest_command(root: Path) -> list[str]:
     # Build the pytest command using the venv in the repository root.
     # Support both venv/ and .venv/.
@@ -393,19 +400,21 @@ def run_compose_action(
             runner(["git", "pull"], check=True)
             
             run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
-            
-            
+
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
             runner(pytest_cmd, check=True, cwd=repo_root())
-            
+
+            print("Visar Docker diskstatus...")
+            _run_docker_system_df(runner=runner)
+
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
-            
+
             print("Startar Docker Compose-tjänsterna...")
             _ensure_compose_volumes(compose_args, runner=runner)
             run_compose_command(compose_args, ["up", "-d"], runner)
-            
+
             print("Klar.")
             # Gather statuses and notify with details
             if notify:
@@ -448,6 +457,17 @@ def run_compose_action(
             send_notification("prune-volumes")
         return
 
+    if action == "system-df":
+        print("Visar Docker diskstatus...")
+        try:
+            _run_docker_system_df(runner=runner)
+        except subprocess.CalledProcessError as exc:
+            raise ActionError(
+                "Ett fel uppstod när Docker diskstatus skulle hämtas."
+            ) from exc
+        print("Klar.")
+        return
+
     raise ValueError("Okänd åtgärd vald.")
 
 
@@ -461,11 +481,12 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4) Stoppa/ta bort + git pull + pytest + bygg/starta\n"
         "5) Git pull\n"
         "6) Kör pytest\n"
-        "7) Ta bort oanvända volymer\n"
-        "8) Avsluta\n"
+        "7) Visa Docker diskstatus\n"
+        "8) Ta bort oanvända volymer\n"
+        "9) Avsluta\n"
     )
     print(menu)
-    choice = input_func("Ange ditt val (1-8): ").strip()
+    choice = input_func("Ange ditt val (1-9): ").strip()
 
     mapping = {
         "1": "stop",
@@ -474,8 +495,9 @@ def select_action(input_func: Callable[[str], str]) -> str | None:
         "4": "cycle",
         "5": "git-pull",
         "6": "pytest",
-        "7": "prune-volumes",
-        "8": None,
+        "7": "system-df",
+        "8": "prune-volumes",
+        "9": None,
     }
     return mapping.get(choice, "invalid")
 
@@ -529,6 +551,7 @@ def parse_args() -> argparse.Namespace:
             "git-pull",
             "pytest",
             "prune-volumes",
+            "system-df",
         ],
         help="Kör en specifik åtgärd utan meny.",
     )
