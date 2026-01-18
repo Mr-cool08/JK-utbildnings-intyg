@@ -99,7 +99,7 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
         assert pending_supervisor is not None
 
 
-def test_admin_approve_standard_application_sends_creation_email(
+def test_admin_approve_standard_application_skips_creation_email(
     empty_db, monkeypatch
 ):
     client = app.app.test_client()
@@ -141,9 +141,8 @@ def test_admin_approve_standard_application_sends_creation_email(
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'standard'
     assert sent['email'] == 'standard@example.com'
-    assert creation_sent['email'] == 'standard@example.com'
-    assert 'creation_link' in payload
-    assert creation_sent['link'] == payload['creation_link']
+    assert creation_sent == {}
+    assert 'creation_link' not in payload
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -155,7 +154,7 @@ def test_admin_approve_standard_application_sends_creation_email(
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select()
         ).fetchall()
-        assert len(pending_supervisor) == 1
+        assert pending_supervisor == []
 
 
 def test_admin_reject_application_api(empty_db, monkeypatch):
