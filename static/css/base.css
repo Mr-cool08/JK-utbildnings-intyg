@@ -1617,6 +1617,54 @@ small.hint {
     justify-items: center;
 }
 
+@media (max-width: 700px) {
+    .pricing-table {
+        min-width: 0;
+    }
+
+    # Håll kvar thead för hjälpmedel men göm det visuellt i mobilvyn.
+    .pricing-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(1px, 1px, 1px, 1px);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .pricing-table tbody,
+    .pricing-table tr,
+    .pricing-table td {
+        display: block;
+        width: 100%;
+    }
+
+    # Raderna behåller tabellsemantik, men visas som kort på små skärmar.
+    .pricing-table tbody tr {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+
+    .pricing-table td {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+    }
+
+    # Etiketter visas visuellt i mobilvyn, men thead står kvar för skärmläsare.
+    .pricing-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--color-text-muted);
+    }
+}
+
 @media (min-width: 900px) {
     .pricing-preview {
         grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
