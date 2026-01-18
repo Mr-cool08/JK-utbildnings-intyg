@@ -176,7 +176,7 @@ def test_check_tcp_returns_false_on_error(monkeypatch, caplog):
 
     monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
 
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         result = status_checks.check_tcp("localhost", 1234, timeout=0.1)
 
     assert result is False

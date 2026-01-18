@@ -54,11 +54,12 @@ def check_tcp(host, port, timeout=2):
         with socket.create_connection((host, port), timeout=timeout):
             return True
     except OSError:
-        LOGGER.exception(
+        LOGGER.warning(
             "TCP-kontroll misslyckades för %s:%s med timeout %s.",
             host,
             port,
             timeout,
+            exc_info=True,
         )
         return False
 
