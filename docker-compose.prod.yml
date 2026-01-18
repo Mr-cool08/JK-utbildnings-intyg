@@ -168,8 +168,8 @@ services:
       - /root/.ssh:/root/.ssh:ro
     entrypoint: >
       /bin/sh -c
-      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress' > /etc/crontabs/root
-      && crond -f -l 2"
+      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
+      && crond -f -l 2 -L /dev/stdout"
     restart: unless-stopped
 
 volumes:
