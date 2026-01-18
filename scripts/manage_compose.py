@@ -417,8 +417,7 @@ def run_compose_action(
             print("Visar Docker diskstatus...")
             _run_docker_system_df(runner=runner)
 
-            print("Rensar oanvända Docker-artefakter...")
-            _run_docker_prune_commands(runner=runner)
+            
 
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
@@ -426,6 +425,10 @@ def run_compose_action(
             print("Startar Docker Compose-tjänsterna...")
             _ensure_compose_volumes(compose_args, runner=runner)
             run_compose_command(compose_args, ["up", "-d"], runner)
+            
+            
+            print("Rensar oanvända Docker-artefakter...")
+            _run_docker_prune_commands(runner=runner)
 
             print("Klar.")
             # Gather statuses and notify with details
