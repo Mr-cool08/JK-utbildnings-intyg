@@ -133,11 +133,9 @@ def test_approval_reuses_existing_company(fresh_app_db):
     assert user_result["company_name"] == "Bolaget AB"
     assert foretagskonto_result["pending_supervisor_created"] is True
     assert foretagskonto_result["supervisor_activation_required"] is True
-    assert user_result["pending_supervisor_created"] is True
-    assert user_result["supervisor_activation_required"] is True
-    assert user_result["supervisor_email_hash"] == functions.hash_value(
-        functions.normalize_email("first@example.com")
-    )
+    assert user_result["pending_supervisor_created"] is False
+    assert user_result["supervisor_activation_required"] is False
+    assert user_result["supervisor_email_hash"] is None
 
     with fresh_app_db.connect() as conn:
         companies = conn.execute(functions.companies_table.select()).fetchall()
@@ -150,7 +148,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select()
         ).fetchall()
-        assert len(pending_supervisor) == 2
+        assert len(pending_supervisor) == 1
 
 
 def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
@@ -227,11 +225,9 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
     assert result["company_id"] is None
     assert result["orgnr"] == ""
     assert result["company_created"] is False
-    assert result["pending_supervisor_created"] is True
-    assert result["supervisor_activation_required"] is True
-    assert result["supervisor_email_hash"] == functions.hash_value(
-        functions.normalize_email("utan-orgnr@example.com")
-    )
+    assert result["pending_supervisor_created"] is False
+    assert result["supervisor_activation_required"] is False
+    assert result["supervisor_email_hash"] is None
 
     with fresh_app_db.connect() as conn:
         user = conn.execute(functions.company_users_table.select()).first()
@@ -244,8 +240,8 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
 
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select()
-        ).first()
-        assert pending_supervisor is not None
+        ).fetchall()
+        assert pending_supervisor == []
 
         application = conn.execute(
             functions.application_requests_table.select().where(
