@@ -7,14 +7,16 @@ source /etc/antivirus.env
 LOG_FILE=${LOG_FILE:-/var/log/clamav/scan.log}
 TIMESTAMP=$(date -Iseconds)
 QUARANTINE_MODE=${QUARANTINE_MODE:-copy}
-ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
-ALERT_EMAIL_FROM=${ALERT_EMAIL_FROM:-}
-ALERT_SMTP_HOST=${ALERT_SMTP_HOST:-}
-ALERT_SMTP_PORT=${ALERT_SMTP_PORT:-587}
+SMTP_SERVER=${SMTP_SERVER:-}
+SMTP_PORT=${SMTP_PORT:-587}
+SMTP_USER=${SMTP_USER:-}
+SMTP_PASSWORD=${SMTP_PASSWORD:-}
+SMTP_TIMEOUT=${SMTP_TIMEOUT:-10}
+CRITICAL_ALERTS_EMAIL=${CRITICAL_ALERTS_EMAIL:-}
 ALERT_EMAIL_SUBJECT=${ALERT_EMAIL_SUBJECT:-"Varning: antivirus hittade infekterade filer"}
 
 send_alert_email() {
-  if [ -z "${ALERT_EMAIL_TO}" ] || [ -z "${ALERT_EMAIL_FROM}" ] || [ -z "${ALERT_SMTP_HOST}" ]; then
+  if [ -z "${CRITICAL_ALERTS_EMAIL}" ] || [ -z "${SMTP_SERVER}" ] || [ -z "${SMTP_USER}" ] || [ -z "${SMTP_PASSWORD}" ]; then
     return 0
   fi
 
@@ -30,7 +32,7 @@ Kontrollera loggen för detaljer och vidta åtgärder omedelbart.
 EOF
   )
 
-  echo "${mail_body}" | mail -s "${ALERT_EMAIL_SUBJECT}" -r "${ALERT_EMAIL_FROM}" "${ALERT_EMAIL_TO}"
+  echo "${mail_body}" | mail -s "${ALERT_EMAIL_SUBJECT}" -r "${SMTP_USER}" "${CRITICAL_ALERTS_EMAIL}"
 }
 
 echo "[${TIMESTAMP}] Startar virusskanning (paths: ${SCAN_PATHS})" | tee -a "${LOG_FILE}"
