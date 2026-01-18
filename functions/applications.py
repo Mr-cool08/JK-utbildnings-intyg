@@ -306,6 +306,19 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     "Standardansökan %s saknar personnummer och kan inte aktiveras",
                     application_id,
                 )
+                conn.execute(
+                    update(application_requests_table)
+                    .where(application_requests_table.c.id == application.id)
+                    .values(
+                        decision_reason=(
+                            "Personnummer saknas för standardkontot. "
+                            "Komplettera ansökan innan den godkänns."
+                        )
+                    )
+                )
+                raise ValueError(
+                    "Ansökan saknar personnummer och kan inte godkännas."
+                )
             else:
                 user_personnummer_hash = stored_personnummer_hash
                 email_hash = hash_value(normalized_email)

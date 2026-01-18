@@ -169,7 +169,8 @@ def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
         )
 
 
-def test_standard_application_requires_personnummer(fresh_app_db):
+@pytest.mark.usefixtures("fresh_app_db")
+def test_standard_application_requires_personnummer():
     with pytest.raises(ValueError):
         functions.create_application_request(
             account_type="standard",
