@@ -5,6 +5,7 @@ set -euo pipefail
 SCAN_SCHEDULE="${SCAN_SCHEDULE:-0 */6 * * *}"
 SCAN_PATHS="${SCAN_PATHS:-/host}"
 QUARANTINE_PATH="${QUARANTINE_PATH:-}"
+QUARANTINE_MODE="${QUARANTINE_MODE:-copy}"
 EXTRA_CLAMSCAN_ARGS="${EXTRA_CLAMSCAN_ARGS:-}"
 RUN_AT_START="${RUN_AT_START:-true}"
 
@@ -14,6 +15,7 @@ chmod 755 /var/log/clamav
 cat > /etc/antivirus.env <<ENV
 SCAN_PATHS="${SCAN_PATHS}"
 QUARANTINE_PATH="${QUARANTINE_PATH}"
+QUARANTINE_MODE="${QUARANTINE_MODE}"
 EXTRA_CLAMSCAN_ARGS="${EXTRA_CLAMSCAN_ARGS}"
 ENV
 
@@ -29,7 +31,12 @@ chmod 0644 "${CRON_FILE}"
 crontab "${CRON_FILE}"
 
 if [ "${RUN_AT_START}" = "true" ]; then
-  /usr/local/bin/run_scan.sh
+  if /usr/local/bin/run_scan.sh; then
+    :
+  else
+    STATUS=$?
+    echo "[$(date -Iseconds)] Startskanning misslyckades (exitkod: ${STATUS}). Fortsätter med cron." | tee -a /var/log/clamav/scan.log
+  fi
 fi
 
 exec cron -f
