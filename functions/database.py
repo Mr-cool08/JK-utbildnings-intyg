@@ -505,11 +505,16 @@ def _build_engine() -> Engine:
     db_url = os.getenv("DATABASE_URL")
     sqlite_database_path: Optional[str] = None
     if not db_url:
-        if _is_truthy(os.getenv("DEV_MODE", "False")):
+        dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
+        demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
+        if dev_mode or demo_mode:
             test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
             if test_db_path == ":memory:":
                 db_url = "sqlite:///:memory:"
-                logger.info("Using in-memory SQLite test database")
+                if dev_mode:
+                    logger.info("Using in-memory SQLite test database")
+                else:
+                    logger.info("Using in-memory SQLite demo database")
             else:
                 raw_path = Path(test_db_path).expanduser()
                 if not raw_path.is_absolute():
@@ -518,12 +523,16 @@ def _build_engine() -> Engine:
                 resolved = raw_path.resolve()
                 sqlite_database_path = str(resolved)
                 db_url = f"sqlite:///{resolved.as_posix()}"
-                logger.info("Using local SQLite test database at %s", resolved)
+                if dev_mode:
+                    logger.info("Using local SQLite test database at %s", resolved)
+                else:
+                    logger.info("Using local SQLite demo database at %s", resolved)
         else:
             host = os.getenv("POSTGRES_HOST")
             if not host:
                 raise RuntimeError(
-                    "Sätt DATABASE_URL, aktivera DEV_MODE eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
+                    "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
+                    "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
                 )
 
             user = os.getenv("POSTGRES_USER")

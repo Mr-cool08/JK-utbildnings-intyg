@@ -76,6 +76,27 @@ def test_dev_mode_creates_sqlite(tmp_path, monkeypatch):
         functions.reset_engine()
 
 
+def test_demo_mode_creates_sqlite_without_dev_mode(tmp_path, monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_HOST", raising=False)
+    monkeypatch.delenv("POSTGRES_USER", raising=False)
+    monkeypatch.delenv("POSTGRES_DB", raising=False)
+    monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    db_file = tmp_path / "demo.db"
+    monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
+
+    functions.reset_engine()
+    engine = functions.get_engine()
+
+    try:
+        assert engine.url.get_backend_name() == "sqlite"
+        assert engine.url.database == str(db_file)
+        assert db_file.parent.exists()
+    finally:
+        functions.reset_engine()
+
+
 def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
     monkeypatch.setattr(

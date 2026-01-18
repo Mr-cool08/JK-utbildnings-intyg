@@ -31,9 +31,11 @@ chown -R app:app "${LOG_DIR}"
 if [ -z "${DATABASE_URL:-}" ]; then
   enable_local_db="${DEV_MODE:-false}"
   enable_local_db="$(printf '%s' "${enable_local_db}" | tr '[:upper:]' '[:lower:]')"
+  enable_demo_mode="${ENABLE_DEMO_MODE:-false}"
+  enable_demo_mode="$(printf '%s' "${enable_demo_mode}" | tr '[:upper:]' '[:lower:]')"
 
-  case "${enable_local_db}" in
-    1|true|on|yes|ja|sant)
+  case "${enable_local_db}:${enable_demo_mode}" in
+    1:*|true:*|on:*|yes:*|ja:*|sant:*|*:1|*:true|*:on|*:yes|*:ja|*:sant)
       local_db_path="${LOCAL_TEST_DB_PATH:-instance/test.db}"
       if [ "${local_db_path}" = ":memory:" ]; then
         export DATABASE_URL="sqlite:///:memory:"
@@ -49,7 +51,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
       ;;
     *)
       if [ -z "${POSTGRES_HOST:-}" ]; then
-        echo "Sätt DATABASE_URL, aktivera DEV_MODE eller konfigurera POSTGRES_HOST med uppgifter" >&2
+        echo "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE eller konfigurera POSTGRES_HOST med uppgifter" >&2
         exit 1
       fi
 
