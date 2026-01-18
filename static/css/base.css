@@ -1617,6 +1617,43 @@ small.hint {
     justify-items: center;
 }
 
+@media (max-width: 700px) {
+    .pricing-table {
+        min-width: 0;
+    }
+
+    .pricing-table thead {
+        display: none;
+    }
+
+    .pricing-table tbody,
+    .pricing-table tr,
+    .pricing-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .pricing-table tbody tr {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+
+    .pricing-table td {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .pricing-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--color-text-muted);
+    }
+}
+
 @media (min-width: 900px) {
     .pricing-preview {
         grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
