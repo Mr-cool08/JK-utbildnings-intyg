@@ -71,6 +71,12 @@ Miljövariabler för finjustering:
 * `ANTIVIRUS_SCAN_SCHEDULE` – cron-uttryck för skanningsintervallet (standard `0 */6 * * *`).
 * `ANTIVIRUS_QUARANTINE_PATH` – destination för karantän om filer ska flyttas i stället för att bara rapporteras.
 * `ANTIVIRUS_EXTRA_ARGS` – valfria ytterligare flaggor till `clamscan`.
+* `CRITICAL_ALERTS_EMAIL` – mottagare av varningsmejl när infekterade filer hittas.
+* `smtp_server` – SMTP-server för utskick.
+* `smtp_port` – SMTP-port (standard `587`).
+* `smtp_user` – SMTP-användarnamn för inloggning och avsändaradress.
+* `smtp_password` – SMTP-lösenord.
+* `smtp_timeout` – timeout i sekunder för SMTP-anslutningen (standard `10`).
 
 ## Dokumentation och struktur
 
