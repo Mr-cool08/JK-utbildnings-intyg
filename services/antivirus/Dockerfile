@@ -10,6 +10,9 @@ RUN apt-get update \
         cron \
         ca-certificates \
         bash \
+        msmtp \
+        msmtp-mta \
+        bsd-mailx \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /var/log/clamav /scans /quarantine
