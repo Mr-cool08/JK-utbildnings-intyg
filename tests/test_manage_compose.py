@@ -67,31 +67,40 @@ def test_run_compose_action_cycle_orders_commands():
 
     assert events == [
         {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
+
         {
             "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"],
             "check": True,
             "cwd": None,
         },
+
         {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+
         {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "image", "prune", "-a"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
+
         {
             "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],
             "check": True,
             "cwd": None,
         },
+
         {"event": "ensure"},
+
         {
             "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"],
             "check": True,
             "cwd": None,
         },
+
+        {"event": "cmd", "cmd": ["docker", "image", "prune", "-a"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
     ]
+
+
 
 
 def test_run_compose_action_build_up_orders_commands():
