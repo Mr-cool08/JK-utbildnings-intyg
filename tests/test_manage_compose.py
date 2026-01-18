@@ -74,6 +74,7 @@ def test_run_compose_action_cycle_orders_commands():
             "cwd": None,
         },
         {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+        {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
         {
             "event": "cmd",
             "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],
@@ -132,7 +133,7 @@ def test_select_action_returns_none_for_exit():
     module = _load_module()
 
     def fake_input(prompt):
-        return "8"
+        return "9"
 
     assert module.select_action(fake_input) is None
 
@@ -193,6 +194,19 @@ def test_run_compose_action_prune_volumes_runs_docker_volume_prune():
     module.run_compose_action(["-f", "docker-compose.yml"], "prune-volumes", runner=fake_runner)
 
     assert calls == [(["docker", "volume", "prune", "--force"], True)]
+
+
+def test_run_compose_action_system_df_runs_docker_system_df():
+    module = _load_module()
+    calls: list[tuple[list[str], bool]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append((list(cmd), check))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "system-df", runner=fake_runner)
+
+    assert calls == [(["docker", "system", "df"], True)]
 
 
 def test_run_compose_action_up_ensures_volumes_first():
