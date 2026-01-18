@@ -90,31 +90,41 @@ def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
 def configure_root_logging() -> None:
     # Configure root logging with console + rotating file handler.
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    log_file = os.getenv("LOG_FILE", "logs/app.log")
+    log_dir = os.getenv("LOG_DIR", "logs")
+    default_log_file = os.path.join(log_dir, "app.log")
+    log_file = os.getenv("LOG_FILE", default_log_file)
     max_bytes = int(os.getenv("LOG_MAX_BYTES", str(5 * 1024 * 1024)))
     backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
 
     root = logging.getLogger()
-    if root.handlers:
-        return
-
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s"
     )
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
+    has_stream_handler = any(
+        isinstance(handler, logging.StreamHandler) for handler in root.handlers
     )
-    file_handler.setFormatter(formatter)
+    has_file_handler = any(
+        isinstance(handler, RotatingFileHandler)
+        and getattr(handler, "baseFilename", None) == os.path.abspath(log_file)
+        for handler in root.handlers
+    )
+
+    if not has_stream_handler:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root.addHandler(console_handler)
+
+    if not has_file_handler:
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
 
     root.setLevel(log_level)
-    root.addHandler(console_handler)
-    root.addHandler(file_handler)
 
 
 def _iter_configured_loggers() -> Iterable[logging.Logger]:
