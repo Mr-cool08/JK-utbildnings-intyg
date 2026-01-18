@@ -235,6 +235,7 @@ application_requests_table = Table(
     Column("invoice_contact", String),
     Column("invoice_reference", String),
     Column("comment", String),
+    Column("personnummer_hash", String, index=True),
     Column("status", String, nullable=False, server_default="pending"),
     Column("reviewed_by", String),
     Column("reviewed_at", DateTime(timezone=True)),
@@ -446,12 +447,25 @@ def _migration_0005_add_supervisor_link_requests(conn: Connection) -> None:
         supervisor_link_requests_table.create(bind=conn)
 
 
+def _migration_0006_add_application_personnummer_hash(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if application_requests_table.name in existing_tables:
+        _add_column_if_missing(
+            conn, application_requests_table.name, "personnummer_hash", "TEXT"
+        )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
     ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
     ("0004_make_company_id_nullable", _migration_0004_make_company_id_nullable),
     ("0005_add_supervisor_link_requests", _migration_0005_add_supervisor_link_requests),
+    (
+        "0006_add_application_personnummer_hash",
+        _migration_0006_add_application_personnummer_hash,
+    ),
 ]
 
 

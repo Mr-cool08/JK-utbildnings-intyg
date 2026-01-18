@@ -11,11 +11,18 @@ from functions.database import (
     application_requests_table,
     companies_table,
     company_users_table,
+    pending_users_table,
+    users_table,
     pending_supervisors_table,
     supervisors_table,
     get_engine,
 )
-from functions.hashing import hash_value, normalize_email, validate_orgnr
+from functions.hashing import (
+    hash_value,
+    normalize_email,
+    normalize_personnummer,
+    validate_orgnr,
+)
 from functions.logging import configure_module_logger, mask_hash
 
 
@@ -95,6 +102,7 @@ def create_application_request(
     invoice_address: Optional[str] = None,
     invoice_contact: Optional[str] = None,
     invoice_reference: Optional[str] = None,
+    personnummer: Optional[str] = None,
 ) -> int:
     allowed_types = {"standard", "foretagskonto"}
     normalized_type = (account_type or "").strip().lower()
@@ -108,6 +116,20 @@ def create_application_request(
         )
 
     normalized_email = normalize_email(email)
+    personnummer_hash: Optional[str] = None
+    if normalized_type == "standard":
+        cleaned_personnummer = (personnummer or "").strip()
+        if not cleaned_personnummer:
+            raise ValueError(
+                "Personnummer krävs för standardkonton. Ange personnumret i formatet ÅÅMMDDXXXX."
+            )
+        try:
+            normalized_personnummer = normalize_personnummer(cleaned_personnummer)
+        except ValueError as exc:
+            raise ValueError(
+                "Ogiltigt personnummer. Kontrollera att du skrivit ÅÅMMDDXXXX."
+            ) from exc
+        personnummer_hash = hash_value(normalized_personnummer)
     raw_orgnr = (orgnr or "").strip()
     if normalized_type == "standard" and raw_orgnr == "":
         validated_orgnr = ""
@@ -175,6 +197,7 @@ def create_application_request(
                 invoice_address=cleaned_invoice_address,
                 invoice_contact=cleaned_invoice_contact,
                 invoice_reference=cleaned_invoice_reference,
+                personnummer_hash=personnummer_hash,
             )
         )
         request_id = result.inserted_primary_key[0]
@@ -221,6 +244,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
     pending_supervisor_created = False
     supervisor_activation_required = False
     supervisor_email_hash: Optional[str] = None
+    user_activation_required = False
+    user_personnummer_hash: Optional[str] = None
 
     with get_engine().begin() as conn:
         application = conn.execute(
@@ -273,6 +298,54 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         except IntegrityError as exc:
             raise ValueError("E-postadressen är redan registrerad.") from exc
         user_id = result.inserted_primary_key[0]
+
+        if application.account_type == "standard":
+            stored_personnummer_hash = (application.personnummer_hash or "").strip()
+            if not stored_personnummer_hash:
+                logger.warning(
+                    "Standardansökan %s saknar personnummer och kan inte aktiveras",
+                    application_id,
+                )
+            else:
+                user_personnummer_hash = stored_personnummer_hash
+                email_hash = hash_value(normalized_email)
+                existing_user = conn.execute(
+                    select(users_table.c.id).where(
+                        users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                existing_email_user = conn.execute(
+                    select(users_table.c.id).where(users_table.c.email == email_hash)
+                ).first()
+                pending_user = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                pending_email = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.email == email_hash
+                    )
+                ).first()
+
+                if not existing_user and not existing_email_user:
+                    if pending_user or pending_email:
+                        user_activation_required = True
+                    else:
+                        try:
+                            conn.execute(
+                                insert(pending_users_table).values(
+                                    username=application.name,
+                                    email=email_hash,
+                                    personnummer=stored_personnummer_hash,
+                                )
+                            )
+                        except IntegrityError:
+                            logger.info(
+                                "Pending standardkonto finns redan för %s",
+                                mask_hash(stored_personnummer_hash),
+                            )
+                        user_activation_required = True
 
         if application.account_type == "foretagskonto":
             supervisor_email_hash = hash_value(normalized_email)
@@ -341,6 +414,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         "invoice_address": application.invoice_address,
         "invoice_contact": application.invoice_contact,
         "invoice_reference": application.invoice_reference,
+        "user_activation_required": user_activation_required,
+        "user_personnummer_hash": user_personnummer_hash,
         "pending_supervisor_created": pending_supervisor_created,
         "supervisor_activation_required": supervisor_activation_required,
         "supervisor_email_hash": supervisor_email_hash,
