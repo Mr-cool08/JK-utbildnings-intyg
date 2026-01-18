@@ -128,6 +128,7 @@ services:
 
 volumes:
   pgdata:
+    name: jk-utbildnings-intyg_pgdata
   app_logs:
     name: jk-utbildnings-intyg_app_logs
   demo_logs:

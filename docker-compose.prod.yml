@@ -188,7 +188,9 @@ volumes:
     name: jk-utbildnings-intyg_status_logs
   nginx_logs:
   pgdata:
+    name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
+    name: jk-utbildnings-intyg_pgdata_backups
   antivirus_logs:
   antivirus_quarantine:
 
