@@ -479,7 +479,7 @@ def _migration_0007_add_supervisor_password_resets(conn: Connection) -> None:
     if supervisor_password_resets_table.name not in existing_tables:
         supervisor_password_resets_table.create(bind=conn)
 
-def _migration_0007_company_users_email_role_unique(conn: Connection) -> None:
+def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if company_users_table.name not in existing_tables:
@@ -573,20 +573,11 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
     ("0004_make_company_id_nullable", _migration_0004_make_company_id_nullable),
     ("0005_add_supervisor_link_requests", _migration_0005_add_supervisor_link_requests),
-    (
-        "0006_add_application_personnummer_hash",
-        _migration_0006_add_application_personnummer_hash,
-    ),
-    (
-
-        "0007_add_supervisor_password_resets",
-        _migration_0007_add_supervisor_password_resets,
-
-        "0007_company_users_email_role_unique",
-        _migration_0007_company_users_email_role_unique,
-
-    ),
+    ("0006_add_application_personnummer_hash", _migration_0006_add_application_personnummer_hash),
+    ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
+    ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
 ]
+
 
 
 def run_migrations(engine: Engine) -> None:
