@@ -206,13 +206,18 @@ def ensure_demo_data(
                     )
                 existing_company_user = conn.execute(
                     select(company_users_table.c.id).where(
-                        company_users_table.c.email == normalized_supervisor_email
+                        company_users_table.c.email == normalized_supervisor_email,
+                        company_users_table.c.role == "foretagskonto",
                     )
                 ).first()
                 if existing_company_user:
                     conn.execute(
                         update(company_users_table)
-                        .where(company_users_table.c.email == normalized_supervisor_email)
+                        .where(
+                            company_users_table.c.email
+                            == normalized_supervisor_email,
+                            company_users_table.c.role == "foretagskonto",
+                        )
                         .values(
                             company_id=company_id,
                             role="foretagskonto",
