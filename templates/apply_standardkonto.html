@@ -12,7 +12,7 @@
 
         <div class="apply-intro">
             <h1 id="apply-title">Ansök om användarkonto</h1>
-            <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart. Organisationsnummer kan du lägga till senare.</p>
+            <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart.</p>
         </div>
         <form method="post" class="apply-form" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -72,25 +72,6 @@
                 <p class="field-error-message" id="personnummer-error">Ange ett giltigt personnummer i formatet ÅÅMMDDXXXX.</p>
             {% endif %}
 
-            {% set orgnr_error = field_errors.get('orgnr') %}
-            <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
-            <input
-                id="orgnr"
-                name="orgnr"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9\s-]{6,12}"
-                value="{{ form_data.orgnr }}"
-                placeholder="Exempel: 556966-8337"
-                class="{% if orgnr_error %}input-error{% endif %}"
-                aria-invalid="{{ 'true' if orgnr_error else 'false' }}"
-                aria-describedby="orgnr-hint{% if orgnr_error %} orgnr-error{% endif %}"
-            >
-            <small class="hint" id="orgnr-hint">Du kan ange organisationsnumret nu eller lägga till det senare via din dashboard.</small>
-            {% if orgnr_error %}
-                <p class="field-error-message" id="orgnr-error">Ange ett giltigt organisationsnummer enligt formatet 10 siffror.</p>
-            {% endif %}
-
             {% set comment_error = field_errors.get('comment') %}
             <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
             <textarea
@@ -132,7 +113,7 @@
 <section class="apply-info" aria-labelledby="info-title">
     <h2 id="info-title">Om användarkonton</h2>
     <p class="apply-price">Användarkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
-    <p>Om du redan vet organisationsnumret anger du det här, annars kan du komplettera uppgiften från din dashboard.</p>
+    <p>Företagskonton hanterar kopplingen mellan användare och företag vid behov.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title">
@@ -140,11 +121,11 @@
     <ol class="apply-step-list">
         <li>
             <h3>Skicka in uppgifter</h3>
-            <p>Berätta vem du är och vilket företag du representerar.</p>
+            <p>Berätta vem du är och hur vi kan nå dig.</p>
         </li>
         <li>
             <h3>Verifiering</h3>
-            <p>Vi granskar uppgifterna och ber dig vid behov om organisationsnumret innan kontot kopplas till ett företag.</p>
+            <p>Vi granskar uppgifterna och kontaktar dig om vi behöver kompletteringar.</p>
         </li>
         <li>
             <h3>Starta upp</h3>
