@@ -1,0 +1,13 @@
+{
+  "name": "JK-utbildnings-intyg",
+  "build": {
+    "dockerfile": "../Dockerfile"
+  },
+  "workspaceFolder": "/workspace/JK-utbildnings-intyg",
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "bash"
+  },
+  "extensions": [],
+  "remoteUser": "root",
+  "_copyright": "Copyright (c) Liam Suorsa"
+}
