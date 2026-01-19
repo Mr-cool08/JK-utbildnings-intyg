@@ -1568,38 +1568,39 @@ def admin_applications():  # pragma: no cover
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
 
-        def _mask_text(value: Any) -> str:
-            # Mask free-text values for logging to avoid PII leakage.
-            if value is None:
-                return mask_sensitive_data(value)
-            text_value = str(value).strip()
-            if not text_value:
-                return mask_sensitive_data(text_value)
-            return mask_hash(functions.hash_value(text_value))
+        if logger.isEnabledFor(logging.DEBUG):
+            def _mask_text(value: Any) -> str:
+                # Mask free-text values for logging to avoid PII leakage.
+                if value is None:
+                    return mask_sensitive_data(value)
+                text_value = str(value).strip()
+                if not text_value:
+                    return mask_sensitive_data(text_value)
+                return mask_hash(functions.hash_value(text_value))
 
-        for application in applications_requests:
-            logger.debug(
-                "ID: %s, Typ: %s, Namn: %s, E-post: %s, OrgNr: %s, "
-                "Företagsnamn: %s, Fakturaadress: %s, Fakturakontakt: %s, "
-                "Fakturareferens: %s, Kommentar: %s, Status: %s, Granskad av: %s, "
-                "Beslutsorsak: %s, Skapad: %s, Uppdaterad: %s, Granskad: %s",
-                application.get("id"),
-                application.get("account_type"),
-                _mask_text(application.get("name")),
-                mask_email(application.get("email", "")),
-                _mask_text(application.get("orgnr_normalized")),
-                _mask_text(application.get("company_name")),
-                _mask_text(application.get("invoice_address")),
-                _mask_text(application.get("invoice_contact")),
-                _mask_text(application.get("invoice_reference")),
-                _mask_text(application.get("comment")),
-                application.get("status"),
-                _mask_text(application.get("reviewed_by")),
-                _mask_text(application.get("decision_reason")),
-                application.get("created_at"),
-                application.get("updated_at"),
-                application.get("reviewed_at"),
-            )
+            for application in applications_requests:
+                logger.debug(
+                    "ID: %s, Typ: %s, Namn: %s, E-post: %s, OrgNr: %s, "
+                    "Företagsnamn: %s, Fakturaadress: %s, Fakturakontakt: %s, "
+                    "Fakturareferens: %s, Kommentar: %s, Status: %s, Granskad av: %s, "
+                    "Beslutsorsak: %s, Skapad: %s, Uppdaterad: %s, Granskad: %s",
+                    application.get("id"),
+                    application.get("account_type"),
+                    _mask_text(application.get("name")),
+                    mask_email(application.get("email", "")),
+                    _mask_text(application.get("orgnr_normalized")),
+                    _mask_text(application.get("company_name")),
+                    _mask_text(application.get("invoice_address")),
+                    _mask_text(application.get("invoice_contact")),
+                    _mask_text(application.get("invoice_reference")),
+                    _mask_text(application.get("comment")),
+                    application.get("status"),
+                    _mask_text(application.get("reviewed_by")),
+                    _mask_text(application.get("decision_reason")),
+                    application.get("created_at"),
+                    application.get("updated_at"),
+                    application.get("reviewed_at"),
+                )
         csrf_token = sec.ensure_csrf_token()
         return render_template('admin_applications.html', applications=applications_requests, csrf_token=csrf_token)
     else:
