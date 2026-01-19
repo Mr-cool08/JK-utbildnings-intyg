@@ -408,7 +408,8 @@ def run_compose_action(
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
             
-            run_compose_command(compose_args, ["down", "--remove-orphans"], runner)
+            # Använd stop för att undvika att anonyma volymer tas bort vid omstart.
+            run_compose_command(compose_args, ["stop"], runner)
 
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
@@ -424,7 +425,7 @@ def run_compose_action(
 
             print("Startar Docker Compose-tjänsterna...")
             _ensure_compose_volumes(compose_args, runner=runner)
-            run_compose_command(compose_args, ["up", "-d"], runner)
+            run_compose_command(compose_args, ["up", "-d", "--remove-orphans"], runner)
             
             
             print("Rensar oanvända Docker-artefakter...")

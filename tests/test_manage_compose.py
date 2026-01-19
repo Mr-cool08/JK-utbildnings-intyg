@@ -70,7 +70,7 @@ def test_run_compose_action_cycle_orders_commands():
 
         {
             "event": "cmd",
-            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "down", "--remove-orphans"],
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "stop"],
             "check": True,
             "cwd": None,
         },
@@ -90,7 +90,7 @@ def test_run_compose_action_cycle_orders_commands():
 
         {
             "event": "cmd",
-            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"],
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d", "--remove-orphans"],
             "check": True,
             "cwd": None,
         },
