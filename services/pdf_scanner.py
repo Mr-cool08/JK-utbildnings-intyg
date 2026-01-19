@@ -73,7 +73,7 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
         logger.exception("Quicksand saknas på systemet")
         raise ValueError("Säkerhetsskannern är inte tillgänglig just nu.")
     except subprocess.TimeoutExpired:
-        logger.error("Quicksand-tidgräns överskreds för %s", tmp_path)
+        logger.warning("Quicksand-tidgräns överskreds för %s", tmp_path)
         raise ValueError("PDF:en kunde inte skannas i tid.")
     finally:
         try:
