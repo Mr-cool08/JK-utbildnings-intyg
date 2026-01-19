@@ -1819,16 +1819,14 @@ def admin_reject_application(application_id: int):  # pragma: no cover
             application_id, admin_name, decision_reason
         )
     except ValueError as exc:
+        # Logga detaljerat fel, men exponera inte undantagstexten för användaren.
+        logger.warning("Kunde inte avslå ansökan %s: %s", application_id, exc)
         return jsonify(
             {
                 'status': 'error',
-                'message': _safe_user_error(
-                    str(exc),
-                    ALLOWED_ADMIN_REJECTION_ERRORS,
-                    (
-                        "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
-                        "är väntande och försök igen."
-                    ),
+                'message': (
+                    "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
+                    "är väntande och försök igen."
                 ),
             }
         ), 400
