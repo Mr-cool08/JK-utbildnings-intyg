@@ -312,6 +312,35 @@ def test_ensure_compose_volumes_recreates_missing_mountpoint(tmp_path):
     ]
 
 
+def test_ensure_volume_present_handles_in_use_volume(capsys, tmp_path):
+    module = _load_module()
+    calls: list[list[str]] = []
+    missing_mount = tmp_path / "missing"
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(list(cmd))
+        if cmd[:3] == ["docker", "volume", "inspect"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=f'[{{"Mountpoint": "{missing_mount}"}}]',
+                stderr="",
+            )
+        if cmd[:3] == ["docker", "volume", "rm"]:
+            raise subprocess.CalledProcessError(1, cmd, stderr="volume is in use")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = module._ensure_volume_present("demo_env_data", runner=fake_runner)
+
+    assert result is False
+    assert calls == [
+        ["docker", "volume", "inspect", "demo_env_data"],
+        ["docker", "volume", "rm", "demo_env_data"],
+    ]
+    captured = capsys.readouterr()
+    assert "Varning: Kunde inte ta bort Docker-volymen" in captured.err
+
+
 def test_run_menu_executes_selected_action():
     module = _load_module()
     calls: list[str] = []
