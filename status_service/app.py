@@ -46,16 +46,7 @@ def pytest_site():
         captured_output = []
         if importlib.util.find_spec("pytest") is None:
             message = "Pytest saknas i miljön. Installera pytest och försök igen.\n"
-            LOGGER.error("Pytest saknas i miljön.")
-            critical_events.send_critical_event_email(
-                event_type="error",
-                title="🔴 Pytest kunde inte starta",
-                description=(
-                    "Pytest-körningen kunde inte startas via status-tjänsten.\n"
-                    f"Tidsstämpel: {get_display_timestamp()}"
-                ),
-                error_message="pytest saknas",
-            )
+            LOGGER.warning("Pytest saknas i miljön.")
             yield message
             return
         try:
