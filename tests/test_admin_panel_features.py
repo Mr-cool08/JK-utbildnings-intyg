@@ -1,8 +1,10 @@
 # Copyright (c) Liam Suorsa
 import json
+from datetime import datetime, timedelta, timezone
 
 import app
 import functions
+import pytest
 from course_categories import COURSE_CATEGORIES
 
 
@@ -105,6 +107,60 @@ def test_password_reset_flow(empty_db, monkeypatch):
     )
     assert reset_response.status_code == 302
     assert functions.check_personnummer_password(personnummer, "NyLosenord123")
+
+
+def test_password_reset_token_lifecycle(empty_db):
+    personnummer = "19900101-1234"
+    email = "token@example.com"
+    assert functions.admin_create_user(email, "Token", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    token = functions.create_password_reset_token(personnummer, email)
+    info = functions.get_password_reset(token)
+    assert info is not None
+    assert info["personnummer"] == pnr_hash
+    assert info["email"] == functions.hash_value(
+        functions.normalize_email(email)
+    )
+    assert info["used_at"] is None
+
+    assert functions.reset_password_with_token(token, "NyttLosen1!") is True
+    assert functions.check_personnummer_password(personnummer, "NyttLosen1!")
+    assert functions.reset_password_with_token(token, "AndraLosen1!") is False
+
+
+def test_password_reset_token_expires(empty_db):
+    personnummer = "19850505-4321"
+    email = "expired@example.com"
+    assert functions.admin_create_user(email, "Utgången", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    token = functions.create_password_reset_token(personnummer, email)
+    token_hash = functions.hash_value(token)
+    expired_time = datetime.now(timezone.utc) - timedelta(days=3)
+
+    with functions.get_engine().begin() as conn:
+        conn.execute(
+            functions.password_resets_table.update()
+            .where(functions.password_resets_table.c.token_hash == token_hash)
+            .values(created_at=expired_time)
+        )
+
+    assert functions.reset_password_with_token(token, "NyttLosen1!") is False
+
+
+def test_password_reset_token_requires_matching_user(empty_db):
+    personnummer = "19700101-9999"
+    email = "missing@example.com"
+
+    assert functions.admin_create_user(email, "Missing", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    with pytest.raises(ValueError):
+        functions.create_password_reset_token(personnummer, "other@example.com")
 
 
 def test_admin_advanced_crud(empty_db):

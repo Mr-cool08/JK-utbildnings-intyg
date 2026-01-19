@@ -129,6 +129,21 @@ def test_create_app_enables_debug_mode_via_dev_mode(monkeypatch):
     assert demo_app.debug is True
 
 
+def test_create_app_defaults_without_debug(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
+    monkeypatch.setenv("secret_key", "start-secret")
+    monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "false")
+
+    monkeypatch.setattr(app.functions, "create_database", lambda: None)
+
+    flask_app = app.create_app()
+
+    assert flask_app.debug is False
+    assert flask_app.secret_key == "start-secret"
+    assert flask_app.config["IS_DEMO"] is False
+
+
 def test_debug_clear_session_requires_debug(monkeypatch):
     app.app.secret_key = "test-secret"
     monkeypatch.setattr(app.app, "debug", False)
