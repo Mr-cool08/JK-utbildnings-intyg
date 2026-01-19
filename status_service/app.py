@@ -1,4 +1,5 @@
 # Copyright (c) Liam Suorsa
+import importlib.util
 import logging
 import os
 import subprocess
@@ -43,6 +44,20 @@ def pytest_site():
     def generate_output():
         yield "Startar pytest...\n"
         captured_output = []
+        if importlib.util.find_spec("pytest") is None:
+            message = "Pytest saknas i miljön. Installera pytest och försök igen.\n"
+            LOGGER.error("Pytest saknas i miljön.")
+            critical_events.send_critical_event_email(
+                event_type="error",
+                title="🔴 Pytest kunde inte starta",
+                description=(
+                    "Pytest-körningen kunde inte startas via status-tjänsten.\n"
+                    f"Tidsstämpel: {get_display_timestamp()}"
+                ),
+                error_message="pytest saknas",
+            )
+            yield message
+            return
         try:
             process = subprocess.Popen(
                 [sys.executable, "-m", "pytest"],
