@@ -35,6 +35,7 @@ from config_loader import load_environment
 from functions.logging import (
     configure_module_logger,
     configure_root_logging,
+    mask_email,
     mask_hash,
     mask_headers,
     mask_sensitive_data,
@@ -1566,8 +1567,40 @@ def admin_applications():  # pragma: no cover
             return jsonify({'status': 'error', 'message': 'Ogiltig status för ansökan.'}), 400
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
-        for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
-            logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
+
+        if logger.isEnabledFor(logging.DEBUG):
+            def _mask_text(value: Any) -> str:
+                # Mask free-text values for logging to avoid PII leakage.
+                if value is None:
+                    return mask_sensitive_data(value)
+                text_value = str(value).strip()
+                if not text_value:
+                    return mask_sensitive_data(text_value)
+                return mask_hash(functions.hash_value(text_value))
+
+            for application in applications_requests:
+                logger.debug(
+                    "ID: %s, Typ: %s, Namn: %s, E-post: %s, OrgNr: %s, "
+                    "Företagsnamn: %s, Fakturaadress: %s, Fakturakontakt: %s, "
+                    "Fakturareferens: %s, Kommentar: %s, Status: %s, Granskad av: %s, "
+                    "Beslutsorsak: %s, Skapad: %s, Uppdaterad: %s, Granskad: %s",
+                    application.get("id"),
+                    application.get("account_type"),
+                    _mask_text(application.get("name")),
+                    mask_email(application.get("email", "")),
+                    _mask_text(application.get("orgnr_normalized")),
+                    _mask_text(application.get("company_name")),
+                    _mask_text(application.get("invoice_address")),
+                    _mask_text(application.get("invoice_contact")),
+                    _mask_text(application.get("invoice_reference")),
+                    _mask_text(application.get("comment")),
+                    application.get("status"),
+                    _mask_text(application.get("reviewed_by")),
+                    _mask_text(application.get("decision_reason")),
+                    application.get("created_at"),
+                    application.get("updated_at"),
+                    application.get("reviewed_at"),
+                )
         csrf_token = sec.ensure_csrf_token()
         return render_template('admin_applications.html', applications=applications_requests, csrf_token=csrf_token)
     else:
