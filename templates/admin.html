@@ -160,16 +160,35 @@
 
 <section class="panel">
     <h2>Skicka återställningsmejl</h2>
-    <p>Bekräfta användarkontots uppgifter och skicka en ny länk för att välja lösenord.</p>
+    <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
     <form id="resetForm" class="stacked-form">
+        <label for="resetAccountType">Kontotyp</label>
+        <select id="resetAccountType" name="accountType" required>
+            <option value="standard">Standardkonto</option>
+            <option value="foretagskonto">Företagskonto</option>
+        </select>
+
+        <div id="resetPersonnummerRow">
         <label for="resetPersonnummer">Personnummer</label>
         <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+        </div>
 
         <label for="resetEmail">E-post</label>
         <input id="resetEmail" name="resetEmail" type="email" required placeholder="user@example.com" />
 
         <button type="submit" class="btn">Skicka återställningslänk</button>
         <p id="resetMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Verifiera intyg</h2>
+    <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
+    <form id="verifyCertificateForm" class="inline-form">
+        <label for="verifyPersonnummer">Personnummer</label>
+        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+        <button type="submit" class="btn">Verifiera</button>
+        <span id="verifyCertificateMessage" class="message" aria-live="polite"></span>
     </form>
 </section>
 

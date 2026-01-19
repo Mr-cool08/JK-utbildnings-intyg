@@ -810,6 +810,34 @@ def password_reset(token: str):
 
     return render_template('password_reset.html', invalid=False)
 
+
+@app.route('/foretagskonto/aterstall-losenord/<token>', methods=['GET', 'POST'])
+def supervisor_password_reset(token: str):
+    info = functions.get_supervisor_password_reset(token)
+    if not info or info.get('used_at') is not None:
+        return render_template('supervisor_password_reset.html', invalid=True)
+
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        confirm = request.form.get('confirm', '').strip()
+        if not password or password != confirm:
+            return render_template(
+                'supervisor_password_reset.html',
+                invalid=False,
+                error='Lösenorden måste fyllas i och matcha.',
+            )
+        if len(password) < 8:
+            return render_template(
+                'supervisor_password_reset.html',
+                invalid=False,
+                error='Lösenordet måste vara minst 8 tecken.',
+            )
+        if not functions.reset_supervisor_password_with_token(token, password):
+            return render_template('supervisor_password_reset.html', invalid=True)
+        return redirect(url_for('supervisor_login'))
+
+    return render_template('supervisor_password_reset.html', invalid=False)
+
 @app.route('/', methods=['GET'])
 def home():
     # Render the landing page.
@@ -1998,11 +2026,50 @@ def admin_update_pdf():  # pragma: no cover
 def admin_send_password_reset():  # pragma: no cover
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
+    account_type = (payload.get('account_type') or 'standard').strip().lower()
     personnummer = (payload.get('personnummer') or '').strip()
     email = (payload.get('email') or '').strip()
-    if not personnummer or not email:
+    if account_type not in {'standard', 'foretagskonto'}:
+        logging.debug(
+            "Admin send_password_reset with invalid account_type: %s",
+            account_type,
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ogiltig kontotyp.'}), 400
+
+    if account_type == 'standard' and (not personnummer or not email):
         logging.debug("Admin send_password_reset without personnummer or email", extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Ange både personnummer och e-post.'}), 400
+    if account_type == 'foretagskonto' and not email:
+        logging.debug("Admin send_password_reset without email for foretagskonto", extra={'admin': admin_name})
+        return jsonify({'status': 'error', 'message': 'Ange e-postadressen för företagskontot.'}), 400
+
+    if account_type == 'foretagskonto':
+        try:
+            token = functions.create_supervisor_password_reset_token(email)
+        except ValueError as exc:
+            logger.exception(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
+            return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
+        except Exception as exc:
+            logger.exception(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
+            return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
+
+        link = url_for('supervisor_password_reset', token=token, _external=True)
+        try:
+            email_service.send_password_reset_email(email, link)
+        except RuntimeError as exc:
+            logger.exception(f"Misslyckades att skicka återställningsmejl för företagskonto: {exc}")
+            return jsonify({'status': 'error', 'message': 'Kunde inte skicka återställningsmejl.'}), 500
+
+        email_hash = functions.hash_value(functions.normalize_email(email))
+        functions.log_admin_action(
+            admin_name,
+            'skickade företagskonto-återställning',
+            f'email_hash={email_hash}',
+        )
+        logging.info("Admin sent supervisor password reset to %s", mask_hash(email_hash), extra={'admin': admin_name})
+        return jsonify({'status': 'success', 'message': 'Återställningsmejl skickat till företagskontot.', 'link': link})
+
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
@@ -2014,8 +2081,8 @@ def admin_send_password_reset():  # pragma: no cover
     except ValueError as exc:
         logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning. :('}), 404
-    except Exception as e:
-        logger.exception(f"Misslyckades att skapa återställningstoken: {e}")
+    except Exception as exc:
+        logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
 
     link = url_for('password_reset', token=token, _external=True)

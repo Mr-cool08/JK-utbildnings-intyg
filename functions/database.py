@@ -170,6 +170,21 @@ password_resets_table = Table(
     Column("used_at", DateTime(timezone=True)),
 )
 
+supervisor_password_resets_table = Table(
+    "supervisor_password_resets",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("email", String, nullable=False, index=True),
+    Column("token_hash", String, nullable=False, unique=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column("used_at", DateTime(timezone=True)),
+)
+
 admin_audit_log_table = Table(
     "admin_audit_log",
     metadata,
@@ -457,7 +472,14 @@ def _migration_0006_add_application_personnummer_hash(conn: Connection) -> None:
         )
 
 
-def _migration_0007_company_users_email_role_unique(conn: Connection) -> None:
+
+def _migration_0007_add_supervisor_password_resets(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_password_resets_table.name not in existing_tables:
+        supervisor_password_resets_table.create(bind=conn)
+
+def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if company_users_table.name not in existing_tables:
@@ -544,21 +566,18 @@ def _migration_0007_company_users_email_role_unique(conn: Connection) -> None:
     )
 
 
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
     ("0003_add_invoice_fields", _migration_0003_add_invoice_fields),
     ("0004_make_company_id_nullable", _migration_0004_make_company_id_nullable),
     ("0005_add_supervisor_link_requests", _migration_0005_add_supervisor_link_requests),
-    (
-        "0006_add_application_personnummer_hash",
-        _migration_0006_add_application_personnummer_hash,
-    ),
-    (
-        "0007_company_users_email_role_unique",
-        _migration_0007_company_users_email_role_unique,
-    ),
+    ("0006_add_application_personnummer_hash", _migration_0006_add_application_personnummer_hash),
+    ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
+    ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
 ]
+
 
 
 def run_migrations(engine: Engine) -> None:
@@ -772,7 +791,11 @@ def create_database() -> None:
                 )
             )
         existing_tables = set(inspector.get_table_names())
-        for table in (password_resets_table, admin_audit_log_table):
+        for table in (
+            password_resets_table,
+            supervisor_password_resets_table,
+            admin_audit_log_table,
+        ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
     logger.info("Database initialized")
