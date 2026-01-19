@@ -51,18 +51,18 @@ def save_pdf_for_user(
     """Validera och spara PDF i databasen för angivet personnummer."""
     logger = logger or logging.getLogger(__name__)
     if file_storage.filename == "":
-        logger.error("No file selected for upload")
+        logger.warning("No file selected for upload")
         raise ValueError("Ingen fil vald.")
 
     mime = (file_storage.mimetype or "").lower()
     if mime not in ALLOWED_MIMES:
-        logger.error("Disallowed MIME type %s", mime)
+        logger.warning("Disallowed MIME type %s", mime)
         raise ValueError("Endast PDF, PNG eller JPG tillåts.")
 
     head = file_storage.stream.read(5)
     file_storage.stream.seek(0)
     if mime == "application/pdf" and head != b"%PDF-":
-        logger.error("File does not appear to be valid PDF")
+        logger.warning("File does not appear to be valid PDF")
         raise ValueError("Filen verkar inte vara en giltig PDF.")
 
     pnr_norm = functions.normalize_personnummer(pnr)
@@ -71,7 +71,7 @@ def save_pdf_for_user(
 
     selected_categories = normalize_category_slugs(categories)
     if len(selected_categories) != 1:
-        logger.error(
+        logger.warning(
             "Invalid number of categories (%d) for hash %s",
             len(selected_categories),
             mask_hash(pnr_hash),

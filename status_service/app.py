@@ -66,7 +66,7 @@ def pytest_site():
             yield "Pytest kunde inte starta. Kritisk händelse har skickats.\n"
             return
         if process.stdout is None:
-            LOGGER.error("Pytest saknar stdout-ström.")
+            LOGGER.warning("Pytest saknar stdout-ström.")
             output, _ = process.communicate()
             if output:
                 for line in output.splitlines(keepends=True):
