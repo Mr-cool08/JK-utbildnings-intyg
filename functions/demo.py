@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from sqlalchemy import delete, insert, select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from functions.database import (
     APP_ROOT,
@@ -252,19 +253,23 @@ def ensure_demo_data(
 
 def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
-    engine = get_engine()
-    url = engine.url
+    try:
+        engine = get_engine()
+        url = engine.url
 
-    if url.get_backend_name() != "sqlite":
-        logger.info("Demodatabasen hoppades över eftersom bakänden inte är SQLite")
+        if url.get_backend_name() != "sqlite":
+            logger.info("Demodatabasen hoppades över eftersom bakänden inte är SQLite")
+            return False
+
+        database = url.database or ""
+        if database in ("", ":memory:"):
+            logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
+            return False
+
+        reset_engine()
+    except SQLAlchemyError as exc:
+        logger.warning("Demodatabasen kunde inte återställas: %s", exc)
         return False
-
-    database = url.database or ""
-    if database in ("", ":memory:"):
-        logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
-        return False
-
-    reset_engine()
 
     try:
         Path(database).unlink(missing_ok=True)
@@ -272,10 +277,14 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
         logger.exception("Demodatabasen kunde inte tas bort")
         return False
 
-    from functions.database import create_database
+    try:
+        from functions.database import create_database
 
-    create_database()
-    ensure_demo_data(**demo_defaults)
+        create_database()
+        ensure_demo_data(**demo_defaults)
+    except SQLAlchemyError as exc:
+        logger.warning("Demodatabasen kunde inte återställas: %s", exc)
+        return False
 
     logger.info("Demodatabasen har rensats och återställts till standarddata")
     return True

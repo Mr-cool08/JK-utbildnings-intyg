@@ -177,8 +177,8 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
                 try:
                     logger.debug("Bakgrundsjobb kör demoreset")
                     functions.reset_demo_database(demo_defaults)
-                except Exception:
-                    logger.exception("Automatisk demoreset misslyckades")
+                except Exception as exc:
+                    logger.warning("Automatisk demoreset misslyckades: %s", exc)
             time.sleep(interval_seconds)
 
     thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
