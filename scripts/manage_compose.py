@@ -403,7 +403,7 @@ def run_compose_action(
             except Exception:
                 pass
 
-        print("Stoppar och tar bort Docker Compose-tjänsterna...")
+        print("Stoppar Docker Compose-tjänsterna...")
         try:
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
