@@ -1782,8 +1782,9 @@ def admin_approve_application(application_id: int):  # pragma: no cover
     # 3) Aktiveringslänk till SUPERVISOR (företagskonto)
     if result.get('supervisor_activation_required') and result.get('supervisor_email_hash'):
         link = url_for('supervisor_create', email_hash=result['supervisor_email_hash'], _external=True)
+        supervisor_email = result.get('supervisor_email') or result['email']
         try:
-            email_service.send_creation_email(result['email'], link)
+            email_service.send_creation_email(supervisor_email, link)
             if creation_link is None:
                 creation_link = link  # <- använd denna om ingen tidigare satt
         except Exception:
