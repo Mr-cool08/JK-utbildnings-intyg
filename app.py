@@ -1735,11 +1735,13 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         # }
         result = functions.approve_application_request(application_id, admin_name)
     except ValueError as exc:
+        # Logga det interna felet på serversidan utan att exponera detaljer för användaren.
+        logger.warning("ValueError vid godkännande av ansökan %s: %s", application_id, exc, exc_info=True)
         return jsonify(
             {
                 'status': 'error',
                 'message': _safe_user_error(
-                    str(exc),
+                    "",
                     ALLOWED_ADMIN_APPROVAL_ERRORS,
                     (
                         "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
