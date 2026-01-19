@@ -47,13 +47,18 @@ class EmailErrorHandler(logging.Handler):
 
             message = self.format(record)
 
-            body = (
-                f"<html><body style='font-family: Arial, sans-serif;'>"
-                f"<h3>Applikationsfel (nivå: {escape(record.levelname)})</h3>"
+            content = (
+                f"<p><strong>Nivå:</strong> {escape(record.levelname)}</p>"
                 f"<p><strong>Tid:</strong> {ts}</p>"
-                f"<p><strong>Loggmeddelande:</strong></p>"
-                f"<pre style='background:#f5f5f5;padding:10px;border-radius:4px;'>{escape(message)}</pre>"
-                f"</body></html>"
+                "<p><strong>Loggmeddelande:</strong></p>"
+                f"<pre style='background:#f1f5f9;padding:12px;border-radius:6px;white-space:pre-wrap;'>"
+                f"{escape(message)}</pre>"
+            )
+            body = email_service.format_email_html(
+                "Applikationsfel",
+                content,
+                accent_color="#f97316",
+                footer_text="Detta är en automatisk felavisering från JK Utbildningsintyg.",
             )
 
             # Send attachments in background thread
