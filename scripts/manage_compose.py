@@ -283,7 +283,15 @@ def _ensure_volume_present(
     if mountpoint and os.path.exists(mountpoint):
         return False
     print(f"Återskapar Docker-volym: {volume_name}")
-    runner(["docker", "volume", "rm", volume_name], check=True)
+    try:
+        runner(["docker", "volume", "rm", volume_name], check=True)
+    except subprocess.CalledProcessError as exc:
+        print(
+            "Varning: Kunde inte ta bort Docker-volymen eftersom den används. "
+            "Hoppar över återskapning.",
+            file=sys.stderr,
+        )
+        return False
     runner(["docker", "volume", "create", volume_name], check=True)
     return True
 
@@ -408,7 +416,7 @@ def run_compose_action(
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
             
-            # Använd stop för att undvika att anonyma volymer tas bort vid omstart.
+            # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
 
             print("Kör pytest...")
