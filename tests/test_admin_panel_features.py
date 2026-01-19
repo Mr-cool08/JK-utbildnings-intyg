@@ -109,6 +109,42 @@ def test_password_reset_flow(empty_db, monkeypatch):
     assert functions.check_personnummer_password(personnummer, "NyLosenord123")
 
 
+def test_supervisor_password_reset_flow(empty_db, monkeypatch):
+    email = "foretagskonto@example.com"
+    assert functions.admin_create_supervisor(email, "Företagskonto")
+    email_hash = functions.get_supervisor_email_hash(email)
+    assert functions.supervisor_activate_account(email_hash, "StartLosen1!")
+
+    captured = {}
+
+    def _fake_send(to_email, link):
+        captured["email"] = to_email
+        captured["link"] = link
+
+    monkeypatch.setattr(app.email_service, "send_password_reset_email", _fake_send)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/skicka-aterstallning",
+            json={"email": email, "account_type": "foretagskonto"},
+        )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "link" in data
+    assert "/foretagskonto/aterstall-losenord/" in data["link"]
+    assert captured["link"] == data["link"]
+
+    token = data["link"].rstrip("/").split("/")[-1]
+    client = app.app.test_client()
+    reset_response = client.post(
+        f"/foretagskonto/aterstall-losenord/{token}",
+        data={"password": "NyttLosenord123", "confirm": "NyttLosenord123"},
+        follow_redirects=False,
+    )
+    assert reset_response.status_code == 302
+    assert functions.verify_supervisor_credentials(email, "NyttLosenord123")
+
+
 def test_password_reset_token_lifecycle(empty_db):
     personnummer = "19900101-1234"
     email = "token@example.com"
