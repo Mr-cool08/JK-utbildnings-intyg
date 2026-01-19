@@ -252,33 +252,37 @@ def ensure_demo_data(
 
 def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
-    engine = get_engine()
-    url = engine.url
-
-    if url.get_backend_name() != "sqlite":
-        logger.info("Demodatabasen hoppades över eftersom bakänden inte är SQLite")
-        return False
-
-    database = url.database or ""
-    if database in ("", ":memory:"):
-        logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
-        return False
-
-    reset_engine()
-
     try:
-        Path(database).unlink(missing_ok=True)
-    except OSError:
-        logger.exception("Demodatabasen kunde inte tas bort")
+        engine = get_engine()
+        url = engine.url
+
+        if url.get_backend_name() != "sqlite":
+            logger.info("Demodatabasen hoppades över eftersom bakänden inte är SQLite")
+            return False
+
+        database = url.database or ""
+        if database in ("", ":memory:"):
+            logger.info("Demodatabasen hoppades över eftersom SQLite körs i minnet")
+            return False
+
+        reset_engine()
+
+        try:
+            Path(database).unlink(missing_ok=True)
+        except OSError:
+            logger.exception("Demodatabasen kunde inte tas bort")
+            return False
+
+        from functions.database import create_database
+
+        create_database()
+        ensure_demo_data(**demo_defaults)
+
+        logger.info("Demodatabasen har rensats och återställts till standarddata")
+        return True
+    except Exception as exc:
+        logger.warning("Demodatabasen kunde inte återställas: %s", exc)
         return False
-
-    from functions.database import create_database
-
-    create_database()
-    ensure_demo_data(**demo_defaults)
-
-    logger.info("Demodatabasen har rensats och återställts till standarddata")
-    return True
 
 
 DEMO_PDF_DEFINITIONS = [
