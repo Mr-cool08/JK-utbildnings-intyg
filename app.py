@@ -2273,7 +2273,7 @@ def login_admin():  # pragma: no cover
     # Authenticate an administrator for access to the admin panel.
     if request.method == 'POST':
 
-        admin_password = os.getenv('admin_password', 'Default')
+        admin_password = os.getenv('admin_password', 'password')
         admin_username = os.getenv('admin_username', 'admin')
         if request.form['username'] == admin_username and request.form['password'] == admin_password:
             session['admin_logged_in'] = True
