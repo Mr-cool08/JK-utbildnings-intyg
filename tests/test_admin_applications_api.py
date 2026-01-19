@@ -81,6 +81,7 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     payload = response.get_json()
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'foretagskonto'
+    assert payload['data']['supervisor_email'] == 'foretagskonto@example.com'
     assert sent['email'] == 'foretagskonto@example.com'
     assert creation_sent['email'] == 'foretagskonto@example.com'
     assert 'creation_link' in payload
