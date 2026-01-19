@@ -154,6 +154,50 @@ def test_approval_reuses_existing_company(fresh_app_db):
         assert len(pending_supervisor) == 1
 
 
+def test_foretagskonto_and_standard_can_share_email(fresh_app_db):
+    foretagskonto_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Företagskonto",
+        email="shared@example.com",
+        orgnr="5569668337",
+        company_name="Delat Bolag",
+        comment=None,
+        invoice_address="Faktura 1",
+        invoice_contact="Kontakt 1",
+        invoice_reference="Ref 1",
+    )
+    standard_id = functions.create_application_request(
+        account_type="standard",
+        name="Standardkonto",
+        email="shared@example.com",
+        orgnr="5569668337",
+        company_name="Delat Bolag",
+        comment=None,
+        invoice_address=None,
+        invoice_contact=None,
+        invoice_reference=None,
+        personnummer="9001011234",
+    )
+
+    foretagskonto_result = functions.approve_application_request(
+        foretagskonto_id, "admin"
+    )
+    standard_result = functions.approve_application_request(standard_id, "admin")
+
+    assert foretagskonto_result["account_type"] == "foretagskonto"
+    assert standard_result["account_type"] == "standard"
+
+    with fresh_app_db.connect() as conn:
+        users = conn.execute(
+            functions.company_users_table.select().where(
+                functions.company_users_table.c.email == "shared@example.com"
+            )
+        ).fetchall()
+        assert len(users) == 2
+        roles = {row.role for row in users}
+        assert roles == {"foretagskonto", "standard"}
+
+
 def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
     with pytest.raises(ValueError):
         functions.create_application_request(

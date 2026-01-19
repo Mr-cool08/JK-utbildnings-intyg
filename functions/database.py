@@ -262,7 +262,7 @@ company_users_table = Table(
     Column("company_id", Integer, nullable=True, index=True),
     Column("role", String, nullable=False),
     Column("name", String, nullable=False),
-    Column("email", String, nullable=False, unique=True),
+    Column("email", String, nullable=False),
     Column("created_via_application_id", Integer, index=True),
     Column(
         "created_at",
@@ -277,6 +277,7 @@ company_users_table = Table(
         onupdate=func.now(),
         nullable=False,
     ),
+    UniqueConstraint("email", "role", name="uq_company_users_email_role"),
 )
 
 TABLE_REGISTRY: dict[str, Table] = {
@@ -456,6 +457,93 @@ def _migration_0006_add_application_personnummer_hash(conn: Connection) -> None:
         )
 
 
+def _migration_0007_company_users_email_role_unique(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(text("PRAGMA foreign_keys=OFF"))
+        try:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE company_users_new (
+                        id INTEGER PRIMARY KEY,
+                        company_id INTEGER,
+                        role VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL,
+                        created_via_application_id INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        UNIQUE (email, role)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO company_users_new (
+                        id,
+                        company_id,
+                        role,
+                        name,
+                        email,
+                        created_via_application_id,
+                        created_at,
+                        updated_at
+                    )
+                    SELECT
+                        id,
+                        company_id,
+                        role,
+                        name,
+                        email,
+                        created_via_application_id,
+                        created_at,
+                        updated_at
+                    FROM company_users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE company_users"))
+            conn.execute(text("ALTER TABLE company_users_new RENAME TO company_users"))
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_company_users_company_id ON company_users(company_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_company_users_created_via_application_id ON company_users(created_via_application_id)"
+                )
+            )
+        finally:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+        return
+
+    if dialect.startswith("postgresql"):
+        conn.execute(
+            text(
+                "ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_email_key"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE company_users ADD CONSTRAINT uq_company_users_email_role UNIQUE (email, role)"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migration 0007 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -465,6 +553,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0006_add_application_personnummer_hash",
         _migration_0006_add_application_personnummer_hash,
+    ),
+    (
+        "0007_company_users_email_role_unique",
+        _migration_0007_company_users_email_role_unique,
     ),
 ]
 
