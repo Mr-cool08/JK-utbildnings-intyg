@@ -102,45 +102,33 @@ def send_critical_event_email(
         }
         color = event_colors.get(event_type.lower(), "#6c757d")  # Gray default
         
-        html_body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.6; background-color: #f5f5f5; padding: 20px;'>
-                <div style='max-width: 600px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
-                    <div style='border-left: 4px solid {color}; padding-left: 15px; margin-bottom: 20px;'>
-                        <h2 style='margin: 0; color: {color};'>⚠️ Kritisk Event: {escape(title)}</h2>
-                        <p style='margin: 5px 0; color: #666; font-size: 12px;'>Tidsstämpel: {timestamp}</p>
-                    </div>
-                    
-                    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 15px;'>
-                        <h3 style='margin-top: 0; color: #333;'>Applikation: {escape(app_name)}</h3>
-                        <h3 style='margin-top: 0; color: #333;'>Händelsetyp: {escape(event_type)}</h3>
-                        <p style='margin: 0; color: #333;'><strong>Beskrivning:</strong></p>
-                        <p style='margin: 10px 0; color: #555; white-space: pre-wrap; word-wrap: break-word;'>{safe_description}</p>
-        """
-        
+        content = (
+            f"<p><strong>Tidsstämpel:</strong> {timestamp}</p>"
+            f"<p><strong>Applikation:</strong> {escape(app_name)}</p>"
+            f"<p><strong>Händelsetyp:</strong> {escape(event_type)}</p>"
+            "<p><strong>Beskrivning:</strong></p>"
+            f"<p style='margin-top:6px;white-space:pre-wrap;word-wrap:break-word;'>{safe_description}</p>"
+        )
+
         if safe_error:
-            html_body += f"""
-                        <p style='margin: 10px 0 0 0; color: #333;'><strong>Felmeddelande:</strong></p>
-                        <p style='margin: 10px 0; color: #d32f2f; white-space: pre-wrap; word-wrap: break-word; background-color: #ffebee; padding: 10px; border-radius: 4px;'>{safe_error}</p>
-            """
-        
-        html_body += """
-                    </div>
-                    
-                    <div style='background-color: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 15px;'>
-                        <p style='margin: 0; color: #1976d2;'>
-                            <strong>Åtgärd:</strong> Kontrollera applikationens status och loggfiler omedelbar.
-                        </p>
-                    </div>
-                    
-                    <hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'>
-                    <p style='margin: 0; color: #999; font-size: 12px; text-align: center;'>
-                        Detta är ett automatiskt genererat meddelande från JK Utbildningsintyg. Svara inte på detta e-postmeddelande.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
+            content += (
+                "<p><strong>Felmeddelande:</strong></p>"
+                "<p style='margin-top:6px;background-color:#fef2f2;border-left:4px solid #ef4444;"
+                "padding:10px;border-radius:6px;white-space:pre-wrap;word-wrap:break-word;'>"
+                f"{safe_error}</p>"
+            )
+
+        content += (
+            "<p style='background-color:#eff6ff;border-left:4px solid #3b82f6;padding:10px;border-radius:6px;'>"
+            "<strong>Åtgärd:</strong> Kontrollera applikationens status och loggfiler omedelbart."
+            "</p>"
+        )
+
+        html_body = email_service.format_email_html(
+            f"Kritisk händelse: {title}",
+            content,
+            accent_color=color,
+        )
         
         # Send email asynchronously to avoid blocking
         thread = Thread(

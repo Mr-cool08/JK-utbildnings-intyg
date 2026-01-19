@@ -223,21 +223,81 @@ def send_email(
     )
 
 
-def send_creation_email(to_email: str, link: str) -> None:
-    """Send an account creation email containing ``link``."""
-
-    safe_link = escape(link, quote=True)
-    body = f"""
+def format_email_html(
+    title: str,
+    content_html: str,
+    accent_color: str = "#0f766e",
+    footer_text: str = (
+        "Detta är ett automatiskt meddelande från JK Utbildningsintyg. "
+        "Svara inte på detta e-postmeddelande."
+    ),
+) -> str:
+    """Wrap HTML content in a shared, styled email layout."""
+    safe_title = escape(title)
+    safe_footer = escape(footer_text)
+    return f"""
         <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Skapa ditt konto genom att besöka denna länk:</p>
-                <p><a href="{safe_link}">{safe_link}</a></p>
-                <p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>
+            <body style='margin:0;padding:0;background-color:#f4f7fb;'>
+                <table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='background-color:#f4f7fb;padding:24px 0;'>
+                    <tr>
+                        <td align='center'>
+                            <table role='presentation' cellpadding='0' cellspacing='0' width='600' style='width:600px;max-width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,0.08);'>
+                                <tr>
+                                    <td style='background-color:{accent_color};padding:24px 32px;'>
+                                        <h1 style='margin:0;font-family:Arial,sans-serif;font-size:22px;line-height:1.3;color:#ffffff;'>{safe_title}</h1>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style='padding:28px 32px;font-family:Arial,sans-serif;color:#1f2937;font-size:15px;line-height:1.6;'>
+                                        {content_html}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style='padding:20px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-align:center;'>
+                                        {safe_footer}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
             </body>
         </html>
     """
 
+
+def _render_action_button(url: str, label: str) -> str:
+    safe_url = escape(url, quote=True)
+    safe_label = escape(label)
+    return (
+        "<table role='presentation' cellspacing='0' cellpadding='0' style='margin:16px 0 8px;'>"
+        "<tr>"
+        "<td align='center' style='border-radius:6px;' bgcolor='#0f766e'>"
+        f"<a href='{safe_url}' "
+        "style='display:inline-block;padding:12px 20px;font-family:Arial,sans-serif;"
+        "font-size:15px;color:#ffffff;text-decoration:none;font-weight:bold;'>"
+        f"{safe_label}</a>"
+        "</td>"
+        "</tr>"
+        "</table>"
+    )
+
+
+def send_creation_email(to_email: str, link: str) -> None:
+    """Send an account creation email containing ``link``."""
+
+    safe_link = escape(link, quote=True)
+    content = (
+        "<p>Hej,</p>"
+        "<p>Vi har tagit emot en begäran om att skapa ett konto. "
+        "Klicka på knappen nedan för att komma igång.</p>"
+        f"{_render_action_button(link, 'Skapa konto')}"
+        "<p>Om knappen inte fungerar kan du kopiera länken:</p>"
+        f"<p><a href='{safe_link}'>{safe_link}</a></p>"
+        "<p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>"
+    )
+
+    body = format_email_html("Skapa ditt konto", content)
     send_email(to_email, "Skapa ditt konto", body)
 
 
@@ -245,17 +305,17 @@ def send_password_reset_email(to_email: str, link: str) -> None:
     """Send a password reset email containing ``link``."""
 
     safe_link = escape(link, quote=True)
-    body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Du har begärt att återställa ditt lösenord. Använd länken nedan för att välja ett nytt lösenord:</p>
-                <p><a href="{safe_link}">{safe_link}</a></p>
-                <p>Länken är giltig i 48 timmar. Om du inte begärde detta kan du ignorera meddelandet.</p>
-            </body>
-        </html>
-    """
+    content = (
+        "<p>Hej,</p>"
+        "<p>Du har begärt att återställa ditt lösenord. "
+        "Använd knappen nedan för att välja ett nytt lösenord.</p>"
+        f"{_render_action_button(link, 'Återställ lösenord')}"
+        "<p>Om knappen inte fungerar kan du kopiera länken:</p>"
+        f"<p><a href='{safe_link}'>{safe_link}</a></p>"
+        "<p>Länken är giltig i 48 timmar. Om du inte begärde detta kan du ignorera meddelandet.</p>"
+    )
 
+    body = format_email_html("Återställ ditt lösenord", content, accent_color="#2563eb")
     send_email(to_email, "Återställ ditt lösenord", body)
 
 
@@ -289,15 +349,11 @@ def send_pdf_share_email(
             sharing_line = (
                 f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via JK Utbildningsintyg.</p>"
             )
-        body_html = (
-            "<html>"
-            "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
+        content = (
             "<p>Hej,</p>"
             + sharing_line
             + f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>.</p>"
             "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
-            "</body>"
-            "</html>"
         )
     else:
         item_list = "".join(
@@ -311,18 +367,15 @@ def send_pdf_share_email(
             sharing_line = (
                 f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via JK Utbildningsintyg.</p>"
             )
-        body_html = (
-            "<html>"
-            "<body style='font-family: Arial, sans-serif; line-height: 1.5;'>"
+        content = (
             "<p>Hej,</p>"
             + sharing_line
             + "<p>Intygen hittar du i följande bilagor:</p>"
             f"<ul>{item_list}</ul>"
             "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
-            "</body>"
-            "</html>"
         )
 
+    body_html = format_email_html(subject, content, accent_color="#0ea5e9")
     send_email(recipient_email, subject, body_html, attachments=attachments)
 
 
@@ -342,34 +395,28 @@ def send_application_approval_email(
             safe_company_html = "företaget"
         account_label = "ett företagskonto"
         subject = f"Ansökan godkänd för {company_text}"
-        body = f"""
-            <html>
-                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                    <p>Hej,</p>
-                    <p>Din ansökan om {account_label} kopplat till {safe_company_html} har blivit godkänd.</p>
-                    <p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. Du får separat information om hur du loggar in.</p>
-                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
-                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
-                </body>
-            </html>
-        """
+        content = (
+            "<p>Hej,</p>"
+            f"<p>Din ansökan om {account_label} kopplat till {safe_company_html} har blivit godkänd.</p>"
+            "<p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. "
+            "Du får separat information om hur du loggar in.</p>"
+            "<p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>"
+            "<p>Vänliga hälsningar<br>JK Utbildningsintyg</p>"
+        )
     else:
         account_label = "ett standardkonto"
         company_phrase = f" kopplat till {safe_company_html}" if company_text else ""
         subject = (
             f"Ansökan om standardkonto godkänd{f' för {company_text}' if company_text else ''}"
         )
-        body = f"""
-            <html>
-                <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                    <p>Hej,</p>
-                    <p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>
-                    <p>Kontot har skapats och du får separat information om hur du loggar in.</p>
-                    <p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>
-                    <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
-                </body>
-            </html>
-        """
+        content = (
+            "<p>Hej,</p>"
+            f"<p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>"
+            "<p>Kontot har skapats och du får separat information om hur du loggar in.</p>"
+            "<p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>"
+            "<p>Vänliga hälsningar<br>JK Utbildningsintyg</p>"
+        )
+    body = format_email_html("Din ansökan är godkänd", content, accent_color="#16a34a")
     send_email(to_email, subject, body)
 
 
@@ -383,17 +430,16 @@ def send_application_rejection_email(
         safe_company = "företaget"
     safe_reason = escape(reason)
     subject = f"Ansökan avslogs för {safe_company}"
-    body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5;'>
-                <p>Hej,</p>
-                <p>Vi har tyvärr inte kunnat godkänna din ansökan om konto kopplat till {safe_company}.</p>
-                <p>Motivering: {safe_reason}</p>
-                <p>Har du frågor är du välkommen att kontakta oss på support@jarnvagskonsulterna.se.</p>
-                <p>Vänliga hälsningar<br>JK Utbildningsintyg</p>
-            </body>
-        </html>
-    """
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Vi har tyvärr inte kunnat godkänna din ansökan om konto kopplat till {safe_company}.</p>"
+        "<p><strong>Motivering:</strong></p>"
+        f"<p style='background-color:#fef2f2;border-left:4px solid #ef4444;padding:12px 14px;border-radius:6px;margin-top:6px;'>"
+        f"{safe_reason}</p>"
+        "<p>Har du frågor är du välkommen att kontakta oss på support@jarnvagskonsulterna.se.</p>"
+        "<p>Vänliga hälsningar<br>JK Utbildningsintyg</p>"
+    )
+    body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ef4444")
     send_email(to_email, subject, body)
 
 
@@ -434,22 +480,22 @@ def send_critical_event_alert(event_type: str, details: str = "") -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     hostname = os.getenv("HOSTNAME", "okänd")
     
-    body = f"""
-        <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.5; color: #333;'>
-                <h2 style='color: #d9534f;'>Kritisk systemhändelse</h2>
-                <p><strong>Händelse:</strong> {event_label}</p>
-                <p><strong>Tid:</strong> {timestamp}</p>
-                <p><strong>Server:</strong> {escape(hostname)}</p>
-                <p><strong>Detaljer:</strong></p>
-                <pre style='background-color: #f5f5f5; padding: 10px; border-radius: 4px;'>{safe_details}</pre>
-                <hr>
-                <p style='font-size: 12px; color: #666;'>
-                    Detta är ett automatiskt meddelande från JK Utbildningsintyg systemövervakning.
-                </p>
-            </body>
-        </html>
-    """
+    content = (
+        "<p>En kritisk systemhändelse har inträffat.</p>"
+        f"<p><strong>Händelse:</strong> {event_label}</p>"
+        f"<p><strong>Tid:</strong> {timestamp}</p>"
+        f"<p><strong>Server:</strong> {escape(hostname)}</p>"
+        "<p><strong>Detaljer:</strong></p>"
+        f"<pre style='background-color:#f1f5f9;padding:12px;border-radius:6px;white-space:pre-wrap;'>"
+        f"{safe_details}</pre>"
+        "<p>Kontrollera loggar och driftstatus så snart som möjligt.</p>"
+    )
+    body = format_email_html(
+        "Kritisk systemhändelse",
+        content,
+        accent_color="#dc2626",
+        footer_text="Detta är ett automatiskt meddelande från JK Utbildningsintygs systemövervakning.",
+    )
     
     # Send to all configured email addresses
     for email_address in alert_emails:
