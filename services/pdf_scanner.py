@@ -62,7 +62,7 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
 
     try:
         result = subprocess.run(
-            ["quicksand", "-j", "-r", tmp_path],
+            ["quicksand", "-f", "json", tmp_path],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
