@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from sqlalchemy import delete, insert, select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from functions.database import (
     APP_ROOT,
@@ -266,23 +267,27 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
             return False
 
         reset_engine()
+    except SQLAlchemyError as exc:
+        logger.warning("Demodatabasen kunde inte återställas: %s", exc)
+        return False
 
-        try:
-            Path(database).unlink(missing_ok=True)
-        except OSError:
-            logger.exception("Demodatabasen kunde inte tas bort")
-            return False
+    try:
+        Path(database).unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Demodatabasen kunde inte tas bort")
+        return False
 
+    try:
         from functions.database import create_database
 
         create_database()
         ensure_demo_data(**demo_defaults)
-
-        logger.info("Demodatabasen har rensats och återställts till standarddata")
-        return True
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         logger.warning("Demodatabasen kunde inte återställas: %s", exc)
         return False
+
+    logger.info("Demodatabasen har rensats och återställts till standarddata")
+    return True
 
 
 DEMO_PDF_DEFINITIONS = [
