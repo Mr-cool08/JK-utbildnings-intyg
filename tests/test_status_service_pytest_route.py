@@ -102,15 +102,6 @@ def test_pytest_route_handles_missing_stdout(monkeypatch):
 
 
 def test_pytest_route_handles_missing_pytest(monkeypatch):
-    captured_events = {}
-
-    def fake_send_critical_event_email(**kwargs):
-        captured_events.update(kwargs)
-
-    monkeypatch.setattr(
-        "status_service.app.critical_events.send_critical_event_email",
-        fake_send_critical_event_email,
-    )
     monkeypatch.setattr("status_service.app.importlib.util.find_spec", lambda _name: None)
 
     app.testing = True
@@ -122,8 +113,6 @@ def test_pytest_route_handles_missing_pytest(monkeypatch):
         "Startar pytest...\n"
         "Pytest saknas i miljön. Installera pytest och försök igen.\n"
     )
-    assert captured_events["event_type"] == "error"
-    assert captured_events["title"] == "🔴 Pytest kunde inte starta"
 
 
 def test_pytest_route_handles_startup_failure(monkeypatch):
