@@ -81,7 +81,7 @@
     <footer class="site-footer">
         <div class="footer-inner">
             {% block footer %}
-            <div class="footer-grid">
+            <div class="footer-top">
                 <div class="footer-brand">
                     <div class="footer-logo">
                         <img src="{{ url_for('static', filename='pictures/favicon_smaller.png') }}" alt="JK Utbildnings logotyp">
@@ -90,36 +90,44 @@
                     <p class="footer-description">
                         Samla, dela och hantera utbildningsintyg på ett tryggt sätt för både företag och privatpersoner.
                     </p>
+                    <div class="footer-contact">
+                        <span class="footer-label">Kontakt</span>
+                        <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a>
+                        <span>Öppettider: vardagar 08–17</span>
+                    </div>
                 </div>
-                <div class="footer-links">
-                    <h2 class="footer-heading">Snabblänkar</h2>
-                    <ul>
-                        <li><a href="/">Hem</a></li>
-                        <li><a href="{{ url_for('apply_account') }}">Ansök om konto</a></li>
-                        <li><a href="{{ url_for('supervisor_login') }}">Företagsportal</a></li>
-                        <li><a href="/login">Privatinloggning</a></li>
-                        <li><a href="/pris">Pris</a></li>
-                    </ul>
-                </div>
-                <div class="footer-links">
-                    <h2 class="footer-heading">Support</h2>
-                    <ul>
-                        <li><a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a></li>
-                        <li><a href="/dashboard">Mina intyg</a></li>
-                        <li><a href="/foretagskonto">Företagskonto</a></li>
-                    </ul>
-                </div>
-                <div class="footer-links">
-                    <h2 class="footer-heading">Rättsligt</h2>
-                    <ul>
-                        <li><a href="/villkor">Användarvillkor</a></li>
-                        <li><a href="/gdpr">Integritetspolicy</a></li>
-                    </ul>
+                <div class="footer-columns">
+                    <div class="footer-links">
+                        <h2 class="footer-heading">Snabblänkar</h2>
+                        <ul>
+                            <li><a href="/">Hem</a></li>
+                            <li><a href="{{ url_for('apply_account') }}">Ansök om konto</a></li>
+                            <li><a href="{{ url_for('supervisor_login') }}">Företagsportal</a></li>
+                            <li><a href="/login">Privatinloggning</a></li>
+                            <li><a href="/pris">Pris</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-links">
+                        <h2 class="footer-heading">Support</h2>
+                        <ul>
+                            <li><a href="/dashboard">Mina intyg</a></li>
+                            <li><a href="/foretagskonto">Företagskonto</a></li>
+                            <li><a href="/status">Driftstatus</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-links">
+                        <h2 class="footer-heading">Rättsligt</h2>
+                        <ul>
+                            <li><a href="/villkor">Användarvillkor</a></li>
+                            <li><a href="/gdpr">Integritetspolicy</a></li>
+                            <li><a href="/cookies">Cookiepolicy</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>Utbildningsintyg © 2025</span>
-                <span>Byggt för säker och enkel hantering av intyg.</span>
+                <span>© 2025 Utbildningsintyg</span>
+                <span>Trygg hantering av intyg enligt GDPR.</span>
             </div>
             {% endblock %}
         </div>
