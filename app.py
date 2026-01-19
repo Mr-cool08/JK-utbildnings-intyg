@@ -1566,8 +1566,29 @@ def admin_applications():  # pragma: no cover
             return jsonify({'status': 'error', 'message': 'Ogiltig status för ansökan.'}), 400
     elif request.method == 'GET':
         applications_requests = functions.list_application_requests()
-        for id, account_type, name, email, orgnr_normalized, company_name, invoice_address, invoice_contact, invoice_reference, comment, status, reviewed_by, decision_reason, created_at, updated_at, reviewed_at in applications_requests:
-            logger.debug(f"ID: {id}, Typ: {account_type}, Namn: {name}, E-post: {email}, OrgNr: {orgnr_normalized}, Företagsnamn: {company_name}, Fakturaadress: {invoice_address}, Fakturakontakt: {invoice_contact}, Fakturareferens: {invoice_reference}, Kommentar: {comment}, Status: {status}, Granskad av: {reviewed_by}, Beslutsorsak: {decision_reason}, Skapad: {created_at}, Uppdaterad: {updated_at}, Granskad: {reviewed_at}")
+        for application in applications_requests:
+            logger.debug(
+                "ID: %s, Typ: %s, Namn: %s, E-post: %s, OrgNr: %s, "
+                "Företagsnamn: %s, Fakturaadress: %s, Fakturakontakt: %s, "
+                "Fakturareferens: %s, Kommentar: %s, Status: %s, Granskad av: %s, "
+                "Beslutsorsak: %s, Skapad: %s, Uppdaterad: %s, Granskad: %s",
+                application.get("id"),
+                application.get("account_type"),
+                application.get("name"),
+                application.get("email"),
+                application.get("orgnr_normalized"),
+                application.get("company_name"),
+                application.get("invoice_address"),
+                application.get("invoice_contact"),
+                application.get("invoice_reference"),
+                application.get("comment"),
+                application.get("status"),
+                application.get("reviewed_by"),
+                application.get("decision_reason"),
+                application.get("created_at"),
+                application.get("updated_at"),
+                application.get("reviewed_at"),
+            )
         csrf_token = sec.ensure_csrf_token()
         return render_template('admin_applications.html', applications=applications_requests, csrf_token=csrf_token)
     else:
