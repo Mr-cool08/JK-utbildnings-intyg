@@ -205,6 +205,7 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
             pass
 
         def send_message(self, msg, from_addr=None, to_addrs=None):
+            _ = (from_addr, to_addrs)
             return {msg["To"]: (550, b"Mailbox unavailable")}
 
         def __enter__(self):
