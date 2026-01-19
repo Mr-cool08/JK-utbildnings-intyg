@@ -87,7 +87,7 @@ def test_supervisor_create_branches(monkeypatch, client):
         "/foretagskonto/skapa/testhash",
         data={"password": "a", "confirm": "a"},
     )
-    assert "fel" in resp_error.text
+    assert "kunde inte aktiveras" in resp_error.text
 
     # Inget väntande konto hittas.
     monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda *_: False)
@@ -270,4 +270,3 @@ def test_dashboard_actions_csrf_failures(monkeypatch, client):
     resp_delete = client.post("/dashboard/intyg/2/ta-bort")
 
     assert all(r.status_code == 302 for r in (resp_accept, resp_reject, resp_remove, resp_delete))
-

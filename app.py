@@ -69,6 +69,37 @@ logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
 
+ALLOWED_PDF_UPLOAD_ERRORS = {
+    "Ingen fil vald.",
+    "Endast PDF, PNG eller JPG tillåts.",
+    "Filen verkar inte vara en giltig PDF.",
+    "Exakt en kurskategori måste väljas.",
+    "Bilden kunde inte konverteras till PDF.",
+    "PDF:en blockerades av säkerhetsskannern.",
+}
+ALLOWED_SUPERVISOR_ACTIVATION_ERRORS = {
+    "Lösenordet måste vara minst 8 tecken.",
+}
+ALLOWED_ADMIN_APPROVAL_ERRORS = {
+    "Ansökan hittades inte.",
+    "Ansökan är redan hanterad.",
+    "Ansökan saknar personnummer och kan inte godkännas.",
+    "E-postadressen är redan registrerad.",
+    "Företagsnamn saknas för detta organisationsnummer.",
+}
+ALLOWED_ADMIN_REJECTION_ERRORS = {
+    "Ansökan hittades inte.",
+    "Ansökan är redan hanterad.",
+}
+
+
+def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
+    # Returnera bara godkända felmeddelanden till användaren.
+    cleaned = (message or "").strip()
+    if cleaned in allowed:
+        return cleaned
+    return fallback
+
 
 
 
@@ -481,7 +512,14 @@ def supervisor_create(email_hash: str):
         except ValueError as exc:
             return render_template(
                 'create_supervisor.html',
-                error=str(exc),
+                error=_safe_user_error(
+                    str(exc),
+                    ALLOWED_SUPERVISOR_ACTIVATION_ERRORS,
+                    (
+                        "Kontot kunde inte aktiveras. Kontrollera att länken är giltig "
+                        "och att lösenordet uppfyller kraven."
+                    ),
+                ),
                 invalid=False,
             )
         logger.info("Supervisor account activated for %s", email_hash)
@@ -1175,7 +1213,14 @@ def user_upload_pdf_route():
     try:
         pdf.save_pdf_for_user(personnummer, uploaded_file, [category], logger)
     except ValueError as exc:
-        flash(str(exc), 'error')
+        flash(
+            _safe_user_error(
+                str(exc),
+                ALLOWED_PDF_UPLOAD_ERRORS,
+                "Filen kunde inte laddas upp. Kontrollera filformatet och försök igen.",
+            ),
+            'error',
+        )
         return redirect('/dashboard')
     except Exception:
         logger.exception("Kunde inte spara intyg för användare")
@@ -1690,7 +1735,19 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         # }
         result = functions.approve_application_request(application_id, admin_name)
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 400
+        return jsonify(
+            {
+                'status': 'error',
+                'message': _safe_user_error(
+                    str(exc),
+                    ALLOWED_ADMIN_APPROVAL_ERRORS,
+                    (
+                        "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
+                        "är väntande och att uppgifterna är kompletta."
+                    ),
+                ),
+            }
+        ), 400
     except Exception:
         logger.exception("Misslyckades att godkänna ansökan %s", application_id)
         return jsonify({'status': 'error', 'message': 'Kunde inte godkänna ansökan.'}), 500
@@ -1762,7 +1819,19 @@ def admin_reject_application(application_id: int):  # pragma: no cover
             application_id, admin_name, decision_reason
         )
     except ValueError as exc:
-        return jsonify({'status': 'error', 'message': str(exc)}), 400
+        return jsonify(
+            {
+                'status': 'error',
+                'message': _safe_user_error(
+                    str(exc),
+                    ALLOWED_ADMIN_REJECTION_ERRORS,
+                    (
+                        "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
+                        "är väntande och försök igen."
+                    ),
+                ),
+            }
+        ), 400
     except Exception:
         logger.exception("Misslyckades att avslå ansökan %s", application_id)
         return jsonify({'status': 'error', 'message': 'Kunde inte avslå ansökan.'}), 500
