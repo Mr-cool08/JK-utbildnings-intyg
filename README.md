@@ -76,6 +76,7 @@ Miljövariabler för finjustering:
 * `smtp_port` – SMTP-port (standard `587`).
 * `smtp_user` – SMTP-användarnamn för inloggning och avsändaradress.
 * `smtp_password` – SMTP-lösenord.
+* `smtp_from` – valfri avsändaradress om `smtp_user` inte är en fullständig e-postadress.
 * `smtp_timeout` – timeout i sekunder för SMTP-anslutningen (standard `10`).
 
 ## Dokumentation och struktur

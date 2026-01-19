@@ -126,6 +126,51 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     assert link in msg.get_content()
 
 
+def test_send_creation_email_uses_configured_from_address(monkeypatch):
+    """Om smtp_from anges ska meddelandet använda den adressen som avsändare."""
+    from dotenv import dotenv_values
+
+    env_values = dotenv_values(".example.env")
+    for key in ("smtp_server", "smtp_port", "smtp_user", "smtp_password", "smtp_timeout"):
+        monkeypatch.setenv(key, env_values[key])
+    monkeypatch.setenv("smtp_from", "no-reply@example.com")
+
+    sent = {}
+
+    class DummySMTP:
+        def __init__(self, server, port, timeout=30):
+            sent["server"] = server
+            sent["port"] = port
+            sent["timeout"] = timeout
+
+        def ehlo(self):
+            pass
+
+        def starttls(self, context=None):
+            pass
+
+        def login(self, user, password):
+            sent["login"] = (user, password)
+
+        def send_message(self, msg):
+            sent["message"] = msg
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(email_service, "SMTP", DummySMTP)
+
+    email_service.send_creation_email(
+        "liamsuorsa08@gmail.com", "https://example.com/create"
+    )
+
+    msg = sent["message"]
+    assert msg["From"] == "no-reply@example.com"
+
+
 def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
     """Ett avvisat mottagarsvar från SMTP ska ge ett fel."""
     from dotenv import dotenv_values

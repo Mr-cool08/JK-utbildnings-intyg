@@ -38,6 +38,7 @@ class SMTPSettings:
     user: str
     password: str
     timeout: int
+    from_address: str
 
 
 def load_smtp_settings() -> SMTPSettings:
@@ -48,6 +49,7 @@ def load_smtp_settings() -> SMTPSettings:
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
     smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+    smtp_from = os.getenv("smtp_from") or smtp_user
 
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
@@ -58,6 +60,7 @@ def load_smtp_settings() -> SMTPSettings:
         user=smtp_user,
         password=smtp_password,
         timeout=smtp_timeout,
+        from_address=smtp_from,
     )
 
 
@@ -179,15 +182,16 @@ def send_email(
     )
     settings = load_smtp_settings()
     logger.debug(
-        "SMTP-inställningar laddade: server=%s port=%s användare=%s",
+        "SMTP-inställningar laddade: server=%s port=%s användare=%s avsändare=%s",
         settings.server,
         settings.port,
         mask_hash(functions.hash_value(settings.user)),
+        mask_hash(functions.hash_value(settings.from_address)),
     )
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = subject
-    msg["From"] = settings.user
+    msg["From"] = settings.from_address
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
