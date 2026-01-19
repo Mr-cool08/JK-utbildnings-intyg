@@ -34,9 +34,11 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
         def login(self, user, password):
             sent["login"] = (user, password)
 
-        def send_message(self, msg):
+        def send_message(self, msg, from_addr=None, to_addrs=None):
             # Spara hela EmailMessage för assertioner
             sent["message"] = msg
+            sent["from_addr"] = from_addr
+            sent["to_addrs"] = to_addrs
 
         def __enter__(self):
             return self
@@ -67,6 +69,8 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
     assert msg["From"] == env_values["smtp_user"]
     assert msg["To"] == "liamsuorsa08@gmail.com"
     assert msg["Subject"] == "Skapa ditt konto"
+    assert sent["from_addr"] == env_values["smtp_user"]
+    assert sent["to_addrs"] == ["liamsuorsa08@gmail.com"]
     # Innehållet ska innehålla länken
     assert link in msg.get_content()
 
@@ -95,8 +99,10 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
         def login(self, user, password):
             sent["login"] = (user, password)
 
-        def send_message(self, msg):
+        def send_message(self, msg, from_addr=None, to_addrs=None):
             sent["message"] = msg
+            sent["from_addr"] = from_addr
+            sent["to_addrs"] = to_addrs
 
         def __enter__(self):
             return self
@@ -124,6 +130,8 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     assert msg["To"] == "liamsuorsa08@gmail.com"
     assert msg["Subject"] == "Skapa ditt konto"
     assert link in msg.get_content()
+    assert sent["from_addr"] == env_values["smtp_user"]
+    assert sent["to_addrs"] == ["liamsuorsa08@gmail.com"]
 
 
 def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
@@ -147,7 +155,7 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
         def login(self, user, password):
             pass
 
-        def send_message(self, msg):
+        def send_message(self, msg, from_addr=None, to_addrs=None):
             return {msg["To"]: (550, b"Mailbox unavailable")}
 
         def __enter__(self):

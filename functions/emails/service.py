@@ -48,7 +48,6 @@ def load_smtp_settings() -> SMTPSettings:
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
     smtp_timeout = int(os.getenv("smtp_timeout", "10"))
-
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
 
@@ -130,7 +129,11 @@ def send_email_message(
             logger.debug("SMTP inloggning lyckades för %s", settings.user)
 
             if hasattr(smtp, "send_message"):
-                refused = smtp.send_message(msg)
+                refused = smtp.send_message(
+                    msg,
+                    from_addr=settings.user,
+                    to_addrs=[normalized_recipient],
+                )
             else:
                 refused = smtp.sendmail(
                     settings.user, [normalized_recipient], msg.as_string()
