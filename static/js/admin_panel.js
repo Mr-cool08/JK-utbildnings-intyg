@@ -5,6 +5,8 @@
   const pdfResults = document.getElementById('pdfResults');
   const pdfResultBody = document.getElementById('pdfResultBody');
   const resetForm = document.getElementById('resetForm');
+  const resetAccountType = document.getElementById('resetAccountType');
+  const resetPersonnummerRow = document.getElementById('resetPersonnummerRow');
   const resetMessage = document.getElementById('resetMessage');
   const createSupervisorForm = document.getElementById('createSupervisorForm');
   const createSupervisorMessage = document.getElementById('createSupervisorMessage');
@@ -15,12 +17,34 @@
   const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
   const supervisorOverviewBody = document.getElementById('supervisorOverviewBody');
   const supervisorOverviewTitle = document.getElementById('supervisorOverviewTitle');
+  const verifyCertificateForm = document.getElementById('verifyCertificateForm');
+  const verifyCertificateMessage = document.getElementById('verifyCertificateMessage');
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
     element.textContent = text || '';
     element.classList.toggle('error', Boolean(isError));
     element.style.display = text ? '' : 'none';
+  }
+
+  function setMessageWithLink(element, text, link) {
+    if (!element) return;
+    element.textContent = '';
+    element.classList.remove('error');
+    if (text) {
+      element.appendChild(document.createTextNode(text));
+    }
+    if (link) {
+      const spacer = document.createTextNode(' ');
+      element.appendChild(spacer);
+      const anchor = document.createElement('a');
+      anchor.href = link;
+      anchor.textContent = 'Öppna återställningslänken';
+      anchor.target = '_blank';
+      anchor.rel = 'noopener';
+      element.appendChild(anchor);
+    }
+    element.style.display = text || link ? '' : 'none';
   }
 
   function normalizeCategories(list) {
@@ -211,23 +235,43 @@
   }
 
   if (resetForm) {
+    const resetPersonnummerInput = document.getElementById('resetPersonnummer');
+    const resetEmailInput = document.getElementById('resetEmail');
+
+    const updateResetFields = () => {
+      if (!resetAccountType || !resetPersonnummerRow || !resetPersonnummerInput || !resetEmailInput) {
+        return;
+      }
+      const type = resetAccountType.value;
+      const isForetagskonto = type === 'foretagskonto';
+      resetPersonnummerRow.hidden = isForetagskonto;
+      resetPersonnummerInput.required = !isForetagskonto;
+      resetEmailInput.placeholder = isForetagskonto ? 'foretagskonto@example.com' : 'user@example.com';
+    };
+
+    if (resetAccountType) {
+      resetAccountType.addEventListener('change', updateResetFields);
+    }
+    updateResetFields();
+
     resetForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!resetMessage) return;
       setMessageElement(resetMessage, 'Skickar återställningslänk…', false);
-      const personnummer = document.getElementById('resetPersonnummer').value.trim();
-      const email = document.getElementById('resetEmail').value.trim();
+      const personnummer = resetPersonnummerInput ? resetPersonnummerInput.value.trim() : '';
+      const email = resetEmailInput ? resetEmailInput.value.trim() : '';
+      const accountType = resetAccountType ? resetAccountType.value : 'standard';
       try {
         const res = await fetch('/admin/api/skicka-aterstallning', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personnummer, email })
+          body: JSON.stringify({ personnummer, email, account_type: accountType })
         });
         const data = await res.json();
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte skicka återställning.');
         }
-        setMessageElement(resetMessage, 'Återställningsmejl skickat.', false);
+        setMessageWithLink(resetMessage, data.message || 'Återställningsmejl skickat.', data.link);
       } catch (err) {
         setMessageElement(resetMessage, err.message, true);
       }
@@ -362,6 +406,35 @@
       } catch (err) {
         supervisorOverviewCard.hidden = true;
         setMessageElement(supervisorOverviewMessage, err.message, true);
+      }
+    });
+  }
+
+  if (verifyCertificateForm) {
+    setMessageElement(verifyCertificateMessage, '', false);
+    verifyCertificateForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!verifyCertificateMessage) return;
+      const personnummerInput = document.getElementById('verifyPersonnummer');
+      const personnummer = personnummerInput ? personnummerInput.value.trim() : '';
+      if (!personnummer) {
+        setMessageElement(verifyCertificateMessage, 'Ange personnummer.', true);
+        return;
+      }
+      setMessageElement(verifyCertificateMessage, 'Verifierar…', false);
+      try {
+        const res = await fetch(`/verify_certificate/${encodeURIComponent(personnummer)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte verifiera certifikat.');
+        }
+        if (data.verified) {
+          setMessageElement(verifyCertificateMessage, 'Standardkontots certifikat är verifierat.', false);
+        } else {
+          setMessageElement(verifyCertificateMessage, 'Standardkontots certifikat är inte verifierat.', true);
+        }
+      } catch (err) {
+        setMessageElement(verifyCertificateMessage, err.message, true);
       }
     });
   }
