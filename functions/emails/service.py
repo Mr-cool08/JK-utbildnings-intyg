@@ -38,6 +38,7 @@ class SMTPSettings:
     user: str
     password: str
     timeout: int
+    from_address: str
 
 
 def load_smtp_settings() -> SMTPSettings:
@@ -48,9 +49,17 @@ def load_smtp_settings() -> SMTPSettings:
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
     smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+    smtp_from = os.getenv("smtp_from") or smtp_user
 
     if not (smtp_server and smtp_user and smtp_password):
         raise RuntimeError("Saknar env: smtp_server, smtp_user eller smtp_password")
+
+    try:
+        normalized_from = normalize_valid_email(smtp_from)
+    except ValueError as exc:
+        raise RuntimeError(
+            "Ogiltig avsändaradress. Ange en giltig smtp_from."
+        ) from exc
 
     return SMTPSettings(
         server=smtp_server,
@@ -58,6 +67,7 @@ def load_smtp_settings() -> SMTPSettings:
         user=smtp_user,
         password=smtp_password,
         timeout=smtp_timeout,
+        from_address=normalized_from,
     )
 
 
@@ -130,10 +140,14 @@ def send_email_message(
             logger.debug("SMTP inloggning lyckades för %s", settings.user)
 
             if hasattr(smtp, "send_message"):
-                refused = smtp.send_message(msg)
+                refused = smtp.send_message(
+                    msg,
+                    from_addr=settings.from_address,
+                    to_addrs=[normalized_recipient],
+                )
             else:
                 refused = smtp.sendmail(
-                    settings.user, [normalized_recipient], msg.as_string()
+                    settings.from_address, [normalized_recipient], msg.as_string()
                 )
 
             logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
@@ -179,15 +193,16 @@ def send_email(
     )
     settings = load_smtp_settings()
     logger.debug(
-        "SMTP-inställningar laddade: server=%s port=%s användare=%s",
+        "SMTP-inställningar laddade: server=%s port=%s användare=%s avsändare=%s",
         settings.server,
         settings.port,
         mask_hash(functions.hash_value(settings.user)),
+        mask_hash(functions.hash_value(settings.from_address)),
     )
 
     msg = EmailMessage(policy=policy.SMTP.clone(max_line_length=1000))
     msg["Subject"] = subject
-    msg["From"] = settings.user
+    msg["From"] = settings.from_address
     msg["To"] = normalized_email
     msg["Message-ID"] = make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
