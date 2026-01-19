@@ -309,7 +309,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         normalized_email = normalize_email(application.email)
         existing_user = conn.execute(
             select(company_users_table.c.id).where(
-                company_users_table.c.email == normalized_email
+                company_users_table.c.email == normalized_email,
+                company_users_table.c.role == application.account_type,
             )
         ).first()
         if existing_user:
@@ -431,6 +432,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         "user_id": int(user_id),
         "orgnr": validated_orgnr,
         "email": normalized_email,
+        "supervisor_email": normalized_email if application.account_type == "foretagskonto" else None,
         "account_type": application.account_type,
         "name": application.name,
         "company_name": company_display,
