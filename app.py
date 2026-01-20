@@ -2083,9 +2083,14 @@ def admin_send_password_reset():  # pragma: no cover
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
         logger.warning("Misslyckades att skapa återställningstoken: %s", exc)
-        message = str(exc) or 'Uppgifterna matchar inget aktivt standardkonto.'
-        status_code = 409 if message == 'Kontot är inte aktiverat ännu.' else 404
-        return jsonify({'status': 'error', 'message': message}), status_code
+        exc_message = str(exc)
+        if exc_message == 'Kontot är inte aktiverat ännu.':
+            # This is an expected, non-technical message that we choose to expose.
+            return jsonify({'status': 'error', 'message': exc_message}), 409
+        # For all other value errors, do not expose the raw exception message.
+        return jsonify(
+            {'status': 'error', 'message': 'Uppgifterna matchar inget aktivt standardkonto.'}
+        ), 404
     except Exception as exc:
         logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
