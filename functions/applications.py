@@ -167,6 +167,53 @@ def create_application_request(
     stored_company = cleaned_company if cleaned_company else ""
 
     with get_engine().begin() as conn:
+        if normalized_type == "standard":
+            existing_user = conn.execute(
+                select(users_table.c.id).where(
+                    users_table.c.personnummer == personnummer_hash
+                )
+            ).first()
+            pending_user = conn.execute(
+                select(pending_users_table.c.id).where(
+                    pending_users_table.c.personnummer == personnummer_hash
+                )
+            ).first()
+            pending_application = conn.execute(
+                select(application_requests_table.c.id).where(
+                    application_requests_table.c.personnummer_hash == personnummer_hash,
+                    application_requests_table.c.account_type == "standard",
+                    application_requests_table.c.status == "pending",
+                )
+            ).first()
+            if existing_user or pending_user or pending_application:
+                raise ValueError(
+                    "Det finns redan ett standardkonto med detta personnummer."
+                )
+        if normalized_type == "foretagskonto" and validated_orgnr:
+            existing_company_user = conn.execute(
+                select(company_users_table.c.id)
+                .select_from(
+                    company_users_table.join(
+                        companies_table,
+                        company_users_table.c.company_id == companies_table.c.id,
+                    )
+                )
+                .where(
+                    companies_table.c.orgnr == validated_orgnr,
+                    company_users_table.c.role == "foretagskonto",
+                )
+            ).first()
+            pending_application = conn.execute(
+                select(application_requests_table.c.id).where(
+                    application_requests_table.c.orgnr_normalized == validated_orgnr,
+                    application_requests_table.c.account_type == "foretagskonto",
+                    application_requests_table.c.status == "pending",
+                )
+            ).first()
+            if existing_company_user or pending_application:
+                raise ValueError(
+                    "Det finns redan ett företagskonto för detta organisationsnummer."
+                )
         # Prevent duplicate pending applications for the same email + orgnr combination.
         pending_query = select(application_requests_table).where(
             application_requests_table.c.email == normalized_email,
@@ -306,6 +353,18 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             company_id = None
             company_display = (application.company_name or "").strip()
 
+        if application.account_type == "foretagskonto" and company_id is not None:
+            existing_foretagskonto = conn.execute(
+                select(company_users_table.c.id).where(
+                    company_users_table.c.company_id == company_id,
+                    company_users_table.c.role == "foretagskonto",
+                )
+            ).first()
+            if existing_foretagskonto:
+                raise ValueError(
+                    "Det finns redan ett företagskonto för detta organisationsnummer."
+                )
+
         normalized_email = normalize_email(application.email)
         existing_user = conn.execute(
             select(company_users_table.c.id).where(
@@ -339,13 +398,17 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     users_table.c.personnummer == stored_personnummer_hash
                 )
             ).first()
-            existing_email_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email == email_hash)
-            ).first()
             pending_user = conn.execute(
                 select(pending_users_table.c.id).where(
                     pending_users_table.c.personnummer == stored_personnummer_hash
                 )
+            ).first()
+            if existing_user or pending_user:
+                raise ValueError(
+                    "Det finns redan ett standardkonto med detta personnummer."
+                )
+            existing_email_user = conn.execute(
+                select(users_table.c.id).where(users_table.c.email == email_hash)
             ).first()
             pending_email = conn.execute(
                 select(pending_users_table.c.id).where(

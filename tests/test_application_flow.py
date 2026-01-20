@@ -198,6 +198,34 @@ def test_foretagskonto_and_standard_can_share_email(fresh_app_db):
         assert roles == {"foretagskonto", "standard"}
 
 
+def test_foretagskonto_application_rejects_duplicate_orgnr(fresh_app_db):
+    first_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Företagskonto Ett",
+        email="foretag1@example.com",
+        orgnr="5569668337",
+        company_name="Bolag Ett",
+        comment=None,
+        invoice_address="Adress 1",
+        invoice_contact="Kontakt 1",
+        invoice_reference="Ref 1",
+    )
+    functions.approve_application_request(first_id, "admin")
+
+    with pytest.raises(ValueError, match="Det finns redan ett företagskonto"):
+        functions.create_application_request(
+            account_type="foretagskonto",
+            name="Företagskonto Två",
+            email="foretag2@example.com",
+            orgnr="5569668337",
+            company_name="Bolag Två",
+            comment=None,
+            invoice_address="Adress 2",
+            invoice_contact="Kontakt 2",
+            invoice_reference="Ref 2",
+        )
+
+
 def test_missing_invoice_fields_for_foretagskonto_raises(fresh_app_db):
     with pytest.raises(ValueError):
         functions.create_application_request(
@@ -224,6 +252,29 @@ def test_standard_application_requires_personnummer():
             company_name="",
             comment=None,
             personnummer="",
+        )
+
+
+def test_standard_application_rejects_duplicate_personnummer(fresh_app_db):
+    functions.create_application_request(
+        account_type="standard",
+        name="Första",
+        email="first@example.com",
+        orgnr="",
+        company_name="",
+        comment=None,
+        personnummer="9001011234",
+    )
+
+    with pytest.raises(ValueError, match="Det finns redan ett standardkonto"):
+        functions.create_application_request(
+            account_type="standard",
+            name="Andra",
+            email="second@example.com",
+            orgnr="",
+            company_name="",
+            comment=None,
+            personnummer="9001011234",
         )
 
 
