@@ -318,7 +318,7 @@
       if (!linkSupervisorMessage) return;
       const formData = new FormData(linkSupervisorForm);
       const payload = {
-        email: formData.get('email')?.toString().trim(),
+        orgnr: formData.get('orgnr')?.toString().trim(),
         personnummer: formData.get('personnummer')?.toString().trim(),
       };
       setMessageElement(linkSupervisorMessage, 'Skapar koppling…', false);
@@ -387,15 +387,15 @@
     supervisorOverviewForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!supervisorOverviewMessage) return;
-      const emailInput = document.getElementById('overviewSupervisorEmail');
-      const email = emailInput ? emailInput.value.trim() : '';
+      const orgnrInput = document.getElementById('overviewSupervisorOrgnr');
+      const orgnr = orgnrInput ? orgnrInput.value.trim() : '';
       setMessageElement(supervisorOverviewMessage, 'Hämtar kopplingar…', false);
       supervisorOverviewCard.hidden = true;
       try {
         const res = await fetch('/admin/api/foretagskonto/oversikt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ orgnr }),
         });
         const data = await res.json();
         if (!res.ok) {

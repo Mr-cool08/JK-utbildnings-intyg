@@ -131,7 +131,11 @@ def create_application_request(
             ) from exc
         personnummer_hash = hash_value(normalized_personnummer)
     raw_orgnr = (orgnr or "").strip()
-    if normalized_type == "standard" and raw_orgnr == "":
+    if normalized_type == "standard":
+        if raw_orgnr:
+            raise ValueError(
+                "Standardkonton kan inte kopplas till organisationsnummer i ansökan."
+            )
         validated_orgnr = ""
     else:
         validated_orgnr = validate_orgnr(raw_orgnr)

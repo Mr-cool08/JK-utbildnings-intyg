@@ -243,15 +243,17 @@ def ensure_demo_data(
                         normalized_orgnr,
                     )
 
-    linked, reason = admin_link_supervisor_to_user(
-        normalized_supervisor_email, normalized_pnr
-    )
-    if linked:
-        logger.info("Demodata: kopplade företagskonto och demoanvändare")
-    elif reason != "exists":
-        logger.warning(
-            "Demodata: kunde inte koppla företagskonto och demoanvändare (%s)", reason
+    if normalized_orgnr:
+        linked, reason, _ = admin_link_supervisor_to_user(
+            normalized_orgnr, normalized_pnr
         )
+        if linked:
+            logger.info("Demodata: kopplade företagskonto och demoanvändare")
+        elif reason != "exists":
+            logger.warning(
+                "Demodata: kunde inte koppla företagskonto och demoanvändare (%s)",
+                reason,
+            )
 
     _ensure_demo_pdfs(pnr_hash)
 

@@ -114,7 +114,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         account_type="standard",
         name="Första Användaren",
         email="first@example.com",
-        orgnr="5569668337",
+        orgnr="",
         company_name="",
         comment=None,
         invoice_address=None,
@@ -130,8 +130,8 @@ def test_approval_reuses_existing_company(fresh_app_db):
 
     assert foretagskonto_result["company_created"] is True
     assert user_result["company_created"] is False
-    assert foretagskonto_result["company_id"] == user_result["company_id"]
-    assert user_result["company_name"] == "Bolaget AB"
+    assert user_result["company_id"] is None
+    assert user_result["company_name"] == ""
     assert foretagskonto_result["pending_supervisor_created"] is True
     assert foretagskonto_result["supervisor_activation_required"] is True
     assert user_result["pending_supervisor_created"] is False
@@ -170,8 +170,8 @@ def test_foretagskonto_and_standard_can_share_email(fresh_app_db):
         account_type="standard",
         name="Standardkonto",
         email="shared@example.com",
-        orgnr="5569668337",
-        company_name="Delat Bolag",
+        orgnr="",
+        company_name="",
         comment=None,
         invoice_address=None,
         invoice_contact=None,
@@ -294,7 +294,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
         account_type="standard",
         name="Användare 1",
         email="user1@example.com",
-        orgnr="5569668337",
+        orgnr="",
         company_name="",
         comment=None,
         personnummer="9012311234",
@@ -312,7 +312,7 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["invoice_contact"] == "Kontakt 1"
     assert company["invoice_reference"] == "Ref 1"
     assert company["foretagskonto_count"] == 1
-    assert company["user_count"] == 2
+    assert company["user_count"] == 1
 
 
 def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
@@ -362,6 +362,22 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
             functions.pending_supervisors_table.select()
         ).fetchall()
         assert pending_supervisor == []
+
+
+def test_standard_application_rejects_orgnr(fresh_app_db):
+    with pytest.raises(
+        ValueError,
+        match="Standardkonton kan inte kopplas till organisationsnummer i ansökan.",
+    ):
+        functions.create_application_request(
+            account_type="standard",
+            name="Orgnummer Standard",
+            email="standard-orgnr@example.com",
+            orgnr="556966-8337",
+            company_name="",
+            comment="",
+            personnummer="8801011234",
+        )
 
         application = conn.execute(
             functions.application_requests_table.select().where(
