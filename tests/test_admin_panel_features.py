@@ -109,6 +109,21 @@ def test_password_reset_flow(empty_db, monkeypatch):
     assert functions.check_personnummer_password(personnummer, "NyLosenord123")
 
 
+def test_password_reset_for_pending_user(empty_db):
+    personnummer = "19900101-4321"
+    email = "pending@example.com"
+    assert functions.admin_create_user(email, "Väntande", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/skicka-aterstallning",
+            json={"personnummer": personnummer, "email": email},
+        )
+    assert response.status_code == 409
+    data = response.get_json()
+    assert data["message"] == "Kontot är inte aktiverat ännu."
+
+
 def test_supervisor_password_reset_flow(empty_db, monkeypatch):
     email = "foretagskonto@example.com"
     assert functions.admin_create_supervisor(email, "Företagskonto")
