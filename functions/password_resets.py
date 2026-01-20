@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import insert, select, update
 
 from functions.database import (
+    pending_users_table,
     password_resets_table,
     supervisor_password_resets_table,
     supervisors_table,
@@ -45,12 +46,24 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
                 users_table.c.personnummer == personnummer_hash
             )
         ).first()
+        if not row:
+            pending = conn.execute(
+                select(pending_users_table.c.email).where(
+                    pending_users_table.c.personnummer == personnummer_hash
+                )
+            ).first()
+            if pending and pending.email == email_hash:
+                logger.warning(
+                    "Kunde inte skapa återställningstoken för %s: kontot är inte aktiverat",
+                    mask_hash(personnummer_hash),
+                )
+                raise ValueError("Kontot är inte aktiverat ännu.")
         if not row or row.email != email_hash:
             logger.warning(
                 "Kunde inte skapa återställningstoken för %s: uppgifter matchar inte",
                 mask_hash(personnummer_hash),
             )
-            raise ValueError("Angivna uppgifter matchar inget aktivt standardkonto.")
+            raise ValueError("Uppgifterna matchar inget aktivt standardkonto.")
 
         token = secrets.token_urlsafe(32)
         token_hash = _hash_token(token)
