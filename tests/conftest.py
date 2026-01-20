@@ -41,6 +41,12 @@ def empty_db(tmp_path, monkeypatch):
     return functions.get_engine()
 
 
+@pytest.fixture(name="_empty_db")
+def unused_empty_db(empty_db):
+    # Alias fixture so tests can use an underscored name without Ruff warnings.
+    return empty_db
+
+
 @pytest.fixture
 def user_db(tmp_path, monkeypatch):
     # Provide a database pre-populated with a default user.
