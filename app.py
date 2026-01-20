@@ -2048,7 +2048,10 @@ def admin_send_password_reset():  # pragma: no cover
         try:
             token = functions.create_supervisor_password_reset_token(email)
         except ValueError as exc:
-            logger.exception(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
+            logger.warning(
+                "Misslyckades att skapa återställningstoken för företagskonto: %s",
+                exc,
+            )
             return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
         except Exception as exc:
             logger.exception(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
@@ -2079,8 +2082,16 @@ def admin_send_password_reset():  # pragma: no cover
     try:
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
-        logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
-        return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning. :('}), 404
+        logger.warning("Misslyckades att skapa återställningstoken: %s", exc)
+        return (
+            jsonify(
+                {
+                    'status': 'error',
+                    'message': 'Uppgifterna matchar inget aktivt standardkonto.',
+                }
+            ),
+            404,
+        )
     except Exception as exc:
         logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
         return jsonify({'status': 'error', 'message': 'Kunde inte skapa återställning.'}), 500
