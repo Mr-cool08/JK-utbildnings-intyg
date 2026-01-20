@@ -2150,17 +2150,26 @@ def admin_create_supervisor_route():  # pragma: no cover
 def admin_link_supervisor_route():  # pragma: no cover
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
-    email = (payload.get('email') or '').strip()
+    orgnr = (payload.get('orgnr') or '').strip()
     personnummer = (payload.get('personnummer') or '').strip()
-    if not email or not personnummer:
-        logging.debug("Admin link_supervisor without email or personnummer", extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ange företagskontots e-post och personnummer.'}), 400
+    if not orgnr or not personnummer:
+        logging.debug("Admin link_supervisor without orgnr or personnummer", extra={'admin': admin_name})
+        return jsonify(
+            {'status': 'error', 'message': 'Ange organisationsnummer och personnummer.'}
+        ), 400
 
     try:
-        success, reason = functions.admin_link_supervisor_to_user(email, personnummer)
+        success, reason, email_hash = functions.admin_link_supervisor_to_user(
+            orgnr, personnummer
+        )
     except ValueError:
-        logging.debug("Admin link_supervisor with invalid email or personnummer: %s, %s", email, personnummer, extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ogiltiga användaruppgifter.'}), 400
+        logging.debug(
+            "Admin link_supervisor with invalid orgnr or personnummer: %s, %s",
+            orgnr,
+            personnummer,
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
 
     if not success:
         status_code = 400
@@ -2177,14 +2186,16 @@ def admin_link_supervisor_route():  # pragma: no cover
         logging.debug("Admin link_supervisor failed: %s", reason, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': message}), status_code
 
-    normalized_email = functions.normalize_email(email)
+    if not email_hash:
+        logging.debug("Admin link_supervisor missing email hash for orgnr %s", orgnr, extra={'admin': admin_name})
+        return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
+    normalized_orgnr = functions.validate_orgnr(orgnr)
     normalized_personnummer = functions.normalize_personnummer(personnummer)
-    email_hash = functions.hash_value(normalized_email)
     personnummer_hash = functions.hash_value(normalized_personnummer)
     functions.log_admin_action(
         admin_name,
         'kopplade företagskonto',
-        f'email_hash={email_hash}, personnummer_hash={personnummer_hash}',
+        f'orgnr={normalized_orgnr}, email_hash={email_hash}, personnummer_hash={personnummer_hash}',
     )
     logging.info("Admin linked supervisor %s to user %s", mask_hash(email_hash), mask_hash(personnummer_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'Företagskontot har kopplats till standardkontot.'})
@@ -2194,29 +2205,33 @@ def admin_link_supervisor_route():  # pragma: no cover
 def admin_supervisor_overview():  # pragma: no cover
     admin_name = _require_admin()
     payload = request.get_json(silent=True) or {}
-    email = (payload.get('email') or '').strip()
-    if not email:
-        logging.debug("Admin supervisor_overview without email", extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ange företagskontots e-post.'}), 400
+    orgnr = (payload.get('orgnr') or '').strip()
+    if not orgnr:
+        logging.debug("Admin supervisor_overview without orgnr", extra={'admin': admin_name})
+        return jsonify({'status': 'error', 'message': 'Ange organisationsnummer.'}), 400
 
     try:
-        email_hash = functions.get_supervisor_email_hash(email)
+        details = functions.get_supervisor_login_details_for_orgnr(orgnr)
     except ValueError:
-        logging.debug("Admin supervisor_overview with invalid email: %s", email, extra={'admin': admin_name})
-        return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
+        logging.debug("Admin supervisor_overview with invalid orgnr: %s", orgnr, extra={'admin': admin_name})
+        return jsonify({'status': 'error', 'message': 'Ogiltigt organisationsnummer.'}), 400
 
-    overview = functions.get_supervisor_overview(email_hash)
-    if not overview:
-        logging.debug("Admin supervisor_overview not found for email: %s", email, extra={'admin': admin_name})
+    if not details:
+        logging.debug("Admin supervisor_overview not found for orgnr: %s", orgnr, extra={'admin': admin_name})
         return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
 
-    normalized_email = functions.normalize_email(email)
+    email_hash = details["email_hash"]
+    overview = functions.get_supervisor_overview(email_hash)
+    if not overview:
+        logging.debug("Admin supervisor_overview not found for email hash: %s", email_hash, extra={'admin': admin_name})
+        return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
+
     functions.log_admin_action(
         admin_name,
         'visade företagskontoöversikt',
-        f'email_hash={functions.hash_value(normalized_email)}',
+        f'orgnr={details["orgnr"]}, email_hash={email_hash}',
     )
-    logging.debug("Admin supervisor_overview for %s with %d users", mask_hash(functions.hash_value(normalized_email)), len(overview.get('users', [])), extra={'admin': admin_name})
+    logging.debug("Admin supervisor_overview for %s with %d users", mask_hash(email_hash), len(overview.get('users', [])), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'data': overview})
 
 @app.get('/admin/avancerat')

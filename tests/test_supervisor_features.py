@@ -49,7 +49,7 @@ def supervisor_setup(empty_db):
     assert functions.check_pending_supervisor_hash(email_hash)
     assert functions.supervisor_activate_account(email_hash, "StarktLosen123")
 
-    success, reason = functions.admin_link_supervisor_to_user(email, personnummer)
+    success, reason, _ = functions.admin_link_supervisor_to_user(orgnr, personnummer)
     assert success and reason == "created"
 
     return {
@@ -226,7 +226,7 @@ def test_admin_link_supervisor_api(supervisor_setup):
     response = client.post(
         "/admin/api/foretagskonto/koppla",
         json={
-            "email": supervisor_setup["email"],
+            "orgnr": supervisor_setup["orgnr"],
             "personnummer": supervisor_setup["personnummer"],
         },
     )
@@ -242,7 +242,7 @@ def test_admin_supervisor_overview_api(supervisor_setup):
     client = _admin_client()
     response = client.post(
         "/admin/api/foretagskonto/oversikt",
-        json={"email": supervisor_setup["email"]},
+        json={"orgnr": supervisor_setup["orgnr"]},
     )
     assert response.status_code == 200
     payload = response.get_json()

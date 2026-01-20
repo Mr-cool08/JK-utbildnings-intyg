@@ -542,21 +542,17 @@ def user_remove_supervisor_connection(
 
 
 def admin_link_supervisor_to_user(
-    supervisor_email: str, personnummer: str
-) -> tuple[bool, str]:
+    orgnr: str, personnummer: str
+) -> tuple[bool, str, Optional[str]]:
     # Create a connection between a supervisor and a user.
-    normalized_email = normalize_email(supervisor_email)
-    email_hash = hash_value(normalized_email)
+    details = get_supervisor_login_details_for_orgnr(orgnr)
+    if not details:
+        logger.warning("Supervisor not found for orgnr %s", orgnr)
+        return False, "missing_supervisor", None
+    email_hash = details["email_hash"]
     pnr_hash = _hash_personnummer(personnummer)
 
     with get_engine().begin() as conn:
-        supervisor_row = conn.execute(
-            select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
-        ).first()
-        if not supervisor_row:
-            logger.warning("Supervisor %s not found for linking", mask_hash(email_hash))
-            return False, "missing_supervisor"
-
         user_row = conn.execute(
             select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
         ).first()
@@ -566,7 +562,7 @@ def admin_link_supervisor_to_user(
                 mask_hash(pnr_hash),
                 mask_hash(email_hash),
             )
-            return False, "missing_user"
+            return False, "missing_user", email_hash
 
         existing = conn.execute(
             select(supervisor_connections_table.c.id).where(
@@ -580,7 +576,7 @@ def admin_link_supervisor_to_user(
                 mask_hash(email_hash),
                 mask_hash(pnr_hash),
             )
-            return False, "exists"
+            return False, "exists", email_hash
 
         conn.execute(
             insert(supervisor_connections_table).values(
@@ -600,7 +596,7 @@ def admin_link_supervisor_to_user(
         mask_hash(email_hash),
         mask_hash(pnr_hash),
     )
-    return True, "created"
+    return True, "created", email_hash
 
 
 def get_supervisor_overview(email_hash: str) -> Optional[Dict[str, Any]]:

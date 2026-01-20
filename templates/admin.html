@@ -92,8 +92,8 @@
     <h2>Koppla företagskonto</h2>
     <p>Skapa koppling mellan ett företagskonto och ett befintligt användarkonto.</p>
     <form id="linkSupervisorForm" class="stacked-form">
-        <label for="linkSupervisorEmail">Företagskontots e-post</label>
-        <input id="linkSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
+        <label for="linkSupervisorOrgnr">Organisationsnummer</label>
+        <input id="linkSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
 
         <label for="linkPersonnummer">Användarkontots personnummer</label>
         <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
@@ -107,8 +107,8 @@
     <h2>Visa kopplingar</h2>
     <p>Se vilka användarkonton som är kopplade till ett företagskonto.</p>
     <form id="supervisorOverviewForm" class="inline-form">
-        <label for="overviewSupervisorEmail">Företagskontots e-post</label>
-        <input id="overviewSupervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
+        <label for="overviewSupervisorOrgnr">Organisationsnummer</label>
+        <input id="overviewSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
         <button type="submit" class="btn">Visa kopplingar</button>
         <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
     </form>
