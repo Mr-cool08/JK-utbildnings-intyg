@@ -1642,10 +1642,12 @@ def admin_accounts():  # pragma: no cover
     if not session.get('admin_logged_in'):
         logger.warning("Unauthorized admin accounts GET")
         return redirect('/login_admin')
+    csrf_token = ensure_csrf_token()
     logger.debug("Rendering admin accounts page")
     return render_template(
         'admin_accounts.html',
         categories=COURSE_CATEGORIES,
+        csrf_token=csrf_token,
     )
 
 
@@ -2033,6 +2035,8 @@ def admin_delete_pdf():  # pragma: no cover
 @app.post('/admin/api/radera-konto')
 def admin_delete_account():  # pragma: no cover
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get('personnummer') or '').strip()
     if not personnummer:

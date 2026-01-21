@@ -13,6 +13,7 @@ def _admin_client():
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
         sess["admin_username"] = "testadmin"
+        sess["csrf_token"] = "test-token"
     return client
 
 
@@ -120,7 +121,8 @@ def test_admin_delete_account_removes_records(empty_db):
     with _admin_client() as client:
         response = client.post(
             "/admin/api/radera-konto",
-            json={"personnummer": personnummer},
+            json={"personnummer": personnummer, "csrf_token": "test-token"},
+            headers={"X-CSRF-Token": "test-token"},
         )
     assert response.status_code == 200
     data = response.get_json()

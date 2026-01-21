@@ -31,6 +31,7 @@
   const copyLastPersonnummerBtn = document.getElementById('copyLastPersonnummerBtn');
   const clearAdminFormsBtn = document.getElementById('clearAdminFormsBtn');
   const adminToolsMessage = document.getElementById('adminToolsMessage');
+  const csrfToken = document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
@@ -313,8 +314,14 @@
     try {
       const res = await fetch('/admin/api/radera-konto', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personnummer }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+        },
+        body: JSON.stringify({
+          personnummer,
+          ...(csrfToken ? { csrf_token: csrfToken } : {})
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -365,11 +372,12 @@
 
   if (confirmDeleteAccountBtn) {
     confirmDeleteAccountBtn.addEventListener('click', () => {
+      const personnummer = pendingDeletePersonnummer;
       if (deleteAccountDialog && deleteAccountDialog.open) {
         deleteAccountDialog.close();
       }
-      if (pendingDeletePersonnummer) {
-        deleteAccount(pendingDeletePersonnummer);
+      if (personnummer) {
+        deleteAccount(personnummer);
       }
     });
   }
