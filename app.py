@@ -1974,6 +1974,60 @@ def admin_delete_pdf():  # pragma: no cover
     return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
 
 
+@app.post('/admin/api/radera-konto')
+def admin_delete_account():  # pragma: no cover
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not personnummer:
+        logging.debug(
+            "Admin delete_account without personnummer",
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        logging.debug(
+            "Admin delete_account with invalid personnummer: %s",
+            personnummer,
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        deleted, summary = functions.admin_delete_user_account(normalized_personnummer)
+    except Exception:
+        logger.exception(
+            "Misslyckades att radera konto för %s",
+            personnummer,
+        )
+        return jsonify({'status': 'error', 'message': 'Kunde inte radera kontot.'}), 500
+
+    if not deleted:
+        return jsonify({'status': 'error', 'message': 'Kontot hittades inte.'}), 404
+
+    pnr_hash = functions.hash_value(normalized_personnummer)
+    summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    functions.log_admin_action(
+        admin_name,
+        'raderade konto',
+        f'personnummer_hash={pnr_hash}, {summary_details}',
+    )
+    logging.info(
+        "Admin deleted account for %s",
+        mask_hash(pnr_hash),
+        extra={'admin': admin_name},
+    )
+    return jsonify(
+        {
+            'status': 'success',
+            'message': 'Kontot har raderats.',
+            'data': summary,
+        }
+    )
+
+
 @app.post('/admin/api/uppdatera-pdf')
 def admin_update_pdf():  # pragma: no cover
     admin_name = _require_admin()

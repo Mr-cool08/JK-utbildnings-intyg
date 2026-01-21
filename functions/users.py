@@ -9,7 +9,13 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
+    application_requests_table,
+    company_users_table,
+    password_resets_table,
     pending_users_table,
+    supervisor_connections_table,
+    supervisor_link_requests_table,
+    user_pdfs_table,
     users_table,
     get_engine,
 )
@@ -228,3 +234,74 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
             )
         ).first()
     return row.username if row else None
+
+
+def admin_delete_user_account(personnummer: str) -> tuple[bool, dict[str, int]]:
+    # Remove a user and all related records based on personnummer.
+    pnr_hash = _hash_personnummer(personnummer)
+    with get_engine().begin() as conn:
+        user_row = conn.execute(
+            select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+        ).first()
+        pending_row = conn.execute(
+            select(pending_users_table.c.id).where(
+                pending_users_table.c.personnummer == pnr_hash
+            )
+        ).first()
+        if not user_row and not pending_row:
+            return False, {}
+
+        summary: dict[str, int] = {}
+        summary["pdfs"] = conn.execute(
+            delete(user_pdfs_table).where(user_pdfs_table.c.personnummer == pnr_hash)
+        ).rowcount or 0
+        summary["password_resets"] = conn.execute(
+            delete(password_resets_table).where(
+                password_resets_table.c.personnummer == pnr_hash
+            )
+        ).rowcount or 0
+        summary["supervisor_connections"] = conn.execute(
+            delete(supervisor_connections_table).where(
+                supervisor_connections_table.c.user_personnummer == pnr_hash
+            )
+        ).rowcount or 0
+        summary["supervisor_link_requests"] = conn.execute(
+            delete(supervisor_link_requests_table).where(
+                supervisor_link_requests_table.c.user_personnummer == pnr_hash
+            )
+        ).rowcount or 0
+        application_ids = [
+            row.id
+            for row in conn.execute(
+                select(application_requests_table.c.id).where(
+                    application_requests_table.c.personnummer_hash == pnr_hash
+                )
+            ).fetchall()
+        ]
+        if application_ids:
+            summary["company_users"] = conn.execute(
+                delete(company_users_table).where(
+                    company_users_table.c.created_via_application_id.in_(
+                        application_ids
+                    )
+                )
+            ).rowcount or 0
+        else:
+            summary["company_users"] = 0
+        summary["applications"] = conn.execute(
+            delete(application_requests_table).where(
+                application_requests_table.c.personnummer_hash == pnr_hash
+            )
+        ).rowcount or 0
+        summary["pending_users"] = conn.execute(
+            delete(pending_users_table).where(
+                pending_users_table.c.personnummer == pnr_hash
+            )
+        ).rowcount or 0
+        summary["users"] = conn.execute(
+            delete(users_table).where(users_table.c.personnummer == pnr_hash)
+        ).rowcount or 0
+
+    verify_certificate.cache_clear()
+    logger.info("Admin raderade konto för %s", mask_hash(pnr_hash))
+    return True, summary

@@ -5,6 +5,17 @@
 <h1>Admin — Kontrollpanel</h1>
 <p>Skapa nya användarkonton, hantera intyg och skicka återställningslänkar. Avancerade databasåtgärder finns längst ner på sidan.</p>
 
+<section class="panel admin-tools">
+    <h2>Snabbverktyg</h2>
+    <p>Använd snabbknapparna för att fylla i eller rensa formulär i panelen.</p>
+    <div class="button-row">
+        <button id="fillLastPersonnummerBtn" type="button" class="btn btn-secondary">Fyll i senaste personnummer</button>
+        <button id="copyLastPersonnummerBtn" type="button" class="btn btn-secondary">Kopiera senaste personnummer</button>
+        <button id="clearAdminFormsBtn" type="button" class="btn btn-secondary">Rensa alla formulär</button>
+    </div>
+    <p id="adminToolsMessage" class="message" aria-live="polite" style="display:none"></p>
+</section>
+
 <section class="panel">
     <h2>Hantera ansökningar</h2>
     <p>Öppna listan över inkomna ansökningar för att godkänna eller avslå konton.</p>
@@ -96,7 +107,7 @@
         <input id="linkSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
 
         <label for="linkPersonnummer">Användarkontots personnummer</label>
-        <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
+        <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true">
 
         <button type="submit" class="btn">Skapa koppling</button>
         <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
@@ -134,7 +145,7 @@
     <p>Sök fram ett användarkontos PDF:er för att ändra kategori eller ta bort filen.</p>
     <form id="pdfLookupForm" class="inline-form">
         <label for="lookupPersonnummer">Personnummer</label>
-        <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+        <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
         <button type="submit" class="btn">Visa PDF:er</button>
         <span id="pdfLookupMessage" class="message" aria-live="polite"></span>
     </form>
@@ -159,6 +170,17 @@
 </section>
 
 <section class="panel">
+    <h2>Radera användarkonto</h2>
+    <p>Radera ett konto och tillhörande data. Åtgärden går inte att ångra.</p>
+    <form id="deleteAccountForm" class="stacked-form">
+        <label for="deletePersonnummer">Personnummer</label>
+        <input id="deletePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        <button type="submit" class="btn btn-danger">Radera konto</button>
+        <p id="deleteAccountMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
     <h2>Skicka återställningsmejl</h2>
     <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
     <form id="resetForm" class="stacked-form">
@@ -170,7 +192,7 @@
 
         <div id="resetPersonnummerRow">
         <label for="resetPersonnummer">Personnummer</label>
-        <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+        <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
         </div>
 
         <label for="resetEmail">E-post</label>
@@ -186,7 +208,7 @@
     <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
     <form id="verifyCertificateForm" class="inline-form">
         <label for="verifyPersonnummer">Personnummer</label>
-        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
+        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
         <button type="submit" class="btn">Verifiera</button>
         <span id="verifyCertificateMessage" class="message" aria-live="polite"></span>
     </form>
@@ -197,6 +219,15 @@
     <p>Behöver du full åtkomst till databasen? Besök den avancerade redigeraren. Allt loggas.</p>
     <p><a class="btn btn-secondary" href="{{ url_for('admin_advanced') }}">Öppna avancerad databasredigerare</a></p>
 </section>
+
+<dialog id="deleteAccountDialog" class="admin-dialog" aria-labelledby="deleteAccountTitle">
+    <h3 id="deleteAccountTitle">Bekräfta radering</h3>
+    <p class="dialog-warning">Du är på väg att radera kontot för <strong id="deleteAccountPersonnummerPreview">personnummer</strong>. Alla kopplade intyg, återställningar och kopplingar tas bort.</p>
+    <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteAccount">Avbryt</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Ja, radera konto</button>
+    </div>
+</dialog>
 
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 <script>

@@ -19,6 +19,18 @@
   const supervisorOverviewTitle = document.getElementById('supervisorOverviewTitle');
   const verifyCertificateForm = document.getElementById('verifyCertificateForm');
   const verifyCertificateMessage = document.getElementById('verifyCertificateMessage');
+  const deleteAccountForm = document.getElementById('deleteAccountForm');
+  const deleteAccountMessage = document.getElementById('deleteAccountMessage');
+  const deleteAccountDialog = document.getElementById('deleteAccountDialog');
+  const deleteAccountPersonnummerPreview = document.getElementById(
+    'deleteAccountPersonnummerPreview',
+  );
+  const confirmDeleteAccountBtn = document.getElementById('confirmDeleteAccount');
+  const cancelDeleteAccountBtn = document.getElementById('cancelDeleteAccount');
+  const fillLastPersonnummerBtn = document.getElementById('fillLastPersonnummerBtn');
+  const copyLastPersonnummerBtn = document.getElementById('copyLastPersonnummerBtn');
+  const clearAdminFormsBtn = document.getElementById('clearAdminFormsBtn');
+  const adminToolsMessage = document.getElementById('adminToolsMessage');
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
@@ -73,9 +85,14 @@
 
   let categories = normalizeCategories(window.APP_CATEGORIES);
   let lastLookup = '';
+  let pendingDeletePersonnummer = '';
 
   function setLookupMessage(text, isError) {
     setMessageElement(pdfLookupMessage, text, isError);
+  }
+
+  function setToolsMessage(text, isError) {
+    setMessageElement(adminToolsMessage, text, isError);
   }
 
   function renderCategoryOptions(selected) {
@@ -234,6 +251,122 @@
     });
   }
 
+  function formatDeleteSummary(summary) {
+    if (!summary || typeof summary !== 'object') {
+      return '';
+    }
+    const parts = [];
+    if (summary.users) {
+      parts.push(`${summary.users} konto`);
+    }
+    if (summary.pending_users) {
+      parts.push(`${summary.pending_users} väntande konto`);
+    }
+    if (summary.pdfs) {
+      parts.push(`${summary.pdfs} PDF:er`);
+    }
+    if (summary.supervisor_connections) {
+      parts.push(`${summary.supervisor_connections} kopplingar`);
+    }
+    if (summary.supervisor_link_requests) {
+      parts.push(`${summary.supervisor_link_requests} kopplingsförfrågningar`);
+    }
+    if (summary.password_resets) {
+      parts.push(`${summary.password_resets} återställningar`);
+    }
+    if (summary.company_users) {
+      parts.push(`${summary.company_users} företagsanvändare`);
+    }
+    if (summary.applications) {
+      parts.push(`${summary.applications} ansökningar`);
+    }
+    if (!parts.length) {
+      return '';
+    }
+    return `Raderade: ${parts.join(', ')}.`;
+  }
+
+  async function deleteAccount(personnummer) {
+    setMessageElement(deleteAccountMessage, 'Raderar konto…', false);
+    try {
+      const res = await fetch('/admin/api/radera-konto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personnummer }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Kunde inte radera kontot.');
+      }
+      const summaryText = formatDeleteSummary(data.data);
+      setMessageElement(
+        deleteAccountMessage,
+        summaryText
+          ? `${data.message || 'Kontot har raderats.'} ${summaryText}`
+          : data.message || 'Kontot har raderats.',
+        false,
+      );
+      if (deleteAccountForm) {
+        deleteAccountForm.reset();
+      }
+    } catch (err) {
+      setMessageElement(deleteAccountMessage, err.message, true);
+    }
+  }
+
+  if (deleteAccountForm) {
+    deleteAccountForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const input = document.getElementById('deletePersonnummer');
+      const personnummer = input ? input.value.trim() : '';
+      if (!personnummer) {
+        setMessageElement(deleteAccountMessage, 'Ange ett personnummer.', true);
+        return;
+      }
+      pendingDeletePersonnummer = personnummer;
+      if (deleteAccountPersonnummerPreview) {
+        deleteAccountPersonnummerPreview.textContent = personnummer;
+      }
+      if (deleteAccountDialog && typeof deleteAccountDialog.showModal === 'function') {
+        deleteAccountDialog.showModal();
+        return;
+      }
+      if (
+        window.confirm(
+          'Är du säker på att du vill radera kontot? Alla kopplade data tas bort.',
+        )
+      ) {
+        deleteAccount(personnummer);
+      }
+    });
+  }
+
+  if (confirmDeleteAccountBtn) {
+    confirmDeleteAccountBtn.addEventListener('click', () => {
+      if (deleteAccountDialog && deleteAccountDialog.open) {
+        deleteAccountDialog.close();
+      }
+      if (pendingDeletePersonnummer) {
+        deleteAccount(pendingDeletePersonnummer);
+      }
+    });
+  }
+
+  if (cancelDeleteAccountBtn) {
+    cancelDeleteAccountBtn.addEventListener('click', () => {
+      if (deleteAccountDialog && deleteAccountDialog.open) {
+        deleteAccountDialog.close();
+      }
+      pendingDeletePersonnummer = '';
+    });
+  }
+
+  if (deleteAccountDialog) {
+    deleteAccountDialog.addEventListener('close', () => {
+      pendingDeletePersonnummer = '';
+    });
+  }
+
   if (resetForm) {
     const resetPersonnummerInput = document.getElementById('resetPersonnummer');
     const resetEmailInput = document.getElementById('resetEmail');
@@ -275,6 +408,74 @@
       } catch (err) {
         setMessageElement(resetMessage, err.message, true);
       }
+    });
+  }
+
+  function getLastPersonnummer() {
+    if (!lastLookup) {
+      setToolsMessage('Sök först upp ett personnummer via PDF-översikten.', true);
+      return '';
+    }
+    return lastLookup;
+  }
+
+  if (fillLastPersonnummerBtn) {
+    fillLastPersonnummerBtn.addEventListener('click', () => {
+      const personnummer = getLastPersonnummer();
+      if (!personnummer) return;
+      const targets = document.querySelectorAll('[data-personnummer-target="true"]');
+      targets.forEach((input) => {
+        input.value = personnummer;
+      });
+      setToolsMessage('Personnummer ifyllda.', false);
+    });
+  }
+
+  if (copyLastPersonnummerBtn) {
+    copyLastPersonnummerBtn.addEventListener('click', async () => {
+      const personnummer = getLastPersonnummer();
+      if (!personnummer) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(personnummer);
+        } else {
+          const tempInput = document.createElement('input');
+          tempInput.value = personnummer;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+        }
+        setToolsMessage('Personnummer kopierat.', false);
+      } catch (err) {
+        setToolsMessage('Kunde inte kopiera personnummer.', true);
+      }
+    });
+  }
+
+  if (clearAdminFormsBtn) {
+    clearAdminFormsBtn.addEventListener('click', () => {
+      document.querySelectorAll('form').forEach((form) => form.reset());
+      [
+        pdfLookupMessage,
+        resetMessage,
+        createSupervisorMessage,
+        linkSupervisorMessage,
+        supervisorOverviewMessage,
+        verifyCertificateMessage,
+        deleteAccountMessage,
+      ].forEach((element) => {
+        if (element) {
+          setMessageElement(element, '', false);
+        }
+      });
+      if (pdfResults) {
+        pdfResults.hidden = true;
+      }
+      if (supervisorOverviewCard) {
+        supervisorOverviewCard.hidden = true;
+      }
+      setToolsMessage('Formulär rensade.', false);
     });
   }
 
