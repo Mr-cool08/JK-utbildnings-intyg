@@ -575,12 +575,6 @@ form {
     gap: 1rem;
 }
 
-.button-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
 .admin-nav {
     display: flex;
     flex-wrap: wrap;

@@ -99,17 +99,23 @@
 
   function storeLastPersonnummer(value) {
     const trimmed = (value || '').trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      lastLookup = '';
+      try {
+        window.sessionStorage.removeItem(LAST_PERSONNUMMER_KEY);
+      } catch (err) {}
+      return;
+    }
     lastLookup = trimmed;
     try {
-      window.localStorage.setItem(LAST_PERSONNUMMER_KEY, trimmed);
+      window.sessionStorage.setItem(LAST_PERSONNUMMER_KEY, trimmed);
     } catch (err) {}
   }
 
   function loadLastPersonnummer() {
     if (lastLookup) return lastLookup;
     try {
-      const stored = window.localStorage.getItem(LAST_PERSONNUMMER_KEY) || '';
+      const stored = window.sessionStorage.getItem(LAST_PERSONNUMMER_KEY) || '';
       if (stored) {
         lastLookup = stored;
         return stored;
@@ -352,6 +358,7 @@
         setMessageElement(deleteAccountMessage, 'Ange ett personnummer.', true);
         return;
       }
+      storeLastPersonnummer(personnummer);
       pendingDeletePersonnummer = personnummer;
       if (deleteAccountPersonnummerPreview) {
         deleteAccountPersonnummerPreview.textContent = personnummer;
@@ -510,8 +517,8 @@
     });
   }
 
-  document.querySelectorAll('[data-personnummer-target=\"true\"]').forEach((input) => {
-    input.addEventListener('input', (event) => {
+  document.querySelectorAll('[data-personnummer-target="true"]').forEach((input) => {
+    input.addEventListener('blur', (event) => {
       storeLastPersonnummer(event.target.value);
     });
   });

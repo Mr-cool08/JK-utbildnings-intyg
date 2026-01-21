@@ -2045,12 +2045,15 @@ def admin_delete_account():  # pragma: no cover
             extra={'admin': admin_name},
         )
         return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
+    personnummer_masked = (
+        mask_hash(functions.hash_value(personnummer)) if personnummer else "saknas"
+    )
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
         logging.debug(
             "Admin delete_account with invalid personnummer: %s",
-            personnummer,
+            personnummer_masked,
             extra={'admin': admin_name},
         )
         return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
@@ -2060,7 +2063,7 @@ def admin_delete_account():  # pragma: no cover
     except Exception:
         logger.exception(
             "Misslyckades att radera konto för %s",
-            personnummer,
+            personnummer_masked,
         )
         return jsonify({'status': 'error', 'message': 'Kunde inte radera kontot.'}), 500
 
