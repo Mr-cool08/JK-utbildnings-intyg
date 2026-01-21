@@ -86,6 +86,7 @@
   let categories = normalizeCategories(window.APP_CATEGORIES);
   let lastLookup = '';
   let pendingDeletePersonnummer = '';
+  const LAST_PERSONNUMMER_KEY = 'admin_last_personnummer';
 
   function setLookupMessage(text, isError) {
     setMessageElement(pdfLookupMessage, text, isError);
@@ -93,6 +94,27 @@
 
   function setToolsMessage(text, isError) {
     setMessageElement(adminToolsMessage, text, isError);
+  }
+
+  function storeLastPersonnummer(value) {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return;
+    lastLookup = trimmed;
+    try {
+      window.localStorage.setItem(LAST_PERSONNUMMER_KEY, trimmed);
+    } catch (err) {}
+  }
+
+  function loadLastPersonnummer() {
+    if (lastLookup) return lastLookup;
+    try {
+      const stored = window.localStorage.getItem(LAST_PERSONNUMMER_KEY) || '';
+      if (stored) {
+        lastLookup = stored;
+        return stored;
+      }
+    } catch (err) {}
+    return '';
   }
 
   function renderCategoryOptions(selected) {
@@ -246,7 +268,7 @@
         setLookupMessage('Ange ett personnummer.', true);
         return;
       }
-      lastLookup = value;
+      storeLastPersonnummer(value);
       fetchOverview(value);
     });
   }
@@ -412,11 +434,12 @@
   }
 
   function getLastPersonnummer() {
-    if (!lastLookup) {
+    const stored = loadLastPersonnummer();
+    if (!stored) {
       setToolsMessage('Sök först upp ett personnummer via PDF-översikten.', true);
       return '';
     }
-    return lastLookup;
+    return stored;
   }
 
   if (fillLastPersonnummerBtn) {
@@ -478,6 +501,12 @@
       setToolsMessage('Formulär rensade.', false);
     });
   }
+
+  document.querySelectorAll('[data-personnummer-target=\"true\"]').forEach((input) => {
+    input.addEventListener('input', (event) => {
+      storeLastPersonnummer(event.target.value);
+    });
+  });
 
   if (createSupervisorForm) {
     setMessageElement(createSupervisorMessage, '', false);

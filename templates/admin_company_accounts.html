@@ -1,0 +1,74 @@
+<!-- # Copyright (c) Liam Suorsa -->
+{% extends 'base.html' %}
+{% block title %}Admin — Företagskonton{% endblock %}
+{% block content %}
+<h1>Admin — Företagskonton</h1>
+<p>Här skapar du företagskonton, kopplar dem till användare och ser översikten.</p>
+
+<nav class="admin-nav" aria-label="Administrationsnavigering">
+    <a class="btn btn-secondary" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; PDF:er</a>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
+    <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+</nav>
+
+<section class="panel">
+    <h2>Skapa företagskonto</h2>
+    <p>Registrera ett nytt företagskonto som kan kopplas till användarkonton.</p>
+    <form id="createSupervisorForm" class="stacked-form">
+        <label for="supervisorName">Namn</label>
+        <input id="supervisorName" name="name" type="text" required placeholder="Namn på företagskonto">
+
+        <label for="supervisorEmail">E-post</label>
+        <input id="supervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
+
+        <button type="submit" class="btn">Skapa företagskonto</button>
+        <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Koppla företagskonto</h2>
+    <p>Skapa koppling mellan ett företagskonto och ett befintligt användarkonto.</p>
+    <form id="linkSupervisorForm" class="stacked-form">
+        <label for="linkSupervisorOrgnr">Organisationsnummer</label>
+        <input id="linkSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
+
+        <label for="linkPersonnummer">Användarkontots personnummer</label>
+        <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true">
+
+        <button type="submit" class="btn">Skapa koppling</button>
+        <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Visa kopplingar</h2>
+    <p>Se vilka användarkonton som är kopplade till ett företagskonto.</p>
+    <form id="supervisorOverviewForm" class="inline-form">
+        <label for="overviewSupervisorOrgnr">Organisationsnummer</label>
+        <input id="overviewSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
+        <button type="submit" class="btn">Visa kopplingar</button>
+        <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
+    </form>
+
+    <div id="supervisorOverviewCard" class="card" hidden>
+        <h3 id="supervisorOverviewTitle">Kopplade användarkonton</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Användarnamn</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody id="supervisorOverviewBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/admin_panel.js') }}"></script>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa -->

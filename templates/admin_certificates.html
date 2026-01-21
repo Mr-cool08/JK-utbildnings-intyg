@@ -1,0 +1,50 @@
+<!-- # Copyright (c) Liam Suorsa -->
+{% extends 'base.html' %}
+{% block title %}Admin — Intyg{% endblock %}
+{% block content %}
+<h1>Admin — Intyg &amp; PDF:er</h1>
+<p>Sök fram ett användarkonto för att uppdatera kategorier eller ta bort PDF-filer.</p>
+
+<nav class="admin-nav" aria-label="Administrationsnavigering">
+    <a class="btn btn-secondary" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
+    <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
+    <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+</nav>
+
+<section class="panel">
+    <h2>Hantera befintliga intyg</h2>
+    <p>Fyll i personnummer och klicka på “Visa PDF:er”.</p>
+    <form id="pdfLookupForm" class="inline-form">
+        <label for="lookupPersonnummer">Personnummer</label>
+        <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        <button type="submit" class="btn">Visa PDF:er</button>
+        <span id="pdfLookupMessage" class="message" aria-live="polite"></span>
+    </form>
+
+    <div id="pdfResults" class="card" hidden>
+        <h3>Intyg</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Filnamn</th>
+                        <th>Kategorier</th>
+                        <th>Uppladdad</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody id="pdfResultBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<script>
+    window.APP_CATEGORIES = {{ categories|tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/admin_panel.js') }}"></script>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa -->

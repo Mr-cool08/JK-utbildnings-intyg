@@ -1,237 +1,74 @@
 <!-- # Copyright (c) Liam Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Admin — Kontrollpanel{% endblock %}
+{% block title %}Admin — Start{% endblock %}
 {% block content %}
-<h1>Admin — Kontrollpanel</h1>
-<p>Skapa nya användarkonton, hantera intyg och skicka återställningslänkar. Avancerade databasåtgärder finns längst ner på sidan.</p>
+<h1>Admin — Start</h1>
+<p>Välj vad du vill göra. Varje område ligger på en egen sida så att det blir enklare att hitta rätt.</p>
 
-<section class="panel admin-tools">
-    <h2>Snabbverktyg</h2>
-    <p>Använd snabbknapparna för att fylla i eller rensa formulär i panelen.</p>
-    <div class="button-row">
-        <button id="fillLastPersonnummerBtn" type="button" class="btn btn-secondary">Fyll i senaste personnummer</button>
-        <button id="copyLastPersonnummerBtn" type="button" class="btn btn-secondary">Kopiera senaste personnummer</button>
-        <button id="clearAdminFormsBtn" type="button" class="btn btn-secondary">Rensa alla formulär</button>
-    </div>
-    <p id="adminToolsMessage" class="message" aria-live="polite" style="display:none"></p>
+<nav class="admin-nav" aria-label="Administrationsnavigering">
+    <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; PDF:er</a>
+    <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
+    <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+    <a class="btn btn-secondary" href="{{ url_for('admin_advanced') }}">Avancerade verktyg</a>
+</nav>
+
+<section class="panel">
+    <h2>Snabbguide</h2>
+    <ol class="admin-guide">
+        <li>Öppna rätt sida i navigeringen ovan.</li>
+        <li>Följ instruktionen vid formuläret och fyll i uppgifterna.</li>
+        <li>Kontrollera att bekräftelsen visas innan du lämnar sidan.</li>
+    </ol>
+    <p>Behöver du hjälp? Läs guiden i dokumentationen och följ stegen punkt för punkt.</p>
 </section>
 
 <section class="panel">
-    <h2>Hantera ansökningar</h2>
-    <p>Öppna listan över inkomna ansökningar för att godkänna eller avslå konton.</p>
-    <a class="btn" href="{{ url_for('admin_applications') }}">Öppna ansökningar</a>
+    <h2>Viktig information</h2>
+    <ul class="admin-guide">
+        <li>Du är inloggad som: <strong>{{ session.get('admin_username', 'okänd') }}</strong>.</li>
+        <li>Allt du gör loggas och kan följas upp.</li>
+        <li>Åtgärder som tar bort data kan inte ångras.</li>
+        <li>Be alltid om extra kontroll innan du raderar konto eller intyg.</li>
+    </ul>
 </section>
 
 <section class="panel">
-    <h2>Fakturering</h2>
-    <p>Visa företag med företagskonton och deras faktureringsuppgifter.</p>
-    <a class="btn" href="{{ url_for('admin_invoicing') }}">Öppna faktureringslista</a>
-</section>
-
-<section class="panel">
-    <h2>Skapa väntande användarkonto</h2>
-    <p>Använd detta formulär för att registrera ett användarkonto och ladda upp intyg.</p>
-    <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post">
-        <label for="email">E-post</label>
-        <input id="email" name="email" type="email" required placeholder="user@example.com" />
-
-        <label for="username">Användarnamn</label>
-        <input id="username" name="username" type="text" required placeholder="Fullständigt namn eller användarnamn" />
-
-        <div class="row">
-            <div class="col">
-                <label for="personnummer">Personnummer</label>
-                <input id="personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" />
-                <small class="hint">Tillåtna format: ÅÅMMDDXXXX eller ÅÅÅÅMMDDXXXX, med eller utan bindestreck.</small>
-            </div>
-
-            <div class="col">
-                <label for="pdf">Ladda upp PDF-filer</label>
-                <input id="pdf" name="pdf" type="file" accept="application/pdf" multiple required />
-                <small class="hint">Endast PDF-filer (max 100 MB totalt).</small>
-            </div>
-        </div>
-
-        <fieldset id="fileCategoryGroup" class="category-group" hidden>
-            <legend>Koppla kategori till varje PDF</legend>
-            <div id="fileCategoryList" class="category-options file-category-list"></div>
-            <small class="hint">Välj en kategori för varje uppladdad PDF.</small>
-        </fieldset>
-
-        <template id="fileCategoryTemplate">
-            <div class="file-category-item">
-                <span class="file-name"></span>
-                <label>
-                    <span class="sr-only">Kategori</span>
-                    <select class="file-category-select" required>
-                        <option value="">Välj kategori</option>
-                        {% for slug, label in categories %}
-                        <option value="{{ slug }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-            </div>
-        </template>
-
-        <button id="submitBtn" type="submit" class="btn">Skapa användarkonto</button>
-
-        <div id="progressContainer" class="progress-container" style="display:none">
-            <div id="progressBar" class="progress-bar"></div>
-            <p class="progress-text">Skapar användarkonto… Detta kan ta upp till 30 sekunder.</p>
-        </div>
-
-        <div id="result" class="message" style="display:none"></div>
-    </form>
-</section>
-
-<section class="panel">
-    <h2>Skapa företagskonto</h2>
-    <p>Registrera ett nytt företagskonto som kan kopplas till användarkonton.</p>
-    <form id="createSupervisorForm" class="stacked-form">
-        <label for="supervisorName">Namn</label>
-        <input id="supervisorName" name="name" type="text" required placeholder="Namn på företagskonto">
-
-        <label for="supervisorEmail">E-post</label>
-        <input id="supervisorEmail" name="email" type="email" required placeholder="foretagskonto@example.com">
-
-        <button type="submit" class="btn">Skapa företagskonto</button>
-        <p id="createSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
-    </form>
-</section>
-
-<section class="panel">
-    <h2>Koppla företagskonto</h2>
-    <p>Skapa koppling mellan ett företagskonto och ett befintligt användarkonto.</p>
-    <form id="linkSupervisorForm" class="stacked-form">
-        <label for="linkSupervisorOrgnr">Organisationsnummer</label>
-        <input id="linkSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
-
-        <label for="linkPersonnummer">Användarkontots personnummer</label>
-        <input id="linkPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true">
-
-        <button type="submit" class="btn">Skapa koppling</button>
-        <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
-    </form>
-</section>
-
-<section class="panel">
-    <h2>Visa kopplingar</h2>
-    <p>Se vilka användarkonton som är kopplade till ett företagskonto.</p>
-    <form id="supervisorOverviewForm" class="inline-form">
-        <label for="overviewSupervisorOrgnr">Organisationsnummer</label>
-        <input id="overviewSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
-        <button type="submit" class="btn">Visa kopplingar</button>
-        <span id="supervisorOverviewMessage" class="message" aria-live="polite" style="display:none"></span>
-    </form>
-
-    <div id="supervisorOverviewCard" class="card" hidden>
-        <h3 id="supervisorOverviewTitle">Kopplade användarkonton</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
+    <h2>Senaste adminlogg</h2>
+    <p>Här ser du de senaste åtgärderna. För full historik använd avancerade verktyg.</p>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tid</th>
+                    <th>Administratör</th>
+                    <th>Åtgärd</th>
+                    <th>Detaljer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if admin_log_entries %}
+                    {% for entry in admin_log_entries %}
                     <tr>
-                        <th>Användarnamn</th>
-                        <th>Åtgärder</th>
+                        <td>{{ entry.created_at }}</td>
+                        <td>{{ entry.admin }}</td>
+                        <td>{{ entry.action }}</td>
+                        <td>{{ entry.details }}</td>
                     </tr>
-                </thead>
-                <tbody id="supervisorOverviewBody"></tbody>
-            </table>
-        </div>
-    </div>
-</section>
-
-<section class="panel">
-    <h2>Hantera befintliga intyg</h2>
-    <p>Sök fram ett användarkontos PDF:er för att ändra kategori eller ta bort filen.</p>
-    <form id="pdfLookupForm" class="inline-form">
-        <label for="lookupPersonnummer">Personnummer</label>
-        <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        <button type="submit" class="btn">Visa PDF:er</button>
-        <span id="pdfLookupMessage" class="message" aria-live="polite"></span>
-    </form>
-
-    <div id="pdfResults" class="card" hidden>
-        <h3>Intyg</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
+                    {% endfor %}
+                {% else %}
                     <tr>
-                        <th>ID</th>
-                        <th>Filnamn</th>
-                        <th>Kategorier</th>
-                        <th>Uppladdad</th>
-                        <th>Åtgärder</th>
+                        <td colspan="4">Ingen logg att visa ännu.</td>
                     </tr>
-                </thead>
-                <tbody id="pdfResultBody"></tbody>
-            </table>
-        </div>
+                {% endif %}
+            </tbody>
+        </table>
     </div>
 </section>
 
 <section class="panel">
-    <h2>Radera användarkonto</h2>
-    <p>Radera ett konto och tillhörande data. Åtgärden går inte att ångra.</p>
-    <form id="deleteAccountForm" class="stacked-form">
-        <label for="deletePersonnummer">Personnummer</label>
-        <input id="deletePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        <button type="submit" class="btn btn-danger">Radera konto</button>
-        <p id="deleteAccountMessage" class="message" aria-live="polite"></p>
-    </form>
+    <h2>Dokumentation</h2>
+    <p>Superenkel guide för adminpanelen finns i filen <strong>docs/ADMIN_PANEL.md</strong> i projektet.</p>
 </section>
-
-<section class="panel">
-    <h2>Skicka återställningsmejl</h2>
-    <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
-    <form id="resetForm" class="stacked-form">
-        <label for="resetAccountType">Kontotyp</label>
-        <select id="resetAccountType" name="accountType" required>
-            <option value="standard">Standardkonto</option>
-            <option value="foretagskonto">Företagskonto</option>
-        </select>
-
-        <div id="resetPersonnummerRow">
-        <label for="resetPersonnummer">Personnummer</label>
-        <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        </div>
-
-        <label for="resetEmail">E-post</label>
-        <input id="resetEmail" name="resetEmail" type="email" required placeholder="user@example.com" />
-
-        <button type="submit" class="btn">Skicka återställningslänk</button>
-        <p id="resetMessage" class="message" aria-live="polite"></p>
-    </form>
-</section>
-
-<section class="panel">
-    <h2>Verifiera intyg</h2>
-    <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
-    <form id="verifyCertificateForm" class="inline-form">
-        <label for="verifyPersonnummer">Personnummer</label>
-        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        <button type="submit" class="btn">Verifiera</button>
-        <span id="verifyCertificateMessage" class="message" aria-live="polite"></span>
-    </form>
-</section>
-
-<section class="panel">
-    <h2>Avancerade verktyg</h2>
-    <p>Behöver du full åtkomst till databasen? Besök den avancerade redigeraren. Allt loggas.</p>
-    <p><a class="btn btn-secondary" href="{{ url_for('admin_advanced') }}">Öppna avancerad databasredigerare</a></p>
-</section>
-
-<dialog id="deleteAccountDialog" class="admin-dialog" aria-labelledby="deleteAccountTitle">
-    <h3 id="deleteAccountTitle">Bekräfta radering</h3>
-    <p class="dialog-warning">Du är på väg att radera kontot för <strong id="deleteAccountPersonnummerPreview">personnummer</strong>. Alla kopplade intyg, återställningar och kopplingar tas bort.</p>
-    <div class="dialog-actions">
-        <button type="button" class="btn btn-secondary" id="cancelDeleteAccount">Avbryt</button>
-        <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Ja, radera konto</button>
-    </div>
-</dialog>
-
-<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-<script>
-    window.APP_CATEGORIES = {{ categories|tojson }}
-</script>
-<script src="{{ url_for('static', filename='js/admin_panel.js') }}"></script>
 {% endblock %}

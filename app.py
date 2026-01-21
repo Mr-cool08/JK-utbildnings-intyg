@@ -1607,11 +1607,67 @@ def admin():  # pragma: no cover
         logger.warning("Unauthorized admin GET")
         return redirect('/login_admin')
 
+    admin_log_entries = []
+    try:
+        with functions.get_engine().connect() as conn:
+            rows = conn.execute(
+                functions.admin_audit_log_table.select()
+                .order_by(functions.admin_audit_log_table.c.created_at.desc())
+                .limit(10)
+            ).fetchall()
+        for row in rows:
+            created_at = row.created_at
+            if created_at and hasattr(created_at, "isoformat"):
+                created_at = created_at.isoformat(sep=" ", timespec="minutes")
+            admin_log_entries.append(
+                {
+                    "admin": row.admin,
+                    "action": row.action,
+                    "details": row.details,
+                    "created_at": created_at or "",
+                }
+            )
+    except Exception:
+        logger.exception("Misslyckades att hämta adminlogg")
+
     logger.debug("Rendering admin page")
     return render_template(
         'admin.html',
+        admin_log_entries=admin_log_entries,
+    )
+
+
+@app.get('/admin/konton')
+def admin_accounts():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin accounts GET")
+        return redirect('/login_admin')
+    logger.debug("Rendering admin accounts page")
+    return render_template(
+        'admin_accounts.html',
         categories=COURSE_CATEGORIES,
     )
+
+
+@app.get('/admin/intyg')
+def admin_certificates():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin certificates GET")
+        return redirect('/login_admin')
+    logger.debug("Rendering admin certificates page")
+    return render_template(
+        'admin_certificates.html',
+        categories=COURSE_CATEGORIES,
+    )
+
+
+@app.get('/admin/foretagskonto')
+def admin_company_accounts():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin company accounts GET")
+        return redirect('/login_admin')
+    logger.debug("Rendering admin company accounts page")
+    return render_template('admin_company_accounts.html')
 
 
 @app.route('/admin/ansokningar', methods=['GET', 'POST'])

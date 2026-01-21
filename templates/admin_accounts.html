@@ -1,0 +1,143 @@
+<!-- # Copyright (c) Liam Suorsa -->
+{% extends 'base.html' %}
+{% block title %}Admin — Konton{% endblock %}
+{% block content %}
+<h1>Admin — Konton</h1>
+<p>Här skapar du standardkonton, skickar återställningslänkar och raderar konton.</p>
+
+<nav class="admin-nav" aria-label="Administrationsnavigering">
+    <a class="btn btn-secondary" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; PDF:er</a>
+    <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
+    <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+</nav>
+
+<section class="panel admin-tools">
+    <h2>Snabbverktyg</h2>
+    <p>Fyll i eller rensa personnummer för flera formulär med en knapp.</p>
+    <div class="button-row">
+        <button id="fillLastPersonnummerBtn" type="button" class="btn btn-secondary">Fyll i senaste personnummer</button>
+        <button id="copyLastPersonnummerBtn" type="button" class="btn btn-secondary">Kopiera senaste personnummer</button>
+        <button id="clearAdminFormsBtn" type="button" class="btn btn-secondary">Rensa alla formulär</button>
+    </div>
+    <p id="adminToolsMessage" class="message" aria-live="polite" style="display:none"></p>
+</section>
+
+<section class="panel">
+    <h2>Skapa väntande användarkonto</h2>
+    <p>Använd detta formulär för att registrera ett användarkonto och ladda upp intyg.</p>
+    <form id="adminForm" autocomplete="off" enctype="multipart/form-data" method="post" action="/admin">
+        <label for="email">E-post</label>
+        <input id="email" name="email" type="email" required placeholder="user@example.com" />
+
+        <label for="username">Användarnamn</label>
+        <input id="username" name="username" type="text" required placeholder="Fullständigt namn eller användarnamn" />
+
+        <div class="row">
+            <div class="col">
+                <label for="personnummer">Personnummer</label>
+                <input id="personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+                <small class="hint">Tillåtna format: ÅÅMMDDXXXX eller ÅÅÅÅMMDDXXXX, med eller utan bindestreck.</small>
+            </div>
+
+            <div class="col">
+                <label for="pdf">Ladda upp PDF-filer</label>
+                <input id="pdf" name="pdf" type="file" accept="application/pdf" multiple required />
+                <small class="hint">Endast PDF-filer (max 100 MB totalt).</small>
+            </div>
+        </div>
+
+        <fieldset id="fileCategoryGroup" class="category-group" hidden>
+            <legend>Koppla kategori till varje PDF</legend>
+            <div id="fileCategoryList" class="category-options file-category-list"></div>
+            <small class="hint">Välj en kategori för varje uppladdad PDF.</small>
+        </fieldset>
+
+        <template id="fileCategoryTemplate">
+            <div class="file-category-item">
+                <span class="file-name"></span>
+                <label>
+                    <span class="sr-only">Kategori</span>
+                    <select class="file-category-select" required>
+                        <option value="">Välj kategori</option>
+                        {% for slug, label in categories %}
+                        <option value="{{ slug }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+        </template>
+
+        <button id="submitBtn" type="submit" class="btn">Skapa användarkonto</button>
+
+        <div id="progressContainer" class="progress-container" style="display:none">
+            <div id="progressBar" class="progress-bar"></div>
+            <p class="progress-text">Skapar användarkonto… Detta kan ta upp till 30 sekunder.</p>
+        </div>
+
+        <div id="result" class="message" style="display:none"></div>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Radera användarkonto</h2>
+    <p>Radera ett konto och tillhörande data. Åtgärden går inte att ångra.</p>
+    <form id="deleteAccountForm" class="stacked-form">
+        <label for="deletePersonnummer">Personnummer</label>
+        <input id="deletePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        <button type="submit" class="btn btn-danger">Radera konto</button>
+        <p id="deleteAccountMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Skicka återställningsmejl</h2>
+    <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
+    <form id="resetForm" class="stacked-form">
+        <label for="resetAccountType">Kontotyp</label>
+        <select id="resetAccountType" name="accountType" required>
+            <option value="standard">Standardkonto</option>
+            <option value="foretagskonto">Företagskonto</option>
+        </select>
+
+        <div id="resetPersonnummerRow">
+        <label for="resetPersonnummer">Personnummer</label>
+        <input id="resetPersonnummer" name="resetPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        </div>
+
+        <label for="resetEmail">E-post</label>
+        <input id="resetEmail" name="resetEmail" type="email" required placeholder="user@example.com" />
+
+        <button type="submit" class="btn">Skicka återställningslänk</button>
+        <p id="resetMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Verifiera intyg</h2>
+    <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
+    <form id="verifyCertificateForm" class="inline-form">
+        <label for="verifyPersonnummer">Personnummer</label>
+        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        <button type="submit" class="btn">Verifiera</button>
+        <span id="verifyCertificateMessage" class="message" aria-live="polite"></span>
+    </form>
+</section>
+
+<dialog id="deleteAccountDialog" class="admin-dialog" aria-labelledby="deleteAccountTitle">
+    <h3 id="deleteAccountTitle">Bekräfta radering</h3>
+    <p class="dialog-warning">Du är på väg att radera kontot för <strong id="deleteAccountPersonnummerPreview">personnummer</strong>. Alla kopplade intyg, återställningar och kopplingar tas bort.</p>
+    <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteAccount">Avbryt</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Ja, radera konto</button>
+    </div>
+</dialog>
+
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+    window.APP_CATEGORIES = {{ categories|tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/admin_panel.js') }}"></script>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa -->
