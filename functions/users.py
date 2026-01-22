@@ -284,6 +284,7 @@ def admin_delete_user_account(personnummer: str) -> tuple[bool, dict[str, int]]:
                     company_users_table.c.created_via_application_id.in_(
                         application_ids
                     )
+                    | company_users_table.c.created_via_application_id.is_(None)
                 )
             ).rowcount or 0
         else:
