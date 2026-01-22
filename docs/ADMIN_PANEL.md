@@ -13,23 +13,23 @@ Den här guiden är skriven för att vara så enkel som möjligt. Följ stegen i
 
 Gå till **Admin — Konton** när du ska skapa konton, återställa lösenord eller radera konton.
 
-**Skapa nytt standardkonto**
+### Skapa nytt standardkonto
 1. Fyll i e-post, namn och personnummer.
 2. Ladda upp PDF-intyg.
 3. Välj kategori för varje PDF.
 4. Klicka **Skapa användarkonto** och invänta bekräftelsen.
 
-**Radera konto**
+### Radera konto
 1. Skriv personnummer.
 2. Klicka **Radera konto**.
 3. Bekräfta i popupen. (Obs! Det går inte att ångra.)
 
-**Skicka återställningsmejl**
+### Skicka återställningsmejl
 1. Välj kontotyp.
 2. Fyll i uppgifterna.
 3. Klicka **Skicka återställningslänk**.
 
-**Verifiera intyg**
+### Verifiera intyg
 1. Fyll i personnummer.
 2. Klicka **Verifiera**.
 
@@ -45,16 +45,16 @@ Gå till **Admin — Intyg & PDF:er** när du vill hantera uppladdade intyg.
 
 Gå till **Admin — Företagskonton** för att skapa och koppla företagskonton.
 
-**Skapa företagskonto**
+### Skapa företagskonto
 1. Fyll i namn och e-post.
 2. Klicka **Skapa företagskonto**.
 
-**Koppla företagskonto**
+### Koppla företagskonto
 1. Fyll i organisationsnummer.
 2. Fyll i personnummer.
 3. Klicka **Skapa koppling**.
 
-**Visa kopplingar**
+### Visa kopplingar
 1. Fyll i organisationsnummer.
 2. Klicka **Visa kopplingar**.
 
