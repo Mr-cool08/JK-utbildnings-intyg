@@ -1582,6 +1582,11 @@ small.hint {
     margin-bottom: 0.75rem;
 }
 
+.pricing-page-header p {
+    max-width: 42rem;
+    margin: 0 auto;
+}
+
 .pricing-table-wrapper {
     overflow-x: auto;
     border-radius: var(--radius-lg);
@@ -1600,6 +1605,7 @@ small.hint {
 .pricing-table td {
     padding: 1rem 1.25rem;
     text-align: left;
+    word-break: break-word;
 }
 
 .pricing-table thead {
@@ -1618,6 +1624,10 @@ small.hint {
 }
 
 @media (max-width: 700px) {
+    .pricing-page {
+        padding: 2.25rem 1.25rem;
+    }
+
     .pricing-table {
         min-width: 0;
     }
@@ -1662,6 +1672,16 @@ small.hint {
         content: attr(data-label);
         font-weight: 600;
         color: var(--color-text-muted);
+    }
+
+    .pricing-note {
+        text-align: left;
+        justify-items: start;
+    }
+
+    .pricing-note .btn {
+        width: 100%;
+        max-width: 320px;
     }
 }
 
