@@ -83,7 +83,7 @@ def test_admin_delete_account_removes_records(empty_db):
     functions.store_pdf_blob(pnr_hash, "test.pdf", b"%PDF", [COURSE_CATEGORIES[0][0]])
     functions.create_password_reset_token(personnummer, email)
 
-    with engine.begin() as conn:
+    with engine.connect() as conn:
         application_id = conn.execute(
             functions.application_requests_table.insert().values(
                 account_type="standard",
@@ -117,6 +117,7 @@ def test_admin_delete_account_removes_records(empty_db):
                 user_personnummer=pnr_hash,
             )
         )
+        conn.commit()
 
     with _admin_client() as client:
         response = client.post(
