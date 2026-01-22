@@ -83,7 +83,7 @@
 <section class="panel">
     <h2>Radera användarkonto</h2>
     <p>Radera ett konto och tillhörande data. Åtgärden går inte att ångra.</p>
-    <form id="deleteAccountForm" class="stacked-form">
+    <form id="deleteAccountForm" class="stacked-form" method="post">
         <label for="deletePersonnummer">Personnummer</label>
         <input id="deletePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
         <button type="submit" class="btn btn-danger">Radera konto</button>
@@ -94,7 +94,7 @@
 <section class="panel">
     <h2>Skicka återställningsmejl</h2>
     <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
-    <form id="resetForm" class="stacked-form">
+    <form id="resetForm" class="stacked-form" method="post">
         <label for="resetAccountType">Kontotyp</label>
         <select id="resetAccountType" name="accountType" required>
             <option value="standard">Standardkonto</option>
@@ -117,7 +117,7 @@
 <section class="panel">
     <h2>Verifiera intyg</h2>
     <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
-    <form id="verifyCertificateForm" class="inline-form">
+    <form id="verifyCertificateForm" class="inline-form" method="post">
         <label for="verifyPersonnummer">Personnummer</label>
         <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
         <button type="submit" class="btn">Verifiera</button>

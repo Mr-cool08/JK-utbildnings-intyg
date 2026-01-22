@@ -451,7 +451,10 @@
   function getLastPersonnummer() {
     const stored = loadLastPersonnummer();
     if (!stored) {
-      setToolsMessage('Sök först upp ett personnummer via PDF-översikten.', true);
+      setToolsMessage(
+        'Sök först upp ett personnummer via PDF-översikten eller något av formulären.',
+        true,
+      );
       return '';
     }
     return stored;
