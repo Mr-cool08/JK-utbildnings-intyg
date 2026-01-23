@@ -13,6 +13,7 @@ def _admin_client():
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
         sess["admin_username"] = "testadmin"
+        sess["csrf_token"] = "test-token"
     return client
 
 
@@ -70,6 +71,105 @@ def test_admin_update_pdf_categories(empty_db):
         ).first()
         assert result is not None
         assert set(result.categories.split(",")) == set(slugs)
+
+
+def test_admin_delete_account_removes_records(empty_db):
+    engine = empty_db
+    personnummer = "19900101-1234"
+    email = "radera@example.com"
+    assert functions.admin_create_user(email, "Radera", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+    functions.store_pdf_blob(pnr_hash, "test.pdf", b"%PDF", [COURSE_CATEGORIES[0][0]])
+    functions.create_password_reset_token(personnummer, email)
+
+    with engine.connect() as conn:
+        application_id = conn.execute(
+            functions.application_requests_table.insert().values(
+                account_type="standard",
+                name="Radera Användare",
+                email=email,
+                orgnr_normalized="",
+                company_name="Radera AB",
+                personnummer_hash=pnr_hash,
+                status="approved",
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=None,
+                role="standard",
+                name="Radera Användare",
+                email=functions.normalize_email(email),
+                created_via_application_id=application_id,
+            )
+        )
+        supervisor_hash = functions.hash_value("handledare@example.com")
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_link_requests_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+        conn.commit()
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/radera-konto",
+            json={"personnummer": personnummer, "csrf_token": "test-token"},
+            headers={"X-CSRF-Token": "test-token"},
+        )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+
+    with engine.connect() as conn:
+        assert conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == pnr_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.user_pdfs_table.select().where(
+                functions.user_pdfs_table.c.personnummer == pnr_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.password_resets_table.select().where(
+                functions.password_resets_table.c.personnummer == pnr_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_link_requests_table.select().where(
+                functions.supervisor_link_requests_table.c.user_personnummer == pnr_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.company_users_table.select().where(
+                functions.company_users_table.c.created_via_application_id
+                == application_id
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first() is None
+        log_entry = conn.execute(
+            functions.admin_audit_log_table.select()
+        ).first()
+        assert log_entry is not None
 
 
 def test_password_reset_flow(empty_db, monkeypatch):

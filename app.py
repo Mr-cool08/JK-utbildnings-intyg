@@ -1607,11 +1607,69 @@ def admin():  # pragma: no cover
         logger.warning("Unauthorized admin GET")
         return redirect('/login_admin')
 
+    admin_log_entries = []
+    try:
+        with functions.get_engine().connect() as conn:
+            rows = conn.execute(
+                functions.admin_audit_log_table.select()
+                .order_by(functions.admin_audit_log_table.c.created_at.desc())
+                .limit(10)
+            ).fetchall()
+        for row in rows:
+            created_at = row.created_at
+            if created_at and hasattr(created_at, "isoformat"):
+                created_at = created_at.isoformat(sep=" ", timespec="minutes")
+            admin_log_entries.append(
+                {
+                    "admin": row.admin,
+                    "action": row.action,
+                    "details": row.details,
+                    "created_at": created_at or "",
+                }
+            )
+    except Exception:
+        logger.exception("Misslyckades att hämta adminlogg")
+
     logger.debug("Rendering admin page")
     return render_template(
         'admin.html',
+        admin_log_entries=admin_log_entries,
+    )
+
+
+@app.get('/admin/konton')
+def admin_accounts():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin accounts GET")
+        return redirect('/login_admin')
+    csrf_token = ensure_csrf_token()
+    logger.debug("Rendering admin accounts page")
+    return render_template(
+        'admin_accounts.html',
+        categories=COURSE_CATEGORIES,
+        csrf_token=csrf_token,
+    )
+
+
+@app.get('/admin/intyg')
+def admin_certificates():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin certificates GET")
+        return redirect('/login_admin')
+    logger.debug("Rendering admin certificates page")
+    return render_template(
+        'admin_certificates.html',
         categories=COURSE_CATEGORIES,
     )
+
+
+@app.get('/admin/foretagskonto')
+def admin_company_accounts():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin company accounts GET")
+        return redirect('/login_admin')
+    logger.debug("Rendering admin company accounts page")
+    return render_template('admin_company_accounts.html')
 
 
 @app.route('/admin/ansokningar', methods=['GET', 'POST'])
@@ -1972,6 +2030,65 @@ def admin_delete_pdf():  # pragma: no cover
     )
     logging.info("Admin deleted pdf %s for %s", pdf_id_int, mask_hash(pnr_hash), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'message': 'PDF borttagen.'})
+
+
+@app.post('/admin/api/radera-konto')
+def admin_delete_account():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not personnummer:
+        logging.debug(
+            "Admin delete_account without personnummer",
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
+    personnummer_masked = (
+        mask_hash(functions.hash_value(personnummer)) if personnummer else "saknas"
+    )
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        logging.debug(
+            "Admin delete_account with invalid personnummer: %s",
+            personnummer_masked,
+            extra={'admin': admin_name},
+        )
+        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+
+    try:
+        deleted, summary = functions.admin_delete_user_account(normalized_personnummer)
+    except Exception:
+        logger.exception(
+            "Misslyckades att radera konto för %s",
+            personnummer_masked,
+        )
+        return jsonify({'status': 'error', 'message': 'Kunde inte radera kontot.'}), 500
+
+    if not deleted:
+        return jsonify({'status': 'error', 'message': 'Kontot hittades inte.'}), 404
+
+    pnr_hash = functions.hash_value(normalized_personnummer)
+    summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    functions.log_admin_action(
+        admin_name,
+        'raderade konto',
+        f'personnummer_hash={pnr_hash}, {summary_details}',
+    )
+    logging.info(
+        "Admin deleted account for %s",
+        mask_hash(pnr_hash),
+        extra={'admin': admin_name},
+    )
+    return jsonify(
+        {
+            'status': 'success',
+            'message': 'Kontot har raderats.',
+            'data': summary,
+        }
+    )
 
 
 @app.post('/admin/api/uppdatera-pdf')
