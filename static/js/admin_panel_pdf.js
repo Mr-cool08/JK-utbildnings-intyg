@@ -129,7 +129,7 @@
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte hämta uppgifter.');
       }
-      pdfResultBody.innerHTML = '';
+      pdfResultBody.replaceChildren();
       if (!data.data || !Array.isArray(data.data.pdfs) || data.data.pdfs.length === 0) {
         setLookupMessage('Inga PDF:er hittades för angivet personnummer.', false);
         pdfResults.hidden = true;

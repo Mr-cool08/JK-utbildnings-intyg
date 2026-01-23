@@ -87,7 +87,7 @@
     if (!supervisorOverviewCard || !supervisorOverviewBody || !supervisorOverviewTitle) {
       return;
     }
-    supervisorOverviewBody.innerHTML = '';
+    supervisorOverviewBody.replaceChildren();
     const connections = Array.isArray(data.connections) ? data.connections : [];
     supervisorOverviewTitle.textContent = `Kopplade användarkonton för ${data.name || 'företagskonto'}`;
 

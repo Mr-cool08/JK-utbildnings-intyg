@@ -158,6 +158,11 @@
         )
       ) {
         deleteAccount(personnummer);
+      } else {
+        pendingDeletePersonnummer = '';
+        if (deleteAccountPersonnummerPreview) {
+          deleteAccountPersonnummerPreview.textContent = '';
+        }
       }
     });
   }
