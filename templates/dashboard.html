@@ -13,6 +13,71 @@
             Hej! Här är dina intyg.
         {% endif %}
     </h1>
+    {% if grouped_pdfs %}
+    <div class="share-selection" aria-label="Delning av flera intyg">
+        <button
+            type="button"
+            id="shareSelectedButton"
+            class="btn share-selected-button"
+            disabled
+        >
+            Dela markerade intyg
+        </button>
+        <p class="share-selection__hint">
+            Markera de intyg du vill dela och klicka på knappen för att skicka dem i samma e-post.
+        </p>
+    </div>
+
+    <section class="category-groups" aria-label="Intyg sorterade efter kategori">
+        {% for group in grouped_pdfs %}
+        <article class="category-group">
+            <header class="category-header">
+                <h3>{{ group.label }}</h3>
+                <p class="category-count">{{ group.pdfs | length }} intyg</p>
+            </header>
+            <ul class="pdf-list">
+                {% for pdf in group.pdfs %}
+                <li data-pdf-categories="{{ pdf.categories | join(',') }}">
+                    <div class="pdf-entry">
+                        <input
+                            type="checkbox"
+                            class="pdf-select"
+                            data-share-select
+                            value="{{ pdf.id }}"
+                            data-pdf-name="{{ pdf.filename }}"
+                            aria-label="Markera {{ pdf.filename }} för delning"
+                        >
+                        <div class="pdf-details">
+                            <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
+                                {{ pdf.filename }}
+                            </a>
+                            <span class="pdf-meta">
+                                <strong>Kategorier:</strong>
+                                {% if pdf.category_labels %}
+                                    {{ pdf.category_labels | join(', ') }}
+                                {% else %}
+                                    Inte angiven
+                                {% endif %}
+                                <br>
+
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pdf-actions">
+                        <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn btn-danger">Ta bort intyg</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </article>
+        {% endfor %}
+    </section>
+    {% else %}
+    <p>Inga PDF:er uppladdade.</p>
+    {% endif %}
     <div class="support-actions" aria-label="Sektion för att kontakta supporten">
         <a
             class="btn btn-ghost support-email-button"
@@ -96,71 +161,6 @@
     </section>
     {% endif %}
 
-    {% if grouped_pdfs %}
-    <div class="share-selection" aria-label="Delning av flera intyg">
-        <button
-            type="button"
-            id="shareSelectedButton"
-            class="btn share-selected-button"
-            disabled
-        >
-            Dela markerade intyg
-        </button>
-        <p class="share-selection__hint">
-            Markera de intyg du vill dela och klicka på knappen för att skicka dem i samma e-post.
-        </p>
-    </div>
-
-    <section class="category-groups" aria-label="Intyg sorterade efter kategori">
-        {% for group in grouped_pdfs %}
-        <article class="category-group">
-            <header class="category-header">
-                <h3>{{ group.label }}</h3>
-                <p class="category-count">{{ group.pdfs | length }} intyg</p>
-            </header>
-            <ul class="pdf-list">
-                {% for pdf in group.pdfs %}
-                <li data-pdf-categories="{{ pdf.categories | join(',') }}">
-                    <div class="pdf-entry">
-                        <input
-                            type="checkbox"
-                            class="pdf-select"
-                            data-share-select
-                            value="{{ pdf.id }}"
-                            data-pdf-name="{{ pdf.filename }}"
-                            aria-label="Markera {{ pdf.filename }} för delning"
-                        >
-                        <div class="pdf-details">
-                            <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
-                                {{ pdf.filename }}
-                            </a>
-                            <span class="pdf-meta">
-                                <strong>Kategorier:</strong>
-                                {% if pdf.category_labels %}
-                                    {{ pdf.category_labels | join(', ') }}
-                                {% else %}
-                                    Inte angiven
-                                {% endif %}
-                                <br>
-
-                            </span>
-                        </div>
-                    </div>
-                    <div class="pdf-actions">
-                        <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="btn btn-danger">Ta bort intyg</button>
-                        </form>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </article>
-        {% endfor %}
-    </section>
-    {% else %}
-    <p>Inga PDF:er uppladdade.</p>
-    {% endif %}
 </section>
 
 <dialog id="shareModal" class="share-modal" aria-modal="true" aria-labelledby="shareModalTitle">
