@@ -122,6 +122,14 @@
 
   if (supervisorOverviewForm) {
     setMessageElement(supervisorOverviewMessage, '', false);
+    if (!supervisorOverviewCard) {
+      setMessageElement(
+        supervisorOverviewMessage,
+        'Översiktskortet saknas. Ladda om sidan och försök igen.',
+        true,
+      );
+      return;
+    }
     supervisorOverviewCard.hidden = true;
     supervisorOverviewForm.addEventListener('submit', async (event) => {
       event.preventDefault();
