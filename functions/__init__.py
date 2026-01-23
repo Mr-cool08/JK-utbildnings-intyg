@@ -105,6 +105,7 @@ from functions.table_admin import (
     update_table_row,
 )
 from functions.users import (
+    admin_delete_user_account,
     admin_create_user,
     check_password_user,
     check_pending_user,
@@ -136,6 +137,7 @@ __all__ = [
     "admin_audit_log_table",
     "admin_create_supervisor",
     "admin_create_user",
+    "admin_delete_user_account",
     "admin_link_supervisor_to_user",
     "application_requests_table",
     "approve_application_request",

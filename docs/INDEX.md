@@ -6,6 +6,7 @@ All dokumentation är sorterad efter ämne nedan så att det är lätt att hitta
 ## Kom igång
 
 - [Snabbstart och översikt](../README.md)
+- [Adminpanelen – superenkel guide](ADMIN_PANEL.md)
 - [Utveckling (lokalt och med Docker)](UTVECKLING.md)
 
 ## Drift och produktion
