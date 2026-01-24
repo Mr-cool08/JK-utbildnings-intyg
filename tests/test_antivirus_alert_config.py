@@ -13,4 +13,15 @@ def test_antivirus_alert_env_is_configured():
     assert "send_alert_email" in run_scan
 
 
+def test_antivirus_send_alert_email_command_present():
+    run_scan = Path("services/antivirus/run_scan.sh").read_text(encoding="utf-8")
+
+    assert 'mail -s "${ALERT_EMAIL_SUBJECT}"' in run_scan
+    assert '-r "${SMTP_USER}"' in run_scan
+    assert '"${CRITICAL_ALERTS_EMAIL}"' in run_scan
+    assert '[ -z "${SMTP_SERVER}" ]' in run_scan
+    assert '[ -z "${SMTP_USER}" ]' in run_scan
+    assert '[ -z "${SMTP_PASSWORD}" ]' in run_scan
+
+
 # Copyright (c) Liam Suorsa
