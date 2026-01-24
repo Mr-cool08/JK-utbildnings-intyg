@@ -12,7 +12,7 @@ SMTP_SERVER="${smtp_server:-}"
 SMTP_PORT="${smtp_port:-587}"
 SMTP_USER="${smtp_user:-}"
 SMTP_PASSWORD="${smtp_password:-}"
-SMTP_TIMEOUT="${smtp_timeout:-10}"
+SMTP_TIMEOUT="${smtp_timeout:-30}"
 ALERT_SMTP_TLS="${ALERT_SMTP_TLS:-true}"
 CRITICAL_ALERTS_EMAIL="${CRITICAL_ALERTS_EMAIL:-}"
 
