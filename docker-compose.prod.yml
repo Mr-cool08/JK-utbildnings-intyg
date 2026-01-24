@@ -143,24 +143,7 @@ services:
       - db_net
     restart: unless-stopped
 
-  antivirus:
-    build: ./services/antivirus
-    environment:
-      SCAN_PATHS: ${ANTIVIRUS_SCAN_PATHS:-/host}
-      SCAN_SCHEDULE: ${ANTIVIRUS_SCAN_SCHEDULE:-0 */6 * * *}
-      QUARANTINE_PATH: ${ANTIVIRUS_QUARANTINE_PATH:-/quarantine}
-      EXTRA_CLAMSCAN_ARGS: ${ANTIVIRUS_EXTRA_ARGS:-}
-      smtp_server: ${smtp_server:-}
-      smtp_port: ${smtp_port:-587}
-      smtp_user: ${smtp_user:-}
-      smtp_password: ${smtp_password:-}
-      smtp_timeout: ${smtp_timeout:-10}
-      CRITICAL_ALERTS_EMAIL: ${CRITICAL_ALERTS_EMAIL:-}
-    volumes:
-      - /:/host:ro
-      - antivirus_logs:/var/log/clamav
-      - antivirus_quarantine:/quarantine
-    restart: unless-stopped
+  
 
   borgmatic:
     image: ghcr.io/borgmatic-collective/borgmatic:latest
