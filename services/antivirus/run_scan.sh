@@ -65,6 +65,7 @@ EXCLUDE_DIRS=(
   "/host/var/lib/docker"
   "/host/var/lib/containerd"
   "/quarantine"
+  "/home/client_52_3/.cache/pip"
 )
 
 if [ -n "${QUARANTINE_PATH}" ]; then
