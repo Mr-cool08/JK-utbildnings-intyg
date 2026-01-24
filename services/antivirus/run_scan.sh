@@ -66,6 +66,7 @@ EXCLUDE_DIRS=(
   "/host/var/lib/containerd"
   "/quarantine"
   "/home/client_52_3/.cache/pip"
+  "/host/home/client_52_3/JK-utbildnings-intyg/venv"
 )
 
 if [ -n "${QUARANTINE_PATH}" ]; then
