@@ -1,4 +1,5 @@
 # Copyright (c) Liam Suorsa
+
 services:
   nginx:
     image: nginx:1.27-alpine
@@ -23,6 +24,10 @@ services:
     networks:
       - public_net
     restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.25"
+    pids_limit: 100
 
   app:
     build: .
@@ -43,6 +48,10 @@ services:
       - public_net
       - db_net
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "0.60"
+    pids_limit: 200
 
   app_demo:
     build: .
@@ -70,7 +79,10 @@ services:
     networks:
       - public_net
     restart: unless-stopped
-
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: "0.40"
+    pids_limit: 150
 
   status_page:
     build:
@@ -101,15 +113,32 @@ services:
       - status_logs:/app/logs
     restart: unless-stopped
     depends_on:
-      app:
+      postgres:
         condition: service_healthy
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.30"
+    pids_limit: 120
 
   postgres:
     image: postgres:16
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - max_connections=50
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -121,6 +150,10 @@ services:
     networks:
       - db_net
     restart: unless-stopped
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: "0.90"
+    pids_limit: 200
 
   postgres_backup:
     image: postgres:16
@@ -142,8 +175,10 @@ services:
     networks:
       - db_net
     restart: unless-stopped
-
-  
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.10"
+    pids_limit: 50
 
   borgmatic:
     image: ghcr.io/borgmatic-collective/borgmatic:latest
@@ -162,6 +197,10 @@ services:
       && borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2 || echo 'Borgmatic misslyckades vid start, kontrollera konfigurationen.' >&2
       && crond -f -l 2 -L /dev/stdout"
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "0.50"
+    pids_limit: 150
 
 volumes:
   env_data:
@@ -176,8 +215,6 @@ volumes:
     name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
-  antivirus_logs:
-  antivirus_quarantine:
 
 configs:
   nginx_conf:
@@ -304,7 +341,6 @@ configs:
           ssl_protocols TLSv1.2 TLSv1.3;
           ssl_prefer_server_ciphers on;
           ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-
 
           client_max_body_size 100m;
 
