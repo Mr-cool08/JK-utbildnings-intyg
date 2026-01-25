@@ -8,7 +8,6 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -418,15 +417,8 @@ def run_compose_action(
             runner(["git", "pull"], check=True)
             
             print("Uppdaterar systemet...")
-            update_command = shutil.which("update")
-            if update_command:
-                runner([update_command], check=True)
-            else:
-                print(
-                    "Varning: Kunde inte hitta uppdateringsskriptet 'update'. "
-                    "Hoppar över systemuppdatering.",
-                    file=sys.stderr,
-                )
+            runner(["sudo", "apt", "update"], check=True)
+            runner(["sudo", "apt", "upgrade", "-y"], check=True)
             
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
