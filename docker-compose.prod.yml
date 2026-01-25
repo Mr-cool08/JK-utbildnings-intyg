@@ -30,7 +30,7 @@ services:
     pids_limit: 100
 
   fail2ban:
-    image: crazymax/fail2ban:latest
+    image: crazymax/fail2ban:1.1.0
     profiles: [security]
     cap_add:
       - NET_ADMIN
