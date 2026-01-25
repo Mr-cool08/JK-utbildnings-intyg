@@ -67,6 +67,7 @@ def test_run_compose_action_cycle_orders_commands():
 
     assert events == [
         {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["update"], "check": True, "cwd": None},
 
         {
             "event": "cmd",
