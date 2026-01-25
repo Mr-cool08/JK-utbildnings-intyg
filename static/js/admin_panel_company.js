@@ -4,6 +4,10 @@
   const createSupervisorMessage = document.getElementById('createSupervisorMessage');
   const linkSupervisorForm = document.getElementById('linkSupervisorForm');
   const linkSupervisorMessage = document.getElementById('linkSupervisorMessage');
+  const removeSupervisorForm = document.getElementById('removeSupervisorForm');
+  const removeSupervisorMessage = document.getElementById('removeSupervisorMessage');
+  const changeSupervisorForm = document.getElementById('changeSupervisorForm');
+  const changeSupervisorMessage = document.getElementById('changeSupervisorMessage');
   const supervisorOverviewForm = document.getElementById('supervisorOverviewForm');
   const supervisorOverviewMessage = document.getElementById('supervisorOverviewMessage');
   const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
@@ -79,6 +83,73 @@
         linkSupervisorForm.reset();
       } catch (err) {
         setMessageElement(linkSupervisorMessage, err.message, true);
+      }
+    });
+  }
+
+  if (removeSupervisorForm) {
+    setMessageElement(removeSupervisorMessage, '', false);
+    removeSupervisorForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!removeSupervisorMessage) return;
+      const formData = new FormData(removeSupervisorForm);
+      const payload = {
+        orgnr: formData.get('orgnr')?.toString().trim(),
+        personnummer: formData.get('personnummer')?.toString().trim(),
+      };
+      setMessageElement(removeSupervisorMessage, 'Tar bort koppling…', false);
+      try {
+        const res = await fetch('/admin/api/foretagskonto/ta-bort', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte ta bort kopplingen.');
+        }
+        setMessageElement(
+          removeSupervisorMessage,
+          data.message || 'Kopplingen har tagits bort.',
+          false,
+        );
+        removeSupervisorForm.reset();
+      } catch (err) {
+        setMessageElement(removeSupervisorMessage, err.message, true);
+      }
+    });
+  }
+
+  if (changeSupervisorForm) {
+    setMessageElement(changeSupervisorMessage, '', false);
+    changeSupervisorForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!changeSupervisorMessage) return;
+      const formData = new FormData(changeSupervisorForm);
+      const payload = {
+        from_orgnr: formData.get('from_orgnr')?.toString().trim(),
+        to_orgnr: formData.get('to_orgnr')?.toString().trim(),
+        personnummer: formData.get('personnummer')?.toString().trim(),
+      };
+      setMessageElement(changeSupervisorMessage, 'Uppdaterar koppling…', false);
+      try {
+        const res = await fetch('/admin/api/foretagskonto/uppdatera-koppling', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte uppdatera kopplingen.');
+        }
+        setMessageElement(
+          changeSupervisorMessage,
+          data.message || 'Kopplingen har uppdaterats.',
+          false,
+        );
+        changeSupervisorForm.reset();
+      } catch (err) {
+        setMessageElement(changeSupervisorMessage, err.message, true);
       }
     });
   }
