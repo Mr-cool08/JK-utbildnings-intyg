@@ -49,6 +49,7 @@ def test_run_compose_action_cycle_orders_commands():
     module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
         {"event": "ensure"}
     )
+    module.shutil.which = lambda name: "update"
 
     def fake_runner(cmd, check, **kwargs):
         events.append(
@@ -101,8 +102,61 @@ def test_run_compose_action_cycle_orders_commands():
         {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
     ]
 
+def test_run_compose_action_cycle_skips_missing_update(capsys):
+    module = _load_module()
+    events: list[dict[str, object]] = []
 
+    module.build_pytest_command = lambda root: ["venv/bin/pytest"]
+    module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
+        {"event": "ensure"}
+    )
+    module.shutil.which = lambda name: None
 
+    def fake_runner(cmd, check, **kwargs):
+        events.append(
+            {
+                "event": "cmd",
+                "cmd": list(cmd),
+                "check": check,
+                "cwd": kwargs.get("cwd"),
+            }
+        )
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.run_compose_action(["-f", "docker-compose.yml"], "cycle", runner=fake_runner)
+
+    repo_root = Path(module.__file__).resolve().parents[1]
+
+    assert events == [
+        {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "stop"],
+            "check": True,
+            "cwd": None,
+        },
+        {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+        {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "build", "--no-cache"],
+            "check": True,
+            "cwd": None,
+        },
+        {"event": "ensure"},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d", "--remove-orphans"],
+            "check": True,
+            "cwd": None,
+        },
+        {"event": "cmd", "cmd": ["docker", "image", "prune", "-a"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
+    ]
+
+    captured = capsys.readouterr()
+    assert "Varning: Kunde inte hitta uppdateringsskriptet 'update'." in captured.err
 
 def test_run_compose_action_build_up_orders_commands():
     module = _load_module()
