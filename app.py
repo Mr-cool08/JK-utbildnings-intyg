@@ -533,13 +533,25 @@ def supervisor_create(email_hash: str):
 
 @app.route('/foretagskonto/login', methods=['GET', 'POST'])
 def supervisor_login():
+    csrf_token = sec.ensure_csrf_token()
     if request.method == 'POST':
+        if not validate_csrf_token():
+            logger.warning("Ogiltig CSRF-token vid företagskontoinloggning")
+            return (
+                render_template(
+                    'supervisor_login.html',
+                    error='Formuläret är inte längre giltigt. Ladda om sidan och försök igen.',
+                    csrf_token=csrf_token,
+                ),
+                400,
+            )
         orgnr = request.form.get('orgnr', '').strip()
         password = request.form.get('password', '').strip()
         if not orgnr or not password:
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
+                csrf_token=csrf_token,
             )
         try:
             normalized_orgnr = functions.validate_orgnr(orgnr)
@@ -548,6 +560,7 @@ def supervisor_login():
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
+                csrf_token=csrf_token,
             )
 
         details = functions.get_supervisor_login_details_for_orgnr(normalized_orgnr)
@@ -559,6 +572,7 @@ def supervisor_login():
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
+                csrf_token=csrf_token,
             )
 
         normalized_email = details['email']
@@ -573,6 +587,7 @@ def supervisor_login():
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
+                csrf_token=csrf_token,
             )
         if not valid:
             logger.warning(
@@ -582,6 +597,7 @@ def supervisor_login():
             return render_template(
                 'supervisor_login.html',
                 error='Ogiltiga inloggningsuppgifter.',
+                csrf_token=csrf_token,
             )
 
         session['supervisor_logged_in'] = True
@@ -599,7 +615,7 @@ def supervisor_login():
         )
         return redirect(url_for('supervisor_dashboard'))
 
-    return render_template('supervisor_login.html')
+    return render_template('supervisor_login.html', csrf_token=csrf_token)
 
 
 
@@ -1087,21 +1103,40 @@ def pricing():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     # Authenticate users using personnummer and password.
+    csrf_token = sec.ensure_csrf_token()
     if request.method == 'POST':
+        if not validate_csrf_token():
+            logger.warning("Ogiltig CSRF-token vid användarinloggning")
+            return (
+                render_template(
+                    'user_login.html',
+                    error='Formuläret är inte längre giltigt. Ladda om sidan och försök igen.',
+                    csrf_token=csrf_token,
+                ),
+                400,
+            )
         raw_personnummer = request.form['personnummer']
         try:
             personnummer = functions.normalize_personnummer(raw_personnummer)
         except ValueError:
             logger.error("Ogiltigt personnummer angivet vid inloggning")
             return (
-                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+                render_template(
+                    'user_login.html',
+                    error='Ogiltiga inloggningsuppgifter',
+                    csrf_token=csrf_token,
+                ),
                 401,
             )
 
         if personnummer == "" or not personnummer.isnumeric():
             logger.error("Ogiltigt normaliserat personnummer vid inloggning")
             return (
-                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+                render_template(
+                    'user_login.html',
+                    error='Ogiltiga inloggningsuppgifter',
+                    csrf_token=csrf_token,
+                ),
                 401,
             )
         password = request.form['password']
@@ -1109,7 +1144,11 @@ def login():
         if password == "":
             logger.error("Empty password provided for %s", mask_hash(personnummer_hash))
             return (
-                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+                render_template(
+                    'user_login.html',
+                    error='Ogiltiga inloggningsuppgifter',
+                    csrf_token=csrf_token,
+                ),
                 401,
             )
         logger.debug("Login attempt for %s", mask_hash(personnummer_hash))
@@ -1125,11 +1164,15 @@ def login():
         else:
             logger.warning("Invalid login for %s", mask_hash(personnummer_hash))
             return (
-                render_template('user_login.html', error='Ogiltiga inloggningsuppgifter'),
+                render_template(
+                    'user_login.html',
+                    error='Ogiltiga inloggningsuppgifter',
+                    csrf_token=csrf_token,
+                ),
                 401,
             )
     logger.debug("Rendering login page")
-    return render_template('user_login.html')
+    return render_template('user_login.html', csrf_token=csrf_token)
 
 
 @app.route('/dashboard', methods=['GET'])

@@ -10,6 +10,7 @@
                 <p class="message error">{{ error }}</p>
             {% endif %}
             <form method="post" class="form-card">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="orgnr">Organisationsnummer</label>
                 <input type="text" id="orgnr" name="orgnr" inputmode="numeric" pattern="[0-9\s-]{6,12}" required placeholder="Exempel: 556966-8337">
 

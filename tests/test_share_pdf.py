@@ -8,9 +8,15 @@ from functions.emails import service as email_service
 
 
 def _login_default_user(client):
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "test-token"
     return client.post(
         "/login",
-        data={"personnummer": "9001011234", "password": "secret"},
+        data={
+            "personnummer": "9001011234",
+            "password": "secret",
+            "csrf_token": "test-token",
+        },
         follow_redirects=False,
     )
 
