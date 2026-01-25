@@ -10,9 +10,15 @@ def test_user_can_upload_pdf_from_dashboard(user_db):
     pdf_bytes = b"%PDF-1.4 via upload"
 
     with app.app.test_client() as client:
+        with client.session_transaction() as session_data:
+            session_data["csrf_token"] = "test-token"
         client.post(
             "/login",
-            data={"personnummer": "9001011234", "password": "secret"},
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
         )
 
         client.get("/dashboard")

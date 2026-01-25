@@ -110,14 +110,20 @@ def test_supervisor_create_branches(monkeypatch, client):
 
 
 def test_supervisor_login_paths(monkeypatch, client):
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "test-token"
     # Inga uppgifter inskickade.
-    resp_missing = client.post("/foretagskonto/login", data={"orgnr": "", "password": ""})
+    resp_missing = client.post(
+        "/foretagskonto/login",
+        data={"orgnr": "", "password": "", "csrf_token": "test-token"},
+    )
     assert "ogiltiga" in resp_missing.text.lower()
 
     # Ogiltigt organisationsnummer.
     monkeypatch.setattr(app.functions, "validate_orgnr", lambda _value: (_ for _ in ()).throw(ValueError("invalid")))
     resp_invalid_org = client.post(
-        "/foretagskonto/login", data={"orgnr": "abc", "password": "pw"}
+        "/foretagskonto/login",
+        data={"orgnr": "abc", "password": "pw", "csrf_token": "test-token"},
     )
     assert "ogiltiga" in resp_invalid_org.text.lower()
 
@@ -125,7 +131,8 @@ def test_supervisor_login_paths(monkeypatch, client):
     monkeypatch.setattr(app.functions, "validate_orgnr", lambda value: value)
     monkeypatch.setattr(app.functions, "get_supervisor_login_details_for_orgnr", lambda _orgnr: None)
     resp_missing_acc = client.post(
-        "/foretagskonto/login", data={"orgnr": "123", "password": "pw"}
+        "/foretagskonto/login",
+        data={"orgnr": "123", "password": "pw", "csrf_token": "test-token"},
     )
     assert "ogiltiga" in resp_missing_acc.text.lower()
 
@@ -137,7 +144,8 @@ def test_supervisor_login_paths(monkeypatch, client):
     )
     monkeypatch.setattr(app.functions, "verify_supervisor_credentials", lambda *_: False)
     resp_bad_pw = client.post(
-        "/foretagskonto/login", data={"orgnr": "123", "password": "pw"}
+        "/foretagskonto/login",
+        data={"orgnr": "123", "password": "pw", "csrf_token": "test-token"},
     )
     assert "ogiltiga" in resp_bad_pw.text.lower()
 
@@ -148,7 +156,8 @@ def test_supervisor_login_paths(monkeypatch, client):
         lambda *_: (_ for _ in ()).throw(ValueError("felaktig konfiguration")),
     )
     resp_config_error = client.post(
-        "/foretagskonto/login", data={"orgnr": "123", "password": "pw"}
+        "/foretagskonto/login",
+        data={"orgnr": "123", "password": "pw", "csrf_token": "test-token"},
     )
     assert "ogiltiga" in resp_config_error.text.lower()
 
@@ -156,10 +165,20 @@ def test_supervisor_login_paths(monkeypatch, client):
     monkeypatch.setattr(app.functions, "verify_supervisor_credentials", lambda *_: True)
     monkeypatch.setattr(app.functions, "get_supervisor_name_by_hash", lambda _hash: "Bossen")
     resp_ok = client.post(
-        "/foretagskonto/login", data={"orgnr": "123", "password": "pw"}
+        "/foretagskonto/login",
+        data={"orgnr": "123", "password": "pw", "csrf_token": "test-token"},
     )
     assert resp_ok.status_code == 302
     assert resp_ok.headers["Location"].endswith("/foretagskonto")
+
+
+def test_supervisor_login_requires_csrf(client):
+    response = client.post(
+        "/foretagskonto/login",
+        data={"orgnr": "123", "password": "pw"},
+    )
+    assert response.status_code == 400
+    assert "formuläret" in response.text.lower()
 
 
 def _login_user(session_store):

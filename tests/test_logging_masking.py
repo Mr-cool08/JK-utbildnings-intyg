@@ -53,12 +53,18 @@ def test_login_logging_masks_personnummer(user_db, caplog):
     client = app.app.test_client()
     normalized = functions.normalize_personnummer("9001011234")
     hashed = functions.hash_value(normalized)
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "test-token"
 
     caplog.set_level(logging.DEBUG, logger="functions")
     with caplog.at_level(logging.DEBUG, logger="app"):
         response = client.post(
             "/login",
-            data={"personnummer": "9001011234", "password": "secret"},
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
             follow_redirects=False,
         )
 

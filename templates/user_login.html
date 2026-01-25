@@ -7,6 +7,7 @@
             <h1>Användarkontoinloggning</h1>
             {% if error %}<p class="message error">{{ error }}</p>{% endif %}
             <form action="/login" method="POST" class="form-card">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="personnummer">Personnummer:</label>
                 <input type="text" id="personnummer" name="personnummer" required placeholder="ÅÅMMDDXXXX">
                 <label for="password">Lösenord:</label>

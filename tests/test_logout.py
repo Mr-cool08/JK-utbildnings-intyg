@@ -4,7 +4,16 @@ import app
 
 def test_logout_clears_user_session(user_db):
     with app.app.test_client() as client:
-        client.post("/login", data={"personnummer": "9001011234", "password": "secret"})
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        client.post(
+            "/login",
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
+        )
         with client.session_transaction() as sess:
             assert sess.get("user_logged_in")
         client.get("/logout")
