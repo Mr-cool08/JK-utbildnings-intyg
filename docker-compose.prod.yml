@@ -181,21 +181,33 @@ services:
     pids_limit: 50
 
   borgmatic:
-    image: ghcr.io/borgmatic-collective/borgmatic:latest
+    image: ghcr.io/borgmatic-collective/borgmatic:2.1
     env_file:
       - .env
     volumes:
       - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
-      - /var:/var:ro
-      - /home:/home:ro
-      - /root:/host_root:ro
+
+      # Host-data, mounta "vid sidan av" containerns systemmappar
+      - /etc:/source/etc:ro
+      - /var:/source/var:ro
+      - /home:/source/home:ro
+      - /root:/source/root:ro
+
+      # SSH-nycklar
       - /root/.ssh:/root/.ssh:ro
+
+      # Borg cache/config (snabbare + mindre risk för låsstrul)
+      - borg_cache:/root/.cache/borg
+      - borg_config:/root/.config/borg
+
     entrypoint: >
-      /bin/sh -c
-      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
-      && echo 'Startar borgmatic för att verifiera konfigurationen...'
-      && borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2 || echo 'Borgmatic misslyckades vid start, kontrollera konfigurationen.' >&2
-      && crond -f -l 2 -L /dev/stdout"
+      /bin/sh -c "
+      echo '0 2 * * * borgmatic --stats --verbosity 1 --progress >> /proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
+      && echo 'Validerar borgmatic-konfigurationen...'
+      && borgmatic config validate --verbosity 1 >> /proc/1/fd/1 2>>/proc/1/fd/2
+      && echo 'Startar crond...'
+      && exec crond -f -l 2 -L /dev/stdout
+      "
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
@@ -203,6 +215,8 @@ services:
     pids_limit: 150
 
 volumes:
+  borg_cache:
+  borg_config:
   env_data:
   app_logs:
     name: jk-utbildnings-intyg_app_logs

@@ -1,39 +1,54 @@
-# Borgmatic-konfiguration för servern
-# Anpassa sökvägar, repository och nycklar innan användning.
+# /etc/borgmatic/config.yaml
+# Modern borgmatic-konfig (global scope, inga deprecated sektioner)
+# Kräver att du har BORG_REPO och BORG_PASSPHRASE i din .env
 
-location:
-  source_directories:
-    - /etc
-    - /home
-    - /var
-    - /host_root
-  repositories:
+source_directories:
+  - /source/etc
+  - /source/home
+  - /source/var
+  - /source/root
 
-    - ${BORG_RSH}/${HOSTNAME}
-  exclude_patterns:
-    - '*.tmp'
-    - '*.cache'
-    - /home/*/.cache
-    - /host_root/.cache
-  one_file_system: true
+# Repository tas från env-var. Exempel i .env:
+# BORG_REPO=ssh://USER@USER.repo.borgbase.com/./repo/REPO_ID
+repositories:
+  - path: "{BORG_REPO}"
+    label: borgbase
 
-storage:
-  compression: lz4
-  encryption_passphrase: "${BORG_PASSPHRASE}"
-  archive_name_format: "{hostname}-{now}"
-  remote_path: borg1
+exclude_patterns:
+  - "*.tmp"
+  - "*.cache"
+  - /source/home/*/.cache
+  - /source/root/.cache
 
-retention:
-  keep_daily: 7
-  keep_weekly: 4
-  keep_monthly: 6
-  keep_yearly: 1
-  prefix: "{hostname}-"
+# Om du vill slippa backa upp vissa mappar genom en fil:
+# exclude_if_present: .nobackup
 
-consistency:
-  checks:
-    - repository
-    - archives
-  check_last: 3
+one_file_system: true
 
-# Copyright (c) Liam Suorsa
+compression: lz4
+
+# BorgBase kör ofta "borg1" som remote_path (lämna om du redan vet att det funkar hos dig)
+remote_path: borg1
+
+# Passphrase från env-var (rekommenderat)
+encryption_passphrase: "{BORG_PASSPHRASE}"
+
+# Samma arkivnamnsformat som du använde tidigare (enkelt & kompatibelt)
+archive_name_format: "{hostname}-{now}"
+
+# Retention
+keep_daily: 7
+keep_weekly: 4
+keep_monthly: 6
+keep_yearly: 1
+
+# Konsistenskontroller (nya formatet: list av key/value)
+checks:
+  - name: repository
+  - name: archives
+
+check_last: 3
+
+# Bra att ha om du vill köra extra “säkert”:
+# check_repositories:
+#   - borgbase
