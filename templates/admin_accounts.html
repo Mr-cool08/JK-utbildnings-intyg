@@ -3,14 +3,16 @@
 {% block title %}Admin — Konton{% endblock %}
 {% block content %}
 <h1>Admin — Konton</h1>
-<p>Här skapar du standardkonton, skickar återställningslänkar och raderar konton.</p>
+<p>Här skapar du standardkonton, hanterar intyg, uppdaterar kontouppgifter och skickar återställningslänkar.</p>
 
 <nav class="admin-nav" aria-label="Administrationsnavigering">
-    <a class="btn btn-secondary" href="{{ url_for('admin') }}">Start</a>
-    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; PDF:er</a>
+    <a class="btn" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; verifiering</a>
     <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
     <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
     <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+    <a class="btn" href="{{ url_for('admin_advanced') }}">Avancerade verktyg</a>
 </nav>
 
 <section class="panel admin-tools" data-csrf-token="{{ csrf_token }}">
@@ -81,12 +83,66 @@
 </section>
 
 <section class="panel">
+    <h2>Hantera befintliga intyg</h2>
+    <p>Fyll i personnummer och klicka på “Visa PDF:er”.</p>
+    <form id="pdfLookupForm" class="inline-form" method="post">
+        <label for="lookupPersonnummer">Personnummer</label>
+        <input id="lookupPersonnummer" name="lookupPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+        <button type="submit" class="btn">Visa PDF:er</button>
+        <span id="pdfLookupMessage" class="message" aria-live="polite"></span>
+    </form>
+
+    <div id="pdfResults" class="card" hidden>
+        <h3>Intyg</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Filnamn</th>
+                        <th>Kategorier</th>
+                        <th>Uppladdad</th>
+                        <th>Åtgärder</th>
+                    </tr>
+                </thead>
+                <tbody id="pdfResultBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Uppdatera användaruppgifter</h2>
+    <p>Ändra namn och e-post för ett standardkonto eller väntande konto.</p>
+    <form id="updateAccountForm" class="stacked-form" method="post">
+        <label for="updatePersonnummer">Personnummer</label>
+        <input id="updatePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+
+        <label for="updateUsername">Namn</label>
+        <input id="updateUsername" name="username" type="text" required placeholder="För- och efternamn" />
+
+        <label for="updateEmail">E-post</label>
+        <input id="updateEmail" name="email" type="email" required placeholder="user@example.com" />
+
+        <button type="submit" class="btn">Uppdatera konto</button>
+        <p id="updateAccountMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
     <h2>Radera användarkonto</h2>
-    <p>Radera ett konto och tillhörande data. Åtgärden går inte att ångra.</p>
+    <p>Välj ett konto i listan. Ett mejl skickas när kontot har raderats.</p>
     <form id="deleteAccountForm" class="stacked-form" method="post">
-        <label for="deletePersonnummer">Personnummer</label>
-        <input id="deletePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        <button type="submit" class="btn btn-danger">Radera konto</button>
+        <label for="deleteAccountSelect">Välj konto</label>
+        <select id="deleteAccountSelect" name="personnummer_hash" required></select>
+
+        <label for="deleteNotifyEmail">E-post för notifiering</label>
+        <input id="deleteNotifyEmail" name="email" type="email" required placeholder="user@example.com" />
+
+        <div class="button-row">
+            <button type="button" class="btn btn-secondary" id="refreshAccountList">Uppdatera lista</button>
+            <button type="submit" class="btn btn-danger">Radera konto</button>
+        </div>
         <p id="deleteAccountMessage" class="message" aria-live="polite"></p>
     </form>
 </section>
@@ -114,20 +170,9 @@
     </form>
 </section>
 
-<section class="panel">
-    <h2>Verifiera intyg</h2>
-    <p>Kontrollera om ett standardkonto har ett verifierat certifikat.</p>
-    <form id="verifyCertificateForm" class="inline-form" method="post">
-        <label for="verifyPersonnummer">Personnummer</label>
-        <input id="verifyPersonnummer" name="verifyPersonnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
-        <button type="submit" class="btn">Verifiera</button>
-        <span id="verifyCertificateMessage" class="message" aria-live="polite"></span>
-    </form>
-</section>
-
 <dialog id="deleteAccountDialog" class="admin-dialog" aria-labelledby="deleteAccountTitle">
     <h3 id="deleteAccountTitle">Bekräfta radering</h3>
-    <p class="dialog-warning">Du är på väg att radera kontot för <strong id="deleteAccountPersonnummerPreview">personnummer</strong>. Alla kopplade intyg, återställningar och kopplingar tas bort.</p>
+    <p class="dialog-warning">Du är på väg att radera kontot för <strong id="deleteAccountPersonnummerPreview">konto</strong>. Alla kopplade intyg, återställningar och kopplingar tas bort.</p>
     <div class="dialog-actions">
         <button type="button" class="btn btn-secondary" id="cancelDeleteAccount">Avbryt</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Ja, radera konto</button>
@@ -140,6 +185,7 @@
 </script>
 <script src="{{ url_for('static', filename='js/admin_panel_storage.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin_panel_personnummer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin_panel_pdf.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin_panel_accounts.js') }}"></script>
 {% endblock %}
 <!-- # Copyright (c) Liam Suorsa -->

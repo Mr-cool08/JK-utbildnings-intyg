@@ -106,7 +106,9 @@ from functions.table_admin import (
 )
 from functions.users import (
     admin_delete_user_account,
+    admin_delete_user_account_by_hash,
     admin_create_user,
+    admin_update_user_account,
     check_password_user,
     check_pending_user,
     check_pending_user_hash,
@@ -115,6 +117,7 @@ from functions.users import (
     get_user_info,
     get_username,
     get_username_by_personnummer_hash,
+    list_admin_accounts,
     user_create_user,
     verify_certificate,
 )
@@ -138,6 +141,8 @@ __all__ = [
     "admin_create_supervisor",
     "admin_create_user",
     "admin_delete_user_account",
+    "admin_delete_user_account_by_hash",
+    "admin_update_user_account",
     "admin_link_supervisor_to_user",
     "application_requests_table",
     "approve_application_request",
@@ -179,6 +184,7 @@ __all__ = [
     "hash_password",
     "hash_value",
     "list_application_requests",
+    "list_admin_accounts",
     "list_companies_for_invoicing",
     "list_supervisor_connections",
     "list_user_link_requests",

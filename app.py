@@ -2039,27 +2039,48 @@ def admin_delete_account():  # pragma: no cover
         return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get('personnummer') or '').strip()
+    personnummer_hash = (payload.get('personnummer_hash') or '').strip()
+    notify_email = (payload.get('email') or '').strip()
     if not personnummer:
-        logging.debug(
-            "Admin delete_account without personnummer",
-            extra={'admin': admin_name},
-        )
-        return jsonify({'status': 'error', 'message': 'Ange personnummer.'}), 400
+        if not personnummer_hash:
+            logging.debug(
+                "Admin delete_account without personnummer",
+                extra={'admin': admin_name},
+            )
+            return jsonify(
+                {'status': 'error', 'message': 'Välj ett konto att radera.'}
+            ), 400
+    if not notify_email:
+        logging.debug("Admin delete_account without email", extra={'admin': admin_name})
+        return jsonify(
+            {'status': 'error', 'message': 'Ange e-post för notifiering.'}
+        ), 400
     personnummer_masked = (
         mask_hash(functions.hash_value(personnummer)) if personnummer else "saknas"
     )
     try:
-        normalized_personnummer = functions.normalize_personnummer(personnummer)
+        if personnummer:
+            normalized_personnummer = functions.normalize_personnummer(personnummer)
+            personnummer_hash = functions.hash_value(normalized_personnummer)
+        elif not functions._is_valid_hash(personnummer_hash):
+            raise ValueError("Ogiltig hash")
     except ValueError:
         logging.debug(
             "Admin delete_account with invalid personnummer: %s",
             personnummer_masked,
             extra={'admin': admin_name},
         )
-        return jsonify({'status': 'error', 'message': 'Ogiltigt personnummer.'}), 400
+        return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
 
     try:
-        deleted, summary = functions.admin_delete_user_account(normalized_personnummer)
+        normalized_email = email_service.normalize_valid_email(notify_email)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
+
+    try:
+        deleted, summary, username = functions.admin_delete_user_account_by_hash(
+            personnummer_hash
+        )
     except Exception:
         logger.exception(
             "Misslyckades att radera konto för %s",
@@ -2070,22 +2091,93 @@ def admin_delete_account():  # pragma: no cover
     if not deleted:
         return jsonify({'status': 'error', 'message': 'Kontot hittades inte.'}), 404
 
-    pnr_hash = functions.hash_value(normalized_personnummer)
+    email_warning = None
+    try:
+        email_service.send_account_deletion_email(
+            normalized_email, username=username
+        )
+    except Exception:
+        logger.exception("Misslyckades att skicka raderingsmejl")
+        email_warning = 'Kontot raderades, men mejlet kunde inte skickas.'
+
+    pnr_hash = personnummer_hash
     summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    email_hash = functions.hash_value(functions.normalize_email(notify_email))
     functions.log_admin_action(
         admin_name,
         'raderade konto',
-        f'personnummer_hash={pnr_hash}, {summary_details}',
+        f'personnummer_hash={pnr_hash}, email_hash={email_hash}, {summary_details}',
     )
     logging.info(
         "Admin deleted account for %s",
         mask_hash(pnr_hash),
         extra={'admin': admin_name},
     )
+    response_payload = {
+        'status': 'success',
+        'message': 'Kontot har raderats och mejl har skickats.',
+        'data': summary,
+    }
+    if email_warning:
+        response_payload['email_warning'] = email_warning
+        response_payload['message'] = 'Kontot har raderats.'
+    return jsonify(response_payload)
+
+
+@app.get('/admin/api/konton/lista')
+def admin_list_accounts():  # pragma: no cover
+    _require_admin()
+    accounts = functions.list_admin_accounts()
+    return jsonify({'status': 'success', 'data': accounts})
+
+
+@app.post('/admin/api/konton/uppdatera')
+def admin_update_account():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 400
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get('personnummer') or '').strip()
+    email = (payload.get('email') or '').strip()
+    username = (payload.get('username') or '').strip()
+    if not personnummer or not email or not username:
+        return jsonify(
+            {'status': 'error', 'message': 'Fyll i personnummer, namn och e-post.'}
+        ), 400
+
+    try:
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+        normalized_email = functions.normalize_email(email)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
+
+    success, summary, error = functions.admin_update_user_account(
+        normalized_personnummer, normalized_email, username
+    )
+    if not success:
+        if error == "missing_account":
+            return jsonify({'status': 'error', 'message': 'Kontot hittades inte.'}), 404
+        if error == "email_in_use":
+            return jsonify(
+                {'status': 'error', 'message': 'E-postadressen används redan.'}
+            ), 409
+        return jsonify({'status': 'error', 'message': 'Kunde inte uppdatera kontot.'}), 400
+
+    pnr_hash = functions.hash_value(normalized_personnummer)
+    email_hash = functions.hash_value(normalized_email)
+    summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    functions.log_admin_action(
+        admin_name,
+        'uppdaterade konto',
+        f'personnummer_hash={pnr_hash}, email_hash={email_hash}, {summary_details}',
+    )
+    logging.info(
+        "Admin updated account for %s", mask_hash(pnr_hash), extra={'admin': admin_name}
+    )
     return jsonify(
         {
             'status': 'success',
-            'message': 'Kontot har raderats.',
+            'message': 'Kontot har uppdaterats.',
             'data': summary,
         }
     )
@@ -2361,6 +2453,137 @@ def admin_supervisor_overview():  # pragma: no cover
     )
     logging.debug("Admin supervisor_overview for %s with %d users", mask_hash(email_hash), len(overview.get('users', [])), extra={'admin': admin_name})
     return jsonify({'status': 'success', 'data': overview})
+
+
+@app.post('/admin/api/foretagskonto/ta-bort')
+def admin_remove_supervisor_connection():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
+    payload = request.get_json(silent=True) or {}
+    orgnr = (payload.get('orgnr') or '').strip()
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not orgnr or not personnummer:
+        return jsonify(
+            {'status': 'error', 'message': 'Ange organisationsnummer och personnummer.'}
+        ), 400
+
+    try:
+        details = functions.get_supervisor_login_details_for_orgnr(orgnr)
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
+
+    if not details:
+        return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
+
+    personnummer_hash = functions.hash_value(normalized_personnummer)
+    if not functions.supervisor_has_access(details["email_hash"], personnummer_hash):
+        return jsonify({'status': 'error', 'message': 'Kopplingen hittades inte.'}), 404
+
+    if not functions.supervisor_remove_connection(
+        details["email_hash"], personnummer_hash
+    ):
+        return jsonify({'status': 'error', 'message': 'Kunde inte ta bort kopplingen.'}), 400
+
+    functions.log_admin_action(
+        admin_name,
+        'tog bort företagskoppling',
+        f'orgnr={details["orgnr"]}, email_hash={details["email_hash"]}, personnummer_hash={personnummer_hash}',
+    )
+    logging.info(
+        "Admin removed supervisor connection for %s",
+        mask_hash(personnummer_hash),
+        extra={'admin': admin_name},
+    )
+    return jsonify({'status': 'success', 'message': 'Kopplingen har tagits bort.'})
+
+
+@app.post('/admin/api/foretagskonto/uppdatera-koppling')
+def admin_change_supervisor_connection():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
+    payload = request.get_json(silent=True) or {}
+    from_orgnr = (payload.get('from_orgnr') or '').strip()
+    to_orgnr = (payload.get('to_orgnr') or '').strip()
+    personnummer = (payload.get('personnummer') or '').strip()
+    if not from_orgnr or not to_orgnr or not personnummer:
+        return jsonify(
+            {
+                'status': 'error',
+                'message': 'Ange nuvarande organisationsnummer, nytt organisationsnummer och personnummer.',
+            }
+        ), 400
+
+    try:
+        from_details = functions.get_supervisor_login_details_for_orgnr(from_orgnr)
+        to_details = functions.get_supervisor_login_details_for_orgnr(to_orgnr)
+        normalized_personnummer = functions.normalize_personnummer(personnummer)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
+
+    if not from_details or not to_details:
+        return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
+
+    personnummer_hash = functions.hash_value(normalized_personnummer)
+    if not functions.supervisor_has_access(
+        from_details["email_hash"], personnummer_hash
+    ):
+        return jsonify({'status': 'error', 'message': 'Den gamla kopplingen hittades inte.'}), 404
+
+    if not functions.supervisor_remove_connection(
+        from_details["email_hash"], personnummer_hash
+    ):
+        return jsonify({'status': 'error', 'message': 'Kunde inte ta bort den gamla kopplingen.'}), 400
+
+    success, reason, email_hash = functions.admin_link_supervisor_to_user(
+        to_orgnr, normalized_personnummer
+    )
+    if not success:
+        rollback_success, rollback_reason, rollback_email_hash = (
+            functions.admin_link_supervisor_to_user(
+                from_orgnr, normalized_personnummer
+            )
+        )
+        message = 'Kunde inte skapa den nya kopplingen.'
+        if reason == 'missing_supervisor':
+            message = 'Det nya företagskontot hittades inte.'
+        elif reason == 'missing_user':
+            message = 'Standardkontot hittades inte.'
+        elif reason == 'exists':
+            message = 'Det finns redan en koppling till det nya företagskontot.'
+        if not rollback_success:
+            logger.error(
+                "Rollback misslyckades vid ändring av koppling: reason=%s, rollback_reason=%s, rollback_email_hash=%s",
+                reason,
+                rollback_reason,
+                rollback_email_hash,
+            )
+            return jsonify(
+                {
+                    'status': 'error',
+                    'message': (
+                        f"{message} Rollback misslyckades: {rollback_reason}."
+                    ),
+                }
+            ), 500
+        return jsonify({'status': 'error', 'message': message}), 400
+
+    functions.log_admin_action(
+        admin_name,
+        'ändrade företagskoppling',
+        (
+            f'from_orgnr={from_details["orgnr"]}, to_orgnr={to_details["orgnr"]}, '
+            f'email_hash={email_hash}, personnummer_hash={personnummer_hash}'
+        ),
+    )
+    logging.info(
+        "Admin changed supervisor connection for %s",
+        mask_hash(personnummer_hash),
+        extra={'admin': admin_name},
+    )
+    return jsonify({'status': 'success', 'message': 'Kopplingen har uppdaterats.'})
 
 @app.get('/admin/avancerat')
 def admin_advanced():  # pragma: no cover
