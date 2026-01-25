@@ -1,4 +1,6 @@
 # Copyright (c) Liam Suorsa
+import os
+
 from status_service.app import app
 
 
@@ -179,3 +181,37 @@ def test_pytest_route_handles_missing_tests(monkeypatch):
         "Pytest hittade inga tester i den här miljön. Kontrollera STATUS_PROJECT_ROOT.\n"
     )
     assert captured_events == {}
+
+
+def test_pytest_route_falls_back_when_project_root_invalid(monkeypatch, tmp_path):
+    captured_calls = {}
+    missing_root = tmp_path / "saknas"
+
+    class FakeProcess:
+        def __init__(self, lines, returncode):
+            self.stdout = iter(lines)
+            self.returncode = returncode
+
+        def wait(self):
+            return self.returncode
+
+    def fake_popen(*args, **kwargs):
+        captured_calls["cwd"] = kwargs.get("cwd")
+        return FakeProcess(["testkörning\n"], 0)
+
+    monkeypatch.setenv("STATUS_PROJECT_ROOT", str(missing_root))
+    monkeypatch.setattr("status_service.app.importlib.util.find_spec", lambda _name: object())
+    monkeypatch.setattr("status_service.app.subprocess.Popen", fake_popen)
+
+    app.testing = True
+    with app.test_client() as client:
+        response = client.get("/pytest")
+
+    expected_root = os.path.abspath(os.path.join(app.root_path, ".."))
+    assert response.status_code == 200
+    assert response.get_data(as_text=True) == (
+        "Startar pytest...\n"
+        "testkörning\n"
+        "Pytest klart: lyckades.\n"
+    )
+    assert captured_calls["cwd"] == expected_root

@@ -20,6 +20,51 @@ def get_display_timestamp():
     return now.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _looks_like_pytest_root(path):
+    if not path or not os.path.isdir(path):
+        return False
+    return any(
+        [
+            os.path.isdir(os.path.join(path, "tests")),
+            os.path.isfile(os.path.join(path, "pytest.ini")),
+            os.path.isfile(os.path.join(path, "pyproject.toml")),
+            os.path.isfile(os.path.join(path, "setup.cfg")),
+        ]
+    )
+
+
+def _resolve_project_root():
+    env_root = os.getenv("STATUS_PROJECT_ROOT")
+    if env_root and not os.path.isdir(env_root):
+        LOGGER.warning("STATUS_PROJECT_ROOT pekar på en ogiltig katalog: %s", env_root)
+        env_root = None
+
+    candidate_paths = []
+    if env_root:
+        candidate_paths.append(env_root)
+
+    default_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    candidate_paths.append(default_root)
+
+    current = os.path.abspath(os.path.dirname(__file__))
+    while True:
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        candidate_paths.append(parent)
+        current = parent
+
+    for path in candidate_paths:
+        if _looks_like_pytest_root(path):
+            return path
+
+    if env_root:
+        LOGGER.warning("STATUS_PROJECT_ROOT saknar pytest-struktur: %s", env_root)
+        return env_root
+
+    LOGGER.warning("Kunde inte hitta projektrot, använder arbetskatalogen.")
+    return os.getcwd()
+
 
 def _is_no_tests_output(output_lines):
     combined_output = "".join(output_lines).lower()
@@ -48,10 +93,7 @@ def index():
 @app.route("/pytest")
 def pytest_site():
     LOGGER.info("Startar pytest-körning via status-tjänsten.")
-    project_root = os.getenv(
-        "STATUS_PROJECT_ROOT",
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
-    )
+    project_root = _resolve_project_root()
 
     def generate_output():
         yield "Startar pytest...\n"
