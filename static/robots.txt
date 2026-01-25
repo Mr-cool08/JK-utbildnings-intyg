@@ -1,21 +1,20 @@
 # Copyright (c) Liam Suorsa
-# robots.txt for https://www.utbildningsintyg.se/
-# This file tells search engines how to crawl your website
+# robots.txt för https://www.utbildningsintyg.se/
+# Den här filen beskriver hur sökrobotar får genomsöka webbplatsen
 
 User-agent: *
-# Allow all content to be crawled
+# Tillåt all åtkomst till innehåll som kan genomsökas
 Allow: /
 
-# Disallow sensitive or irrelevant areas
+# Blockera känsliga eller irrelevanta områden
 Disallow: /login/
 Disallow: /tmp/
 Disallow: /uploads/
 
-# Allow important assets for rendering
+# Tillåt viktiga resurser för rendering
 Allow: /static/
 Allow: /media/
 Allow: /uploads/public/
 
-# Sitemap for better indexing
+# Webbplatskarta för bättre indexering
 Sitemap: https://www.utbildningsintyg.se/sitemap.xml
-
