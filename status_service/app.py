@@ -20,6 +20,19 @@ def get_display_timestamp():
     return now.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+
+def _is_no_tests_output(output_lines):
+    combined_output = "".join(output_lines).lower()
+    return any(
+        token in combined_output
+        for token in [
+            "collected 0 items",
+            "no tests ran",
+            "inget test hittades",
+        ]
+    )
+
+
 @app.route("/")
 def index():
     status = build_status()
@@ -28,7 +41,6 @@ def index():
         status["checks"]["ssl"]["status"],
         status["checks"]["database"]["status"],
         status["checks"]["nginx"]["status"],
-        
     )
     return render_template("status.html", status=status, checked_at=get_display_timestamp())
 
@@ -89,6 +101,12 @@ def pytest_site():
         LOGGER.info("Pytest-resultat: %s", process.returncode)
         if process.returncode == 0:
             yield "Pytest klart: lyckades.\n"
+        elif process.returncode == 5 and _is_no_tests_output(captured_output):
+            LOGGER.warning("Pytest hittade inga tester i miljön.")
+            yield (
+                "Pytest hittade inga tester i den här miljön. "
+                "Kontrollera STATUS_PROJECT_ROOT.\n"
+            )
         else:
             critical_events.send_critical_event_email(
                 event_type="error",
@@ -104,7 +122,6 @@ def pytest_site():
     return Response(stream_with_context(generate_output()), mimetype="text/plain; charset=utf-8")
 
 
-    
 if __name__ == "__main__":
     port = int(os.getenv("STATUS_PORT", "80"))
     app.run(host="0.0.0.0", port=port)

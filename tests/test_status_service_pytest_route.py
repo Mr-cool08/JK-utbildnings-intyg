@@ -142,3 +142,40 @@ def test_pytest_route_handles_startup_failure(monkeypatch):
     )
     assert captured_events["event_type"] == "error"
     assert captured_events["title"] == "🔴 Pytest kunde inte starta"
+
+
+def test_pytest_route_handles_missing_tests(monkeypatch):
+    captured_events = {}
+
+    class FakeProcess:
+        def __init__(self, lines, returncode):
+            self.stdout = iter(lines)
+            self.returncode = returncode
+
+        def wait(self):
+            return self.returncode
+
+    def fake_popen(*_args, **_kwargs):
+        return FakeProcess(["collected 0 items\n"], 5)
+
+    def fake_send_critical_event_email(**kwargs):
+        captured_events.update(kwargs)
+
+    monkeypatch.setattr("status_service.app.importlib.util.find_spec", lambda _name: object())
+    monkeypatch.setattr("status_service.app.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "status_service.app.critical_events.send_critical_event_email",
+        fake_send_critical_event_email,
+    )
+
+    app.testing = True
+    with app.test_client() as client:
+        response = client.get("/pytest")
+
+    assert response.status_code == 200
+    assert response.get_data(as_text=True) == (
+        "Startar pytest...\n"
+        "collected 0 items\n"
+        "Pytest hittade inga tester i den här miljön. Kontrollera STATUS_PROJECT_ROOT.\n"
+    )
+    assert captured_events == {}
