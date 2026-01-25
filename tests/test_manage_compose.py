@@ -49,7 +49,6 @@ def test_run_compose_action_cycle_orders_commands():
     module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
         {"event": "ensure"}
     )
-
     def fake_runner(cmd, check, **kwargs):
         events.append(
             {
@@ -67,7 +66,8 @@ def test_run_compose_action_cycle_orders_commands():
 
     assert events == [
         {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["update"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["sudo", "apt", "update"], "check": True, "cwd": None},
+        {"event": "cmd", "cmd": ["sudo", "apt", "upgrade", "-y"], "check": True, "cwd": None},
 
         {
             "event": "cmd",
@@ -100,9 +100,6 @@ def test_run_compose_action_cycle_orders_commands():
         {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
         {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
     ]
-
-
-
 
 def test_run_compose_action_build_up_orders_commands():
     module = _load_module()
