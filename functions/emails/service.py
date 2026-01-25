@@ -322,7 +322,8 @@ def send_password_reset_email(to_email: str, link: str) -> None:
 def send_account_deletion_email(to_email: str, username: str | None = None) -> None:
     """Send an account deletion notification."""
 
-    display_name = escape(username.strip()) if username else "ditt konto"
+    stripped = username.strip() if username is not None else ""
+    display_name = escape(stripped) if stripped else "ditt konto"
     content = (
         "<p>Hej,</p>"
         f"<p>Vi vill informera dig om att {display_name} hos JK Utbildningsintyg har raderats.</p>"

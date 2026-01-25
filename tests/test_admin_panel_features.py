@@ -119,7 +119,7 @@ def test_admin_delete_account_removes_records(empty_db, monkeypatch):
         )
         conn.commit()
 
-    def _fake_send_account_deletion_email(to_email, username=None):
+    def _fake_send_account_deletion_email(to_email, _username=None):
         assert to_email == email
 
     monkeypatch.setattr(
@@ -274,6 +274,7 @@ def test_supervisor_password_reset_flow(empty_db, monkeypatch):
 
 
 def test_admin_list_accounts_returns_active_and_pending(empty_db):
+    _ = empty_db
     personnummer_active = "19900101-1234"
     email_active = "aktiv@example.com"
     assert functions.admin_create_user(email_active, "Aktiv", personnummer_active)

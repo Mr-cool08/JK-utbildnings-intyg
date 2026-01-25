@@ -110,7 +110,7 @@
 
   async function loadAccountList() {
     if (!deleteAccountSelect) return;
-    deleteAccountSelect.innerHTML = '';
+    deleteAccountSelect.replaceChildren();
     const placeholder = document.createElement('option');
     placeholder.value = '';
     placeholder.textContent = 'Välj konto';

@@ -2537,7 +2537,11 @@ def admin_change_supervisor_connection():  # pragma: no cover
         to_orgnr, normalized_personnummer
     )
     if not success:
-        functions.admin_link_supervisor_to_user(from_orgnr, normalized_personnummer)
+        rollback_success, rollback_reason, rollback_email_hash = (
+            functions.admin_link_supervisor_to_user(
+                from_orgnr, normalized_personnummer
+            )
+        )
         message = 'Kunde inte skapa den nya kopplingen.'
         if reason == 'missing_supervisor':
             message = 'Det nya företagskontot hittades inte.'
@@ -2545,6 +2549,21 @@ def admin_change_supervisor_connection():  # pragma: no cover
             message = 'Standardkontot hittades inte.'
         elif reason == 'exists':
             message = 'Det finns redan en koppling till det nya företagskontot.'
+        if not rollback_success:
+            logger.error(
+                "Rollback misslyckades vid ändring av koppling: reason=%s, rollback_reason=%s, rollback_email_hash=%s",
+                reason,
+                rollback_reason,
+                rollback_email_hash,
+            )
+            return jsonify(
+                {
+                    'status': 'error',
+                    'message': (
+                        f"{message} Rollback misslyckades: {rollback_reason}."
+                    ),
+                }
+            ), 500
         return jsonify({'status': 'error', 'message': message}), 400
 
     functions.log_admin_action(
