@@ -37,6 +37,8 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
                 self._target(*self._args)
 
     monkeypatch.setenv("ERROR_ALERTS_EMAIL", "one@example.com,two@example.com")
+    monkeypatch.setenv("HOSTNAME", "test-host")
+    monkeypatch.setenv("APP_NAME", "JK Utbildningsintyg")
     monkeypatch.setattr("functions.notifications.error_notifications.Thread", SyncThread)
     monkeypatch.setattr("functions.emails.service.send_email", fake_send_email)
 
@@ -58,6 +60,8 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
     # Ensure attachments were provided and contain our sample content
     for _, subject, body, attachments in calls:
         assert subject and "Applikationsfel" in subject or "[FEL]" in subject
+        assert "test-host" in body
+        assert "JK Utbildningsintyg" in body
         assert attachments is not None
         # attachments is a sequence of (filename, bytes)
         assert any(sample_bytes.splitlines()[0] in content for (_fn, content) in attachments)

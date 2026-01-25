@@ -416,6 +416,9 @@ def run_compose_action(
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
             
+            print("uppdaterar system")
+            runner(["update"], check=True) #update är ett skript som uppdaterar systemet och installerar uppdateringar.
+            
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
 
@@ -427,7 +430,6 @@ def run_compose_action(
             _run_docker_system_df(runner=runner)
 
             
-
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
 

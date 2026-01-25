@@ -2136,9 +2136,7 @@ def admin_delete_account():  # pragma: no cover
 
     email_warning = None
     try:
-        email_service.send_account_deletion_email(
-            normalized_email, username=username
-        )
+        email_service.send_account_deletion_email(normalized_email, username)
     except Exception:
         logger.exception("Misslyckades att skicka raderingsmejl")
         email_warning = 'Kontot raderades, men mejlet kunde inte skickas.'
