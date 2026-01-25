@@ -20,15 +20,15 @@
     <loc>https://www.utbildningsintyg.se/login</loc>
   </url>
   <url>
-    <loc>https://www.utbildningsintyg.se/license</loc>
-  </url>
-  <url>
     <loc>https://www.utbildningsintyg.se/pris</loc>
   </url>
   <url>
     <loc>https://www.utbildningsintyg.se/villkor</loc>
   </url>
   <url>
-    <loc>https://www.utbildningsintyg.se/juridik</loc>
+    <loc>https://www.utbildningsintyg.se/gdpr</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/ansok/klart</loc>
   </url>
 </urlset>
