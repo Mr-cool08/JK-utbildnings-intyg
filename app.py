@@ -1119,7 +1119,7 @@ def login():
         try:
             personnummer = functions.normalize_personnummer(raw_personnummer)
         except ValueError:
-            logger.error("Ogiltigt personnummer angivet vid inloggning")
+            logger.warning("Ogiltigt personnummer angivet vid inloggning")
             return (
                 render_template(
                     'user_login.html',
@@ -1130,7 +1130,7 @@ def login():
             )
 
         if personnummer == "" or not personnummer.isnumeric():
-            logger.error("Ogiltigt normaliserat personnummer vid inloggning")
+            logger.warning("Ogiltigt normaliserat personnummer vid inloggning")
             return (
                 render_template(
                     'user_login.html',
@@ -1142,7 +1142,7 @@ def login():
         password = request.form['password']
         personnummer_hash = functions.hash_value(personnummer)
         if password == "":
-            logger.error("Empty password provided for %s", mask_hash(personnummer_hash))
+            logger.warning("Empty password provided for %s", mask_hash(personnummer_hash))
             return (
                 render_template(
                     'user_login.html',
