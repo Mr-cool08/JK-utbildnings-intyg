@@ -376,6 +376,18 @@ def test_admin_remove_supervisor_connection(empty_db):
             "/admin/api/foretagskonto/ta-bort",
             json={"orgnr": orgnr, "personnummer": personnummer},
         )
+    assert response.status_code == 403
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/ta-bort",
+            json={
+                "orgnr": orgnr,
+                "personnummer": personnummer,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
     assert response.status_code == 200
 
     with empty_db.connect() as conn:
@@ -462,6 +474,19 @@ def test_admin_change_supervisor_connection(empty_db):
                 "to_orgnr": orgnr_new,
                 "personnummer": personnummer,
             },
+        )
+    assert response.status_code == 403
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/uppdatera-koppling",
+            json={
+                "from_orgnr": orgnr_old,
+                "to_orgnr": orgnr_new,
+                "personnummer": personnummer,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
         )
     assert response.status_code == 200
 

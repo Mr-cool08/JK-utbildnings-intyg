@@ -2458,6 +2458,8 @@ def admin_supervisor_overview():  # pragma: no cover
 @app.post('/admin/api/foretagskonto/ta-bort')
 def admin_remove_supervisor_connection():  # pragma: no cover
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
     payload = request.get_json(silent=True) or {}
     orgnr = (payload.get('orgnr') or '').strip()
     personnummer = (payload.get('personnummer') or '').strip()
@@ -2500,6 +2502,8 @@ def admin_remove_supervisor_connection():  # pragma: no cover
 @app.post('/admin/api/foretagskonto/uppdatera-koppling')
 def admin_change_supervisor_connection():  # pragma: no cover
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
     payload = request.get_json(silent=True) or {}
     from_orgnr = (payload.get('from_orgnr') or '').strip()
     to_orgnr = (payload.get('to_orgnr') or '').strip()
