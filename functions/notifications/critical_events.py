@@ -51,6 +51,19 @@ def _get_timestamp() -> str:
     return now.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _get_hostname() -> str:
+    """Get current hostname from environment or system."""
+    hostname = os.getenv("HOSTNAME")
+    if hostname:
+        return hostname
+    try:
+        import socket
+
+        return socket.gethostname()
+    except OSError:
+        return "okänd"
+
+
 def _send_email_async(
     recipients: list[str], subject: str, html_body: str
 ) -> None:
@@ -86,6 +99,7 @@ def send_critical_event_email(
         admin_emails = _get_admin_emails()
         app_name = _get_app_name()
         timestamp = _get_timestamp()
+        hostname = _get_hostname()
         
         safe_description = escape(description)
         safe_error = escape(error_message) if error_message else None
@@ -105,6 +119,7 @@ def send_critical_event_email(
         content = (
             f"<p><strong>Tidsstämpel:</strong> {timestamp}</p>"
             f"<p><strong>Applikation:</strong> {escape(app_name)}</p>"
+            f"<p><strong>Värd:</strong> {escape(hostname)}</p>"
             f"<p><strong>Händelsetyp:</strong> {escape(event_type)}</p>"
             "<p><strong>Beskrivning:</strong></p>"
             f"<p style='margin-top:6px;white-space:pre-wrap;word-wrap:break-word;'>{safe_description}</p>"
