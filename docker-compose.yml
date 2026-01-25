@@ -90,6 +90,20 @@ services:
       - antivirus_quarantine:/quarantine
     restart: unless-stopped
 
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    profiles: [security]
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    volumes:
+      - ./deploy/fail2ban/jail.local:/data/jail.local:ro
+      - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
+      - /var/log:/var/log:ro
+      - fail2ban_data:/data/db
+    restart: unless-stopped
+
   status_page:
     build:
       context: .
@@ -139,6 +153,7 @@ volumes:
     name: jk-utbildnings-intyg_status_logs
   antivirus_logs:
   antivirus_quarantine:
+  fail2ban_data:
 
 networks:
   postgres_db:

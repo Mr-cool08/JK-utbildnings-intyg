@@ -11,6 +11,8 @@
 *.cfg
 *.secret
 *.local
+!deploy/fail2ban/jail.local
+!deploy/fail2ban/fail2ban.local
 *.pem
 *.key
 .python-version
