@@ -417,7 +417,7 @@ def run_compose_action(
             runner(["git", "pull"], check=True)
             
             print("uppdaterar system")
-            runner(["update"], check=True)
+            runner(["update"], check=True) #update är ett skript som uppdaterar systemet och installerar uppdateringar.
             
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
