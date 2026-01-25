@@ -5,7 +5,7 @@ import logging
 from functools import lru_cache
 from typing import Optional
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -239,42 +239,68 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
 def admin_delete_user_account(personnummer: str) -> tuple[bool, dict[str, int]]:
     # Remove a user and all related records based on personnummer.
     pnr_hash = _hash_personnummer(personnummer)
+    return _admin_delete_user_account_by_hash(pnr_hash)[:2]
+
+
+def admin_delete_user_account_by_hash(
+    personnummer_hash: str,
+) -> tuple[bool, dict[str, int], Optional[str]]:
+    # Remove a user and all related records based on hashed personnummer.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return False, {}, None
+    return _admin_delete_user_account_by_hash(personnummer_hash)
+
+
+def _admin_delete_user_account_by_hash(
+    personnummer_hash: str,
+) -> tuple[bool, dict[str, int], Optional[str]]:
+    username = None
     with get_engine().begin() as conn:
         user_row = conn.execute(
-            select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+            select(users_table.c.id, users_table.c.username).where(
+                users_table.c.personnummer == personnummer_hash
+            )
         ).first()
         pending_row = conn.execute(
-            select(pending_users_table.c.id).where(
-                pending_users_table.c.personnummer == pnr_hash
+            select(pending_users_table.c.id, pending_users_table.c.username).where(
+                pending_users_table.c.personnummer == personnummer_hash
             )
         ).first()
         if not user_row and not pending_row:
-            return False, {}
+            return False, {}, None
+        if user_row and user_row.username:
+            username = user_row.username
+        elif pending_row and pending_row.username:
+            username = pending_row.username
 
         summary: dict[str, int] = {}
         summary["pdfs"] = conn.execute(
-            delete(user_pdfs_table).where(user_pdfs_table.c.personnummer == pnr_hash)
+            delete(user_pdfs_table).where(
+                user_pdfs_table.c.personnummer == personnummer_hash
+            )
         ).rowcount or 0
         summary["password_resets"] = conn.execute(
             delete(password_resets_table).where(
-                password_resets_table.c.personnummer == pnr_hash
+                password_resets_table.c.personnummer == personnummer_hash
             )
         ).rowcount or 0
         summary["supervisor_connections"] = conn.execute(
             delete(supervisor_connections_table).where(
-                supervisor_connections_table.c.user_personnummer == pnr_hash
+                supervisor_connections_table.c.user_personnummer == personnummer_hash
             )
         ).rowcount or 0
         summary["supervisor_link_requests"] = conn.execute(
             delete(supervisor_link_requests_table).where(
-                supervisor_link_requests_table.c.user_personnummer == pnr_hash
+                supervisor_link_requests_table.c.user_personnummer == personnummer_hash
             )
         ).rowcount or 0
         application_ids = [
             row.id
             for row in conn.execute(
                 select(application_requests_table.c.id).where(
-                    application_requests_table.c.personnummer_hash == pnr_hash
+                    application_requests_table.c.personnummer_hash
+                    == personnummer_hash
                 )
             ).fetchall()
         ]
@@ -290,18 +316,109 @@ def admin_delete_user_account(personnummer: str) -> tuple[bool, dict[str, int]]:
             summary["company_users"] = 0
         summary["applications"] = conn.execute(
             delete(application_requests_table).where(
-                application_requests_table.c.personnummer_hash == pnr_hash
+                application_requests_table.c.personnummer_hash
+                == personnummer_hash
             )
         ).rowcount or 0
         summary["pending_users"] = conn.execute(
             delete(pending_users_table).where(
-                pending_users_table.c.personnummer == pnr_hash
+                pending_users_table.c.personnummer == personnummer_hash
             )
         ).rowcount or 0
         summary["users"] = conn.execute(
-            delete(users_table).where(users_table.c.personnummer == pnr_hash)
+            delete(users_table).where(users_table.c.personnummer == personnummer_hash)
         ).rowcount or 0
 
     verify_certificate.cache_clear()
-    logger.info("Admin raderade konto för %s", mask_hash(pnr_hash))
-    return True, summary
+    logger.info("Admin raderade konto för %s", mask_hash(personnummer_hash))
+    return True, summary, username
+
+
+def list_admin_accounts() -> list[dict[str, str]]:
+    # Return a list of active and pending accounts for admin selection.
+    results: list[dict[str, str]] = []
+    with get_engine().connect() as conn:
+        user_rows = conn.execute(
+            select(users_table.c.username, users_table.c.personnummer)
+            .order_by(users_table.c.username.asc())
+        ).fetchall()
+        pending_rows = conn.execute(
+            select(pending_users_table.c.username, pending_users_table.c.personnummer)
+            .order_by(pending_users_table.c.username.asc())
+        ).fetchall()
+
+    for row in user_rows:
+        results.append(
+            {
+                "personnummer_hash": row.personnummer,
+                "username": row.username,
+                "status": "active",
+            }
+        )
+
+    for row in pending_rows:
+        results.append(
+            {
+                "personnummer_hash": row.personnummer,
+                "username": row.username,
+                "status": "pending",
+            }
+        )
+
+    return results
+
+
+def admin_update_user_account(
+    personnummer: str, email: str, username: str
+) -> tuple[bool, dict[str, int] | None, str | None]:
+    # Update user or pending user record by personnummer.
+    pnr_hash = _hash_personnummer(personnummer)
+    normalized_email = normalize_email(email)
+    email_hash = hash_value(normalized_email)
+    with get_engine().begin() as conn:
+        user_row = conn.execute(
+            select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+        ).first()
+        pending_row = conn.execute(
+            select(pending_users_table.c.id).where(
+                pending_users_table.c.personnummer == pnr_hash
+            )
+        ).first()
+        if not user_row and not pending_row:
+            return False, None, "missing_account"
+
+        email_conflict = conn.execute(
+            select(users_table.c.id).where(
+                users_table.c.email == email_hash,
+                users_table.c.personnummer != pnr_hash,
+            )
+        ).first()
+        if email_conflict:
+            return False, None, "email_in_use"
+
+        pending_conflict = conn.execute(
+            select(pending_users_table.c.id).where(
+                pending_users_table.c.email == email_hash,
+                pending_users_table.c.personnummer != pnr_hash,
+            )
+        ).first()
+        if pending_conflict:
+            return False, None, "email_in_use"
+
+        summary: dict[str, int] = {}
+        summary["users"] = conn.execute(
+            update(users_table)
+            .where(users_table.c.personnummer == pnr_hash)
+            .values(username=username, email=email_hash)
+        ).rowcount or 0
+        summary["pending_users"] = conn.execute(
+            update(pending_users_table)
+            .where(pending_users_table.c.personnummer == pnr_hash)
+            .values(username=username, email=email_hash)
+        ).rowcount or 0
+
+    logger.info(
+        "Admin uppdaterade konto för %s",
+        mask_hash(pnr_hash),
+    )
+    return True, summary, None

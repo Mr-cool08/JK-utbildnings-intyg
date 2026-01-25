@@ -3,14 +3,16 @@
 {% block title %}Admin — Företagskonton{% endblock %}
 {% block content %}
 <h1>Admin — Företagskonton</h1>
-<p>Här skapar du företagskonton, kopplar dem till användare och ser översikten.</p>
+<p>Här skapar du företagskonton, kopplar dem till användare och hanterar kopplingar.</p>
 
 <nav class="admin-nav" aria-label="Administrationsnavigering">
-    <a class="btn btn-secondary" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin') }}">Start</a>
     <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
-    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; PDF:er</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; verifiering</a>
+    <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
     <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
     <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+    <a class="btn" href="{{ url_for('admin_advanced') }}">Avancerade verktyg</a>
 </nav>
 
 <section class="panel">
@@ -40,6 +42,39 @@
 
         <button type="submit" class="btn">Skapa koppling</button>
         <p id="linkSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Ta bort koppling</h2>
+    <p>Ta bort kopplingen mellan ett företagskonto och ett standardkonto.</p>
+    <form id="removeSupervisorForm" class="stacked-form" method="post">
+        <label for="removeSupervisorOrgnr">Organisationsnummer</label>
+        <input id="removeSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
+
+        <label for="removePersonnummer">Användarkontots personnummer</label>
+        <input id="removePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true">
+
+        <button type="submit" class="btn btn-danger">Ta bort koppling</button>
+        <p id="removeSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Ändra koppling</h2>
+    <p>Flytta ett standardkonto från ett företagskonto till ett annat.</p>
+    <form id="changeSupervisorForm" class="stacked-form" method="post">
+        <label for="changeSupervisorFromOrgnr">Nuvarande organisationsnummer</label>
+        <input id="changeSupervisorFromOrgnr" name="from_orgnr" type="text" required placeholder="Exempel: 556966-8337">
+
+        <label for="changeSupervisorToOrgnr">Nytt organisationsnummer</label>
+        <input id="changeSupervisorToOrgnr" name="to_orgnr" type="text" required placeholder="Exempel: 556966-8337">
+
+        <label for="changePersonnummer">Användarkontots personnummer</label>
+        <input id="changePersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true">
+
+        <button type="submit" class="btn">Uppdatera koppling</button>
+        <p id="changeSupervisorMessage" class="message" aria-live="polite" style="display:none"></p>
     </form>
 </section>
 

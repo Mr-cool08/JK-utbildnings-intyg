@@ -319,6 +319,22 @@ def send_password_reset_email(to_email: str, link: str) -> None:
     send_email(to_email, "Återställ ditt lösenord", body)
 
 
+def send_account_deletion_email(to_email: str, username: str | None = None) -> None:
+    """Send an account deletion notification."""
+
+    display_name = escape(username.strip()) if username else "ditt konto"
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Vi vill informera dig om att {display_name} hos JK Utbildningsintyg har raderats.</p>"
+        "<p>Om detta inte stämmer, kontakta vår support på "
+        "<a href='mailto:support@utbildningsintyg.se'>support@utbildningsintyg.se</a>.</p>"
+        "<p>Tack för att du har använt JK Utbildningsintyg.</p>"
+    )
+
+    body = format_email_html("Ditt konto har raderats", content, accent_color="#ef4444")
+    send_email(to_email, "Ditt konto har raderats", body)
+
+
 def send_pdf_share_email(
     recipient_email: str,
     attachments: Sequence[tuple[str, bytes]],

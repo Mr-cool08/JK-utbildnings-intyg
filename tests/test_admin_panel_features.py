@@ -73,7 +73,7 @@ def test_admin_update_pdf_categories(empty_db):
         assert set(result.categories.split(",")) == set(slugs)
 
 
-def test_admin_delete_account_removes_records(empty_db):
+def test_admin_delete_account_removes_records(empty_db, monkeypatch):
     engine = empty_db
     personnummer = "19900101-1234"
     email = "radera@example.com"
@@ -119,10 +119,23 @@ def test_admin_delete_account_removes_records(empty_db):
         )
         conn.commit()
 
+    def _fake_send_account_deletion_email(to_email, username=None):
+        assert to_email == email
+
+    monkeypatch.setattr(
+        app.email_service,
+        "send_account_deletion_email",
+        _fake_send_account_deletion_email,
+    )
+
     with _admin_client() as client:
         response = client.post(
             "/admin/api/radera-konto",
-            json={"personnummer": personnummer, "csrf_token": "test-token"},
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
             headers={"X-CSRF-Token": "test-token"},
         )
     assert response.status_code == 200
@@ -169,7 +182,7 @@ def test_admin_delete_account_removes_records(empty_db):
         log_entry = conn.execute(
             functions.admin_audit_log_table.select()
         ).first()
-        assert log_entry is not None
+    assert log_entry is not None
 
 
 def test_password_reset_flow(empty_db, monkeypatch):
@@ -258,6 +271,214 @@ def test_supervisor_password_reset_flow(empty_db, monkeypatch):
     )
     assert reset_response.status_code == 302
     assert functions.verify_supervisor_credentials(email, "NyttLosenord123")
+
+
+def test_admin_list_accounts_returns_active_and_pending(empty_db):
+    personnummer_active = "19900101-1234"
+    email_active = "aktiv@example.com"
+    assert functions.admin_create_user(email_active, "Aktiv", personnummer_active)
+    pnr_active_hash = functions.hash_value(
+        functions.normalize_personnummer(personnummer_active)
+    )
+    assert functions.user_create_user("StartLosen1!", pnr_active_hash)
+
+    personnummer_pending = "19900202-2345"
+    email_pending = "vantande@example.com"
+    assert functions.admin_create_user(email_pending, "Väntande", personnummer_pending)
+    pnr_pending_hash = functions.hash_value(
+        functions.normalize_personnummer(personnummer_pending)
+    )
+
+    with _admin_client() as client:
+        response = client.get("/admin/api/konton/lista")
+    assert response.status_code == 200
+    data = response.get_json()
+    hashes = {entry["personnummer_hash"]: entry["status"] for entry in data["data"]}
+    assert hashes[pnr_active_hash] == "active"
+    assert hashes[pnr_pending_hash] == "pending"
+
+
+def test_admin_update_account_updates_record(empty_db):
+    personnummer = "19900303-3456"
+    email = "uppdatera@example.com"
+    assert functions.admin_create_user(email, "Uppdatera", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    new_email = "ny@example.com"
+    new_name = "Nytt Namn"
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/uppdatera",
+            json={
+                "personnummer": personnummer,
+                "email": new_email,
+                "username": new_name,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+    assert response.status_code == 200
+
+    with empty_db.connect() as conn:
+        row = conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == pnr_hash
+            )
+        ).first()
+        assert row is not None
+        assert row.username == new_name
+        assert row.email == functions.hash_value(functions.normalize_email(new_email))
+
+
+def test_admin_remove_supervisor_connection(empty_db):
+    personnummer = "19900404-4567"
+    email = "konto@example.com"
+    assert functions.admin_create_user(email, "Konto", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    supervisor_email = "foretag@example.com"
+    supervisor_hash = functions.hash_value(functions.normalize_email(supervisor_email))
+    orgnr = "556966-8337"
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Testbolag AB",
+                orgnr=functions.validate_orgnr(orgnr),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Testbolag AB",
+                email=functions.normalize_email(supervisor_email),
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Testbolag AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/ta-bort",
+            json={"orgnr": orgnr, "personnummer": personnummer},
+        )
+    assert response.status_code == 200
+
+    with empty_db.connect() as conn:
+        assert conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+            )
+        ).first() is None
+
+
+def test_admin_change_supervisor_connection(empty_db):
+    personnummer = "19900505-5678"
+    email = "flytta@example.com"
+    assert functions.admin_create_user(email, "Flytta", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    orgnr_old = "556966-8337"
+    orgnr_new = "556677-8899"
+    supervisor_old_email = "old@example.com"
+    supervisor_new_email = "new@example.com"
+    supervisor_old_hash = functions.hash_value(
+        functions.normalize_email(supervisor_old_email)
+    )
+    supervisor_new_hash = functions.hash_value(
+        functions.normalize_email(supervisor_new_email)
+    )
+
+    with empty_db.begin() as conn:
+        old_company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Gammalt AB",
+                orgnr=functions.validate_orgnr(orgnr_old),
+            )
+        ).inserted_primary_key[0]
+        new_company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Nytt AB",
+                orgnr=functions.validate_orgnr(orgnr_new),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=old_company_id,
+                role="foretagskonto",
+                name="Gammalt AB",
+                email=functions.normalize_email(supervisor_old_email),
+            )
+        )
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=new_company_id,
+                role="foretagskonto",
+                name="Nytt AB",
+                email=functions.normalize_email(supervisor_new_email),
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_old_hash,
+                name="Gammalt AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_new_hash,
+                name="Nytt AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_old_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/uppdatera-koppling",
+            json={
+                "from_orgnr": orgnr_old,
+                "to_orgnr": orgnr_new,
+                "personnummer": personnummer,
+            },
+        )
+    assert response.status_code == 200
+
+    with empty_db.connect() as conn:
+        old_link = conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_old_hash
+            )
+        ).first()
+        new_link = conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_new_hash
+            )
+        ).first()
+        assert old_link is None
+        assert new_link is not None
 
 
 def test_password_reset_token_lifecycle(empty_db):

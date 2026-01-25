@@ -14,6 +14,11 @@
   );
   const confirmDeleteAccountBtn = document.getElementById('confirmDeleteAccount');
   const cancelDeleteAccountBtn = document.getElementById('cancelDeleteAccount');
+  const deleteAccountSelect = document.getElementById('deleteAccountSelect');
+  const deleteNotifyEmail = document.getElementById('deleteNotifyEmail');
+  const refreshAccountListBtn = document.getElementById('refreshAccountList');
+  const updateAccountForm = document.getElementById('updateAccountForm');
+  const updateAccountMessage = document.getElementById('updateAccountMessage');
   const fillLastPersonnummerBtn = document.getElementById('fillLastPersonnummerBtn');
   const copyLastPersonnummerBtn = document.getElementById('copyLastPersonnummerBtn');
   const clearAdminFormsBtn = document.getElementById('clearAdminFormsBtn');
@@ -96,7 +101,40 @@
     return `Raderade: ${parts.join(', ')}.`;
   }
 
-  async function deleteAccount(personnummer) {
+  function buildAccountLabel(account) {
+    const status = account.status === 'pending' ? 'Väntande konto' : 'Aktivt konto';
+    const hash = account.personnummer_hash || '';
+    const shortHash = hash ? `${hash.slice(0, 10)}…` : 'okänd hash';
+    return `${account.username || 'Okänt konto'} — ${status} (${shortHash})`;
+  }
+
+  async function loadAccountList() {
+    if (!deleteAccountSelect) return;
+    deleteAccountSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Välj konto';
+    deleteAccountSelect.appendChild(placeholder);
+    try {
+      const res = await fetch('/admin/api/konton/lista');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Kunde inte hämta kontolistan.');
+      }
+      const accounts = Array.isArray(data.data) ? data.data : [];
+      accounts.forEach((account) => {
+        const option = document.createElement('option');
+        option.value = account.personnummer_hash || '';
+        option.textContent = buildAccountLabel(account);
+        option.dataset.username = account.username || '';
+        deleteAccountSelect.appendChild(option);
+      });
+    } catch (err) {
+      setMessageElement(deleteAccountMessage, err.message, true);
+    }
+  }
+
+  async function deleteAccount(personnummerHash, email) {
     setMessageElement(deleteAccountMessage, 'Raderar konto…', false);
     try {
       const res = await fetch('/admin/api/radera-konto', {
@@ -106,7 +144,8 @@
           ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
         },
         body: JSON.stringify({
-          personnummer,
+          personnummer_hash: personnummerHash,
+          email,
           ...(csrfToken ? { csrf_token: csrfToken } : {})
         }),
       });
@@ -122,31 +161,46 @@
           : data.message || 'Kontot har raderats.',
         false,
       );
+      if (data.email_warning) {
+        setMessageElement(
+          deleteAccountMessage,
+          `${data.message || 'Kontot har raderats.'} ${data.email_warning}`,
+          true,
+        );
+      }
       if (deleteAccountForm) {
         deleteAccountForm.reset();
+        loadAccountList();
       }
     } catch (err) {
       setMessageElement(deleteAccountMessage, err.message, true);
     }
   }
 
-  let pendingDeletePersonnummer = '';
+  let pendingDeleteAccount = null;
 
   if (deleteAccountForm) {
     deleteAccountForm.addEventListener('submit', (event) => {
       event.preventDefault();
-      const input = document.getElementById('deletePersonnummer');
-      const personnummer = input ? input.value.trim() : '';
-      if (!personnummer) {
-        setMessageElement(deleteAccountMessage, 'Ange ett personnummer.', true);
+      const selectedHash = deleteAccountSelect ? deleteAccountSelect.value.trim() : '';
+      if (!selectedHash) {
+        setMessageElement(deleteAccountMessage, 'Välj ett konto i listan.', true);
         return;
       }
-      if (storage) {
-        storage.storeLastPersonnummer(personnummer);
+      const email = deleteNotifyEmail ? deleteNotifyEmail.value.trim() : '';
+      if (!email) {
+        setMessageElement(deleteAccountMessage, 'Ange e-post för notifiering.', true);
+        return;
       }
-      pendingDeletePersonnummer = personnummer;
+      const selectedOption = deleteAccountSelect?.selectedOptions?.[0];
+      const labelText = selectedOption ? selectedOption.textContent : selectedHash;
+      pendingDeleteAccount = {
+        personnummerHash: selectedHash,
+        email,
+        label: labelText || selectedHash,
+      };
       if (deleteAccountPersonnummerPreview) {
-        deleteAccountPersonnummerPreview.textContent = personnummer;
+        deleteAccountPersonnummerPreview.textContent = pendingDeleteAccount.label;
       }
       if (deleteAccountDialog && typeof deleteAccountDialog.showModal === 'function') {
         deleteAccountDialog.showModal();
@@ -157,9 +211,9 @@
           'Är du säker på att du vill radera kontot? Alla kopplade data tas bort.',
         )
       ) {
-        deleteAccount(personnummer);
+        deleteAccount(selectedHash, email);
       } else {
-        pendingDeletePersonnummer = '';
+        pendingDeleteAccount = null;
         if (deleteAccountPersonnummerPreview) {
           deleteAccountPersonnummerPreview.textContent = '';
         }
@@ -169,12 +223,12 @@
 
   if (confirmDeleteAccountBtn) {
     confirmDeleteAccountBtn.addEventListener('click', () => {
-      const personnummer = pendingDeletePersonnummer;
+      const pending = pendingDeleteAccount;
       if (deleteAccountDialog && deleteAccountDialog.open) {
         deleteAccountDialog.close();
       }
-      if (personnummer) {
-        deleteAccount(personnummer);
+      if (pending) {
+        deleteAccount(pending.personnummerHash, pending.email);
       }
     });
   }
@@ -184,13 +238,13 @@
       if (deleteAccountDialog && deleteAccountDialog.open) {
         deleteAccountDialog.close();
       }
-      pendingDeletePersonnummer = '';
+      pendingDeleteAccount = null;
     });
   }
 
   if (deleteAccountDialog) {
     deleteAccountDialog.addEventListener('close', () => {
-      pendingDeletePersonnummer = '';
+      pendingDeleteAccount = null;
     });
   }
 
@@ -273,6 +327,55 @@
     });
   }
 
+  if (updateAccountForm) {
+    updateAccountForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!updateAccountMessage) return;
+      const formData = new FormData(updateAccountForm);
+      const personnummer = formData.get('personnummer')?.toString().trim() || '';
+      const username = formData.get('username')?.toString().trim() || '';
+      const email = formData.get('email')?.toString().trim() || '';
+      if (!personnummer || !username || !email) {
+        setMessageElement(updateAccountMessage, 'Fyll i alla fält.', true);
+        return;
+      }
+      if (storage) {
+        storage.storeLastPersonnummer(personnummer);
+      }
+      setMessageElement(updateAccountMessage, 'Uppdaterar konto…', false);
+      try {
+        const res = await fetch('/admin/api/konton/uppdatera', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            personnummer,
+            username,
+            email,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte uppdatera kontot.');
+        }
+        setMessageElement(updateAccountMessage, data.message || 'Kontot har uppdaterats.', false);
+        updateAccountForm.reset();
+        loadAccountList();
+      } catch (err) {
+        setMessageElement(updateAccountMessage, err.message, true);
+      }
+    });
+  }
+
+  if (refreshAccountListBtn) {
+    refreshAccountListBtn.addEventListener('click', () => {
+      loadAccountList();
+    });
+  }
+
   if (fillLastPersonnummerBtn) {
     fillLastPersonnummerBtn.addEventListener('click', () => {
       const personnummer = getLastPersonnummer();
@@ -314,6 +417,7 @@
         resetMessage,
         verifyCertificateMessage,
         deleteAccountMessage,
+        updateAccountMessage,
       ].forEach((element) => {
         if (element) {
           setMessageElement(element, '', false);
@@ -322,5 +426,7 @@
       setMessageElement(adminToolsMessage, 'Formulär rensade.', false);
     });
   }
+
+  loadAccountList();
 })();
 // # Copyright (c) Liam Suorsa
