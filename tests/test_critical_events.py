@@ -15,6 +15,7 @@ class TestCriticalEventsNotifications:
         # Set up the required environment variables
         monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
         monkeypatch.setenv("APP_NAME", "JK Utbildningsintyg")
+        monkeypatch.setenv("HOSTNAME", "test-host")
 
     def test_get_admin_email(self):
         """Test that admin email is retrieved correctly."""
@@ -149,6 +150,7 @@ class TestCriticalEventsNotifications:
                 html_body = str(call_args)
                 # Should contain error message
                 assert "error" in html_body.lower() or "Connection timeout" in str(call_args)
+                assert "test-host" in html_body
 
     def test_html_escaping_in_error_message(self):
         """Test that HTML is properly escaped in error messages."""

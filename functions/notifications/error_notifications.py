@@ -44,12 +44,16 @@ class EmailErrorHandler(logging.Handler):
 
             timestamp = datetime.now(timezone.utc)
             ts = format_datetime(timestamp)
+            hostname = self._get_hostname()
+            app_name = os.getenv("APP_NAME", "JK Utbildningsintyg")
 
             message = self.format(record)
 
             content = (
                 f"<p><strong>Nivå:</strong> {escape(record.levelname)}</p>"
                 f"<p><strong>Tid:</strong> {ts}</p>"
+                f"<p><strong>Applikation:</strong> {escape(app_name)}</p>"
+                f"<p><strong>Värd:</strong> {escape(hostname)}</p>"
                 "<p><strong>Loggmeddelande:</strong></p>"
                 f"<pre style='background:#f1f5f9;padding:12px;border-radius:6px;white-space:pre-wrap;'>"
                 f"{escape(message)}</pre>"
@@ -85,3 +89,15 @@ class EmailErrorHandler(logging.Handler):
             except Exception:
                 # Swallow to avoid logging loops
                 continue
+
+    @staticmethod
+    def _get_hostname() -> str:
+        hostname = os.getenv("HOSTNAME")
+        if hostname:
+            return hostname
+        try:
+            import socket
+
+            return socket.gethostname()
+        except OSError:
+            return "okänd"
