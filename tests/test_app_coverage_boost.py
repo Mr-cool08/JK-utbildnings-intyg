@@ -89,7 +89,7 @@ def test_supervisor_create_branches(monkeypatch, client):
     )
     assert "kunde inte aktiveras" in resp_error.text
 
-    # Inget väntande konto hittas.
+    # Ingen ansökan hittas.
     monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda *_: False)
     resp_invalid = client.get("/foretagskonto/skapa/absent")
     assert resp_invalid.status_code == 200
@@ -104,7 +104,7 @@ def test_supervisor_create_branches(monkeypatch, client):
     assert resp_success.status_code == 302
     assert resp_success.headers["Location"].endswith("/foretagskonto/login")
 
-    # GET för väntande konto.
+    # GET för ansökan.
     resp_pending = client.get("/foretagskonto/skapa/ok")
     assert resp_pending.status_code == 200
 
