@@ -137,6 +137,7 @@
   async function deleteAccount(personnummerHash, email) {
     setMessageElement(deleteAccountMessage, 'Raderar konto…', false);
     try {
+      const trimmedEmail = (email || '').trim();
       const res = await fetch('/admin/api/radera-konto', {
         method: 'POST',
         headers: {
@@ -145,7 +146,7 @@
         },
         body: JSON.stringify({
           personnummer_hash: personnummerHash,
-          email,
+          ...(trimmedEmail ? { email: trimmedEmail } : {}),
           ...(csrfToken ? { csrf_token: csrfToken } : {})
         }),
       });
@@ -188,10 +189,6 @@
         return;
       }
       const email = deleteNotifyEmail ? deleteNotifyEmail.value.trim() : '';
-      if (!email) {
-        setMessageElement(deleteAccountMessage, 'Ange e-post för notifiering.', true);
-        return;
-      }
       const selectedOption = deleteAccountSelect?.selectedOptions?.[0];
       const labelText = selectedOption ? selectedOption.textContent : selectedHash;
       pendingDeleteAccount = {

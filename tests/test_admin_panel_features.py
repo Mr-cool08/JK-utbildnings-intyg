@@ -185,6 +185,46 @@ def test_admin_delete_account_removes_records(empty_db, monkeypatch):
     assert log_entry is not None
 
 
+def test_admin_delete_account_without_email(empty_db, monkeypatch):
+    personnummer = "19910101-1111"
+    email = "utan-notis@example.com"
+    assert functions.admin_create_user(email, "Utan Notis", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    called = {"sent": False}
+
+    def _fake_send_account_deletion_email(_to_email, _username=None):
+        called["sent"] = True
+
+    monkeypatch.setattr(
+        app.email_service,
+        "send_account_deletion_email",
+        _fake_send_account_deletion_email,
+    )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/radera-konto",
+            json={
+                "personnummer": personnummer,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert called["sent"] is False
+
+    with empty_db.connect() as conn:
+        assert conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == pnr_hash
+            )
+        ).first() is None
+
+
 def test_password_reset_flow(empty_db, monkeypatch):
     personnummer = "19900101-1234"
     email = "user@example.com"
@@ -562,6 +602,99 @@ def test_admin_remove_supervisor_connection_by_hash(empty_db):
         assert conn.execute(
             functions.supervisor_connections_table.select().where(
                 functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+            )
+        ).first() is None
+
+
+def test_admin_delete_supervisor_account(empty_db):
+    orgnr = "556966-8337"
+    supervisor_email = "radera-foretag@example.com"
+    supervisor_hash = functions.hash_value(functions.normalize_email(supervisor_email))
+    personnummer = "19920202-2222"
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Radera AB",
+                orgnr=functions.validate_orgnr(orgnr),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Radera AB",
+                email=functions.normalize_email(supervisor_email),
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Radera AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_link_requests_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_password_resets_table.insert().values(
+                email=supervisor_hash,
+                token_hash=functions.hash_value("reset-token"),
+            )
+        )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/radera",
+            json={"orgnr": orgnr, "csrf_token": "test-token"},
+            headers={"X-CSRF-Token": "test-token"},
+        )
+    assert response.status_code == 200
+
+    with empty_db.connect() as conn:
+        assert conn.execute(
+            functions.company_users_table.select().where(
+                functions.company_users_table.c.company_id == company_id,
+                functions.company_users_table.c.role == "foretagskonto",
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisors_table.select().where(
+                functions.supervisors_table.c.email == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_link_requests_table.select().where(
+                functions.supervisor_link_requests_table.c.supervisor_email
+                == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_password_resets_table.select().where(
+                functions.supervisor_password_resets_table.c.email
+                == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.companies_table.select().where(
+                functions.companies_table.c.id == company_id
             )
         ).first() is None
 

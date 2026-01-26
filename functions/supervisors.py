@@ -13,6 +13,7 @@ from functions.database import (
     pending_supervisors_table,
     supervisor_connections_table,
     supervisor_link_requests_table,
+    supervisor_password_resets_table,
     supervisors_table,
     users_table,
     get_engine,
@@ -635,3 +636,100 @@ def get_supervisor_overview(email_hash: str) -> Optional[Dict[str, Any]]:
                 for row in connections
             ],
         }
+
+
+def admin_delete_supervisor_account(
+    orgnr: str,
+) -> tuple[bool, dict[str, int], str]:
+    # Remove a supervisor account and related records based on orgnr.
+    normalized_orgnr = validate_orgnr(orgnr)
+    summary: dict[str, int] = {
+        "company_users": 0,
+        "supervisors": 0,
+        "pending_supervisors": 0,
+        "supervisor_connections": 0,
+        "supervisor_link_requests": 0,
+        "supervisor_password_resets": 0,
+        "companies": 0,
+    }
+    with get_engine().begin() as conn:
+        rows = conn.execute(
+            select(company_users_table.c.email, company_users_table.c.company_id)
+            .select_from(
+                company_users_table.join(
+                    companies_table,
+                    company_users_table.c.company_id == companies_table.c.id,
+                )
+            )
+            .where(
+                companies_table.c.orgnr == normalized_orgnr,
+                company_users_table.c.role == "foretagskonto",
+            )
+        ).fetchall()
+
+        if not rows:
+            return False, summary, normalized_orgnr
+
+        email_hashes: list[str] = []
+        company_ids = {row.company_id for row in rows if row.company_id is not None}
+        for row in rows:
+            try:
+                normalized_email = normalize_email(row.email)
+            except ValueError:
+                continue
+            email_hashes.append(hash_value(normalized_email))
+
+        if company_ids:
+            summary["company_users"] = conn.execute(
+                delete(company_users_table).where(
+                    company_users_table.c.company_id.in_(company_ids),
+                    company_users_table.c.role == "foretagskonto",
+                )
+            ).rowcount or 0
+
+        if email_hashes:
+            summary["supervisors"] = conn.execute(
+                delete(supervisors_table).where(
+                    supervisors_table.c.email.in_(email_hashes)
+                )
+            ).rowcount or 0
+            summary["pending_supervisors"] = conn.execute(
+                delete(pending_supervisors_table).where(
+                    pending_supervisors_table.c.email.in_(email_hashes)
+                )
+            ).rowcount or 0
+            summary["supervisor_connections"] = conn.execute(
+                delete(supervisor_connections_table).where(
+                    supervisor_connections_table.c.supervisor_email.in_(
+                        email_hashes
+                    )
+                )
+            ).rowcount or 0
+            summary["supervisor_link_requests"] = conn.execute(
+                delete(supervisor_link_requests_table).where(
+                    supervisor_link_requests_table.c.supervisor_email.in_(
+                        email_hashes
+                    )
+                )
+            ).rowcount or 0
+            summary["supervisor_password_resets"] = conn.execute(
+                delete(supervisor_password_resets_table).where(
+                    supervisor_password_resets_table.c.email.in_(email_hashes)
+                )
+            ).rowcount or 0
+
+        if company_ids:
+            remaining = conn.execute(
+                select(company_users_table.c.id).where(
+                    company_users_table.c.company_id.in_(company_ids)
+                )
+            ).first()
+            if not remaining:
+                summary["companies"] = conn.execute(
+                    delete(companies_table).where(
+                        companies_table.c.id.in_(company_ids)
+                    )
+                ).rowcount or 0
+
+    logger.info("Admin raderade företagskonto för %s", normalized_orgnr)
+    return True, summary, normalized_orgnr

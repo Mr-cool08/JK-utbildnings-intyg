@@ -2095,11 +2095,6 @@ def admin_delete_account():  # pragma: no cover
             return jsonify(
                 {'status': 'error', 'message': 'Välj ett konto att radera.'}
             ), 400
-    if not notify_email:
-        logging.debug("Admin delete_account without email", extra={'admin': admin_name})
-        return jsonify(
-            {'status': 'error', 'message': 'Ange e-post för notifiering.'}
-        ), 400
     personnummer_masked = (
         mask_hash(functions.hash_value(personnummer)) if personnummer else "saknas"
     )
@@ -2117,10 +2112,12 @@ def admin_delete_account():  # pragma: no cover
         )
         return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
 
-    try:
-        normalized_email = email_service.normalize_valid_email(notify_email)
-    except ValueError:
-        return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
+    normalized_email = None
+    if notify_email:
+        try:
+            normalized_email = email_service.normalize_valid_email(notify_email)
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'Ogiltig e-postadress.'}), 400
 
     try:
         deleted, summary, username = functions.admin_delete_user_account_by_hash(
@@ -2137,15 +2134,20 @@ def admin_delete_account():  # pragma: no cover
         return jsonify({'status': 'error', 'message': 'Kontot hittades inte.'}), 404
 
     email_warning = None
-    try:
-        email_service.send_account_deletion_email(normalized_email, username)
-    except Exception:
-        logger.exception("Misslyckades att skicka raderingsmejl")
-        email_warning = 'Kontot raderades, men mejlet kunde inte skickas.'
+    if normalized_email:
+        try:
+            email_service.send_account_deletion_email(normalized_email, username)
+        except Exception:
+            logger.exception("Misslyckades att skicka raderingsmejl")
+            email_warning = 'Kontot raderades, men mejlet kunde inte skickas.'
 
     pnr_hash = personnummer_hash
     summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
-    email_hash = functions.hash_value(functions.normalize_email(notify_email))
+    email_hash = (
+        functions.hash_value(functions.normalize_email(notify_email))
+        if normalized_email
+        else "saknas"
+    )
     functions.log_admin_action(
         admin_name,
         'raderade konto',
@@ -2158,7 +2160,11 @@ def admin_delete_account():  # pragma: no cover
     )
     response_payload = {
         'status': 'success',
-        'message': 'Kontot har raderats och mejl har skickats.',
+        'message': (
+            'Kontot har raderats och mejl har skickats.'
+            if normalized_email
+            else 'Kontot har raderats.'
+        ),
         'data': summary,
     }
     if email_warning:
@@ -2634,6 +2640,57 @@ def admin_change_supervisor_connection():  # pragma: no cover
         extra={'admin': admin_name},
     )
     return jsonify({'status': 'success', 'message': 'Kopplingen har uppdaterats.'})
+
+
+@app.post('/admin/api/foretagskonto/radera')
+def admin_delete_supervisor_account_route():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
+    payload = request.get_json(silent=True) or {}
+    orgnr = (payload.get('orgnr') or '').strip()
+    if not orgnr:
+        return jsonify(
+            {'status': 'error', 'message': 'Ange organisationsnummer.'}
+        ), 400
+
+    try:
+        deleted, summary, normalized_orgnr = (
+            functions.admin_delete_supervisor_account(orgnr)
+        )
+    except ValueError:
+        return jsonify(
+            {'status': 'error', 'message': 'Ogiltigt organisationsnummer.'}
+        ), 400
+    except Exception:
+        logger.exception("Misslyckades att radera företagskonto för %s", orgnr)
+        return jsonify(
+            {'status': 'error', 'message': 'Kunde inte radera företagskontot.'}
+        ), 500
+
+    if not deleted:
+        return jsonify(
+            {'status': 'error', 'message': 'Företagskontot hittades inte.'}
+        ), 404
+
+    summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    functions.log_admin_action(
+        admin_name,
+        'raderade företagskonto',
+        f'orgnr={normalized_orgnr}, {summary_details}',
+    )
+    logging.info(
+        "Admin deleted supervisor account for %s",
+        normalized_orgnr,
+        extra={'admin': admin_name},
+    )
+    return jsonify(
+        {
+            'status': 'success',
+            'message': 'Företagskontot har raderats.',
+            'data': summary,
+        }
+    )
 
 @app.get('/admin/avancerat')
 def admin_advanced():  # pragma: no cover

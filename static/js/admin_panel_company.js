@@ -8,6 +8,8 @@
   const removeSupervisorMessage = document.getElementById('removeSupervisorMessage');
   const changeSupervisorForm = document.getElementById('changeSupervisorForm');
   const changeSupervisorMessage = document.getElementById('changeSupervisorMessage');
+  const deleteSupervisorForm = document.getElementById('deleteSupervisorForm');
+  const deleteSupervisorMessage = document.getElementById('deleteSupervisorMessage');
   const supervisorOverviewForm = document.getElementById('supervisorOverviewForm');
   const supervisorOverviewMessage = document.getElementById('supervisorOverviewMessage');
   const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
@@ -310,6 +312,56 @@
       } catch (err) {
         supervisorOverviewCard.hidden = true;
         setMessageElement(supervisorOverviewMessage, err.message, true);
+      }
+    });
+  }
+
+  if (deleteSupervisorForm) {
+    setMessageElement(deleteSupervisorMessage, '', false);
+    deleteSupervisorForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!deleteSupervisorMessage) return;
+      const formData = new FormData(deleteSupervisorForm);
+      const payload = {
+        orgnr: formData.get('orgnr')?.toString().trim(),
+      };
+      if (!payload.orgnr) {
+        setMessageElement(
+          deleteSupervisorMessage,
+          'Ange organisationsnummer.',
+          true,
+        );
+        return;
+      }
+      const confirmed = window.confirm(
+        'Vill du radera företagskontot och alla kopplingar?',
+      );
+      if (!confirmed) return;
+      setMessageElement(deleteSupervisorMessage, 'Raderar företagskonto…', false);
+      try {
+        const res = await fetch('/admin/api/foretagskonto/radera', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            ...payload,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte radera företagskontot.');
+        }
+        setMessageElement(
+          deleteSupervisorMessage,
+          data.message || 'Företagskontot har raderats.',
+          false,
+        );
+        deleteSupervisorForm.reset();
+      } catch (err) {
+        setMessageElement(deleteSupervisorMessage, err.message, true);
       }
     });
   }
