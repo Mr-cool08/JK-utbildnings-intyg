@@ -199,6 +199,7 @@ def create_app() -> Flask:
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
+    logger.debug("Debug mode: %s", debug_mode)
 
     demo_defaults = {
         "user_email": os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
