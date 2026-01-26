@@ -78,6 +78,7 @@ from functions.pdf_storage import (
 )
 from functions.supervisors import (
     admin_create_supervisor,
+    admin_delete_supervisor_account,
     admin_link_supervisor_to_user,
     check_pending_supervisor_hash,
     create_supervisor_link_request,
@@ -139,6 +140,7 @@ __all__ = [
     "_is_truthy",
     "admin_audit_log_table",
     "admin_create_supervisor",
+    "admin_delete_supervisor_account",
     "admin_create_user",
     "admin_delete_user_account",
     "admin_delete_user_account_by_hash",

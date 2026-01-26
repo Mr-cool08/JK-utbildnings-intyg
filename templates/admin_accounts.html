@@ -131,13 +131,13 @@
 
 <section class="panel">
     <h2>Radera användarkonto</h2>
-    <p>Välj ett konto i listan. Ett mejl skickas när kontot har raderats.</p>
+    <p>Välj ett konto i listan. Du kan ange e-post om du vill skicka en notifiering.</p>
     <form id="deleteAccountForm" class="stacked-form" method="post">
         <label for="deleteAccountSelect">Välj konto</label>
         <select id="deleteAccountSelect" name="personnummer_hash" required></select>
 
-        <label for="deleteNotifyEmail">E-post för notifiering</label>
-        <input id="deleteNotifyEmail" name="email" type="email" required placeholder="user@example.com" />
+        <label for="deleteNotifyEmail">E-post för notifiering (valfritt)</label>
+        <input id="deleteNotifyEmail" name="email" type="email" placeholder="user@example.com" />
 
         <div class="button-row">
             <button type="button" class="btn btn-secondary" id="refreshAccountList">Uppdatera lista</button>
