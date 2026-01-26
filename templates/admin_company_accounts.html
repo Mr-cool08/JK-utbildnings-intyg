@@ -4,6 +4,7 @@
 {% block content %}
 <h1>Admin — Företagskonton</h1>
 <p>Här skapar du företagskonton, kopplar dem till användare och hanterar kopplingar.</p>
+<span class="sr-only" data-csrf-token="{{ csrf_token }}"></span>
 
 <nav class="admin-nav" aria-label="Administrationsnavigering">
     <a class="btn" href="{{ url_for('admin') }}">Start</a>
@@ -80,7 +81,7 @@
 
 <section class="panel">
     <h2>Visa kopplingar</h2>
-    <p>Se vilka användarkonton som är kopplade till ett företagskonto.</p>
+    <p>Se vilka användarkonton som är kopplade till ett företagskonto och ta bort kopplingar från listan.</p>
     <form id="supervisorOverviewForm" class="inline-form" method="post">
         <label for="overviewSupervisorOrgnr">Organisationsnummer</label>
         <input id="overviewSupervisorOrgnr" name="orgnr" type="text" required placeholder="Exempel: 556966-8337">
@@ -96,6 +97,7 @@
                     <tr>
                         <th>Användarnamn</th>
                         <th>Information</th>
+                        <th>Åtgärd</th>
                     </tr>
                 </thead>
                 <tbody id="supervisorOverviewBody"></tbody>

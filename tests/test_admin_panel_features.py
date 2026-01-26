@@ -507,6 +507,65 @@ def test_admin_change_supervisor_connection(empty_db):
         assert new_link is not None
 
 
+def test_admin_remove_supervisor_connection_by_hash(empty_db):
+    personnummer = "19910606-6789"
+    email = "hashkonto@example.com"
+    assert functions.admin_create_user(email, "Hashkonto", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("StartLosen1!", pnr_hash)
+
+    supervisor_email = "kopplad@example.com"
+    supervisor_hash = functions.hash_value(functions.normalize_email(supervisor_email))
+    orgnr = "556123-4567"
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Hashbolag AB",
+                orgnr=functions.validate_orgnr(orgnr),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Hashbolag AB",
+                email=functions.normalize_email(supervisor_email),
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Hashbolag AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=pnr_hash,
+            )
+        )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/foretagskonto/ta-bort",
+            json={
+                "orgnr": orgnr,
+                "personnummer_hash": pnr_hash,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+    assert response.status_code == 200
+
+    with empty_db.connect() as conn:
+        assert conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+            )
+        ).first() is None
+
+
 def test_password_reset_token_lifecycle(empty_db):
     personnummer = "19900101-1234"
     email = "token@example.com"

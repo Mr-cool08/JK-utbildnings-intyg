@@ -1713,7 +1713,8 @@ def admin_company_accounts():  # pragma: no cover
         logger.warning("Unauthorized admin company accounts GET")
         return redirect('/login_admin')
     logger.debug("Rendering admin company accounts page")
-    return render_template('admin_company_accounts.html')
+    csrf_token = ensure_csrf_token()
+    return render_template('admin_company_accounts.html', csrf_token=csrf_token)
 
 
 @app.route('/admin/ansokningar', methods=['GET', 'POST'])
@@ -2505,21 +2506,28 @@ def admin_remove_supervisor_connection():  # pragma: no cover
     payload = request.get_json(silent=True) or {}
     orgnr = (payload.get('orgnr') or '').strip()
     personnummer = (payload.get('personnummer') or '').strip()
-    if not orgnr or not personnummer:
+    personnummer_hash = (payload.get('personnummer_hash') or '').strip()
+    if not orgnr or (not personnummer and not personnummer_hash):
         return jsonify(
-            {'status': 'error', 'message': 'Ange organisationsnummer och personnummer.'}
+            {
+                'status': 'error',
+                'message': 'Ange organisationsnummer och personnummer eller hash.',
+            }
         ), 400
 
     try:
         details = functions.get_supervisor_login_details_for_orgnr(orgnr)
-        normalized_personnummer = functions.normalize_personnummer(personnummer)
+        if personnummer:
+            normalized_personnummer = functions.normalize_personnummer(personnummer)
+            personnummer_hash = functions.hash_value(normalized_personnummer)
+        elif not functions._is_valid_hash(personnummer_hash):
+            raise ValueError("Ogiltig hash")
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Ogiltiga uppgifter.'}), 400
 
     if not details:
         return jsonify({'status': 'error', 'message': 'Företagskontot hittades inte.'}), 404
 
-    personnummer_hash = functions.hash_value(normalized_personnummer)
     if not functions.supervisor_has_access(details["email_hash"], personnummer_hash):
         return jsonify({'status': 'error', 'message': 'Kopplingen hittades inte.'}), 404
 
