@@ -75,7 +75,7 @@
       parts.push(`${summary.users} konto`);
     }
     if (summary.pending_users) {
-      parts.push(`${summary.pending_users} väntande konto`);
+      parts.push(`${summary.pending_users} ansökan`);
     }
     if (summary.pdfs) {
       parts.push(`${summary.pdfs} PDF:er`);
@@ -102,7 +102,7 @@
   }
 
   function buildAccountLabel(account) {
-    const status = account.status === 'pending' ? 'Väntande konto' : 'Aktivt konto';
+    const status = account.status === 'pending' ? 'Ansökan' : 'Aktivt konto';
     const hash = account.personnummer_hash || '';
     const shortHash = hash ? `${hash.slice(0, 10)}…` : 'okänd hash';
     return `${account.username || 'Okänt konto'} — ${status} (${shortHash})`;
