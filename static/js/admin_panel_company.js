@@ -13,6 +13,8 @@
   const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
   const supervisorOverviewBody = document.getElementById('supervisorOverviewBody');
   const supervisorOverviewTitle = document.getElementById('supervisorOverviewTitle');
+  const csrfToken = document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
+  let currentOverviewOrgnr = '';
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
@@ -101,8 +103,14 @@
       try {
         const res = await fetch('/admin/api/foretagskonto/ta-bort', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            ...payload,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -135,8 +143,14 @@
       try {
         const res = await fetch('/admin/api/foretagskonto/uppdatera-koppling', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            ...payload,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -154,6 +168,62 @@
     });
   }
 
+  function updateOverviewEmptyState() {
+    if (!supervisorOverviewBody) return;
+    if (supervisorOverviewBody.children.length > 0) return;
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.textContent = 'Inga kopplingar hittades.';
+    row.appendChild(cell);
+    supervisorOverviewBody.appendChild(row);
+  }
+
+  async function removeOverviewConnection(personnummerHash, username) {
+    if (!currentOverviewOrgnr) {
+      setMessageElement(
+        supervisorOverviewMessage,
+        'Välj först ett företagskonto att visa.',
+        true,
+      );
+      return;
+    }
+    const label = username || 'det valda kontot';
+    const confirmed = window.confirm(`Vill du ta bort kopplingen för ${label}?`);
+    if (!confirmed) return;
+    setMessageElement(supervisorOverviewMessage, 'Tar bort koppling…', false);
+    try {
+      const res = await fetch('/admin/api/foretagskonto/ta-bort', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          orgnr: currentOverviewOrgnr,
+          personnummer_hash: personnummerHash,
+          ...(csrfToken ? { csrf_token: csrfToken } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Kunde inte ta bort kopplingen.');
+      }
+      const row = supervisorOverviewBody?.querySelector(
+        `tr[data-personnummer-hash="${personnummerHash}"]`,
+      );
+      row?.remove();
+      updateOverviewEmptyState();
+      setMessageElement(
+        supervisorOverviewMessage,
+        data.message || 'Kopplingen har tagits bort.',
+        false,
+      );
+    } catch (err) {
+      setMessageElement(supervisorOverviewMessage, err.message, true);
+    }
+  }
+
   function renderSupervisorOverview(data) {
     if (!supervisorOverviewCard || !supervisorOverviewBody || !supervisorOverviewTitle) {
       return;
@@ -163,15 +233,11 @@
     supervisorOverviewTitle.textContent = `Kopplade användarkonton för ${data.name || 'företagskonto'}`;
 
     if (!connections.length) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.colSpan = 2;
-      cell.textContent = 'Inga kopplingar hittades.';
-      row.appendChild(cell);
-      supervisorOverviewBody.appendChild(row);
+      updateOverviewEmptyState();
     } else {
       connections.forEach((entry) => {
         const row = document.createElement('tr');
+        row.dataset.personnummerHash = entry.personnummer_hash || '';
         const nameCell = document.createElement('td');
         nameCell.textContent = entry.username || 'Användarkonto';
         const infoCell = document.createElement('td');
@@ -182,8 +248,27 @@
         const code = document.createElement('code');
         code.textContent = hash ? `${hash.slice(0, 12)}…` : 'saknas';
         infoCell.appendChild(code);
+        const actionCell = document.createElement('td');
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-danger btn-small';
+        removeButton.textContent = 'Ta bort koppling';
+        removeButton.disabled = !hash;
+        removeButton.addEventListener('click', () => {
+          if (!hash) {
+            setMessageElement(
+              supervisorOverviewMessage,
+              'Kunde inte ta bort kopplingen eftersom hash saknas.',
+              true,
+            );
+            return;
+          }
+          removeOverviewConnection(hash, entry.username);
+        });
+        actionCell.appendChild(removeButton);
         row.appendChild(nameCell);
         row.appendChild(infoCell);
+        row.appendChild(actionCell);
         supervisorOverviewBody.appendChild(row);
       });
     }
@@ -219,6 +304,7 @@
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte hämta kopplingar.');
         }
+        currentOverviewOrgnr = orgnr;
         renderSupervisorOverview(data.data || {});
         setMessageElement(supervisorOverviewMessage, 'Kopplingar hämtade.', false);
       } catch (err) {
