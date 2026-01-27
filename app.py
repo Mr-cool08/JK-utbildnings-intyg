@@ -11,6 +11,7 @@ import os
 import threading
 import time
 from typing import Any, Sequence
+import json
 
 from flask import (
     Flask,
@@ -2071,6 +2072,10 @@ def admin_client_log():
     details = payload.get('details')
     if isinstance(details, (dict, list)):
         masked_details = mask_sensitive_data(details)
+        masked_details = _truncate_log_value(
+            json.dumps(masked_details, ensure_ascii=False),
+            CLIENT_LOG_TRUNCATION_LIMITS["details"],
+        )
     else:
         masked_details = _truncate_log_value(details, CLIENT_LOG_TRUNCATION_LIMITS["details"])
     status = payload.get('status')

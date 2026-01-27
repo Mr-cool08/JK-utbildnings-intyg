@@ -10,7 +10,7 @@ def _admin_client():
     return client
 
 
-def test_admin_client_log_records_warning(empty_db):
+def test_admin_client_log_records_warning(_empty_db):
     client = _admin_client()
     payload = {
         "message": "Svarade inte med JSON.",
@@ -25,7 +25,7 @@ def test_admin_client_log_records_warning(empty_db):
     assert response.get_json()["status"] == "success"
 
 
-def test_admin_client_log_rejects_invalid_payload(empty_db):
+def test_admin_client_log_rejects_invalid_payload(_empty_db):
     client = _admin_client()
 
     response = client.post("/admin/api/klientlogg", data="invalid", content_type="text/plain")
