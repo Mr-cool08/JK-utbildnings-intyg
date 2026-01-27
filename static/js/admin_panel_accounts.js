@@ -33,6 +33,22 @@
     element.style.display = text ? '' : 'none';
   }
 
+  async function parseJsonResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return null;
+    }
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function buildUnexpectedFormatError() {
+    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
+  }
+
   function setMessageWithLink(element, text, link) {
     if (!element) return;
     element.textContent = '';
@@ -117,7 +133,10 @@
     deleteAccountSelect.appendChild(placeholder);
     try {
       const res = await fetch('/admin/api/konton/lista');
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
+      if (!data) {
+        throw buildUnexpectedFormatError();
+      }
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte hämta kontolistan.');
       }
@@ -150,7 +169,10 @@
           ...(csrfToken ? { csrf_token: csrfToken } : {})
         }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
+      if (!data) {
+        throw buildUnexpectedFormatError();
+      }
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte radera kontot.');
       }
@@ -281,7 +303,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ personnummer, email, account_type: accountType })
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte skicka återställning.');
         }
@@ -309,7 +334,10 @@
       setMessageElement(verifyCertificateMessage, 'Verifierar…', false);
       try {
         const res = await fetch(`/verify_certificate/${encodeURIComponent(personnummer)}`);
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte verifiera certifikat.');
         }
@@ -354,7 +382,10 @@
             ...(csrfToken ? { csrf_token: csrfToken } : {}),
           }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte uppdatera kontot.');
         }

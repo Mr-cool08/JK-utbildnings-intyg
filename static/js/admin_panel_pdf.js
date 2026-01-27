@@ -13,6 +13,22 @@
     element.style.display = text ? '' : 'none';
   }
 
+  async function parseJsonResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return null;
+    }
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function buildUnexpectedFormatError() {
+    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
+  }
+
   function normalizeCategories(list) {
     if (!Array.isArray(list)) return [];
     const normalized = [];
@@ -125,7 +141,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer })
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
+      if (!data) {
+        throw buildUnexpectedFormatError();
+      }
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte hämta uppgifter.');
       }
@@ -155,7 +174,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId, categories: newCategories })
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
+      if (!data) {
+        throw buildUnexpectedFormatError();
+      }
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte uppdatera PDF.');
       }
@@ -174,7 +196,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId })
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
+      if (!data) {
+        throw buildUnexpectedFormatError();
+      }
       if (!res.ok) {
         throw new Error(data.message || 'Kunde inte ta bort PDF.');
       }

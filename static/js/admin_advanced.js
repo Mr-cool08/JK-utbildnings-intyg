@@ -20,6 +20,22 @@
       .filter(Boolean)
   );
 
+  async function parseJsonResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return null;
+    }
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function buildUnexpectedFormatError() {
+    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
+  }
+
   function getSelectedTable() {
     const tableName = tableSelect.value;
     if (!allowedTables.has(tableName)) {
@@ -83,7 +99,10 @@
 
   async function loadSchema(tableName) {
     const res = await fetch(`/admin/advanced/api/schema/${encodeURIComponent(tableName)}`);
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
+    if (!data) {
+      throw buildUnexpectedFormatError();
+    }
     if (!res.ok) {
       throw new Error(data.message || 'Kunde inte läsa tabellens schema.');
     }
@@ -97,7 +116,10 @@
       params.set('sok', searchTerm);
     }
     const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}?${params.toString()}`);
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
+    if (!data) {
+      throw buildUnexpectedFormatError();
+    }
     if (!res.ok) {
       throw new Error(data.message || 'Kunde inte läsa poster.');
     }
@@ -151,7 +173,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte skapa rad.');
         }
@@ -179,7 +204,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte uppdatera rad.');
         }
@@ -203,7 +231,10 @@
         const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
           method: 'DELETE'
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
         if (!res.ok) {
           throw new Error(data.message || 'Kunde inte ta bort rad.');
         }

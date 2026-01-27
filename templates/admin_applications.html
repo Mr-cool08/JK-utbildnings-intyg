@@ -55,6 +55,22 @@
         rejected: 'Avslagen',
     };
 
+    async function parseJsonResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            return null;
+        }
+        try {
+            return await response.json();
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function buildUnexpectedFormatError() {
+        return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
+    }
+
     function formatDate(value) {
         if (!value) return '—';
         const date = new Date(value);
@@ -183,7 +199,10 @@
                 body: JSON.stringify({ csrf_token: csrfToken }),
             });
 
-            const data = await response.json();
+            const data = await parseJsonResponse(response);
+            if (!data) {
+                throw buildUnexpectedFormatError();
+            }
             if (!response.ok || data.status !== 'success') {
                 throw new Error(data.message || 'Kunde inte godkänna ansökan.');
             }
@@ -214,7 +233,10 @@
                 body: JSON.stringify({ csrf_token: csrfToken, reason }),
             });
 
-            const data = await response.json();
+            const data = await parseJsonResponse(response);
+            if (!data) {
+                throw buildUnexpectedFormatError();
+            }
             if (!response.ok || data.status !== 'success') {
                 throw new Error(data.message || 'Kunde inte avslå ansökan.');
             }
@@ -271,7 +293,10 @@
         const query = status === 'alla' ? '' : `?status=${encodeURIComponent(status)}`;
         try {
             const response = await fetch(`/admin/api/ansokningar${query}`);
-            const data = await response.json();
+            const data = await parseJsonResponse(response);
+            if (!data) {
+                throw buildUnexpectedFormatError();
+            }
             if (!response.ok || data.status !== 'success') {
                 throw new Error(data.message || 'Kunde inte läsa ansökningarna.');
             }
