@@ -25,14 +25,42 @@
     element.style.display = text ? '' : 'none';
   }
 
-  async function parseJsonResponse(response) {
+  async function sendClientLog(payload) {
+    if (!payload) return;
+    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
+    try {
+      await fetch('/admin/api/klientlogg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      return;
+    }
+  }
+
+  async function parseJsonResponse(response, context) {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
+      sendClientLog({
+        message: 'Svarade inte med JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
     try {
       return await response.json();
     } catch {
+      sendClientLog({
+        message: 'Kunde inte tolka JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
   }
@@ -58,7 +86,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Skapade företagskonto');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -94,7 +122,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Skapade koppling');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -136,7 +164,7 @@
             ...(csrfToken ? { csrf_token: csrfToken } : {}),
           }),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Tog bort koppling');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -179,7 +207,7 @@
             ...(csrfToken ? { csrf_token: csrfToken } : {}),
           }),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Uppdaterade koppling');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -235,7 +263,7 @@
           ...(csrfToken ? { csrf_token: csrfToken } : {}),
         }),
       });
-      const data = await parseJsonResponse(res);
+      const data = await parseJsonResponse(res, 'Tog bort koppling i översikt');
       if (!data) {
         throw buildUnexpectedFormatError();
       }
@@ -333,7 +361,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orgnr }),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Hämtade kopplingar');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -384,7 +412,7 @@
             ...(csrfToken ? { csrf_token: csrfToken } : {}),
           }),
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Raderade företagskonto');
         if (!data) {
           throw buildUnexpectedFormatError();
         }

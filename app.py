@@ -92,6 +92,13 @@ ALLOWED_ADMIN_REJECTION_ERRORS = {
     "Ansökan är redan hanterad.",
 }
 
+CLIENT_LOG_TRUNCATION_LIMITS = {
+    "message": 500,
+    "context": 200,
+    "url": 500,
+    "details": 1000,
+}
+
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     # Returnera bara godkända felmeddelanden till användaren.
@@ -99,6 +106,16 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     if cleaned in allowed:
         return cleaned
     return fallback
+
+
+def _truncate_log_value(value: Any, limit: int) -> str:
+    # Begränsa loggsträngar för att undvika enorma loggar.
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}…"
 
 
 
@@ -1986,6 +2003,8 @@ def admin_reject_application(application_id: int):  # pragma: no cover
     if email_error:
         response_payload['email_warning'] = 'Ansökan avslogs men e-post kunde inte skickas.'
     return jsonify(response_payload)
+
+
 @app.post('/admin/api/oversikt')
 def admin_user_overview():  # pragma: no cover
     admin_name = _require_admin()
@@ -2038,6 +2057,33 @@ def admin_user_overview():  # pragma: no cover
     )
     logging.debug("Admin overview for %s with %d pdfs", mask_hash(pnr_hash), len(pdfs), extra={'admin': admin_name})
     return jsonify(response)
+
+
+@app.post('/admin/api/klientlogg')
+def admin_client_log():
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({'status': 'error', 'message': 'Ogiltigt loggformat.'}), 400
+    message = _truncate_log_value(payload.get('message'), CLIENT_LOG_TRUNCATION_LIMITS["message"])
+    context = _truncate_log_value(payload.get('context'), CLIENT_LOG_TRUNCATION_LIMITS["context"])
+    url = _truncate_log_value(payload.get('url'), CLIENT_LOG_TRUNCATION_LIMITS["url"])
+    details = payload.get('details')
+    if isinstance(details, (dict, list)):
+        masked_details = mask_sensitive_data(details)
+    else:
+        masked_details = _truncate_log_value(details, CLIENT_LOG_TRUNCATION_LIMITS["details"])
+    status = payload.get('status')
+    logger.warning(
+        "Klientlogg från admin %s: %s | context=%s | url=%s | status=%s | details=%s",
+        admin_name,
+        message or "Okänt fel",
+        context or "okänd",
+        url or "okänd",
+        status,
+        masked_details,
+    )
+    return jsonify({'status': 'success'})
 
 
 @app.post('/admin/api/radera-pdf')

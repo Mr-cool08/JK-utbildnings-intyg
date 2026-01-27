@@ -13,14 +13,42 @@
     element.style.display = text ? '' : 'none';
   }
 
-  async function parseJsonResponse(response) {
+  async function sendClientLog(payload) {
+    if (!payload) return;
+    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
+    try {
+      await fetch('/admin/api/klientlogg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      return;
+    }
+  }
+
+  async function parseJsonResponse(response, context) {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
+      sendClientLog({
+        message: 'Svarade inte med JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
     try {
       return await response.json();
     } catch {
+      sendClientLog({
+        message: 'Kunde inte tolka JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
   }
@@ -141,7 +169,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer })
       });
-      const data = await parseJsonResponse(res);
+      const data = await parseJsonResponse(res, 'Hämtade PDF-översikt');
       if (!data) {
         throw buildUnexpectedFormatError();
       }
@@ -174,7 +202,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId, categories: newCategories })
       });
-      const data = await parseJsonResponse(res);
+      const data = await parseJsonResponse(res, 'Uppdaterade PDF-kategorier');
       if (!data) {
         throw buildUnexpectedFormatError();
       }
@@ -196,7 +224,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId })
       });
-      const data = await parseJsonResponse(res);
+      const data = await parseJsonResponse(res, 'Raderade PDF');
       if (!data) {
         throw buildUnexpectedFormatError();
       }

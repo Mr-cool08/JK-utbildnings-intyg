@@ -20,14 +20,42 @@
       .filter(Boolean)
   );
 
-  async function parseJsonResponse(response) {
+  async function sendClientLog(payload) {
+    if (!payload) return;
+    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
+    try {
+      await fetch('/admin/api/klientlogg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      return;
+    }
+  }
+
+  async function parseJsonResponse(response, context) {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
+      sendClientLog({
+        message: 'Svarade inte med JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
     try {
       return await response.json();
     } catch {
+      sendClientLog({
+        message: 'Kunde inte tolka JSON.',
+        context,
+        url: response.url,
+        status: response.status,
+        details: { contentType }
+      });
       return null;
     }
   }
@@ -99,7 +127,7 @@
 
   async function loadSchema(tableName) {
     const res = await fetch(`/admin/advanced/api/schema/${encodeURIComponent(tableName)}`);
-    const data = await parseJsonResponse(res);
+    const data = await parseJsonResponse(res, 'Läste tabellschema');
     if (!data) {
       throw buildUnexpectedFormatError();
     }
@@ -116,7 +144,7 @@
       params.set('sok', searchTerm);
     }
     const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}?${params.toString()}`);
-    const data = await parseJsonResponse(res);
+    const data = await parseJsonResponse(res, 'Läste tabellrader');
     if (!data) {
       throw buildUnexpectedFormatError();
     }
@@ -173,7 +201,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Skapade tabellrad');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -204,7 +232,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Uppdaterade tabellrad');
         if (!data) {
           throw buildUnexpectedFormatError();
         }
@@ -231,7 +259,7 @@
         const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
           method: 'DELETE'
         });
-        const data = await parseJsonResponse(res);
+        const data = await parseJsonResponse(res, 'Tog bort tabellrad');
         if (!data) {
           throw buildUnexpectedFormatError();
         }

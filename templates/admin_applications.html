@@ -55,14 +55,42 @@
         rejected: 'Avslagen',
     };
 
-    async function parseJsonResponse(response) {
+    async function sendClientLog(payload) {
+        if (!payload) return;
+        if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
+        try {
+            await fetch('/admin/api/klientlogg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            return;
+        }
+    }
+
+    async function parseJsonResponse(response, context) {
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
+            sendClientLog({
+                message: 'Svarade inte med JSON.',
+                context,
+                url: response.url,
+                status: response.status,
+                details: { contentType }
+            });
             return null;
         }
         try {
             return await response.json();
         } catch (error) {
+            sendClientLog({
+                message: 'Kunde inte tolka JSON.',
+                context,
+                url: response.url,
+                status: response.status,
+                details: { contentType }
+            });
             return null;
         }
     }
@@ -199,7 +227,7 @@
                 body: JSON.stringify({ csrf_token: csrfToken }),
             });
 
-            const data = await parseJsonResponse(response);
+            const data = await parseJsonResponse(response, 'Godkände ansökan');
             if (!data) {
                 throw buildUnexpectedFormatError();
             }
@@ -233,7 +261,7 @@
                 body: JSON.stringify({ csrf_token: csrfToken, reason }),
             });
 
-            const data = await parseJsonResponse(response);
+            const data = await parseJsonResponse(response, 'Avslog ansökan');
             if (!data) {
                 throw buildUnexpectedFormatError();
             }
@@ -293,7 +321,7 @@
         const query = status === 'alla' ? '' : `?status=${encodeURIComponent(status)}`;
         try {
             const response = await fetch(`/admin/api/ansokningar${query}`);
-            const data = await parseJsonResponse(response);
+            const data = await parseJsonResponse(response, 'Läste ansökningar');
             if (!data) {
                 throw buildUnexpectedFormatError();
             }
