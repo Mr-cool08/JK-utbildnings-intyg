@@ -17,7 +17,7 @@ Den här guiden beskriver hur du kör applikationen lokalt med eller utan Docker
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-   På Windows kan du använda `pip install -r requirements.windows.txt` för att slippa `pg_config`.
+   På Windows räcker `pip install -r requirements.txt` eftersom beroendefilen redan använder binära hjul för PostgreSQL.
 2. **Skapa lokal konfiguration**
    ```bash
    cp .example.env .env
