@@ -8,6 +8,7 @@ import atexit
 from functools import partial
 import logging
 import os
+from pathlib import Path
 import threading
 import time
 from typing import Any, Sequence
@@ -1697,6 +1698,20 @@ def admin():  # pragma: no cover
         'admin.html',
         admin_log_entries=admin_log_entries,
     )
+
+
+@app.get('/admin/guide')
+def admin_guide():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin guide GET")
+        return redirect('/login_admin')
+    guide_path = Path(__file__).resolve().parent / "admin.md"
+    try:
+        admin_guide = guide_path.read_text(encoding="utf-8")
+    except OSError:
+        logger.exception("Misslyckades att läsa admin-guiden")
+        admin_guide = "Guiden kunde inte läsas just nu."
+    return render_template('admin_guide.html', admin_guide=admin_guide)
 
 
 @app.get('/admin/konton')
