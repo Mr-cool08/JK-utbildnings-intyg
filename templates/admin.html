@@ -12,6 +12,7 @@
     <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
     <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
     <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+    <a class="btn" href="{{ url_for('admin_guide') }}">Guide</a>
     <a class="btn" href="{{ url_for('admin_advanced') }}">Avancerade verktyg</a>
 </nav>
 
@@ -70,7 +71,7 @@
 
 <section class="panel">
     <h2>Dokumentation</h2>
-    <p>Superenkel guide för adminpanelen finns i filen <strong>docs/ADMIN_PANEL.md</strong> i projektet.</p>
+    <p>Administrationsguiden finns nu samlad under <a href="{{ url_for('admin_guide') }}">Admin — Guide</a>.</p>
 </section>
 {% endblock %}
 <!-- # Copyright (c) Liam Suorsa -->
