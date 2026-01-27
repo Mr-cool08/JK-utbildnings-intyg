@@ -225,6 +225,14 @@ def test_admin_delete_account_without_email(empty_db, monkeypatch):
         ).first() is None
 
 
+def test_admin_guide_renders_markdown():
+    with _admin_client() as client:
+        response = client.get("/admin/guide")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Hur man administrerar systemet" in body
+
+
 def test_password_reset_flow(empty_db, monkeypatch):
     personnummer = "19900101-1234"
     email = "user@example.com"

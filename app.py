@@ -8,6 +8,7 @@ import atexit
 from functools import partial
 import logging
 import os
+from pathlib import Path
 import threading
 import time
 from typing import Any, Sequence
@@ -1697,6 +1698,21 @@ def admin():  # pragma: no cover
         'admin.html',
         admin_log_entries=admin_log_entries,
     )
+
+
+@app.get('/admin/guide')
+def admin_guide():  # pragma: no cover
+    if not session.get('admin_logged_in'):
+        logger.warning("Unauthorized admin guide GET")
+        return redirect('/login_admin')
+    guide_path = Path(current_app.root_path) / "admin.md"
+    try:
+        guide_content = guide_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.exception("Admin guide file missing")
+        guide_content = "Guiden kunde inte hittas."
+    logger.debug("Rendering admin guide page")
+    return render_template('admin_guide.html', guide_content=guide_content)
 
 
 @app.get('/admin/konton')
