@@ -50,7 +50,7 @@ Supportärenden hanteras utanför administrationspanelen via e-post. Supportteam
 *inloggning för support är separat från administrationspanelen*.
 
 
-## säkerhet
+## Säkerhet
 Administratören ska följa dessa säkerhetsriktlinjer:
 - Ge aldrig ut administratörslösenordet till obehöriga personer.
 - Ge aldrig ut supportinloggningsuppgifter till obehöriga personer.
@@ -73,7 +73,19 @@ All administrativ hantering loggas för säkerhetsändamål och revision.
 - [Systemadministratör E-post](mailto:liam@utbildningsintyg.se)
 
 
-## Fotnoter
+## Error hantering
+Vid fel i administrationspanelen, följ dessa steg:
+1. Notera felmeddelandet som visas.
+2. Ta en skärmdump av felet.
+3. Notera vilka åtgärder som ledde till felet.
+4. Notera ner systeminformation (webbläsare, version, operativsystem).
+5. Notera ner **tidpunkten** för felet.
+6. Skapa en "Issue" i vårat [GitHub repository](https://github.com/Mr-cool08/JK-utbildnings-intyg/issues) (Konto krävs)
+7. Bifoga all information du samlat in i "Issue".
+
+
+
+### Fotnoter
 [^A]: Administratörskonto är endast för hantering av hela systemet.
 [^B]: Företagskonto har en konstnad baserad på antalet användare som är kopplade till företagskontot.
 [^C]: Standardkonto är gratis.
