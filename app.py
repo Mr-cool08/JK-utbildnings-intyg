@@ -30,6 +30,8 @@ from flask import (
     session,
     url_for,
 )
+from markupsafe import Markup
+from markdown import markdown
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -1711,8 +1713,9 @@ def admin_guide():  # pragma: no cover
     except FileNotFoundError:
         logger.exception("Admin guide file missing")
         guide_content = "Guiden kunde inte hittas."
+    rendered_guide = Markup(markdown(guide_content, extensions=["extra"]))
     logger.debug("Rendering admin guide page")
-    return render_template('admin_guide.html', guide_content=guide_content)
+    return render_template('admin_guide.html', guide_content=rendered_guide)
 
 
 @app.get('/admin/konton')
