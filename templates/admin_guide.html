@@ -1,0 +1,23 @@
+<!-- # Copyright (c) Liam Suorsa -->
+{% extends 'base.html' %}
+{% block title %}Admin — Guide{% endblock %}
+{% block content %}
+<h1>Guide för adminpanelen</h1>
+<p>Här visas innehållet från admin.md.</p>
+
+<nav class="admin-nav" aria-label="Administrationsnavigering">
+    <a class="btn" href="{{ url_for('admin') }}">Start</a>
+    <a class="btn" href="{{ url_for('admin_accounts') }}">Konton &amp; återställning</a>
+    <a class="btn" href="{{ url_for('admin_certificates') }}">Intyg &amp; verifiering</a>
+    <a class="btn" href="{{ url_for('admin_company_accounts') }}">Företagskonton</a>
+    <a class="btn" href="{{ url_for('admin_applications') }}">Ansökningar</a>
+    <a class="btn" href="{{ url_for('admin_invoicing') }}">Fakturering</a>
+    <a class="btn" href="{{ url_for('admin_advanced') }}">Avancerade verktyg</a>
+    <a class="btn" href="{{ url_for('admin_guide') }}">Guide</a>
+</nav>
+
+<section class="panel">
+    <div class="admin-guide-content">{{ guide_content }}</div>
+</section>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa -->
