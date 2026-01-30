@@ -6,6 +6,8 @@ from __future__ import annotations
 from datetime import timedelta
 import atexit
 from functools import partial
+import importlib
+import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -31,7 +33,7 @@ from flask import (
     url_for,
 )
 from markupsafe import Markup
-from markdown import markdown
+import importlib.util
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -72,6 +74,31 @@ save_pdf_for_user = pdf.save_pdf_for_user
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 # functions.create_test_user()  # Skapa en testanvändare vid start
+
+
+def _render_basic_markdown(text: str) -> str:
+    rendered_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            rendered_lines.append(f"<h2>{stripped[3:].strip()}</h2>")
+            continue
+        if stripped.startswith("# "):
+            rendered_lines.append(f"<h1>{stripped[2:].strip()}</h1>")
+            continue
+        if stripped:
+            rendered_lines.append(f"<p>{stripped}</p>")
+    return "\n".join(rendered_lines)
+
+
+def render_markdown_content(text: str) -> Markup:
+    markdown_spec = importlib.util.find_spec("markdown")
+    if markdown_spec is None:
+        logger.warning("Markdown-biblioteket saknas, använder enkel renderare.")
+        return Markup(_render_basic_markdown(text))
+    markdown_module = importlib.import_module("markdown")
+    rendered = markdown_module.markdown(text, extensions=["extra"])
+    return Markup(rendered)
 
 ALLOWED_PDF_UPLOAD_ERRORS = {
     "Ingen fil vald.",
@@ -1713,7 +1740,7 @@ def admin_guide():  # pragma: no cover
     except FileNotFoundError:
         logger.exception("Admin guide file missing")
         guide_content = "Guiden kunde inte hittas."
-    rendered_guide = Markup(markdown(guide_content, extensions=["extra"]))
+    rendered_guide = render_markdown_content(guide_content)
     logger.debug("Rendering admin guide page")
     return render_template('admin_guide.html', guide_content=rendered_guide)
 
