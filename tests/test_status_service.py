@@ -41,6 +41,29 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
     assert "sekunder" in status["uptime"]
 
 
+def test_resolve_proxy_target_prefers_traefik_and_handles_invalid_port(monkeypatch, caplog):
+    monkeypatch.setenv("STATUS_NGINX_HOST", "nginx-service")
+    monkeypatch.setenv("STATUS_NGINX_PORT", "8081")
+    monkeypatch.setenv("STATUS_TRAEFIK_HOST", "traefik-service")
+    monkeypatch.setenv("STATUS_TRAEFIK_PORT", "notint")
+
+    captured = {}
+
+    def fake_check_tcp(host, port, timeout=2):
+        captured["host"] = host
+        captured["port"] = port
+        return True
+
+    monkeypatch.setattr(status_checks, "check_tcp", fake_check_tcp)
+
+    with caplog.at_level(logging.WARNING):
+        status_checks.check_traefik_status()
+
+    assert captured["host"] == "traefik-service"
+    assert captured["port"] == 80
+    assert "STATUS_TRAEFIK_PORT" in caplog.text
+
+
 def test_get_country_availability_parses_entries(monkeypatch):
     monkeypatch.setenv("STATUS_COUNTRY_AVAILABILITY", "Sverige=OK,Norge=Fel,Finland:Okänd")
 

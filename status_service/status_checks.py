@@ -125,18 +125,34 @@ def check_ssl_status():
 
 
 def _resolve_proxy_target():
-    host = (
-        os.getenv("STATUS_PROXY_HOST")
-        or os.getenv("STATUS_TRAEFIK_HOST")
-        or os.getenv("STATUS_NGINX_HOST")
-        or "traefik"
-    )
-    port = int(
-        os.getenv("STATUS_PROXY_PORT")
-        or os.getenv("STATUS_TRAEFIK_PORT")
-        or os.getenv("STATUS_NGINX_PORT")
-        or "80"
-    )
+    host = "traefik"
+    host_env_var = None
+    for env_var in ("STATUS_PROXY_HOST", "STATUS_TRAEFIK_HOST", "STATUS_NGINX_HOST"):
+        value = os.getenv(env_var)
+        if value:
+            host = value
+            host_env_var = env_var
+            break
+
+    port_env_var = None
+    raw_port = None
+    for env_var in ("STATUS_PROXY_PORT", "STATUS_TRAEFIK_PORT", "STATUS_NGINX_PORT"):
+        value = os.getenv(env_var)
+        if value:
+            raw_port = value
+            port_env_var = env_var
+            break
+    if raw_port is None:
+        raw_port = "80"
+    try:
+        port = int(raw_port)
+    except ValueError:
+        LOGGER.warning(
+            "Ogiltigt portvärde för %s (%s). Använder standardport 80.",
+            port_env_var or "STATUS_PROXY_PORT",
+            raw_port,
+        )
+        port = 80
     return host, port
 
 
