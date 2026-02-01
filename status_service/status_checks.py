@@ -324,6 +324,8 @@ def get_metadata(uptime):
         "environment": environment,
         "uptime_seconds": int(uptime.total_seconds()),
     }
+
+
 def get_ram_procent():
     try:
         ram = psutil.virtual_memory()
@@ -336,18 +338,21 @@ def get_ram_procent():
         LOGGER.warning("RAM-användning kunde inte läsas i den aktuella miljön.")
         return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
 
+
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
         check_http_status(item["name"], item["url"])
         for item in get_http_check_targets()
     ]
+    proxy_status = check_traefik_status()
     return {
         "uptime": format_uptime(uptime),
         "checks": {
             "ssl": check_ssl_status(),
             "database": check_database_status(),
-            "traefik": check_traefik_status(),
+            "traefik": proxy_status,
+            "nginx": proxy_status,
         },
         "http_checks": http_checks,
         "countries": get_country_availability(),
@@ -359,5 +364,4 @@ def build_status(now=None):
         },
         "latency_series": build_latency_series(http_checks),
         "metadata": get_metadata(uptime),
-        
     }

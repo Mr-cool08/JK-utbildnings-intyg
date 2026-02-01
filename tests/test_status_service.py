@@ -37,6 +37,7 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
     assert status["checks"]["ssl"]["status"] == "OK"
     assert status["checks"]["database"]["status"] == "Inte konfigurerad"
     assert status["checks"]["traefik"]["status"] == "Fel"
+    assert status["checks"]["nginx"]["status"] == "Fel"
     assert "sekunder" in status["uptime"]
 
 
