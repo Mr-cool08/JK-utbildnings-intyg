@@ -203,6 +203,7 @@ def _enable_debug_mode(app: Flask) -> None:
         app.logger.addHandler(stream)
     app.logger.setLevel(logging.DEBUG)
 
+    logger.setLevel(logging.DEBUG)
     functions.logger.setLevel(logging.DEBUG)
     if not any(isinstance(h, logging.StreamHandler) for h in functions.logger.handlers):
         functions.logger.addHandler(stream)
@@ -216,14 +217,14 @@ def _enable_debug_mode(app: Flask) -> None:
 
 def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
     # Start a bakgrundstråd som återställer demodatabasen var femte minut.
-    interval_seconds = 5 * 60
+    interval_seconds = 10 * 60
 
     def _reset_loop() -> None:
-        logger.debug("Bakgrundsjobb för demoreset startat")
+        logger.info("Bakgrundsjobb för demoreset startat")
         while True:
             with app.app_context():
                 try:
-                    logger.debug("Bakgrundsjobb kör demoreset")
+                    logger.info("Bakgrundsjobb kör demoreset")
                     functions.reset_demo_database(demo_defaults)
                 except Exception as exc:
                     logger.warning("Automatisk demoreset misslyckades: %s", exc)
@@ -231,7 +232,7 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
 
     thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
     thread.start()
-    logger.debug("Bakgrundstråd startad: %s", thread.name)
+    logger.info("Bakgrundstråd startad: %s", thread.name)
 
 
 
@@ -505,7 +506,7 @@ def robots_txt():
     """Servera robots.txt från den statiska katalogen."""
     # Serve robots.txt to disallow all crawlers.
     if app.static_folder is None:
-        return jsonify({'error': 'Not Found'}), 404
+        abort(404)
     return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
 
 @app.route('/sitemap.xml')
@@ -513,7 +514,7 @@ def sitemap_xml():
     """Servera sitemap.xml med publika URL:er."""
     # Serve sitemap.xml with public URLs only.
     if app.static_folder is None:
-        return jsonify({'error': 'Not Found'}), 404
+        abort(404)
     return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
 
 
