@@ -262,7 +262,7 @@ def _resolve_secret_key() -> str:
     secret_key = os.getenv("secret_key")
     if secret_key:
         return secret_key
-    if _is_pytest_running():
+    if _is_pytest_running() and as_bool(os.getenv("DEV_MODE")):
         logger.warning("secret_key saknas i testmiljön. Genererar temporär nyckel.")
         return secrets.token_hex(32)
     error_msg = "FATAL: secret_key environment variable must be set and non-empty"
