@@ -124,9 +124,24 @@ def check_ssl_status():
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
 
 
-def check_nginx_status():
-    host = os.getenv("STATUS_NGINX_HOST", "nginx")
-    port = int(os.getenv("STATUS_NGINX_PORT", "80"))
+def _resolve_proxy_target():
+    host = (
+        os.getenv("STATUS_PROXY_HOST")
+        or os.getenv("STATUS_TRAEFIK_HOST")
+        or os.getenv("STATUS_NGINX_HOST")
+        or "traefik"
+    )
+    port = int(
+        os.getenv("STATUS_PROXY_PORT")
+        or os.getenv("STATUS_TRAEFIK_PORT")
+        or os.getenv("STATUS_NGINX_PORT")
+        or "80"
+    )
+    return host, port
+
+
+def check_traefik_status():
+    host, port = _resolve_proxy_target()
 
     tcp_ok = check_tcp(host, port, timeout=2)
     return {
@@ -332,7 +347,7 @@ def build_status(now=None):
         "checks": {
             "ssl": check_ssl_status(),
             "database": check_database_status(),
-            "nginx": check_nginx_status(),
+            "traefik": check_traefik_status(),
         },
         "http_checks": http_checks,
         "countries": get_country_availability(),

@@ -1,7 +1,7 @@
 <!-- # Copyright (c) Liam Suorsa -->
 # Driftsättning
 
-Den här guiden beskriver hur du kör applikationen med Docker lokalt samt hur du sätter upp produktion med Nginx, PostgreSQL och valfri Cloudflare-proxy.
+Den här guiden beskriver hur du kör applikationen med Docker lokalt samt hur du sätter upp produktion med Traefik, PostgreSQL och valfri Cloudflare-proxy.
 
 ## Förutsättningar
 
@@ -32,7 +32,7 @@ Behöver proxyn ansluta till ett redan existerande Docker-nätverk kan du sätta
 
 ## Produktion med Docker Compose
 
-Produktionstacken ligger i `docker-compose.prod.yml` och inkluderar Nginx, app, demoapp, status-sida, PostgreSQL, backup-jobb och valfri antiviruscontainer.
+Produktionstacken ligger i `docker-compose.prod.yml` och inkluderar Traefik, app, demoapp, status-sida, PostgreSQL, backup-jobb och valfri antiviruscontainer.
 
 Antiviruscontainern kan även skicka varningsmejl när infekterade filer hittas. Den använder samma SMTP-konfiguration som övriga tjänster (`smtp_server`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_timeout`) och skickar till `CRITICAL_ALERTS_EMAIL`.
 
@@ -46,7 +46,7 @@ Antiviruscontainern kan även skicka varningsmejl när infekterade filer hittas.
    docker compose -f docker-compose.prod.yml up -d --build
    ```
 
-Nginx lyssnar på port 80/443 och vidarebefordrar trafik till appen.
+Traefik lyssnar på port 80/443 och vidarebefordrar trafik till appen.
 
 ### Beständig data i produktion
 
@@ -54,7 +54,7 @@ Standardstacken skapar volymer för:
 
 - `env_data` – `.env`-filen som monteras till `/config`
 - `app_logs` – applikationsloggar
-- `nginx_logs` – proxyloggar
+- `traefik_logs` – proxyloggar
 - `pgdata` – PostgreSQL-data
 - `pgdata_backups` – databaskopior
 

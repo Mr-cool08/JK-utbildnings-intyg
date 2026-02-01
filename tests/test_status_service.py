@@ -23,12 +23,12 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
     def fake_db():
         return {"status": "Inte konfigurerad", "details": "Test"}
 
-    def fake_nginx():
+    def fake_traefik():
         return {"status": "Fel", "details": "Test"}
 
     monkeypatch.setattr(status_checks, "check_ssl_status", fake_ssl)
     monkeypatch.setattr(status_checks, "check_database_status", fake_db)
-    monkeypatch.setattr(status_checks, "check_nginx_status", fake_nginx)
+    monkeypatch.setattr(status_checks, "check_traefik_status", fake_traefik)
     monkeypatch.setattr(status_checks, "get_http_check_targets", lambda: [])
     monkeypatch.setattr(status_checks, "get_country_availability", lambda: [])
 
@@ -36,7 +36,7 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
 
     assert status["checks"]["ssl"]["status"] == "OK"
     assert status["checks"]["database"]["status"] == "Inte konfigurerad"
-    assert status["checks"]["nginx"]["status"] == "Fel"
+    assert status["checks"]["traefik"]["status"] == "Fel"
     assert "sekunder" in status["uptime"]
 
 
