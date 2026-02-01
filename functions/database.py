@@ -762,7 +762,15 @@ def reset_engine() -> None:
     global _ENGINE
     if _ENGINE is not None:
         try:
+            # Dispose all pooled connections
             _ENGINE.dispose()
+            # For SQLite, also try to close through event listener removal
+            if _ENGINE.url.get_backend_name() == "sqlite":
+                # Remove event listeners to ensure no lingering connections
+                event.remove(_ENGINE, "before_cursor_execute", _log_query)
+            # Brief pause to allow any in-flight operations to complete
+            import time
+            time.sleep(0.2)
         except Exception:
             logger.exception("Kunde inte stänga databasmotorn vid återställning")
     _ENGINE = None

@@ -8,6 +8,8 @@ import werkzeug
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("admin_username", "test_admin")
+os.environ.setdefault("admin_password", "test_password_123")
 import app  # noqa: E402
 import functions  # noqa: E402
 from services.pdf_scanner import ScanVerdict  # noqa: E402
@@ -19,6 +21,8 @@ if not hasattr(werkzeug, "__version__"):
 def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
     monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("admin_username", "test_admin")
+    monkeypatch.setenv("admin_password", "test_password_123")
     functions.reset_engine()
     functions.create_database()
     app.app.secret_key = "test-secret"

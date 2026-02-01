@@ -157,6 +157,7 @@ def test_debug_clear_session_requires_debug(monkeypatch):
 def test_debug_clear_session_clears_session_in_debug(monkeypatch):
     app.app.secret_key = "test-secret"
     monkeypatch.setattr(app.app, "debug", True)
+    monkeypatch.setitem(app.app.config, "DEV_MODE", True)
 
     client = app.app.test_client()
     with client.session_transaction() as sess:

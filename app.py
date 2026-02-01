@@ -218,16 +218,32 @@ def _enable_debug_mode(app: Flask) -> None:
 def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
     # Start a bakgrundstråd som återställer demodatabasen var femte minut.
     interval_seconds = 10 * 60
+    
+    # Lock to prevent concurrent database access during reset
+    reset_lock = threading.Lock()
+    
+    # Store as app config so error handlers can check reset status
+    app.demo_reset_lock = reset_lock
 
     def _reset_loop() -> None:
         logger.info("Bakgrundsjobb för demoreset startat")
         while True:
-            with app.app_context():
+            # Only run reset if no other thread is actively using it
+            if reset_lock.acquire(blocking=False):
                 try:
-                    logger.info("Bakgrundsjobb kör demoreset")
-                    functions.reset_demo_database(demo_defaults)
+                    with app.app_context():
+                        logger.info("Bakgrundsjobb kör demoreset")
+                        if functions.reset_demo_database(demo_defaults):
+                            logger.info("Demoreset slutfördes framgångsrikt")
+                        else:
+                            logger.warning("Demoreset returnerade false")
                 except Exception as exc:
-                    logger.warning("Automatisk demoreset misslyckades: %s", exc)
+                    logger.exception("Automatisk demoreset misslyckades: %s", exc)
+                finally:
+                    reset_lock.release()
+            else:
+                logger.debug("Demoreset hoppad över - låst för närvarande")
+            
             time.sleep(interval_seconds)
 
     thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
@@ -243,7 +259,15 @@ def create_app() -> Flask:
     functions.create_database()
     app = Flask(__name__)
     _configure_proxy_fix(app)
-    app.secret_key = os.getenv('secret_key')
+    
+    # Validate secret_key is set
+    secret_key = os.getenv('secret_key')
+    if not secret_key:
+        error_msg = "FATAL: secret_key environment variable must be set and non-empty"
+        logger.critical(error_msg)
+        raise RuntimeError(error_msg)
+    app.secret_key = secret_key
+    
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
@@ -520,7 +544,7 @@ def sitemap_xml():
 
 @app.route('/debug/clear-session', methods=['GET', 'POST'])
 def debug_clear_session():
-    if not current_app.debug:
+    if not current_app.config.get('DEV_MODE'):
         abort(404)
     session.clear()
     return redirect('/')
@@ -2899,11 +2923,11 @@ def verify_certificate_route(personnummer):  # pragma: no cover
     if functions.verify_certificate(personnummer):
         logger.info("Certificate for %s is verified", mask_hash(functions.hash_value(personnummer)))
         return jsonify({'status': 'success', 'verified': True})
+    logger.info("Certificate for %s is NOT verified", mask_hash(functions.hash_value(personnummer)))
     return jsonify({
         'status': 'error',
         'message': "Standardkontots certifikat är inte verifierat",
     }), 404
-    logger.info("Certificate for %s is NOT verified", mask_hash(functions.hash_value(personnummer)))
 
 
 @app.route('/login_admin', methods=['POST', 'GET'])
@@ -2911,8 +2935,14 @@ def login_admin():  # pragma: no cover
     # Authenticate an administrator for access to the admin panel.
     if request.method == 'POST':
 
-        admin_password = os.getenv('admin_password', 'password')
-        admin_username = os.getenv('admin_username', 'admin')
+        admin_password = os.getenv('admin_password')
+        admin_username = os.getenv('admin_username')
+        
+        # Require admin credentials to be explicitly set (no insecure defaults)
+        if not admin_password or not admin_username:
+            error_msg = "FATAL: admin_username and admin_password environment variables must be set and non-empty"
+            logger.critical(error_msg)
+            raise RuntimeError(error_msg)
         if request.form['username'] == admin_username and request.form['password'] == admin_password:
             session['admin_logged_in'] = True
             session['admin_username'] = admin_username

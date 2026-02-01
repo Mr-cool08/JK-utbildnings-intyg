@@ -1,4 +1,3 @@
-# Copyright (c) Liam Suorsa
 from __future__ import annotations
 
 import logging
@@ -260,6 +259,14 @@ def ensure_demo_data(
 
 def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
+    import os
+    import time
+    
+    # Protect against accidental database reset in production
+    if not os.getenv("DEV_MODE", "").lower() in ("true", "1", "ja", "on", "sant", "t", "yes", "y"):
+        logger.warning("reset_demo_database blocked: DEV_MODE not enabled")
+        return False
+    
     try:
         engine = get_engine()
         url = engine.url
@@ -274,12 +281,16 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
             return False
 
         reset_engine()
+        # Give more time for connections to fully close and release file locks
+        time.sleep(0.5)
     except SQLAlchemyError as exc:
         logger.warning("Demodatabasen kunde inte återställas: %s", exc)
         return False
 
     try:
         Path(database).unlink(missing_ok=True)
+        # Brief delay to ensure file is fully released
+        time.sleep(0.1)
     except OSError:
         logger.exception("Demodatabasen kunde inte tas bort")
         return False
@@ -288,6 +299,8 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
         from functions.database import create_database
 
         create_database()
+        # Additional delay to ensure database is fully initialized
+        time.sleep(0.1)
         ensure_demo_data(**demo_defaults)
     except SQLAlchemyError as exc:
         logger.warning("Demodatabasen kunde inte återställas: %s", exc)
@@ -349,3 +362,5 @@ def _ensure_demo_pdfs(personnummer_hash: str) -> None:
         else:
             store_pdf_blob(personnummer_hash, filename, content, pdf.get("categories"))
             existing_filenames.add(filename)
+
+# Copyright (c) Liam Suorsa
