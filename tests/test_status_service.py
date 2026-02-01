@@ -50,6 +50,7 @@ def test_resolve_proxy_target_prefers_traefik_and_handles_invalid_port(monkeypat
     captured = {}
 
     def fake_check_tcp(host, port, timeout=2):
+        _ = timeout
         captured["host"] = host
         captured["port"] = port
         return True

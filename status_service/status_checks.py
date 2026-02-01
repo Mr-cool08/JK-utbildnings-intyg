@@ -126,12 +126,10 @@ def check_ssl_status():
 
 def _resolve_proxy_target():
     host = "traefik"
-    host_env_var = None
     for env_var in ("STATUS_PROXY_HOST", "STATUS_TRAEFIK_HOST", "STATUS_NGINX_HOST"):
         value = os.getenv(env_var)
         if value:
             host = value
-            host_env_var = env_var
             break
 
     port_env_var = None
