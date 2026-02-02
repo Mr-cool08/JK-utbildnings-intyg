@@ -10,6 +10,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - ${ORIGIN_CERT_PATH}:/etc/traefik/certs/origin.crt:ro
       - ${ORIGIN_KEY_PATH}:/etc/traefik/certs/origin.key:ro
@@ -31,6 +32,7 @@ services:
       - --log.filepath=/var/log/traefik/traefik.log
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
+      - "--api.insecure=true" # Only for testing!
     networks:
       - public_net
     restart: unless-stopped
