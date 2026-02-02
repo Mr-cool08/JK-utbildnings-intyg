@@ -23,12 +23,12 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
     def fake_db():
         return {"status": "Inte konfigurerad", "details": "Test"}
 
-    def fake_nginx():
+    def fake_traefik():
         return {"status": "Fel", "details": "Test"}
 
     monkeypatch.setattr(status_checks, "check_ssl_status", fake_ssl)
     monkeypatch.setattr(status_checks, "check_database_status", fake_db)
-    monkeypatch.setattr(status_checks, "check_nginx_status", fake_nginx)
+    monkeypatch.setattr(status_checks, "check_traefik_status", fake_traefik)
     monkeypatch.setattr(status_checks, "get_http_check_targets", lambda: [])
     monkeypatch.setattr(status_checks, "get_country_availability", lambda: [])
 
@@ -36,8 +36,33 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
 
     assert status["checks"]["ssl"]["status"] == "OK"
     assert status["checks"]["database"]["status"] == "Inte konfigurerad"
+    assert status["checks"]["traefik"]["status"] == "Fel"
     assert status["checks"]["nginx"]["status"] == "Fel"
     assert "sekunder" in status["uptime"]
+
+
+def test_resolve_proxy_target_prefers_traefik_and_handles_invalid_port(monkeypatch, caplog):
+    monkeypatch.setenv("STATUS_NGINX_HOST", "nginx-service")
+    monkeypatch.setenv("STATUS_NGINX_PORT", "8081")
+    monkeypatch.setenv("STATUS_TRAEFIK_HOST", "traefik-service")
+    monkeypatch.setenv("STATUS_TRAEFIK_PORT", "notint")
+
+    captured = {}
+
+    def fake_check_tcp(host, port, timeout=2):
+        _ = timeout
+        captured["host"] = host
+        captured["port"] = port
+        return True
+
+    monkeypatch.setattr(status_checks, "check_tcp", fake_check_tcp)
+
+    with caplog.at_level(logging.WARNING):
+        status_checks.check_traefik_status()
+
+    assert captured["host"] == "traefik-service"
+    assert captured["port"] == 80
+    assert "STATUS_TRAEFIK_PORT" in caplog.text
 
 
 def test_get_country_availability_parses_entries(monkeypatch):

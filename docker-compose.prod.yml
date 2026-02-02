@@ -1,8 +1,8 @@
 # Copyright (c) Liam Suorsa
 
 services:
-  nginx:
-    image: nginx:1.27-alpine
+  traefik:
+    image: traefik:2.11
     depends_on:
       - app
       - app_demo
@@ -11,16 +11,26 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ${ORIGIN_CERT_PATH}:/etc/nginx/certs/origin.crt:ro
-      - ${ORIGIN_KEY_PATH}:/etc/nginx/certs/origin.key:ro
-      - nginx_logs:/var/log/nginx
+      - ${ORIGIN_CERT_PATH}:/etc/traefik/certs/origin.crt:ro
+      - ${ORIGIN_KEY_PATH}:/etc/traefik/certs/origin.key:ro
+      - traefik_logs:/var/log/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     configs:
-      - source: nginx_conf
-        target: /etc/nginx/nginx.conf
-      - source: nginx_app_conf
-        target: /etc/nginx/conf.d/app.conf
-      - source: nginx_cloudflare_conf
-        target: /etc/nginx/conf.d/cloudflare-realip.conf
+      - source: traefik_dynamic_conf
+        target: /etc/traefik/dynamic/tls.yml
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --log.level=INFO
+      - --log.filepath=/var/log/traefik/traefik.log
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
     networks:
       - public_net
     restart: unless-stopped
@@ -39,7 +49,7 @@ services:
     volumes:
       - ./deploy/fail2ban/jail.local:/data/jail.local:ro
       - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
-      - nginx_logs:/var/log/nginx:ro
+      - traefik_logs:/var/log/traefik:ro
       - fail2ban_data:/data/db
     restart: unless-stopped
     mem_limit: 128m
@@ -65,6 +75,14 @@ services:
     networks:
       - public_net
       - db_net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.app.rule=Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)
+      - traefik.http.routers.app.entrypoints=websecure
+      - traefik.http.routers.app.tls=true
+      - traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file
+      - traefik.http.services.app.loadbalancer.server.port=80
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
@@ -96,6 +114,14 @@ services:
       - demo_logs:/app/logs
     networks:
       - public_net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.app_demo.rule=Host(`demo.utbildningsintyg.se`)
+      - traefik.http.routers.app_demo.entrypoints=websecure
+      - traefik.http.routers.app_demo.tls=true
+      - traefik.http.routers.app_demo.middlewares=security-headers@file,upload-buffer@file
+      - traefik.http.services.app_demo.loadbalancer.server.port=80
     restart: unless-stopped
     mem_limit: 384m
     memswap_limit: 384m
@@ -120,8 +146,8 @@ services:
       STATUS_DB_USER: ${POSTGRES_USER}
       STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
       STATUS_SSL_HOST: https://utbildningsintyg.se
-      STATUS_NGINX_HOST: nginx
-      STATUS_NGINX_PORT: "80"
+      STATUS_TRAEFIK_HOST: traefik
+      STATUS_TRAEFIK_PORT: "80"
     expose:
       - "80"
     networks:
@@ -137,6 +163,14 @@ services:
     memswap_limit: 256m
     cpus: "0.30"
     pids_limit: 120
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.status.rule=Host(`status.utbildningsintyg.se`)
+      - traefik.http.routers.status.entrypoints=websecure
+      - traefik.http.routers.status.tls=true
+      - traefik.http.routers.status.middlewares=security-headers@file
+      - traefik.http.services.status.loadbalancer.server.port=80
 
   postgres:
     image: postgres:16
@@ -242,7 +276,7 @@ volumes:
     name: jk-utbildnings-intyg_demo_logs
   status_logs:
     name: jk-utbildnings-intyg_status_logs
-  nginx_logs:
+  traefik_logs:
   fail2ban_data:
   pgdata:
     name: jk-utbildnings-intyg_pgdata
@@ -250,215 +284,26 @@ volumes:
     name: jk-utbildnings-intyg_pgdata_backups
 
 configs:
-  nginx_conf:
+  traefik_dynamic_conf:
     content: |
-      # Nginx grundkonfiguration för JK Utbildningsintyg
-      user  nginx;
-      worker_processes auto;
-
-      error_log  /var/log/nginx/error.log warn;
-      pid        /var/run/nginx.pid;
-
-      events {
-          worker_connections 1024;
-      }
-
-      http {
-          include       /etc/nginx/mime.types;
-          default_type  application/octet-stream;
-
-          log_format  main  '$$remote_addr - $$remote_user [$$time_local] "$$request" '
-                            '$$status $$body_bytes_sent "$$http_referer" '
-                            '"$$http_user_agent" "$$http_x_forwarded_for"';
-
-          access_log  /var/log/nginx/access.log  main;
-
-          sendfile        on;
-          keepalive_timeout  65;
-          server_tokens off;
-          resolver 127.0.0.11 valid=30s ipv6=off;
-
-          map $$http_upgrade $$connection_upgrade {
-              default upgrade;
-              ''      close;
-          }
-
-          include /etc/nginx/conf.d/*.conf;
-      }
-
-  nginx_app_conf:
-    content: |
-      # Nginx reverse proxy för JK Utbildningsintyg
-
-      # Cloudflare IP-ranges genereras i deploy/nginx/conf.d/cloudflare-realip.conf
-      #include /etc/nginx/conf.d/cloudflare-realip.conf; 
-
-      upstream jk_utbildningsintyg_app {
-          zone jk_utbildningsintyg_app 64k;
-          server app:80 resolve;
-      }
-
-      upstream jk_utbildningsintyg_app_demo {
-          zone jk_utbildningsintyg_app_demo 64k;
-          server app_demo:80 resolve;
-      }
-
-      upstream jk_utbildningsintyg_status_page {
-          zone jk_utbildningsintyg_status_page 64k;
-          server status_page:80 resolve;
-      }
-
-      server {
-          listen 80;
-          server_name demo.utbildningsintyg.se;
-
-          return 301 https://$$host$$request_uri;
-      }
-
-      server {
-          listen 80;
-          server_name utbildningsintyg.se www.utbildningsintyg.se;
-
-          return 301 https://$$host$$request_uri;
-      }
-
-      server {
-          listen 80;
-          server_name status.utbildningsintyg.se;
-
-          return 301 https://$$host$$request_uri;
-      }
-
-      server {
-          listen 443 ssl;
-          http2 on;
-          server_name demo.utbildningsintyg.se;
-
-          ssl_certificate /etc/nginx/certs/origin.crt;
-          ssl_certificate_key /etc/nginx/certs/origin.key;
-          ssl_protocols TLSv1.2 TLSv1.3;
-          ssl_prefer_server_ciphers on;
-          ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-
-          client_max_body_size 100m;
-
-          add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-          add_header X-Content-Type-Options "nosniff" always;
-          add_header Referrer-Policy "no-referrer" always;
-          add_header X-Frame-Options "DENY" always;
-          add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-          location / {
-              proxy_pass http://jk_utbildningsintyg_app_demo;
-              proxy_http_version 1.1;
-              proxy_set_header Host $$host;
-              proxy_set_header X-Real-IP $$remote_addr;
-              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
-              proxy_set_header X-Forwarded-Host $$host;
-              proxy_set_header X-Forwarded-Port $$server_port;
-              proxy_set_header Upgrade $$http_upgrade;
-              proxy_set_header Connection $$connection_upgrade;
-              proxy_read_timeout 60s;
-              proxy_send_timeout 60s;
-          }
-      }
-
-      server {
-          listen 443 ssl;
-          http2 on;
-          server_name utbildningsintyg.se www.utbildningsintyg.se;
-
-          ssl_certificate /etc/nginx/certs/origin.crt;
-          ssl_certificate_key /etc/nginx/certs/origin.key;
-          ssl_protocols TLSv1.2 TLSv1.3;
-          ssl_prefer_server_ciphers on;
-          ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-
-          client_max_body_size 100m;
-
-          add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-          add_header X-Content-Type-Options "nosniff" always;
-          add_header Referrer-Policy "no-referrer" always;
-          add_header X-Frame-Options "DENY" always;
-          add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-          location / {
-              proxy_pass http://jk_utbildningsintyg_app;
-              proxy_http_version 1.1;
-              proxy_set_header Host $$host;
-              proxy_set_header X-Real-IP $$remote_addr;
-              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
-              proxy_set_header X-Forwarded-Host $$host;
-              proxy_set_header X-Forwarded-Port $$server_port;
-              proxy_set_header Upgrade $$http_upgrade;
-              proxy_set_header Connection $$connection_upgrade;
-              proxy_read_timeout 60s;
-              proxy_send_timeout 60s;
-          }
-      }
-
-      server {
-          listen 443 ssl;
-          http2 on;
-          server_name status.utbildningsintyg.se;
-
-          ssl_certificate /etc/nginx/certs/origin.crt;
-          ssl_certificate_key /etc/nginx/certs/origin.key;
-          ssl_protocols TLSv1.2 TLSv1.3;
-          ssl_prefer_server_ciphers on;
-          ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-
-          add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-          add_header X-Content-Type-Options "nosniff" always;
-          add_header Referrer-Policy "no-referrer" always;
-          add_header X-Frame-Options "DENY" always;
-          add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-          location / {
-              proxy_pass http://jk_utbildningsintyg_status_page;
-              proxy_http_version 1.1;
-              proxy_set_header Host $$host;
-              proxy_set_header X-Real-IP $$remote_addr;
-              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
-              proxy_set_header X-Forwarded-Host $$host;
-              proxy_set_header X-Forwarded-Port $$server_port;
-              proxy_read_timeout 60s;
-              proxy_send_timeout 60s;
-          }
-      }
-
-  nginx_cloudflare_conf:
-    content: |
-      # Autogenererad Cloudflare realip-konfiguration
-      # Uppdaterad: manuellt, kör scripts/generate_cloudflare_ips.sh för ny lista
-      real_ip_header CF-Connecting-IP;
-      real_ip_recursive on;
-
-      set_real_ip_from 173.245.48.0/20;
-      set_real_ip_from 103.21.244.0/22;
-      set_real_ip_from 103.22.200.0/22;
-      set_real_ip_from 103.31.4.0/22;
-      set_real_ip_from 141.101.64.0/18;
-      set_real_ip_from 108.162.192.0/18;
-      set_real_ip_from 190.93.240.0/20;
-      set_real_ip_from 188.114.96.0/20;
-      set_real_ip_from 197.234.240.0/22;
-      set_real_ip_from 198.41.128.0/17;
-      set_real_ip_from 162.158.0.0/15;
-      set_real_ip_from 104.16.0.0/13;
-      set_real_ip_from 104.24.0.0/14;
-      set_real_ip_from 172.64.0.0/13;
-      set_real_ip_from 131.0.72.0/22;
-      set_real_ip_from 2400:cb00::/32;
-      set_real_ip_from 2606:4700::/32;
-      set_real_ip_from 2803:f800::/32;
-      set_real_ip_from 2405:8100::/32;
-      set_real_ip_from 2405:b500::/32;
-      set_real_ip_from 2a06:98c0::/29;
-      set_real_ip_from 2c0f:f248::/32;
+      http:
+        middlewares:
+          security-headers:
+            headers:
+              stsSeconds: 63072000
+              stsIncludeSubdomains: true
+              stsPreload: true
+              contentTypeNosniff: true
+              referrerPolicy: "no-referrer"
+              frameDeny: true
+              permissionsPolicy: "geolocation=(), microphone=(), camera=()"
+          upload-buffer:
+            buffering:
+              maxRequestBodyBytes: 104857600
+      tls:
+        certificates:
+          - certFile: /etc/traefik/certs/origin.crt
+            keyFile: /etc/traefik/certs/origin.key
 
 networks:
   public_net:

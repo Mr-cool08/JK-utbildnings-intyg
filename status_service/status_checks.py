@@ -124,9 +124,38 @@ def check_ssl_status():
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
 
 
-def check_nginx_status():
-    host = os.getenv("STATUS_NGINX_HOST", "nginx")
-    port = int(os.getenv("STATUS_NGINX_PORT", "80"))
+def _resolve_proxy_target():
+    host = "traefik"
+    for env_var in ("STATUS_PROXY_HOST", "STATUS_TRAEFIK_HOST", "STATUS_NGINX_HOST"):
+        value = os.getenv(env_var)
+        if value:
+            host = value
+            break
+
+    port_env_var = None
+    raw_port = None
+    for env_var in ("STATUS_PROXY_PORT", "STATUS_TRAEFIK_PORT", "STATUS_NGINX_PORT"):
+        value = os.getenv(env_var)
+        if value:
+            raw_port = value
+            port_env_var = env_var
+            break
+    if raw_port is None:
+        raw_port = "80"
+    try:
+        port = int(raw_port)
+    except ValueError:
+        LOGGER.warning(
+            "Ogiltigt portvärde för %s (%s). Använder standardport 80.",
+            port_env_var or "STATUS_PROXY_PORT",
+            raw_port,
+        )
+        port = 80
+    return host, port
+
+
+def check_traefik_status():
+    host, port = _resolve_proxy_target()
 
     tcp_ok = check_tcp(host, port, timeout=2)
     return {
@@ -309,6 +338,8 @@ def get_metadata(uptime):
         "environment": environment,
         "uptime_seconds": int(uptime.total_seconds()),
     }
+
+
 def get_ram_procent():
     try:
         ram = psutil.virtual_memory()
@@ -321,18 +352,21 @@ def get_ram_procent():
         LOGGER.warning("RAM-användning kunde inte läsas i den aktuella miljön.")
         return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
 
+
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
         check_http_status(item["name"], item["url"])
         for item in get_http_check_targets()
     ]
+    proxy_status = check_traefik_status()
     return {
         "uptime": format_uptime(uptime),
         "checks": {
             "ssl": check_ssl_status(),
             "database": check_database_status(),
-            "nginx": check_nginx_status(),
+            "traefik": proxy_status,
+            "nginx": proxy_status,
         },
         "http_checks": http_checks,
         "countries": get_country_availability(),
@@ -344,5 +378,4 @@ def build_status(now=None):
         },
         "latency_series": build_latency_series(http_checks),
         "metadata": get_metadata(uptime),
-        
     }

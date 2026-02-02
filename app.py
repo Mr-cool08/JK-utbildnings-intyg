@@ -10,6 +10,8 @@ import importlib
 import importlib.util
 import logging
 import os
+import secrets
+import sys
 from pathlib import Path
 import threading
 import time
@@ -252,6 +254,22 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
 
 
 
+def _is_pytest_running() -> bool:
+    return "PYTEST_CURRENT_TEST" in os.environ or any("pytest" in arg for arg in sys.argv)
+
+
+def _resolve_secret_key() -> str:
+    secret_key = os.getenv("secret_key")
+    if secret_key:
+        return secret_key
+    if _is_pytest_running() and as_bool(os.getenv("DEV_MODE")):
+        logger.warning("secret_key saknas i testmiljön. Genererar temporär nyckel.")
+        return secrets.token_hex(32)
+    error_msg = "FATAL: secret_key environment variable must be set and non-empty"
+    logger.critical(error_msg)
+    raise RuntimeError(error_msg)
+
+
 def create_app() -> Flask:
     # Create and configure the Flask application.
     logger.debug("Applikationen initieras")
@@ -261,12 +279,7 @@ def create_app() -> Flask:
     _configure_proxy_fix(app)
     
     # Validate secret_key is set
-    secret_key = os.getenv('secret_key')
-    if not secret_key:
-        error_msg = "FATAL: secret_key environment variable must be set and non-empty"
-        logger.critical(error_msg)
-        raise RuntimeError(error_msg)
-    app.secret_key = secret_key
+    app.secret_key = _resolve_secret_key()
     
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
     dev_mode = as_bool(os.getenv("DEV_MODE"))

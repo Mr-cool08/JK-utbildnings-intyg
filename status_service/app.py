@@ -82,10 +82,10 @@ def _is_no_tests_output(output_lines):
 def index():
     status = build_status()
     LOGGER.info(
-        "Statuskontroll klar. SSL: %s, Databas: %s, Nginx: %s.",
+        "Statuskontroll klar. SSL: %s, Databas: %s, Traefik: %s.",
         status["checks"]["ssl"]["status"],
         status["checks"]["database"]["status"],
-        status["checks"]["nginx"]["status"],
+        status["checks"]["traefik"]["status"],
     )
     return render_template("status.html", status=status, checked_at=get_display_timestamp())
 

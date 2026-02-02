@@ -135,7 +135,7 @@ I produktionstacken (`docker-compose.prod.yml`) skapas namngivna volymer för `.
 
 * `env_data` – innehåller `.env`-konfigurationen monterad på `/config`.
 * `app_logs` – applikationsloggar i `/app/logs`.
-* `nginx_logs` – proxyloggar i `/var/log/nginx`.
+* `traefik_logs` – proxyloggar i `/var/log/traefik`.
 * `pgdata` – PostgreSQL-data.
 * `pgdata_backups` – databasbackuper.
 

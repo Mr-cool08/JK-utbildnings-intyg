@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
+os.environ.setdefault("DEV_MODE", "true")
 import app  # noqa: E402
 import functions  # noqa: E402
 from services.pdf_scanner import ScanVerdict  # noqa: E402

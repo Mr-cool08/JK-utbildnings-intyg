@@ -1,18 +1,20 @@
-# Fail2ban-jails för att skydda Nginx
+# Fail2ban-jails för att skydda Traefik
 [DEFAULT]
 bantime = 1h
 findtime = 10m
 maxretry = 5
 backend = auto
 
-[nginx-http-auth]
-enabled = true
+[traefik-http-auth]
+enabled = false
+# Aktivera först när ett Traefik-anpassat filter finns på plats.
 port = http,https
-logpath = /var/log/nginx/error.log
+logpath = /var/log/traefik/traefik.log
 
-[nginx-badbots]
-enabled = true
+[traefik-badbots]
+enabled = false
+# Aktivera först när ett Traefik-anpassat filter finns på plats.
 port = http,https
-logpath = /var/log/nginx/access.log
+logpath = /var/log/traefik/access.log
 
 # Copyright (c) Liam Suorsa

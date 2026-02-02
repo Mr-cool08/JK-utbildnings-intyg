@@ -2,7 +2,7 @@
 # Publik driftsättning med Cloudflare (Full strict)
 
 Den här guiden beskriver hur du driftsätter JK Utbildningsintyg bakom Cloudflare
-med en lokal omvänd proxy (Nginx) och låser origin till Cloudflare-IP:er.
+med en lokal omvänd proxy (Traefik) och låser origin till Cloudflare-IP:er.
 
 ## 1. Förbered Cloudflare
 
@@ -27,7 +27,7 @@ sudo chmod 600 /etc/ssl/cloudflare/origin.*
 
 1. Skapa `.env` från `.example.env` och fyll i riktiga värden.
 2. Sätt `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` till filerna från steget ovan.
-3. Säkerställ att `TRUSTED_PROXY_COUNT=1` (Nginx är enda betrodda proxyn mot Flask).
+3. Säkerställ att `TRUSTED_PROXY_COUNT=1` (Traefik är enda betrodda proxyn mot Flask).
 4. Uppdatera Cloudflare IP-listor vid behov:
    ```bash
    ./scripts/generate_cloudflare_ips.sh
@@ -45,7 +45,7 @@ Följ loggar direkt från volymen:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec app tail -f /app/logs/gunicorn-access.log
-docker compose -f docker-compose.prod.yml exec nginx tail -f /var/log/nginx/access.log
+docker compose -f docker-compose.prod.yml exec traefik tail -f /var/log/traefik/access.log
 ```
 
 ## 4. Aktivera brandvägg för Cloudflare-IP:er
@@ -87,7 +87,7 @@ curl -I http://ORIGIN_IP
 curl -Ik https://ORIGIN_IP
 ```
 
-Begäran ska blockeras (timeout om UFW stoppar, eller 403/401 om Nginx svarar).
+Begäran ska blockeras (timeout om UFW stoppar, eller 403/401 om Traefik svarar).
 
 ### Kontrollera korrekt klient-IP i loggar
 
@@ -101,5 +101,5 @@ docker compose -f docker-compose.prod.yml exec app tail -n 5 /app/logs/gunicorn-
 Om IP-adressen i loggen är en Cloudflare-adress, kontrollera att:
 
 - `TRUSTED_PROXY_COUNT=1` i `.env`
-- Nginx skickar `X-Forwarded-For`
+- Traefik skickar `X-Forwarded-For`
 - Cloudflare-proxy är aktiverad (orange moln)

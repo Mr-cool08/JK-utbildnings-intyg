@@ -48,6 +48,18 @@ def test_configure_proxy_fix_disabled_when_zero(monkeypatch):
     assert not isinstance(flask_app.wsgi_app, ProxyFix)
 
 
+def test_resolve_secret_key_generates_in_pytest(monkeypatch):
+    monkeypatch.delenv("secret_key", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "true")
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setattr(app, "_is_pytest_running", lambda: True)
+
+    resolved = app._resolve_secret_key()
+
+    assert resolved
+    assert len(resolved) >= 32
+
+
 def test_enable_debug_mode_sets_handlers_and_creates_user(monkeypatch):
     root_logger = logging.getLogger()
     original_level = root_logger.level
