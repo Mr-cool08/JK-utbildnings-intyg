@@ -193,6 +193,62 @@ def _configure_proxy_fix(app: Flask) -> None:
         logger.info("ProxyFix är inaktiverad (TRUSTED_PROXY_COUNT=%s)", os.getenv("TRUSTED_PROXY_COUNT", "0"))
 
 
+def _parse_otel_headers(raw_value: str | None) -> dict[str, str]:
+    # Tolka OTEL_EXPORTER_OTLP_HEADERS (komma-separerade key=value).
+    headers: dict[str, str] = {}
+    if not raw_value:
+        return headers
+    for item in raw_value.split(","):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key:
+            headers[key] = value
+    return headers
+
+
+def _configure_opentelemetry(app: Flask) -> None:
+    # Initiera OpenTelemetry om OTEL_ENABLED är aktiverat.
+    if not as_bool(os.getenv("OTEL_ENABLED")):
+        logger.info("OpenTelemetry är inaktiverat.")
+        return
+
+    if getattr(app, "_otel_instrumented", False):
+        return
+
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.instrumentation.flask import FlaskInstrumentor
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    except Exception as exc:
+        logger.warning("OpenTelemetry kunde inte initieras: %s", exc)
+        return
+
+    service_name = os.getenv("OTEL_SERVICE_NAME", "jk-utbildnings-intyg")
+    resource = Resource.create({"service.name": service_name})
+    provider = TracerProvider(resource=resource)
+    trace.set_tracer_provider(provider)
+
+    exporter = OTLPSpanExporter(
+        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+        headers=_parse_otel_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS")),
+    )
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+
+    FlaskInstrumentor().instrument_app(app)
+    RequestsInstrumentor().instrument()
+    app._otel_instrumented = True
+    logger.info("OpenTelemetry är aktiverat för tjänsten %s.", service_name)
+
+
 def _enable_debug_mode(app: Flask) -> None:
     # Aktivera extra loggning och ev. testdata i debug-läge.
     stream = logging.StreamHandler()
@@ -277,6 +333,7 @@ def create_app() -> Flask:
     functions.create_database()
     app = Flask(__name__)
     _configure_proxy_fix(app)
+    _configure_opentelemetry(app)
     
     # Validate secret_key is set
     app.secret_key = _resolve_secret_key()
