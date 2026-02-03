@@ -3,7 +3,6 @@ Flask
 psycopg2-binary
 gunicorn
 psutil
-pytest
 python-dotenv
 SQLAlchemy
 Werkzeug
