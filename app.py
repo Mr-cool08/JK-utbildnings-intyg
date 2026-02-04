@@ -51,6 +51,7 @@ from functions.logging import (
 
 from course_categories import (
     COURSE_CATEGORIES,
+    COURSE_CATEGORY_GROUPS,
     labels_for_slugs,
     normalize_category_slugs,
 )
@@ -1385,6 +1386,7 @@ def dashboard():
         'dashboard.html',
         pdfs=pdfs,
         course_categories=COURSE_CATEGORIES,
+        course_category_groups=COURSE_CATEGORY_GROUPS,
         category_summary=category_summary,
         grouped_pdfs=visible_groups,
         user_name=user_name,
@@ -1850,6 +1852,7 @@ def admin_accounts():  # pragma: no cover
     return render_template(
         'admin_accounts.html',
         categories=COURSE_CATEGORIES,
+        category_groups=COURSE_CATEGORY_GROUPS,
         csrf_token=csrf_token,
     )
 
