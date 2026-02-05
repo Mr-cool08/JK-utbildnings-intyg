@@ -61,6 +61,8 @@ services:
 
   server_monitor:
     build: ./services/server_monitor
+    env_file:
+      - .env
     environment:
       smtp_server: ${smtp_server:-}
       smtp_port: ${smtp_port:-587}
