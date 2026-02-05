@@ -43,7 +43,6 @@ services:
 
   fail2ban:
     image: crazymax/fail2ban:1.1.0
-    profiles: [security]
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -62,7 +61,6 @@ services:
 
   server_monitor:
     build: ./services/server_monitor
-    profiles: [security]
     environment:
       smtp_server: ${smtp_server:-}
       smtp_port: ${smtp_port:-587}
