@@ -7,6 +7,7 @@ import time
 from datetime import timedelta
 from statistics import mean
 from urllib import error, request
+from urllib.parse import urlparse
 import psutil
 
 START_TIME = time.monotonic()
@@ -99,8 +100,16 @@ def check_database_status():
 
 
 def check_ssl_status():
-    host = os.getenv("STATUS_SSL_HOST", "utbildningsintyg.se")
+    raw_host = os.getenv("STATUS_SSL_HOST", "utbildningsintyg.se")
+    host = raw_host
     port = int(os.getenv("STATUS_SSL_PORT", "443"))
+
+    # Tillåt både värdnamn och URL-format i miljövariabeln (t.ex. https://domän).
+    if "://" in raw_host:
+        parsed = urlparse(raw_host)
+        host = parsed.hostname or raw_host
+        if parsed.port:
+            port = parsed.port
 
     context = ssl.create_default_context()
     # Enforce modern TLS versions (TLS 1.2+) regardless of system defaults
