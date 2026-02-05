@@ -496,12 +496,12 @@ def run_compose_action(
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
 
+            print("Installerar Python-beroenden...")
+            install_requirements(repo_root(), runner=runner)
+
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
             runner(pytest_cmd, check=True, cwd=repo_root())
-
-            print("Installerar Python-beroenden...")
-            install_requirements(repo_root(), runner=runner)
 
             print("Visar Docker diskstatus...")
             _run_docker_system_df(runner=runner)

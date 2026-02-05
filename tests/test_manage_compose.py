@@ -79,9 +79,9 @@ def test_run_compose_action_cycle_orders_commands():
             "cwd": None,
         },
 
-        {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
-
         {"event": "install", "root": repo_root},
+
+        {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
 
         {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
 
