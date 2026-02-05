@@ -64,8 +64,12 @@
                     <span class="sr-only">Kategori</span>
                     <select class="file-category-select" required>
                         <option value="">Välj kategori</option>
-                        {% for slug, label in categories %}
-                        <option value="{{ slug }}">{{ label }}</option>
+                        {% for group_label, items in category_groups %}
+                            <optgroup label="{{ group_label }}">
+                                {% for slug, label in items %}
+                                <option value="{{ slug }}">{{ label }}</option>
+                                {% endfor %}
+                            </optgroup>
                         {% endfor %}
                     </select>
                 </label>
