@@ -121,6 +121,43 @@ def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
     assert "kunde inte ansluta" in caplog.text
 
 
+def test_check_ssl_status_supports_url_in_host_env(monkeypatch):
+    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se")
+
+    def fake_connection(address, timeout=0):
+        assert address == ("utbildningsintyg.se", 443)
+
+        class DummySocket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        return DummySocket()
+
+    class DummyWrappedSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class DummyContext:
+        minimum_version = None
+
+        def wrap_socket(self, sock, server_hostname):
+            assert server_hostname == "utbildningsintyg.se"
+            return DummyWrappedSocket()
+
+    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
+    monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+
+    result = status_checks.check_ssl_status()
+
+    assert result == {"status": "OK", "details": "TLS-handshake lyckades"}
+
+
 def test_check_http_status_handles_connection_refused(monkeypatch, caplog):
     def fake_urlopen(*_args, **_kwargs):
         raise error.URLError(ConnectionRefusedError(111, "Connection refused"))
