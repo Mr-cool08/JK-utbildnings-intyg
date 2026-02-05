@@ -1,6 +1,6 @@
 # Copyright (c) Liam Suorsa
 #  Stabil Python (byt version om du vill)
-FROM python:3.12-alpine3.20
+FROM python:3.13-alpine3.21
 
 # Installera systempaket
 RUN apk add --no-cache tini bash curl \
