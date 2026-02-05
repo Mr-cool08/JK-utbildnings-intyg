@@ -39,7 +39,7 @@ def _create_temp_compose_for_build(
         "services:\n"
         f"  {service_name}:\n"
         "    build:\n"
-        "      context: .\n"
+        f"      context: {ROOT.as_posix()}\n"
         f"      dockerfile: {dockerfile_path}\n"
     )
     compose_file = tmp_path / f"compose-{service_name}.yml"
