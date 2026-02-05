@@ -106,10 +106,10 @@ def collect_container_resource_usage(client: docker.DockerClient) -> str:
         mem_percent = (mem_usage / mem_limit) * 100 if mem_limit else 0.0
 
         # Docker API varierar, förenkla och hämta direkt från listorna när de finns
-        blkio_entries = stats.get("blkio_stats", {}).get("io_service_bytes_recursive", [])
+        blkio_entries = stats.get("blkio_stats", {}).get("io_service_bytes_recursive") or []
         blk_read = sum(item.get("value", 0) for item in blkio_entries if item.get("op") == "Read")
         blk_write = sum(item.get("value", 0) for item in blkio_entries if item.get("op") == "Write")
-        net_stats = stats.get("networks", {})
+        net_stats = stats.get("networks") or {}
         net_rx = sum(item.get("rx_bytes", 0) for item in net_stats.values())
         net_tx = sum(item.get("tx_bytes", 0) for item in net_stats.values())
 
