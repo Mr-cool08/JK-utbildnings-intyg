@@ -96,7 +96,16 @@ def test_run_compose_action_cycle_orders_commands():
 
         {
             "event": "cmd",
-            "cmd": ["docker", "compose", "-f", "docker-compose.yml", "up", "-d", "--remove-orphans"],
+            "cmd": [
+                "docker",
+                "compose",
+                "-f",
+                "docker-compose.yml",
+                "up",
+                "-d",
+                "--remove-orphans",
+                "--renew-anon-volumes",
+            ],
             "check": True,
             "cwd": None,
         },

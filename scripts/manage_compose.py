@@ -512,7 +512,11 @@ def run_compose_action(
 
             print("Startar Docker Compose-tjänsterna...")
             _ensure_compose_volumes(compose_args, runner=runner)
-            run_compose_command(compose_args, ["up", "-d", "--remove-orphans"], runner)
+            run_compose_command(
+                compose_args,
+                ["up", "-d", "--remove-orphans", "--renew-anon-volumes"],
+                runner,
+            )
             
             
             print("Rensar oanvända Docker-artefakter...")
