@@ -5,6 +5,7 @@ import shutil
 import subprocess
 
 import pytest
+from pytest_docker.plugin import get_docker_services
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -26,6 +27,18 @@ def _require_working_docker() -> None:
     )
     if check.returncode != 0:
         pytest.skip("Docker-daemonen är inte tillgänglig i testmiljön.")
+
+
+def _build_image_with_pytest_docker(compose_file: str, setup_command: str) -> None:
+    project_name = f"jk_utbildnings_intyg_{setup_command.replace(' ', '_')}"
+    with get_docker_services(
+        docker_compose_command="docker compose",
+        docker_compose_file=[str(ROOT / compose_file)],
+        docker_compose_project_name=project_name,
+        docker_setup=[setup_command],
+        docker_cleanup=[],
+    ) as docker_services:
+        assert docker_services is not None
 
 
 def test_dockerfile_uses_python_base_image():
@@ -53,8 +66,6 @@ def test_dockerfile_exposes_port_and_runs_entrypoint():
     assert 'CMD ["./entrypoint.sh"]' in dockerfile
 
 
-
-
 def test_compose_avoids_host_volumes():
     compose = _read(ROOT / "docker-compose.yml")
     assert "volumes:" not in compose or "- env_data:/config" not in compose
@@ -71,41 +82,18 @@ def test_entrypoint_runs_gunicorn_only():
 def test_dockerfile_installs_openssl():
     dockerfile = _read(ROOT / "Dockerfile")
     # Någon apk-add rad måste innehålla tini och curl
-    apk_lines = [l for l in dockerfile.splitlines() if "apk add" in l]
+    apk_lines = [line for line in dockerfile.splitlines() if "apk add" in line]
     assert apk_lines, "No apk add line found in Dockerfile"
-    assert any(("tini" in l and "curl" in l) for l in apk_lines), \
+    assert any(("tini" in line and "curl" in line) for line in apk_lines), (
         "Expected tini and curl to be installed via apk add"
+    )
 
 
-def test_builds_production_app_image():
+def test_builds_production_app_image_with_pytest_docker():
     _require_working_docker()
-
-    build = subprocess.run(
-        ["docker", "build", "-f", "Dockerfile", "."],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert build.returncode == 0, (
-        "Bygge av produktionsimagen misslyckades:\n"
-        f"STDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
-    )
+    _build_image_with_pytest_docker("docker-compose.prod.yml", "build app")
 
 
-def test_builds_status_service_dev_image():
+def test_builds_dev_status_image_with_pytest_docker():
     _require_working_docker()
-
-    build = subprocess.run(
-        ["docker", "build", "-f", "status_service/Dockerfile", "."],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert build.returncode == 0, (
-        "Bygge av utvecklingsimagen misslyckades:\n"
-        f"STDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
-    )
+    _build_image_with_pytest_docker("docker-compose.yml", "build status_page")
