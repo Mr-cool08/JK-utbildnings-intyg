@@ -31,6 +31,7 @@ Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows`
 
 **Hur fungerar den?**
 - Kör Bandit med JSON-utdata (`--exit-zero`) och konverterar resultatet till SARIF innan uppladdning.
+- Exkluderar admin-specifika filer från skanningen för att ignorera funktioner kopplade till `/admin`-sidor.
 
 ## Legacy-flöden för kompatibilitet
 
@@ -53,6 +54,9 @@ Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows`
 - Vid `push` till `main`.
 - Vid `pull_request` mot `main`.
 - Schema: måndagar 04:37 UTC.
+
+**Konfiguration**
+- Använder `.github/codeql-config.yml` för att ignorera admin-specifika filer kopplade till `/admin`-sidor under analys.
 
 ## Dependency Review
 

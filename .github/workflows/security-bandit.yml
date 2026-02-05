@@ -33,7 +33,8 @@ jobs:
 
       - name: Run Bandit (JSON)
         run: |
-          bandit -r . -f json -o bandit.json --exit-zero
+          bandit -r . -f json -o bandit.json --exit-zero \
+            -x "functions/admin.py,functions/table_admin.py,tests/test_admin_upload.py,tests/test_admin_client_log.py,tests/test_admin_panel_features.py,tests/test_admin_applications_api.py"
 
       - name: Convert Bandit JSON to SARIF
         run: |

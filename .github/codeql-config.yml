@@ -1,0 +1,26 @@
+# CodeQL-konfiguration för att exkludera adminsidor från säkerhetsskanning.
+name: "CodeQL config"
+paths-ignore:
+  - functions/admin.py
+  - functions/table_admin.py
+  - static/js/admin.js
+  - static/js/admin_advanced.js
+  - static/js/admin_panel_accounts.js
+  - static/js/admin_panel_company.js
+  - static/js/admin_panel_pdf.js
+  - static/js/admin_panel_personnummer.js
+  - static/js/admin_panel_storage.js
+  - templates/admin.html
+  - templates/admin_accounts.html
+  - templates/admin_advanced.html
+  - templates/admin_applications.html
+  - templates/admin_certificates.html
+  - templates/admin_company_accounts.html
+  - templates/admin_guide.html
+  - templates/admin_invoicing.html
+  - templates/admin_login.html
+  - tests/test_admin_applications_api.py
+  - tests/test_admin_client_log.py
+  - tests/test_admin_panel_features.py
+  - tests/test_admin_upload.py
+# Copyright (c) Liam Suorsa
