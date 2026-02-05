@@ -139,6 +139,79 @@ def build_pytest_command(root: Path) -> list[str]:
     raise FileNotFoundError("Kunde inte hitta pytest i venv/.venv-katalogen.")
 
 
+def build_pip_command(root: Path) -> list[str]:
+    # Build the pip command using the venv in the repository root.
+    candidates: list[Path] = []
+
+    if sys.platform.startswith("win"):
+        candidates.extend(
+            [
+                root / "venv" / "Scripts" / "pip.exe",
+                root / ".venv" / "Scripts" / "pip.exe",
+            ]
+        )
+        candidates.extend(
+            [
+                root / "venv" / "bin" / "pip",
+                root / ".venv" / "bin" / "pip",
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                root / "venv" / "bin" / "pip",
+                root / ".venv" / "bin" / "pip",
+            ]
+        )
+        candidates.extend(
+            [
+                root / "venv" / "Scripts" / "pip.exe",
+                root / ".venv" / "Scripts" / "pip.exe",
+            ]
+        )
+
+    for pip_path in candidates:
+        if pip_path.is_file():
+            return [str(pip_path)]
+
+    raise FileNotFoundError("Kunde inte hitta pip i venv/.venv-katalogen.")
+
+
+def find_requirements_files(root: Path) -> list[Path]:
+    # Find all requirements.txt files in the repository, excluding virtual env folders.
+    requirements_files: list[Path] = []
+    excluded_directories = {
+        ".git",
+        "venv",
+        ".venv",
+        "__pycache__",
+    }
+
+    for path in root.rglob("requirements.txt"):
+        if any(part in excluded_directories for part in path.parts):
+            continue
+        requirements_files.append(path)
+
+    return sorted(requirements_files)
+
+
+def install_requirements(
+    root: Path,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> None:
+    # Install all requirements.txt files found in the repository.
+    pip_cmd = build_pip_command(root)
+    requirements_files = find_requirements_files(root)
+    if not requirements_files:
+        print("Inga requirements.txt-filer hittades.")
+        return
+
+    for requirements_file in requirements_files:
+        relative_path = requirements_file.relative_to(root)
+        print(f"Installerar beroenden från: {relative_path}")
+        runner([*pip_cmd, "install", "-r", str(requirements_file)], check=True, cwd=root)
+
+
 def send_notification(action: str, details: str = "") -> None:
     """Send email notification about compose action (if configured)."""
     try:
@@ -426,6 +499,9 @@ def run_compose_action(
             print("Kör pytest...")
             pytest_cmd = build_pytest_command(repo_root())
             runner(pytest_cmd, check=True, cwd=repo_root())
+
+            print("Installerar Python-beroenden...")
+            install_requirements(repo_root(), runner=runner)
 
             print("Visar Docker diskstatus...")
             _run_docker_system_df(runner=runner)

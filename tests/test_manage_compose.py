@@ -46,6 +46,9 @@ def test_run_compose_action_cycle_orders_commands():
     events: list[dict[str, object]] = []
 
     module.build_pytest_command = lambda root: ["venv/bin/pytest"]
+    module.install_requirements = lambda root, runner: events.append(
+        {"event": "install", "root": root}
+    )
     module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
         {"event": "ensure"}
     )
@@ -77,6 +80,8 @@ def test_run_compose_action_cycle_orders_commands():
         },
 
         {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+
+        {"event": "install", "root": repo_root},
 
         {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
 
@@ -191,6 +196,64 @@ def test_run_compose_action_pytest_uses_repo_root():
     repo_root = Path(module.__file__).resolve().parents[1]
 
     assert calls == [{"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root}]
+
+
+def test_build_pip_command_uses_repo_venv(tmp_path):
+    module = _load_module()
+    pip_path = tmp_path / "venv" / "bin" / "pip"
+    pip_path.parent.mkdir(parents=True)
+    pip_path.write_text("#!/bin/sh\n")
+
+    assert module.build_pip_command(tmp_path) == [str(pip_path)]
+
+
+def test_find_requirements_files_ignores_virtualenv_paths(tmp_path):
+    module = _load_module()
+    root_requirements = tmp_path / "requirements.txt"
+    service_requirements = tmp_path / "service" / "requirements.txt"
+    venv_requirements = tmp_path / "venv" / "requirements.txt"
+
+    root_requirements.write_text("flask\n")
+    service_requirements.parent.mkdir(parents=True)
+    service_requirements.write_text("requests\n")
+    venv_requirements.parent.mkdir(parents=True)
+    venv_requirements.write_text("pytest\n")
+
+    assert module.find_requirements_files(tmp_path) == [
+        root_requirements,
+        service_requirements,
+    ]
+
+
+def test_install_requirements_runs_pip_for_all_files(tmp_path):
+    module = _load_module()
+    requirements_one = tmp_path / "requirements.txt"
+    requirements_two = tmp_path / "service" / "requirements.txt"
+    requirements_one.write_text("flask\n")
+    requirements_two.parent.mkdir(parents=True)
+    requirements_two.write_text("requests\n")
+
+    module.build_pip_command = lambda root: ["venv/bin/pip"]
+    calls: list[dict[str, object]] = []
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append({"cmd": list(cmd), "check": check, "cwd": kwargs.get("cwd")})
+        return subprocess.CompletedProcess(cmd, 0)
+
+    module.install_requirements(tmp_path, runner=fake_runner)
+
+    assert calls == [
+        {
+            "cmd": ["venv/bin/pip", "install", "-r", str(requirements_one)],
+            "check": True,
+            "cwd": tmp_path,
+        },
+        {
+            "cmd": ["venv/bin/pip", "install", "-r", str(requirements_two)],
+            "check": True,
+            "cwd": tmp_path,
+        },
+    ]
 
 
 def test_run_compose_action_prune_volumes_runs_docker_volume_prune():
