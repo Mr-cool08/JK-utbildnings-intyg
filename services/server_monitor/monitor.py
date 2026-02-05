@@ -177,11 +177,14 @@ def send_email(subject: str, body: str, attachments: list[Path]):
             filename=attachment.name,
         )
 
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
-        server.starttls()
-        if SMTP_USER:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(message)
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+            server.starttls()
+            if SMTP_USER:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(message)
+    except (smtplib.SMTPException, TimeoutError, OSError) as exc:
+        print(f"Kunde inte skicka e-postvarning: {exc}")
 
 
 def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):
