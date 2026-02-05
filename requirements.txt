@@ -11,6 +11,7 @@ SQLAlchemy
 MarkupSafe
 Markdown
 pytest
+pytest-docker
 requests
 Pillow>=11.3.0
 psutil
