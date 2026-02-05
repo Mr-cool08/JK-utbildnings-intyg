@@ -1,5 +1,5 @@
 # Copyright (c) Liam Suorsa
-FROM python:3.12-alpine3.20
+FROM python:3.15-rc-slim-trixie
 
 WORKDIR /app
 
