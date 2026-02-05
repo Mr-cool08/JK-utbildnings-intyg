@@ -1,6 +1,10 @@
 # Copyright (c) Liam Suorsa
 from pathlib import Path
 import re
+import shutil
+import subprocess
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -8,6 +12,20 @@ ROOT = Path(__file__).resolve().parent.parent
 def _read(path: Path) -> str:
     # Läs alltid som UTF-8 så emojis/icke-ASCII inte kraschar på Windows
     return path.read_text(encoding="utf-8")
+
+
+def _require_working_docker() -> None:
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI finns inte installerad i testmiljön.")
+
+    check = subprocess.run(
+        ["docker", "info"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if check.returncode != 0:
+        pytest.skip("Docker-daemonen är inte tillgänglig i testmiljön.")
 
 
 def test_dockerfile_uses_python_base_image():
@@ -57,3 +75,37 @@ def test_dockerfile_installs_openssl():
     assert apk_lines, "No apk add line found in Dockerfile"
     assert any(("tini" in l and "curl" in l) for l in apk_lines), \
         "Expected tini and curl to be installed via apk add"
+
+
+def test_builds_production_app_image():
+    _require_working_docker()
+
+    build = subprocess.run(
+        ["docker", "build", "-f", "Dockerfile", "."],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert build.returncode == 0, (
+        "Bygge av produktionsimagen misslyckades:\n"
+        f"STDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
+    )
+
+
+def test_builds_status_service_dev_image():
+    _require_working_docker()
+
+    build = subprocess.run(
+        ["docker", "build", "-f", "status_service/Dockerfile", "."],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert build.returncode == 0, (
+        "Bygge av utvecklingsimagen misslyckades:\n"
+        f"STDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
+    )
