@@ -124,24 +124,6 @@ services:
       - status_logs:/app/logs
     restart: unless-stopped
 
-  borgmatic:
-    image: ghcr.io/borgmatic-collective/borgmatic:latest
-    env_file:
-      - .env
-    volumes:
-      - ./borgmatic.yaml:/etc/borgmatic/config.yaml:ro
-      - /var:/var:ro
-      - /home:/home:ro
-      - /root:/host_root:ro
-      - /root/.ssh:/root/.ssh:ro
-    entrypoint: >
-      /bin/sh -c
-      "echo '0 2 * * * borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
-      && echo 'Startar borgmatic för att verifiera konfigurationen...'
-      && borgmatic --stats --verbosity 1 --list --progress >> /proc/1/fd/1 2>>/proc/1/fd/2 || echo 'Borgmatic misslyckades vid start, kontrollera konfigurationen.' >&2
-      && crond -f -l 2 -L /dev/stdout"
-    restart: unless-stopped
-
 volumes:
   pgdata:
     name: jk-utbildnings-intyg_pgdata
