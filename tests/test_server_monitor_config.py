@@ -20,4 +20,11 @@ def test_monitor_thresholds_are_configured():
     assert "Nattlig ClamAV-rapport" in monitor_script
 
 
+def test_collect_container_resource_usage_guards_none_stats():
+    monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
+
+    assert 'stats.get("blkio_stats", {}).get("io_service_bytes_recursive") or []' in monitor_script
+    assert 'stats.get("networks") or {}' in monitor_script
+
+
 # Copyright (c) Liam Suorsa
