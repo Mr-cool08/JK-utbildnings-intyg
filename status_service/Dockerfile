@@ -3,6 +3,8 @@ FROM python:3.13-alpine3.21
 
 WORKDIR /app
 
+COPY status_service/requirements.txt /app/requirements.txt
+
 # Viktigt: uppdatera/uppgradera baspaket så openssl blir patchad
 RUN apk update \
     && apk upgrade --no-cache \
