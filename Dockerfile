@@ -2,8 +2,10 @@
 #  Stabil Python (byt version om du vill)
 FROM python:3.13-alpine3.21
 
-# Installera systempaket
-RUN apk add --no-cache tini bash curl \
+# Installera systempaket + uppgradera säkerhetsfixar (inkl OpenSSL)
+RUN apk update \
+    && apk upgrade --no-cache \
+    && apk add --no-cache tini bash curl \
     && addgroup -S app && adduser -S -G app app
 
 WORKDIR /app
