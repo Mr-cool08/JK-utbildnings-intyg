@@ -42,7 +42,7 @@ def _get_admin_emails() -> list[str]:
 
 def _get_app_name() -> str:
     """Get the application name from environment or use default."""
-    return os.getenv("APP_NAME", "JK Utbildningsintyg")
+    return os.getenv("APP_NAME", "utbildningsintyg.se")
 
 
 def _get_timestamp() -> str:
