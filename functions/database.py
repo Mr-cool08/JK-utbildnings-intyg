@@ -788,22 +788,32 @@ def get_engine() -> Engine:
 
 def create_database() -> None:
     # Create required tables if they do not exist.
-    engine = get_engine()
     attempts = int(os.getenv("DATABASE_INIT_MAX_ATTEMPTS", "5"))
     for attempt in range(1, max(attempts, 1) + 1):
+        engine = get_engine()
         try:
             metadata.create_all(engine)
             break
-        except OperationalError:
+        except OperationalError as exc:
+            switched_host = _switch_postgres_host_after_dns_error(engine, exc)
             if attempt == max(attempts, 1):
                 raise
             wait_seconds = min(2 * attempt, 10)
-            logger.warning(
-                "Databasen svarar inte ännu, försöker igen om %s sekunder (försök %s/%s)",
-                wait_seconds,
-                attempt,
-                max(attempts, 1),
-            )
+            if switched_host:
+                logger.warning(
+                    "Databasens värdnamn kunde inte översättas. Nytt försök om %s sekunder "
+                    "med alternativ värd (försök %s/%s)",
+                    wait_seconds,
+                    attempt,
+                    max(attempts, 1),
+                )
+            else:
+                logger.warning(
+                    "Databasen svarar inte ännu, försöker igen om %s sekunder (försök %s/%s)",
+                    wait_seconds,
+                    attempt,
+                    max(attempts, 1),
+                )
             time.sleep(wait_seconds)
     run_migrations(engine)
     with engine.begin() as conn:
@@ -824,3 +834,35 @@ def create_database() -> None:
             if table.name not in existing_tables:
                 table.create(bind=conn)
     logger.info("Database initialized")
+
+
+def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalError) -> bool:
+    # Byt till alternativ PostgreSQL-värd vid DNS-fel för ökad robusthet i varierande miljöer.
+    if engine.url.get_backend_name() != "postgresql":
+        return False
+
+    error_message = str(getattr(error, "orig", error)).lower()
+    if "could not translate host name" not in error_message:
+        return False
+
+    current_host = engine.url.host or ""
+    fallback_hosts = [
+        host.strip()
+        for host in os.getenv("POSTGRES_FALLBACK_HOSTS", "localhost,127.0.0.1").split(",")
+        if host.strip()
+    ]
+    for fallback_host in fallback_hosts:
+        if fallback_host == current_host:
+            continue
+
+        new_url = engine.url.set(host=fallback_host)
+        os.environ["DATABASE_URL"] = new_url.render_as_string(hide_password=False)
+        reset_engine()
+        logger.warning(
+            "DNS-fel mot databasvärden '%s'. Växlar till '%s' för nästa anslutningsförsök.",
+            current_host,
+            fallback_host,
+        )
+        return True
+
+    return False

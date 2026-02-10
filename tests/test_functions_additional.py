@@ -150,6 +150,8 @@ def test_create_database_retries_on_operational_error(monkeypatch):
             return None
 
     class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "sqlite")
+
         def begin(self):
             return _FakeConn()
 
@@ -167,3 +169,32 @@ def test_create_database_retries_on_operational_error(monkeypatch):
     database_module.create_database()
 
     assert state["attempts"] == 3
+
+
+def test_switch_postgres_host_after_dns_error(monkeypatch):
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb"
+    )
+    monkeypatch.setenv("POSTGRES_FALLBACK_HOSTS", "localhost,127.0.0.1")
+
+    switched = database_module._switch_postgres_host_after_dns_error(
+        SimpleNamespace(
+            url=SimpleNamespace(
+                get_backend_name=lambda: "postgresql",
+                host="postgres",
+                set=lambda **kwargs: SimpleNamespace(
+                    render_as_string=lambda hide_password=False: (
+                        f"postgresql://user:pass@{kwargs['host']}:5432/testdb"
+                    )
+                ),
+            )
+        ),
+        OperationalError(
+            "SELECT 1",
+            {},
+            Exception('could not translate host name "postgres" to address'),
+        ),
+    )
+
+    assert switched is True
+    assert os.environ["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/testdb"
