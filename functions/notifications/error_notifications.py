@@ -45,7 +45,7 @@ class EmailErrorHandler(logging.Handler):
             timestamp = datetime.now(timezone.utc)
             ts = format_datetime(timestamp)
             hostname = self._get_hostname()
-            app_name = os.getenv("APP_NAME", "JK Utbildningsintyg")
+            app_name = os.getenv("APP_NAME", "utbildningsintyg.se")
 
             message = self.format(record)
 
@@ -62,7 +62,7 @@ class EmailErrorHandler(logging.Handler):
                 "Applikationsfel",
                 content,
                 accent_color="#f97316",
-                footer_text="Detta är en automatisk felavisering från JK Utbildningsintyg.",
+                footer_text="Detta är en automatisk felavisering från utbildningsintyg.se.",
             )
 
             # Send attachments in background thread
