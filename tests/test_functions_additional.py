@@ -4,10 +4,12 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import functions  # noqa: E402
+import functions.database as database_module  # noqa: E402
 
 
 def test_normalize_personnummer():
@@ -123,3 +125,45 @@ def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
         raise AssertionError("Expected postgresql drivername")
     if captured["url"].drivername != "postgresql":
         raise AssertionError("Expected postgresql drivername")
+
+
+def test_create_database_retries_on_operational_error(monkeypatch):
+    monkeypatch.setenv("DATABASE_INIT_MAX_ATTEMPTS", "3")
+    state = {"attempts": 0}
+
+    def fake_create_all(_engine):
+        state["attempts"] += 1
+        if state["attempts"] < 3:
+            raise OperationalError("SELECT 1", {}, Exception("dns"))
+
+    monkeypatch.setattr(database_module.metadata, "create_all", fake_create_all)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+
+    class _FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
+    class _FakeEngine:
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module, "inspect", lambda _conn: SimpleNamespace(
+        get_columns=lambda _table: [{"name": "categories"}],
+        get_table_names=lambda: [
+            functions.password_resets_table.name,
+            functions.supervisor_password_resets_table.name,
+            functions.admin_audit_log_table.name,
+        ],
+    ))
+    monkeypatch.setattr(database_module.time, "sleep", lambda _seconds: None)
+
+    database_module.create_database()
+
+    assert state["attempts"] == 3
