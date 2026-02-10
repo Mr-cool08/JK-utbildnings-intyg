@@ -15,7 +15,7 @@
   const supervisorOverviewCard = document.getElementById('supervisorOverviewCard');
   const supervisorOverviewBody = document.getElementById('supervisorOverviewBody');
   const supervisorOverviewTitle = document.getElementById('supervisorOverviewTitle');
-  const csrfToken = document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
+  const apiClient = window.AdminApiClient;
   let currentOverviewOrgnr = '';
 
   function setMessageElement(element, text, isError) {
@@ -23,50 +23,6 @@
     element.textContent = text || '';
     element.classList.toggle('error', Boolean(isError));
     element.style.display = text ? '' : 'none';
-  }
-
-  async function sendClientLog(payload) {
-    if (!payload) return;
-    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
-    try {
-      await fetch('/admin/api/klientlogg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async function parseJsonResponse(response, context) {
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      sendClientLog({
-        message: 'Svarade inte med JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-    try {
-      return await response.json();
-    } catch {
-      sendClientLog({
-        message: 'Kunde inte tolka JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-  }
-
-  function buildUnexpectedFormatError() {
-    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
   }
 
   if (createSupervisorForm) {
@@ -81,18 +37,10 @@
       };
       setMessageElement(createSupervisorMessage, 'Skapar företagskonto…', false);
       try {
-        const res = await fetch('/admin/api/foretagskonto/skapa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/skapa', payload, {
+          context: 'Skapade företagskonto',
+          errorMessage: 'Kunde inte skapa företagskonto.',
         });
-        const data = await parseJsonResponse(res, 'Skapade företagskonto');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte skapa företagskonto.');
-        }
         setMessageElement(
           createSupervisorMessage,
           data.message || 'Företagskonto skapat.',
@@ -117,18 +65,10 @@
       };
       setMessageElement(linkSupervisorMessage, 'Skapar koppling…', false);
       try {
-        const res = await fetch('/admin/api/foretagskonto/koppla', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/koppla', payload, {
+          context: 'Skapade koppling',
+          errorMessage: 'Kunde inte skapa koppling.',
         });
-        const data = await parseJsonResponse(res, 'Skapade koppling');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte skapa koppling.');
-        }
         setMessageElement(
           linkSupervisorMessage,
           data.message || 'Kopplingen har sparats.',
@@ -153,24 +93,10 @@
       };
       setMessageElement(removeSupervisorMessage, 'Tar bort koppling…', false);
       try {
-        const res = await fetch('/admin/api/foretagskonto/ta-bort', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-          },
-          body: JSON.stringify({
-            ...payload,
-            ...(csrfToken ? { csrf_token: csrfToken } : {}),
-          }),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/ta-bort', payload, {
+          context: 'Tog bort koppling',
+          errorMessage: 'Kunde inte ta bort kopplingen.',
         });
-        const data = await parseJsonResponse(res, 'Tog bort koppling');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte ta bort kopplingen.');
-        }
         setMessageElement(
           removeSupervisorMessage,
           data.message || 'Kopplingen har tagits bort.',
@@ -196,24 +122,10 @@
       };
       setMessageElement(changeSupervisorMessage, 'Uppdaterar koppling…', false);
       try {
-        const res = await fetch('/admin/api/foretagskonto/uppdatera-koppling', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-          },
-          body: JSON.stringify({
-            ...payload,
-            ...(csrfToken ? { csrf_token: csrfToken } : {}),
-          }),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/uppdatera-koppling', payload, {
+          context: 'Uppdaterade koppling',
+          errorMessage: 'Kunde inte uppdatera kopplingen.',
         });
-        const data = await parseJsonResponse(res, 'Uppdaterade koppling');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte uppdatera kopplingen.');
-        }
         setMessageElement(
           changeSupervisorMessage,
           data.message || 'Kopplingen har uppdaterats.',
@@ -251,25 +163,17 @@
     if (!confirmed) return;
     setMessageElement(supervisorOverviewMessage, 'Tar bort koppling…', false);
     try {
-      const res = await fetch('/admin/api/foretagskonto/ta-bort', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-        },
-        body: JSON.stringify({
+      const data = await apiClient.apiPost(
+        '/admin/api/foretagskonto/ta-bort',
+        {
           orgnr: currentOverviewOrgnr,
           personnummer_hash: personnummerHash,
-          ...(csrfToken ? { csrf_token: csrfToken } : {}),
-        }),
-      });
-      const data = await parseJsonResponse(res, 'Tog bort koppling i översikt');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte ta bort kopplingen.');
-      }
+        },
+        {
+          context: 'Tog bort koppling i översikt',
+          errorMessage: 'Kunde inte ta bort kopplingen.',
+        },
+      );
       const row = supervisorOverviewBody?.querySelector(
         `tr[data-personnummer-hash="${personnummerHash}"]`,
       );
@@ -356,18 +260,10 @@
       setMessageElement(supervisorOverviewMessage, 'Hämtar kopplingar…', false);
       supervisorOverviewCard.hidden = true;
       try {
-        const res = await fetch('/admin/api/foretagskonto/oversikt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orgnr }),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/oversikt', { orgnr }, {
+          context: 'Hämtade kopplingar',
+          errorMessage: 'Kunde inte hämta kopplingar.',
         });
-        const data = await parseJsonResponse(res, 'Hämtade kopplingar');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte hämta kopplingar.');
-        }
         currentOverviewOrgnr = orgnr;
         renderSupervisorOverview(data.data || {});
         setMessageElement(supervisorOverviewMessage, 'Kopplingar hämtade.', false);
@@ -401,24 +297,10 @@
       if (!confirmed) return;
       setMessageElement(deleteSupervisorMessage, 'Raderar företagskonto…', false);
       try {
-        const res = await fetch('/admin/api/foretagskonto/radera', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-          },
-          body: JSON.stringify({
-            ...payload,
-            ...(csrfToken ? { csrf_token: csrfToken } : {}),
-          }),
+        const data = await apiClient.apiPost('/admin/api/foretagskonto/radera', payload, {
+          context: 'Raderade företagskonto',
+          errorMessage: 'Kunde inte radera företagskontot.',
         });
-        const data = await parseJsonResponse(res, 'Raderade företagskonto');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte radera företagskontot.');
-        }
         setMessageElement(
           deleteSupervisorMessage,
           data.message || 'Företagskontot har raderats.',

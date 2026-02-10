@@ -5,56 +5,13 @@
   const pdfResults = document.getElementById('pdfResults');
   const pdfResultBody = document.getElementById('pdfResultBody');
   const storage = window.AdminPanelStorage;
+  const apiClient = window.AdminApiClient;
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
     element.textContent = text || '';
     element.classList.toggle('error', Boolean(isError));
     element.style.display = text ? '' : 'none';
-  }
-
-  async function sendClientLog(payload) {
-    if (!payload) return;
-    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
-    try {
-      await fetch('/admin/api/klientlogg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async function parseJsonResponse(response, context) {
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      sendClientLog({
-        message: 'Svarade inte med JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-    try {
-      return await response.json();
-    } catch {
-      sendClientLog({
-        message: 'Kunde inte tolka JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-  }
-
-  function buildUnexpectedFormatError() {
-    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
   }
 
   function normalizeCategories(list) {
@@ -164,18 +121,14 @@
   async function fetchOverview(personnummer) {
     setLookupMessage('Hämtar uppgifter…', false);
     try {
-      const res = await fetch('/admin/api/oversikt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personnummer })
-      });
-      const data = await parseJsonResponse(res, 'Hämtade PDF-översikt');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte hämta uppgifter.');
-      }
+      const data = await apiClient.apiPost(
+        '/admin/api/oversikt',
+        { personnummer },
+        {
+          context: 'Hämtade PDF-översikt',
+          errorMessage: 'Kunde inte hämta uppgifter.',
+        },
+      );
       pdfResultBody.replaceChildren();
       if (!data.data || !Array.isArray(data.data.pdfs) || data.data.pdfs.length === 0) {
         setLookupMessage('Inga PDF:er hittades för angivet personnummer.', false);
@@ -197,18 +150,14 @@
   async function updatePdf(pdfId, newCategories) {
     setLookupMessage('Sparar kategorier…', false);
     try {
-      const res = await fetch('/admin/api/uppdatera-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId, categories: newCategories })
-      });
-      const data = await parseJsonResponse(res, 'Uppdaterade PDF-kategorier');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte uppdatera PDF.');
-      }
+      await apiClient.apiPost(
+        '/admin/api/uppdatera-pdf',
+        { personnummer: lastLookup, pdf_id: pdfId, categories: newCategories },
+        {
+          context: 'Uppdaterade PDF-kategorier',
+          errorMessage: 'Kunde inte uppdatera PDF.',
+        },
+      );
       setLookupMessage('Kategorier uppdaterade.', false);
       await fetchOverview(lastLookup);
     } catch (err) {
@@ -219,18 +168,14 @@
   async function deletePdf(pdfId) {
     setLookupMessage('Tar bort PDF…', false);
     try {
-      const res = await fetch('/admin/api/radera-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personnummer: lastLookup, pdf_id: pdfId })
-      });
-      const data = await parseJsonResponse(res, 'Raderade PDF');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte ta bort PDF.');
-      }
+      await apiClient.apiPost(
+        '/admin/api/radera-pdf',
+        { personnummer: lastLookup, pdf_id: pdfId },
+        {
+          context: 'Raderade PDF',
+          errorMessage: 'Kunde inte ta bort PDF.',
+        },
+      );
       setLookupMessage('PDF borttagen.', false);
       await fetchOverview(lastLookup);
     } catch (err) {

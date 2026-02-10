@@ -13,56 +13,13 @@
   const updateBtn = document.getElementById('updateBtn');
   const deleteBtn = document.getElementById('deleteBtn');
   const editorMessage = document.getElementById('editorMessage');
+  const apiClient = window.AdminApiClient;
   let currentSchema = [];
   const allowedTables = new Set(
     Array.from(tableSelect?.options || [])
       .map((option) => option.value)
       .filter(Boolean)
   );
-
-  async function sendClientLog(payload) {
-    if (!payload) return;
-    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
-    try {
-      await fetch('/admin/api/klientlogg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async function parseJsonResponse(response, context) {
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      sendClientLog({
-        message: 'Svarade inte med JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-    try {
-      return await response.json();
-    } catch {
-      sendClientLog({
-        message: 'Kunde inte tolka JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-  }
-
-  function buildUnexpectedFormatError() {
-    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
-  }
 
   function getSelectedTable() {
     const tableName = tableSelect.value;
@@ -126,14 +83,10 @@
   }
 
   async function loadSchema(tableName) {
-    const res = await fetch(`/admin/advanced/api/schema/${encodeURIComponent(tableName)}`);
-    const data = await parseJsonResponse(res, 'Läste tabellschema');
-    if (!data) {
-      throw buildUnexpectedFormatError();
-    }
-    if (!res.ok) {
-      throw new Error(data.message || 'Kunde inte läsa tabellens schema.');
-    }
+    const data = await apiClient.apiGet(`/admin/advanced/api/schema/${encodeURIComponent(tableName)}`, {
+      context: 'Läste tabellschema',
+      errorMessage: 'Kunde inte läsa tabellens schema.',
+    });
     currentSchema = data.schema || [];
     return currentSchema;
   }
@@ -143,14 +96,13 @@
     if (searchTerm) {
       params.set('sok', searchTerm);
     }
-    const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}?${params.toString()}`);
-    const data = await parseJsonResponse(res, 'Läste tabellrader');
-    if (!data) {
-      throw buildUnexpectedFormatError();
-    }
-    if (!res.ok) {
-      throw new Error(data.message || 'Kunde inte läsa poster.');
-    }
+    const data = await apiClient.apiGet(
+      `/admin/advanced/api/rows/${encodeURIComponent(tableName)}?${params.toString()}`,
+      {
+        context: 'Läste tabellrader',
+        errorMessage: 'Kunde inte läsa poster.',
+      }
+    );
     renderTable(data.rows || []);
   }
 
@@ -196,18 +148,10 @@
       try {
         const payload = parsePayload();
         const tableName = getSelectedTable();
-        const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        await apiClient.apiPost(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}`, payload, {
+          context: 'Skapade tabellrad',
+          errorMessage: 'Kunde inte skapa rad.',
         });
-        const data = await parseJsonResponse(res, 'Skapade tabellrad');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte skapa rad.');
-        }
         setEditorMessage('Rad skapad.', false);
         payloadInput.value = '';
         await refresh();
@@ -227,18 +171,12 @@
           throw new Error('Ange ett giltigt rad-ID.');
         }
         const tableName = getSelectedTable();
-        const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
+        await apiClient.apiRequest(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: payload,
+          context: 'Uppdaterade tabellrad',
+          errorMessage: 'Kunde inte uppdatera rad.',
         });
-        const data = await parseJsonResponse(res, 'Uppdaterade tabellrad');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte uppdatera rad.');
-        }
         setEditorMessage('Rad uppdaterad.', false);
         await refresh();
       } catch (err) {
@@ -256,16 +194,10 @@
           throw new Error('Ange ett giltigt rad-ID.');
         }
         const tableName = getSelectedTable();
-        const res = await fetch(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, {
-          method: 'DELETE'
+        await apiClient.apiDelete(`/admin/advanced/api/rows/${encodeURIComponent(tableName)}/${id}`, undefined, {
+          context: 'Tog bort tabellrad',
+          errorMessage: 'Kunde inte ta bort rad.',
         });
-        const data = await parseJsonResponse(res, 'Tog bort tabellrad');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte ta bort rad.');
-        }
         setEditorMessage('Rad borttagen.', false);
         await refresh();
       } catch (err) {
@@ -287,3 +219,4 @@
     refresh();
   }
 })();
+// # Copyright (c) Liam Suorsa

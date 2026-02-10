@@ -23,58 +23,14 @@
   const copyLastPersonnummerBtn = document.getElementById('copyLastPersonnummerBtn');
   const clearAdminFormsBtn = document.getElementById('clearAdminFormsBtn');
   const adminToolsMessage = document.getElementById('adminToolsMessage');
-  const csrfToken = document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
   const storage = window.AdminPanelStorage;
+  const apiClient = window.AdminApiClient;
 
   function setMessageElement(element, text, isError) {
     if (!element) return;
     element.textContent = text || '';
     element.classList.toggle('error', Boolean(isError));
     element.style.display = text ? '' : 'none';
-  }
-
-  async function sendClientLog(payload) {
-    if (!payload) return;
-    if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
-    try {
-      await fetch('/admin/api/klientlogg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async function parseJsonResponse(response, context) {
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      sendClientLog({
-        message: 'Svarade inte med JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-    try {
-      return await response.json();
-    } catch {
-      sendClientLog({
-        message: 'Kunde inte tolka JSON.',
-        context,
-        url: response.url,
-        status: response.status,
-        details: { contentType }
-      });
-      return null;
-    }
-  }
-
-  function buildUnexpectedFormatError() {
-    return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
   }
 
   function setMessageWithLink(element, text, link) {
@@ -160,14 +116,10 @@
     placeholder.textContent = 'Välj konto';
     deleteAccountSelect.appendChild(placeholder);
     try {
-      const res = await fetch('/admin/api/konton/lista');
-      const data = await parseJsonResponse(res, 'Hämtade kontolista');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte hämta kontolistan.');
-      }
+      const data = await apiClient.apiGet('/admin/api/konton/lista', {
+        context: 'Hämtade kontolista',
+        errorMessage: 'Kunde inte hämta kontolistan.',
+      });
       const accounts = Array.isArray(data.data) ? data.data : [];
       accounts.forEach((account) => {
         const option = document.createElement('option');
@@ -185,25 +137,17 @@
     setMessageElement(deleteAccountMessage, 'Raderar konto…', false);
     try {
       const trimmedEmail = (email || '').trim();
-      const res = await fetch('/admin/api/radera-konto', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
-        },
-        body: JSON.stringify({
+      const data = await apiClient.apiPost(
+        '/admin/api/radera-konto',
+        {
           personnummer_hash: personnummerHash,
           ...(trimmedEmail ? { email: trimmedEmail } : {}),
-          ...(csrfToken ? { csrf_token: csrfToken } : {})
-        }),
-      });
-      const data = await parseJsonResponse(res, 'Raderade konto');
-      if (!data) {
-        throw buildUnexpectedFormatError();
-      }
-      if (!res.ok) {
-        throw new Error(data.message || 'Kunde inte radera kontot.');
-      }
+        },
+        {
+          context: 'Raderade konto',
+          errorMessage: 'Kunde inte radera kontot.',
+        },
+      );
       const summaryText = formatDeleteSummary(data.data);
       setMessageElement(
         deleteAccountMessage,
@@ -326,18 +270,14 @@
         storage.storeLastPersonnummer(personnummer);
       }
       try {
-        const res = await fetch('/admin/api/skicka-aterstallning', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personnummer, email, account_type: accountType })
-        });
-        const data = await parseJsonResponse(res, 'Skickade återställning');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte skicka återställning.');
-        }
+        const data = await apiClient.apiPost(
+          '/admin/api/skicka-aterstallning',
+          { personnummer, email, account_type: accountType },
+          {
+            context: 'Skickade återställning',
+            errorMessage: 'Kunde inte skicka återställning.',
+          },
+        );
         setMessageWithLink(resetMessage, data.message || 'Återställningsmejl skickat.', data.link);
       } catch (err) {
         setMessageElement(resetMessage, err.message, true);
@@ -361,14 +301,10 @@
       }
       setMessageElement(verifyCertificateMessage, 'Verifierar…', false);
       try {
-        const res = await fetch(`/verify_certificate/${encodeURIComponent(personnummer)}`);
-        const data = await parseJsonResponse(res, 'Verifierade certifikat');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte verifiera certifikat.');
-        }
+        const data = await apiClient.apiGet(`/verify_certificate/${encodeURIComponent(personnummer)}`, {
+          context: 'Verifierade certifikat',
+          errorMessage: 'Kunde inte verifiera certifikat.',
+        });
         if (data.verified) {
           setMessageElement(verifyCertificateMessage, 'Standardkontots certifikat är verifierat.', false);
         } else {
@@ -397,26 +333,18 @@
       }
       setMessageElement(updateAccountMessage, 'Uppdaterar konto…', false);
       try {
-        const res = await fetch('/admin/api/konton/uppdatera', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-          },
-          body: JSON.stringify({
+        const data = await apiClient.apiPost(
+          '/admin/api/konton/uppdatera',
+          {
             personnummer,
             username,
             email,
-            ...(csrfToken ? { csrf_token: csrfToken } : {}),
-          }),
-        });
-        const data = await parseJsonResponse(res, 'Uppdaterade konto');
-        if (!data) {
-          throw buildUnexpectedFormatError();
-        }
-        if (!res.ok) {
-          throw new Error(data.message || 'Kunde inte uppdatera kontot.');
-        }
+          },
+          {
+            context: 'Uppdaterade konto',
+            errorMessage: 'Kunde inte uppdatera kontot.',
+          },
+        );
         setMessageElement(updateAccountMessage, data.message || 'Kontot har uppdaterats.', false);
         updateAccountForm.reset();
         loadAccountList();
