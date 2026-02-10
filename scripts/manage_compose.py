@@ -32,7 +32,11 @@ def default_compose_file() -> str:
     if prod_file.is_file():
         return str(prod_file)
 
-    # Last resort: keep the old default path (useful if the user intends to create it).
+    standard_file = root / "docker-compose.yml"
+    if standard_file.is_file():
+        return str(standard_file)
+
+    # Last resort: keep the production path as default.
     return str(prod_file)
 
 
@@ -100,81 +104,45 @@ def _run_docker_prune_commands(
     runner(["docker", "system", "prune", "-a"], check=True)
 
 
+def _build_venv_command(
+    root: Path,
+    unix_executable: str,
+    windows_executable: str,
+) -> list[str]:
+    # Build a command path from venv or .venv directories.
+    venv_directories = ("venv", ".venv")
+    if sys.platform.startswith("win"):
+        layout = (("Scripts", windows_executable), ("bin", unix_executable))
+    else:
+        layout = (("bin", unix_executable), ("Scripts", windows_executable))
+
+    for venv_dir in venv_directories:
+        for folder, executable in layout:
+            candidate = root / venv_dir / folder / executable
+            if candidate.is_file():
+                return [str(candidate)]
+
+    raise FileNotFoundError(
+        f"Kunde inte hitta {unix_executable} i venv/.venv-katalogen."
+    )
+
+
 def build_pytest_command(root: Path) -> list[str]:
     # Build the pytest command using the venv in the repository root.
-    # Support both venv/ and .venv/.
-    candidates: list[Path] = []
-
-    if sys.platform.startswith("win"):
-        candidates.extend(
-            [
-                root / "venv" / "Scripts" / "pytest.exe",
-                root / ".venv" / "Scripts" / "pytest.exe",
-            ]
-        )
-        candidates.extend(
-            [
-                root / "venv" / "bin" / "pytest",
-                root / ".venv" / "bin" / "pytest",
-            ]
-        )
-    else:
-        candidates.extend(
-            [
-                root / "venv" / "bin" / "pytest",
-                root / ".venv" / "bin" / "pytest",
-            ]
-        )
-        candidates.extend(
-            [
-                root / "venv" / "Scripts" / "pytest.exe",
-                root / ".venv" / "Scripts" / "pytest.exe",
-            ]
-        )
-
-    for pytest_path in candidates:
-        if pytest_path.is_file():
-            return [str(pytest_path)]
-
-    raise FileNotFoundError("Kunde inte hitta pytest i venv/.venv-katalogen.")
+    return _build_venv_command(
+        root,
+        unix_executable="pytest",
+        windows_executable="pytest.exe",
+    )
 
 
 def build_pip_command(root: Path) -> list[str]:
     # Build the pip command using the venv in the repository root.
-    candidates: list[Path] = []
-
-    if sys.platform.startswith("win"):
-        candidates.extend(
-            [
-                root / "venv" / "Scripts" / "pip.exe",
-                root / ".venv" / "Scripts" / "pip.exe",
-            ]
-        )
-        candidates.extend(
-            [
-                root / "venv" / "bin" / "pip",
-                root / ".venv" / "bin" / "pip",
-            ]
-        )
-    else:
-        candidates.extend(
-            [
-                root / "venv" / "bin" / "pip",
-                root / ".venv" / "bin" / "pip",
-            ]
-        )
-        candidates.extend(
-            [
-                root / "venv" / "Scripts" / "pip.exe",
-                root / ".venv" / "Scripts" / "pip.exe",
-            ]
-        )
-
-    for pip_path in candidates:
-        if pip_path.is_file():
-            return [str(pip_path)]
-
-    raise FileNotFoundError("Kunde inte hitta pip i venv/.venv-katalogen.")
+    return _build_venv_command(
+        root,
+        unix_executable="pip",
+        windows_executable="pip.exe",
+    )
 
 
 def find_requirements_files(root: Path) -> list[Path]:
