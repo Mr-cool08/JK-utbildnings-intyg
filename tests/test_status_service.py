@@ -103,8 +103,8 @@ def test_get_http_check_targets_defaults_to_internal_services(monkeypatch):
     targets = status_checks.get_http_check_targets()
 
     assert targets == [
-        {"name": "Huvudsidan", "url": "http://app/health"},
-        {"name": "Demosidan", "url": "http://app_demo/health"},
+        {"name": "Huvudsidan", "url": "https://utbildningsintyg.se/health"},
+        {"name": "Demosidan", "url": "https://demo.utbildningsintyg.se/health"},
     ]
 
 
@@ -124,19 +124,9 @@ def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
 def test_check_ssl_status_supports_url_in_host_env(monkeypatch):
     monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se")
 
-    def fake_connection(address, timeout=0):
-        assert address == ("utbildningsintyg.se", 443)
+    class DummyResponse:
+        status = 200
 
-        class DummySocket:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        return DummySocket()
-
-    class DummyWrappedSocket:
         def __enter__(self):
             return self
 
@@ -146,16 +136,41 @@ def test_check_ssl_status_supports_url_in_host_env(monkeypatch):
     class DummyContext:
         minimum_version = None
 
-        def wrap_socket(self, sock, server_hostname):
-            assert server_hostname == "utbildningsintyg.se"
-            return DummyWrappedSocket()
+    def fake_urlopen(req, timeout=0, context=None):
+        assert req.full_url == "https://utbildningsintyg.se/health"
+        assert timeout == 4
+        assert context is not None
+        return DummyResponse()
 
-    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
     monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
 
     result = status_checks.check_ssl_status()
 
-    assert result == {"status": "OK", "details": "TLS-handshake lyckades"}
+    assert result == {"status": "OK", "details": "TLS + HTTP 200"}
+
+
+def test_check_ssl_status_returns_error_for_http_error(monkeypatch):
+    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
+
+    class DummyContext:
+        minimum_version = None
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise error.HTTPError(
+            url="https://utbildningsintyg.se/health",
+            code=503,
+            msg="Service unavailable",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    result = status_checks.check_ssl_status()
+
+    assert result == {"status": "Fel", "details": "TLS + HTTP 503"}
 
 
 def test_check_http_status_handles_connection_refused(monkeypatch, caplog):
