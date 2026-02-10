@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
@@ -28,6 +29,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 
 from config_loader import load_environment
@@ -787,7 +789,22 @@ def get_engine() -> Engine:
 def create_database() -> None:
     # Create required tables if they do not exist.
     engine = get_engine()
-    metadata.create_all(engine)
+    attempts = int(os.getenv("DATABASE_INIT_MAX_ATTEMPTS", "5"))
+    for attempt in range(1, max(attempts, 1) + 1):
+        try:
+            metadata.create_all(engine)
+            break
+        except OperationalError:
+            if attempt == max(attempts, 1):
+                raise
+            wait_seconds = min(2 * attempt, 10)
+            logger.warning(
+                "Databasen svarar inte ännu, försöker igen om %s sekunder (försök %s/%s)",
+                wait_seconds,
+                attempt,
+                max(attempts, 1),
+            )
+            time.sleep(wait_seconds)
     run_migrations(engine)
     with engine.begin() as conn:
         inspector = inspect(conn)
