@@ -41,6 +41,31 @@ def test_default_compose_file_uses_repo_root():
     assert module.default_compose_file() == str(expected)
 
 
+def test_default_compose_file_falls_back_to_standard_file(tmp_path):
+    module = _load_module()
+    module.repo_root = lambda: tmp_path
+
+    standard = tmp_path / "docker-compose.yml"
+    standard.write_text("services: {}\n")
+
+    assert module.default_compose_file() == str(standard)
+
+
+def test_build_venv_command_raises_clear_error(tmp_path):
+    module = _load_module()
+
+    try:
+        module._build_venv_command(
+            tmp_path,
+            unix_executable="pytest",
+            windows_executable="pytest.exe",
+        )
+    except FileNotFoundError as exc:
+        assert str(exc) == "Kunde inte hitta pytest i venv/.venv-katalogen."
+    else:
+        raise AssertionError("Förväntade FileNotFoundError när pytest saknas.")
+
+
 def test_run_compose_action_cycle_orders_commands():
     module = _load_module()
     events: list[dict[str, object]] = []
@@ -52,6 +77,7 @@ def test_run_compose_action_cycle_orders_commands():
     module._ensure_compose_volumes = lambda *args, **kwargs: events.append(
         {"event": "ensure"}
     )
+
     def fake_runner(cmd, check, **kwargs):
         events.append(
             {
