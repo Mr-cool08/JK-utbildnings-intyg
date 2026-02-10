@@ -194,34 +194,7 @@
     </div>
 </dialog>
 
-<script>
-(function(){
-    function dubbelBekraftelse(selector, forstaText, andraText){
-        var formulär = document.querySelectorAll(selector);
-        formulär.forEach(function(form){
-            form.addEventListener('submit', function(event){
-                if(!confirm(forstaText)){
-                    event.preventDefault();
-                    return;
-                }
-                if(!confirm(andraText)){
-                    event.preventDefault();
-                }
-            });
-        });
-    }
+<script src="{{ url_for('static', filename='js/dashboard_confirmations.js') }}"></script>
 
-    dubbelBekraftelse('[data-remove-connection]', 'Vill du ta bort kopplingen?', 'Är du helt säker? Företagskontot tappar åtkomst till dina intyg.');
-
-    var taBortIntygFormular = document.querySelectorAll('[data-delete-pdf]');
-    taBortIntygFormular.forEach(function(form){
-        form.addEventListener('submit', function(event){
-            if(!confirm('Är du säker på att du vill ta bort intyget? Detta går inte att ångra.')){
-                event.preventDefault();
-            }
-        });
-    });
-})();
-</script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

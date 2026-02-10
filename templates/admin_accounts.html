@@ -16,7 +16,7 @@
     <a class="btn" href="{{ url_for('admin_guide') }}">Guide</a>
 </nav>
 
-<section class="panel admin-tools" data-csrf-token="{{ csrf_token }}">
+<section class="panel admin-tools" data-csrf-token="{{ csrf_token }}" data-app-categories='{{ categories|tojson|forceescape }}'>
     <h2>Snabbverktyg</h2>
     <p>Fyll i eller rensa personnummer för flera formulär med en knapp.</p>
     <div class="button-row">
@@ -185,9 +185,6 @@
 </dialog>
 
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-<script>
-    window.APP_CATEGORIES = {{ categories|tojson }}
-</script>
 <script src="{{ url_for('static', filename='js/admin_panel_storage.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin_panel_personnummer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin_panel_pdf.js') }}"></script>

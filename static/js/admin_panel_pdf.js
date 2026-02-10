@@ -81,7 +81,14 @@
     return normalized;
   }
 
-  let categories = normalizeCategories(window.APP_CATEGORIES);
+  const adminToolsSection = document.querySelector('.admin-tools');
+  let categories = [];
+  try {
+    const rawCategories = adminToolsSection ? adminToolsSection.dataset.appCategories : '[]';
+    categories = normalizeCategories(JSON.parse(rawCategories || '[]'));
+  } catch {
+    categories = [];
+  }
   let lastLookup = '';
 
   function setLookupMessage(text, isError) {

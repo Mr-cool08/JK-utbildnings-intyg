@@ -72,20 +72,6 @@
             <button type="submit" class="btn">Skicka förfrågan</button>
         </form>
     </section>
-<script>
-(function(){
-    var formulär = document.querySelectorAll('[data-supervisor-remove]');
-    formulär.forEach(function(form){
-        form.addEventListener('submit', function(event){
-            if(!confirm('Vill du ta bort kopplingen till användaren?')){
-                event.preventDefault();
-                return;
-            }
-            if(!confirm('Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.')){
-                event.preventDefault();
-            }
-        });
-    });
-})();
-</script>
+<script src="{{ url_for('static', filename='js/supervisor_dashboard_confirmations.js') }}"></script>
+
 {% endblock %}
