@@ -630,66 +630,67 @@ def _is_truthy(value: Optional[str]) -> bool:
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
+    demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
     sqlite_database_path: Optional[str] = None
-    if not db_url:
-        dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
-        demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
-        if dev_mode or demo_mode:
-            test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
-            if test_db_path == ":memory:":
-                db_url = "sqlite:///:memory:"
-                if dev_mode:
-                    logger.info("Using in-memory SQLite test database")
-                else:
-                    logger.info("Using in-memory SQLite demo database")
+    dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
+    should_use_local_sqlite = demo_mode or (dev_mode and not db_url)
+
+    if should_use_local_sqlite:
+        test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
+        if test_db_path == ":memory:":
+            db_url = "sqlite:///:memory:"
+            if dev_mode and not demo_mode:
+                logger.info("Using in-memory SQLite test database")
             else:
-                raw_path = Path(test_db_path).expanduser()
-                if not raw_path.is_absolute():
-                    raw_path = Path(APP_ROOT) / raw_path
-                raw_path.parent.mkdir(parents=True, exist_ok=True)
-                resolved = raw_path.resolve()
-                sqlite_database_path = str(resolved)
-                db_url = f"sqlite:///{resolved.as_posix()}"
-                if dev_mode:
-                    logger.info("Using local SQLite test database at %s", resolved)
-                else:
-                    logger.info("Using local SQLite demo database at %s", resolved)
+                logger.info("Using in-memory SQLite demo database")
         else:
-            host = os.getenv("POSTGRES_HOST")
-            if not host:
-                raise RuntimeError(
-                    "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
-                    "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
-                )
-
-            user = os.getenv("POSTGRES_USER")
-            password = os.getenv("POSTGRES_PASSWORD", "")
-            database = os.getenv("POSTGRES_DB")
-            port = os.getenv("POSTGRES_PORT", "5432")
-
-            if not user:
-                logger.error(
-                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-                )
-                raise RuntimeError(
-                    "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-                )
-            if not database:
-                logger.error(
-                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-                )
-                raise RuntimeError(
-                    "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-                )
-
-            encoded_user = quote_plus(user)
-            encoded_password = quote_plus(password)
-            encoded_db = quote_plus(database)
-            credentials = (
-                encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
+            raw_path = Path(test_db_path).expanduser()
+            if not raw_path.is_absolute():
+                raw_path = Path(APP_ROOT) / raw_path
+            raw_path.parent.mkdir(parents=True, exist_ok=True)
+            resolved = raw_path.resolve()
+            sqlite_database_path = str(resolved)
+            db_url = f"sqlite:///{resolved.as_posix()}"
+            if dev_mode and not demo_mode:
+                logger.info("Using local SQLite test database at %s", resolved)
+            else:
+                logger.info("Using local SQLite demo database at %s", resolved)
+    elif not db_url:
+        host = os.getenv("POSTGRES_HOST")
+        if not host:
+            raise RuntimeError(
+                "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
+                "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
             )
-            port_segment = f":{port}" if port else ""
-            db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
+
+        user = os.getenv("POSTGRES_USER")
+        password = os.getenv("POSTGRES_PASSWORD", "")
+        database = os.getenv("POSTGRES_DB")
+        port = os.getenv("POSTGRES_PORT", "5432")
+
+        if not user:
+            logger.error(
+                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+            )
+            raise RuntimeError(
+                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
+            )
+        if not database:
+            logger.error(
+                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+            )
+            raise RuntimeError(
+                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
+            )
+
+        encoded_user = quote_plus(user)
+        encoded_password = quote_plus(password)
+        encoded_db = quote_plus(database)
+        credentials = (
+            encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
+        )
+        port_segment = f":{port}" if port else ""
+        db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
     url = make_url(db_url)
     if sqlite_database_path and url.get_backend_name() == "sqlite":
         url = url.set(database=sqlite_database_path)
