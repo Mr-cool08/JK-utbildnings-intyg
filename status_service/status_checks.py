@@ -100,34 +100,55 @@ def check_database_status():
 
 
 def check_ssl_status():
-    raw_host = os.getenv("STATUS_SSL_HOST", "utbildningsintyg.se")
-    host = raw_host
+    raw_target = os.getenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
     port = int(os.getenv("STATUS_SSL_PORT", "443"))
 
-    # Tillåt både värdnamn och URL-format i miljövariabeln (t.ex. https://domän).
-    if "://" in raw_host:
-        parsed = urlparse(raw_host)
-        host = parsed.hostname or raw_host
+    # Tillåt både värdnamn och URL-format i miljövariabeln.
+    if "://" in raw_target:
+        parsed = urlparse(raw_target)
+        host = parsed.hostname or raw_target
+        target_url = raw_target
         if parsed.port:
             port = parsed.port
+    else:
+        host = raw_target
+        target_url = f"https://{host}/health"
+
+    parsed_target = urlparse(target_url)
+    if not parsed_target.path:
+        target_url = f"{target_url.rstrip('/')}/health"
 
     context = ssl.create_default_context()
-    # Enforce modern TLS versions (TLS 1.2+) regardless of system defaults
+    # Kräv modern TLS-version för handskakning.
     if hasattr(ssl, "TLSVersion") and hasattr(context, "minimum_version"):
         context.minimum_version = ssl.TLSVersion.TLSv1_2
     else:
-        # Fallback for older Python versions: disable TLS 1.0 and 1.1 if flags exist
         if hasattr(ssl, "OP_NO_TLSv1"):
             context.options |= ssl.OP_NO_TLSv1
         if hasattr(ssl, "OP_NO_TLSv1_1"):
             context.options |= ssl.OP_NO_TLSv1_1
     try:
-        with socket.create_connection((host, port), timeout=3) as sock:
-            with context.wrap_socket(sock, server_hostname=host):
-                return {"status": "OK", "details": "TLS-handshake lyckades"}
+        req = request.Request(target_url, method="GET", headers={"User-Agent": "StatusCheck"})
+        with request.urlopen(req, timeout=4, context=context) as response:
+            status_code = response.status
+        if 200 <= status_code < 400:
+            return {"status": "OK", "details": f"TLS + HTTP {status_code}"}
+        return {"status": "Fel", "details": f"TLS + HTTP {status_code}"}
     except ConnectionRefusedError:
         LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
         return {"status": "Fel", "details": "Anslutning nekades"}
+    except error.HTTPError as exc:
+        LOGGER.warning("SSL-kontroll fick HTTP-fel %s från %s.", exc.code, target_url)
+        return {"status": "Fel", "details": f"TLS + HTTP {exc.code}"}
+    except error.URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, ConnectionRefusedError) or getattr(
+            reason, "errno", None
+        ) == 111:
+            LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
+            return {"status": "Fel", "details": "Anslutning nekades"}
+        LOGGER.warning("SSL-kontroll misslyckades för %s: %s", target_url, reason)
+        return {"status": "Fel", "details": "TLS/anslutning misslyckades"}
     except OSError:
         LOGGER.exception("SSL-kontroll misslyckades mot %s:%s.", host, port)
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
@@ -241,14 +262,14 @@ def get_http_check_targets():
     targets = [
         {
             "name": "Huvudsidan",
-            "url": os.getenv("STATUS_MAIN_URL", "http://app/health"),
+            "url": os.getenv("STATUS_MAIN_URL", "https://utbildningsintyg.se/health"),
         },
         {
             "name": "Demosidan",
-            "url": os.getenv("STATUS_DEMO_URL", "http://app_demo/health"),
+            "url": os.getenv("STATUS_DEMO_URL", "https://demo.utbildningsintyg.se/health"),
         },
     ]
-    raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "http://google.com/")
+    raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "")
     if not raw_extra:
         return targets
     for entry in raw_extra.split(","):
