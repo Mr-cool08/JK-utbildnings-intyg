@@ -846,11 +846,16 @@ def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalErro
         return False
 
     current_host = engine.url.host or ""
-    fallback_hosts = [
-        host.strip()
-        for host in os.getenv("POSTGRES_FALLBACK_HOSTS", "localhost,127.0.0.1").split(",")
-        if host.strip()
-    ]
+    configured_fallback_hosts = os.getenv("POSTGRES_FALLBACK_HOSTS")
+    fallback_hosts = []
+    if configured_fallback_hosts:
+        fallback_hosts = [
+            host.strip()
+            for host in configured_fallback_hosts.split(",")
+            if host.strip()
+        ]
+    if not fallback_hosts:
+        return False
     for fallback_host in fallback_hosts:
         if fallback_host == current_host:
             continue
