@@ -800,3 +800,71 @@ def test_admin_advanced_crud(empty_db):
     with engine.connect() as conn:
         log_rows = list(conn.execute(functions.admin_audit_log_table.select()))
         assert len(log_rows) >= 3
+
+
+_ADMIN_PROTECTED_ENDPOINTS = [
+    ("get", "/admin/guide", 302),
+    ("get", "/admin/konton", 302),
+    ("get", "/admin/intyg", 302),
+    ("get", "/admin/foretagskonto", 302),
+    ("get", "/admin/ansokningar", 302),
+    ("post", "/admin/ansokningar", 302),
+    ("get", "/admin/fakturering", 302),
+    ("get", "/admin/api/ansokningar", 403),
+    ("get", "/admin/api/ansokningar/1", 403),
+    ("get", "/admin/api/ansokningar/2", 403),
+    ("post", "/admin/api/ansokningar/1/godkann", 403),
+    ("post", "/admin/api/ansokningar/2/godkann", 403),
+    ("post", "/admin/api/ansokningar/1/avslag", 403),
+    ("post", "/admin/api/ansokningar/2/avslag", 403),
+    ("post", "/admin/api/oversikt", 403),
+    ("post", "/admin/api/klientlogg", 403),
+    ("post", "/admin/api/radera-pdf", 403),
+    ("post", "/admin/api/radera-konto", 403),
+    ("get", "/admin/api/konton/lista", 403),
+    ("post", "/admin/api/konton/uppdatera", 403),
+    ("post", "/admin/api/uppdatera-pdf", 403),
+    ("post", "/admin/api/skicka-aterstallning", 403),
+    ("post", "/admin/api/foretagskonto/skapa", 403),
+    ("post", "/admin/api/foretagskonto/koppla", 403),
+    ("post", "/admin/api/foretagskonto/oversikt", 403),
+    ("post", "/admin/api/foretagskonto/ta-bort", 403),
+    ("post", "/admin/api/foretagskonto/uppdatera-koppling", 403),
+    ("post", "/admin/api/foretagskonto/radera", 403),
+    ("get", "/admin/avancerat", 302),
+    ("get", "/admin/advanced/api/schema/pending_users", 403),
+    ("get", "/admin/advanced/api/schema/users", 403),
+    ("get", "/admin/advanced/api/rows/pending_users", 403),
+    ("get", "/admin/advanced/api/rows/users", 403),
+    ("post", "/admin/advanced/api/rows/pending_users", 403),
+    ("post", "/admin/advanced/api/rows/users", 403),
+    ("put", "/admin/advanced/api/rows/pending_users/1", 403),
+    ("put", "/admin/advanced/api/rows/users/1", 403),
+    ("delete", "/admin/advanced/api/rows/pending_users/1", 403),
+    ("delete", "/admin/advanced/api/rows/users/1", 403),
+    ("get", "/admin/api/ansokningar/99", 403),
+    ("post", "/admin/api/ansokningar/99/godkann", 403),
+    ("post", "/admin/api/ansokningar/99/avslag", 403),
+    ("put", "/admin/advanced/api/rows/pending_users/99", 403),
+    ("delete", "/admin/advanced/api/rows/pending_users/99", 403),
+    ("put", "/admin/advanced/api/rows/users/99", 403),
+    ("delete", "/admin/advanced/api/rows/users/99", 403),
+    ("get", "/admin/api/ansokningar/12345", 403),
+    ("post", "/admin/api/ansokningar/12345/godkann", 403),
+    ("post", "/admin/api/ansokningar/12345/avslag", 403),
+    ("get", "/admin/advanced/api/schema/company_users", 403),
+]
+
+
+def _call_with_method(client, method, path):
+    request_method = getattr(client, method)
+    return request_method(path)
+
+
+@pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)
+def test_admin_routes_require_login(method, path, expected_status):
+    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 50
+
+    client = app.app.test_client()
+    response = _call_with_method(client, method, path)
+    assert response.status_code == expected_status
