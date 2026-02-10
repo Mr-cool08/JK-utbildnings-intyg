@@ -14,7 +14,7 @@ class TestCriticalEventsNotifications:
     def setup(self, monkeypatch):
         # Set up the required environment variables
         monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
-        monkeypatch.setenv("APP_NAME", "JK Utbildningsintyg")
+        monkeypatch.setenv("APP_NAME", "utbildningsintyg.se")
         monkeypatch.setenv("HOSTNAME", "test-host")
 
     def test_get_admin_email(self):
@@ -49,13 +49,13 @@ class TestCriticalEventsNotifications:
     def test_get_app_name(self):
         """Test that app name is retrieved correctly."""
         name = critical_events._get_app_name()
-        assert name == "JK Utbildningsintyg"
+        assert name == "utbildningsintyg.se"
 
     def test_get_app_name_default(self, monkeypatch):
         """Test that default app name is used when not set."""
         monkeypatch.delenv("APP_NAME", raising=False)
         name = critical_events._get_app_name()
-        assert name == "JK Utbildningsintyg"
+        assert name == "utbildningsintyg.se"
 
     @patch('functions.notifications.critical_events.email_service.send_email')
     def test_send_startup_notification(self, mock_send_email):
