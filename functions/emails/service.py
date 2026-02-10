@@ -30,6 +30,8 @@ logger.setLevel(logging.INFO)
 
 load_environment()
 
+SUPPORT_EMAIL = "support@utbildningsintyg.se"
+
 
 @dataclass(frozen=True)
 class SMTPSettings:
@@ -328,7 +330,7 @@ def send_account_deletion_email(to_email: str, username: str | None = None) -> N
         "<p>Hej,</p>"
         f"<p>Vi vill informera dig om att {display_name} hos utbildningsintyg.se har raderats.</p>"
         "<p>Om detta inte stämmer, kontakta vår support på "
-        "<a href='mailto:support@utbildningsintyg.se'>support@utbildningsintyg.se</a>.</p>"
+        f"<a href='mailto:{SUPPORT_EMAIL}'>{SUPPORT_EMAIL}</a>.</p>"
         "<p>Tack för att du har använt utbildningsintyg.se.</p>"
     )
 
@@ -417,7 +419,7 @@ def send_application_approval_email(
             f"<p>Din ansökan om {account_label} kopplat till {safe_company_html} har blivit godkänd.</p>"
             "<p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. "
             "Du får separat information om hur du loggar in.</p>"
-            "<p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>"
+            f"<p>Om något ser fel ut, kontakta oss på {SUPPORT_EMAIL}.</p>"
             "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
         )
     else:
@@ -430,7 +432,7 @@ def send_application_approval_email(
             "<p>Hej,</p>"
             f"<p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>"
             "<p>Kontot har skapats och du får separat information om hur du loggar in.</p>"
-            "<p>Om något ser fel ut, kontakta oss på support@jarnvagskonsulterna.se.</p>"
+            f"<p>Om något ser fel ut, kontakta oss på {SUPPORT_EMAIL}.</p>"
             "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
         )
     body = format_email_html("Din ansökan är godkänd", content, accent_color="#16a34a")
@@ -453,7 +455,7 @@ def send_application_rejection_email(
         "<p><strong>Motivering:</strong></p>"
         f"<p style='background-color:#fef2f2;border-left:4px solid #ef4444;padding:12px 14px;border-radius:6px;margin-top:6px;'>"
         f"{safe_reason}</p>"
-        "<p>Har du frågor är du välkommen att kontakta oss på support@jarnvagskonsulterna.se.</p>"
+        f"<p>Har du frågor är du välkommen att kontakta oss på {SUPPORT_EMAIL}.</p>"
         "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
     )
     body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ef4444")
