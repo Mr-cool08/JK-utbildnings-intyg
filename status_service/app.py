@@ -1,7 +1,8 @@
 # Copyright (c) Liam Suorsa
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template
 
 from status_service.status_checks import build_status
@@ -12,8 +13,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 def get_display_timestamp():
-    now = datetime.now(timezone.utc)
-    return now.strftime("%Y-%m-%d %H:%M:%S UTC")
+    timezone_name = os.getenv("APP_TIMEZONE", "Europe/Stockholm")
+    now = datetime.now(ZoneInfo(timezone_name))
+    return now.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 @app.route("/")

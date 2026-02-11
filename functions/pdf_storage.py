@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import delete, insert, select, update
+from sqlalchemy.exc import OperationalError
 
 from functions.database import user_pdfs_table, get_engine
 from functions.hashing import _hash_personnummer, _is_valid_hash
@@ -116,32 +117,43 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
         logger.warning("Avvisade ogiltig hash för personnummer")
         return []
 
-    def _load() -> List[Dict[str, Any]]:
-        with get_engine().connect() as conn:
-            rows = conn.execute(
-                select(
-                    user_pdfs_table.c.id,
-                    user_pdfs_table.c.filename,
-                    user_pdfs_table.c.categories,
-                    user_pdfs_table.c.uploaded_at,
-                )
-                .where(user_pdfs_table.c.personnummer == personnummer_hash)
-                .order_by(
-                    user_pdfs_table.c.uploaded_at.desc(),
-                    user_pdfs_table.c.id.desc(),
-                )
-            )
-            return [
-                {
-                    "id": row.id,
-                    "filename": row.filename,
-                    "categories": _deserialize_categories(row.categories),
-                    "uploaded_at": row.uploaded_at,
-                }
-                for row in rows
-            ]
+    query = (
+        select(
+            user_pdfs_table.c.id,
+            user_pdfs_table.c.filename,
+            user_pdfs_table.c.categories,
+            user_pdfs_table.c.uploaded_at,
+        )
+        .where(user_pdfs_table.c.personnummer == personnummer_hash)
+        .order_by(
+            user_pdfs_table.c.uploaded_at.desc(),
+            user_pdfs_table.c.id.desc(),
+        )
+    )
 
-    return _load()
+    for attempt in (1, 2):
+        try:
+            with get_engine().connect() as conn:
+                rows = conn.execute(query)
+                return [
+                    {
+                        "id": row.id,
+                        "filename": row.filename,
+                        "categories": _deserialize_categories(row.categories),
+                        "uploaded_at": row.uploaded_at,
+                    }
+                    for row in rows
+                ]
+        except OperationalError:
+            if attempt == 2:
+                raise
+            logger.warning(
+                "Databasanslutningen tappades vid hämtning av PDF-lista för %s. Försöker igen.",
+                mask_hash(personnummer_hash),
+            )
+            get_engine().dispose()
+
+    return []
 
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
