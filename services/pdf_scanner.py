@@ -4,22 +4,35 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from typing import Iterable, Literal, NamedTuple
 
 ScanDecision = Literal["ALLOW", "REJECT"]
 
-SUSPICIOUS_FEATURES = {
-    "javascript": "JavaScript",
-    "openaction": "OpenAction",
-    "embeddedfile": "EmbeddedFile",
-    "embeddedfiles": "EmbeddedFile",
-    "fileattachment": "EmbeddedFile",
-    "xfa": "XFA",
-    "acroform": "AcroForm",
-    "richmedia": "RichMedia",
-    "launch": "Launch",
+DANGEROUS_MARKERS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bjavascript\b", re.IGNORECASE), "JavaScript"),
+    (re.compile(r"\blaunch\b", re.IGNORECASE), "Launch"),
+    (re.compile(r"\bembeddedfiles?\b", re.IGNORECASE), "EmbeddedFile"),
+    (re.compile(r"\bfileattachment\b", re.IGNORECASE), "EmbeddedFile"),
+    (re.compile(r"\bxfa\b", re.IGNORECASE), "XFA"),
+    (re.compile(r"\brichmedia\b", re.IGNORECASE), "RichMedia"),
+    (re.compile(r"\bgotoe\b", re.IGNORECASE), "GoToE"),
+    (re.compile(r"\bgotor\b", re.IGNORECASE), "GoToR"),
+    (re.compile(r"\buri\b", re.IGNORECASE), "URI"),
+    (re.compile(r"\bsubmitform\b", re.IGNORECASE), "SubmitForm"),
+)
+
+BENIGN_OPENACTION_MARKERS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bopenaction\b", re.IGNORECASE), "OpenAction"),
+    (re.compile(r"\bgoto\b", re.IGNORECASE), "GoTo"),
+    (re.compile(r"/(?:fit|xyz)\b", re.IGNORECASE), "ViewDestination"),
+)
+
+DANGEROUS_FINDING_LABELS = {label for _pattern, label in DANGEROUS_MARKERS}
+BENIGN_OPENACTION_FINDING_LABELS = {
+    label for _pattern, label in BENIGN_OPENACTION_MARKERS
 }
 
 
@@ -31,9 +44,11 @@ class ScanVerdict(NamedTuple):
 def _collect_matches_from_strings(strings: Iterable[str]) -> set[str]:
     matches: set[str] = set()
     for candidate in strings:
-        candidate_lower = candidate.lower()
-        for keyword, label in SUSPICIOUS_FEATURES.items():
-            if keyword in candidate_lower:
+        for pattern, label in DANGEROUS_MARKERS:
+            if pattern.search(candidate):
+                matches.add(label)
+        for pattern, label in BENIGN_OPENACTION_MARKERS:
+            if pattern.search(candidate):
                 matches.add(label)
     return matches
 
@@ -50,6 +65,20 @@ def _walk_structure(obj) -> set[str]:
     elif isinstance(obj, str):
         matches |= _collect_matches_from_strings([obj])
     return matches
+
+
+def is_dangerous_finding(finding: str) -> bool:
+    return finding in DANGEROUS_FINDING_LABELS
+
+
+def is_benign_openaction_only(findings: set[str]) -> bool:
+    if not findings:
+        return False
+    if "OpenAction" not in findings:
+        return False
+    if any(is_dangerous_finding(finding) for finding in findings):
+        return False
+    return findings.issubset(BENIGN_OPENACTION_FINDING_LABELS)
 
 
 def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> ScanVerdict:
@@ -97,6 +126,13 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
         findings |= _collect_matches_from_strings([stdout, stderr])
 
     decision: ScanDecision = "REJECT" if findings else "ALLOW"
+    benign_openaction_only = is_benign_openaction_only(findings)
+
+    if decision == "REJECT" and benign_openaction_only:
+        logger.info(
+            "PDF nedgraderad från REJECT till ALLOW: endast benign OpenAction/view-action"
+        )
+        decision = "ALLOW"
 
     logger.info(
         "Quicksand-resultat: %s (fynd: %s)",
@@ -108,7 +144,19 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
         logger.warning("PDF blockerad efter skanning")
 
     if result.returncode not in {0} and decision == "ALLOW":
-        logger.error("Quicksand returnerade kod %s utan fynd: %s", result.returncode, stderr)
-        raise ValueError("Säkerhetsskannern rapporterade ett fel.")
+        if benign_openaction_only:
+            logger.warning(
+                "Quicksand returnerade kod %s men output klassades som benign OpenAction",
+                result.returncode,
+            )
+        else:
+            # Säkerhetsavvägning: fail closed vid okänd/nonzero scanner-status för att
+            # minska risken för false negatives, även om det kan ge fler false positives.
+            logger.error(
+                "Quicksand returnerade kod %s utan tydligt benign klassificering: %s",
+                result.returncode,
+                stderr,
+            )
+            raise ValueError("Säkerhetsskannern rapporterade ett fel.")
 
     return ScanVerdict(decision, sorted(findings))
