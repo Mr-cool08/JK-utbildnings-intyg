@@ -147,6 +147,33 @@ def test_create_app_enables_demo_mode(monkeypatch):
     assert demo_app.secret_key == "demo-secret"
 
 
+def test_create_app_dev_mode_seeds_demo_accounts_without_demo_mode(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
+    monkeypatch.setenv("secret_key", "dev-secret")
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "false")
+
+    calls = {"ensure": None, "scheduler": False}
+    monkeypatch.setattr(app.functions, "create_database", lambda: None)
+
+    def fake_ensure_demo_data(**kwargs):
+        calls["ensure"] = kwargs
+
+    monkeypatch.setattr(app.functions, "ensure_demo_data", fake_ensure_demo_data)
+    monkeypatch.setattr(
+        app,
+        "_start_demo_reset_scheduler",
+        lambda app_obj, defaults: calls.__setitem__("scheduler", True),
+    )
+
+    dev_app = app.create_app()
+
+    assert calls["ensure"] is not None
+    assert calls["scheduler"] is False
+    assert dev_app.config["IS_DEMO"] is False
+    assert dev_app.debug is True
+
+
 def test_create_app_enables_debug_mode_via_dev_mode(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
     monkeypatch.setenv("secret_key", "demo-secret")
