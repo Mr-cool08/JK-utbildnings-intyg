@@ -35,7 +35,7 @@ jobs:
         run: ruff check app.py functions services status_service
 
       - name: Formatkontroll
-        run: ruff format --check app.py functions/admin.py services/pdf_scanner.py status_service/app.py
+        run: ruff format --check app.py functions services status_service
 
       - name: Typkontroll
         run: mypy app.py functions services status_service
