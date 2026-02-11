@@ -1,0 +1,50 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.ruff.lint.per-file-ignores]
+"functions/database.py" = ["F821"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+ignore_missing_imports = true
+follow_imports = "silent"
+pretty = true
+show_error_codes = true
+allow_redefinition = true
+
+files = [
+  "app.py",
+  "functions",
+  "services",
+  "status_service",
+]
+
+disable_error_code = [
+  "arg-type",
+  "assignment",
+  "attr-defined",
+  "index",
+  "method-assign",
+  "name-defined",
+  "type-var",
+  "union-attr",
+  "var-annotated",
+]
+
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+no_implicit_optional = false
+
+# Copyright (c) Liam Suorsa
