@@ -31,9 +31,7 @@ BENIGN_OPENACTION_MARKERS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 DANGEROUS_FINDING_LABELS = {label for _pattern, label in DANGEROUS_MARKERS}
-BENIGN_OPENACTION_FINDING_LABELS = {
-    label for _pattern, label in BENIGN_OPENACTION_MARKERS
-}
+BENIGN_OPENACTION_FINDING_LABELS = {label for _pattern, label in BENIGN_OPENACTION_MARKERS}
 
 
 class ScanVerdict(NamedTuple):
@@ -129,9 +127,7 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
     benign_openaction_only = is_benign_openaction_only(findings)
 
     if decision == "REJECT" and benign_openaction_only:
-        logger.info(
-            "PDF nedgraderad från REJECT till ALLOW: endast benign OpenAction/view-action"
-        )
+        logger.info("PDF nedgraderad från REJECT till ALLOW: endast benign OpenAction/view-action")
         decision = "ALLOW"
 
     logger.info(

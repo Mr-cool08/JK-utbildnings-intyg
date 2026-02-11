@@ -115,7 +115,7 @@ def collect_container_resource_usage(client: docker.DockerClient) -> str:
 
         lines.append(
             f"- {container.name}: CPU {cpu_percent:.2f}%, RAM {mem_percent:.2f}% "
-            f"({mem_usage/1024/1024:.1f} MiB), Disk read/write {blk_read}/{blk_write} bytes, "
+            f"({mem_usage / 1024 / 1024:.1f} MiB), Disk read/write {blk_read}/{blk_write} bytes, "
             f"Nät RX/TX {net_rx}/{net_tx} bytes"
         )
     if len(lines) == 1:
@@ -251,7 +251,9 @@ def main():
         try:
             disk_percent = get_disk_percent()
             ram_percent = get_ram_percent()
-            cpu_percent, previous_total, previous_idle = get_cpu_percent(previous_total, previous_idle)
+            cpu_percent, previous_total, previous_idle = get_cpu_percent(
+                previous_total, previous_idle
+            )
 
             for threshold in DISK_THRESHOLDS:
                 if disk_percent >= threshold and not ALERT_STATE["disk"][threshold]:

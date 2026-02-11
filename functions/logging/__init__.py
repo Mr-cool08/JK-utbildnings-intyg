@@ -24,9 +24,7 @@ def configure_module_logger(name: str) -> logging.Logger:
         handlers = root_logger.handlers
     else:
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
         root_logger.addHandler(handler)
         handlers = (handler,)
 
@@ -98,9 +96,7 @@ def configure_root_logging() -> None:
 
     root = logging.getLogger()
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
-    formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
     has_stream_handler = any(
         isinstance(handler, logging.StreamHandler) for handler in root.handlers
     )

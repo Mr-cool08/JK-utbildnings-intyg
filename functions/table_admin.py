@@ -5,7 +5,18 @@ import base64
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Column, LargeBinary, String, bindparam, delete, func, insert, or_, select, update
+from sqlalchemy import (
+    Column,
+    LargeBinary,
+    String,
+    bindparam,
+    delete,
+    func,
+    insert,
+    or_,
+    select,
+    update,
+)
 
 from functions.database import TABLE_REGISTRY, get_engine
 
@@ -63,9 +74,7 @@ def fetch_table_rows(
     if search:
         # Skydda mot SQL-injektion genom att behandla wildcard-tecken som
         # vanliga tecken och använda parametrar.
-        escaped = (
-            search.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        )
+        escaped = search.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{escaped}%"
         parameter = bindparam("search_term", value=pattern)
         conditions = []
@@ -110,9 +119,7 @@ def update_table_row(table_name: str, row_id: int, values: Dict[str, Any]) -> bo
     if not assignments:
         raise ValueError("Inga fält att uppdatera")
     with get_engine().begin() as conn:
-        result = conn.execute(
-            update(table).where(table.c.id == row_id).values(**assignments)
-        )
+        result = conn.execute(update(table).where(table.c.id == row_id).values(**assignments))
     return result.rowcount > 0
 
 
