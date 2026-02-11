@@ -134,3 +134,9 @@ def test_builds_dev_status_image_with_pytest_docker(tmp_path):
         dockerfile_path="status_service/Dockerfile",
     )
     _build_image_with_pytest_docker(compose_file, "build status_page")
+
+
+def test_status_service_dockerfile_has_healthcheck_for_root_endpoint():
+    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
+    assert "HEALTHCHECK" in status_dockerfile
+    assert "http://127.0.0.1:80/" in status_dockerfile
