@@ -1,68 +1,91 @@
 <!-- # Copyright (c) Liam Suorsa -->
 {% extends 'base.html' %}
 {% block title %}Företagskontopanel{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
 {% block content %}
+<section class="dashboard supervisor-dashboard">
     <h1>Företagskontopanel</h1>
     <p>Välkommen {{ supervisor_name }}. Här ser du alla användarkonton som administratören har kopplat till dig.</p>
     {% if users %}
+    <section class="connection-panel" aria-label="Sök bland kopplade användare">
+        <label for="userSearchInput"><strong>Sök person</strong></label>
+        <input
+            id="userSearchInput"
+            class="supervisor-user-search"
+            type="search"
+            placeholder="Sök på namn"
+            aria-describedby="userSearchResultText"
+        >
+        <p id="userSearchResultText" class="connection-meta">Visar alla kopplade användare.</p>
+    </section>
+    <section class="supervisor-user-list" aria-label="Kopplade användarkonton">
         {% for user in users %}
-            <section class="panel" id="user-{{ user.personnummer_hash }}">
-                <div class="panel-header">
-                    <h2>{{ user.username }}</h2>
-                    <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                        <button type="submit" class="btn btn-danger">Ta bort koppling</button>
-                    </form>
-                </div>
+        <details class="supervisor-user-card" data-user-card data-user-name="{{ user.username|lower|trim }}" id="user-{{ user.personnummer_hash }}" {% if loop.first %}open{% endif %}>
+            <summary class="supervisor-user-card__summary">
+                <span>
+                    <strong>{{ user.username }}</strong>
+                    <span class="connection-meta">{{ user.pdfs|length }} intyg</span>
+                </span>
+                <span class="supervisor-user-card__summary-text">Visa intyg</span>
+            </summary>
+            <div class="supervisor-user-card__content">
+                <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                    <button type="submit" class="btn btn-danger">Ta bort koppling</button>
+                </form>
                 {% if user.pdfs %}
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Filnamn</th>
-                                    <th>Kategorier</th>
-                                    <th>Åtgärder</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for pdf in user.pdfs %}
-                                    <tr>
-                                        <td>{{ pdf.filename }}</td>
-                                        <td>
-                                            {% if pdf.category_labels %}
-                                                {{ pdf.category_labels | join(', ') }}
-                                            {% else %}
-                                                Okategoriserat
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="actions">
-                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
-                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
-                                                <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                                    <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                                                    <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
-                                                    <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
-                                                    <button type="submit" class="btn btn-secondary">Dela intyg</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Filnamn</th>
+                                <th>Kategorier</th>
+                                <th>Åtgärder</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pdf in user.pdfs %}
+                            <tr>
+                                <td>{{ pdf.filename }}</td>
+                                <td>
+                                    {% if pdf.category_labels %}
+                                        {{ pdf.category_labels | join(', ') }}
+                                    {% else %}
+                                        Okategoriserat
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
+                                        <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
+                                        <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                                            <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
+                                            <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
+                                            <button type="submit" class="btn btn-secondary">Dela intyg</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
-                    <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
+                <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
                 {% endif %}
-            </section>
+            </div>
+        </details>
         {% endfor %}
+    </section>
     {% else %}
-        <p>Det finns inga kopplade användarkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
+    <p>Det finns inga kopplade användarkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
     {% endif %}
-    <section class="panel">
+    <section class="connection-panel">
         <h2>Skicka kopplingsförfrågan</h2>
         <p>Ange personnummer för användarkontot du vill koppla till ditt företagskonto.</p>
         <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
@@ -72,8 +95,45 @@
             <button type="submit" class="btn">Skicka förfrågan</button>
         </form>
     </section>
+</section>
 <script>
 (function(){
+    var sokfalt = document.getElementById('userSearchInput');
+    var anvandarkort = Array.prototype.slice.call(document.querySelectorAll('[data-user-card]'));
+    var resultatText = document.getElementById('userSearchResultText');
+
+    function filtreraAnvandare(){
+        if(!sokfalt || !resultatText){
+            return;
+        }
+        var term = sokfalt.value.trim().toLowerCase();
+        var synliga = 0;
+        anvandarkort.forEach(function(kort){
+            var namn = kort.getAttribute('data-user-name') || '';
+            var visas = !term || namn.indexOf(term) !== -1;
+            kort.hidden = !visas;
+            if(visas){
+                synliga += 1;
+            }
+        });
+
+        if(!term){
+            resultatText.textContent = 'Visar alla kopplade användare.';
+            return;
+        }
+
+        if(synliga === 0){
+            resultatText.textContent = 'Inga användare matchar din sökning.';
+            return;
+        }
+
+        resultatText.textContent = 'Visar ' + synliga + ' användare som matchar din sökning.';
+    }
+
+    if(sokfalt){
+        sokfalt.addEventListener('input', filtreraAnvandare);
+    }
+
     var formulär = document.querySelectorAll('[data-supervisor-remove]');
     formulär.forEach(function(form){
         form.addEventListener('submit', function(event){

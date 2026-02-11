@@ -109,6 +109,8 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     body = response.get_data(as_text=True)
     assert supervisor_setup["user_name"] in body
     assert "intyg.pdf" in body
+    assert 'id="userSearchInput"' in body
+    assert "data-user-card" in body
 
 
 def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
