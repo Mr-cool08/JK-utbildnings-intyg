@@ -25,8 +25,8 @@ flowchart TD
     Q --> R{Godkänd?}
     R -->|Nej| S[Skicka avslag med kompletteringskrav]
     R -->|Ja| T[Skapa företagskonto]
-    T --> U[Tilldela företagsroller och behörigheter]
-    U --> V[Företagsanvändare loggar in]
+    T --> U[Företagsanvändare loggar in]
+    U --> V[Lägger till antällda]
     V --> W[Ladda upp PDF]
     W --> X[Validera filformat, filstorlek och metadata]
     X --> Y{PDF giltig?}
