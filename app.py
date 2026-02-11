@@ -2109,14 +2109,6 @@ def admin_approve_application(application_id: int):  # pragma: no cover
 
     creation_link: str | None = None  # <- samlad länk för svaret
 
-    # 1) Bekräftelsemejl (godkänd ansökan)
-    try:
-        email_service.send_application_approval_email(
-            result["email"], result["account_type"], result["company_name"]
-        )
-    except Exception:
-        logger.exception("Misslyckades att skicka godkännandemejl för ansökan %s", application_id)
-        email_warnings.append("Konto godkänt men bekräftelsemejlet kunde inte skickas.")
 
     # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
     if result.get("user_activation_required") and result.get("user_personnummer_hash"):

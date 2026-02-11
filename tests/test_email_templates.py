@@ -19,56 +19,6 @@ def _capture_send_email(monkeypatch):
     return captured
 
 
-def test_send_application_approval_email_standard_without_company(monkeypatch):
-    captured = _capture_send_email(monkeypatch)
-
-    email_service.send_application_approval_email(
-        "test@example.com", "standardkonto", ""
-    )
-
-    normalized_body = " ".join(captured["body"].split())
-
-    assert captured["subject"] == "Ansökan om standardkonto godkänd"
-    assert (
-        "Din ansökan om ett standardkonto har blivit godkänd." in normalized_body
-    )
-    assert "kopplat till" not in normalized_body
-    assert "support@utbildningsintyg.se" in normalized_body
-
-
-def test_send_application_approval_email_standard_with_company(monkeypatch):
-    captured = _capture_send_email(monkeypatch)
-
-    email_service.send_application_approval_email(
-        "test@example.com", "standardkonto", "AB & Co"
-    )
-
-    normalized_body = " ".join(captured["body"].split())
-
-    assert (
-        captured["subject"]
-        == "Ansökan om standardkonto godkänd för AB & Co"
-    )
-    assert "kopplat till AB &amp; Co" in normalized_body
-    assert "AB & Co" not in normalized_body  # HTML ska vara escapad
-    assert "support@utbildningsintyg.se" in normalized_body
-
-
-def test_send_application_approval_email_corporate_defaults_company(monkeypatch):
-    captured = _capture_send_email(monkeypatch)
-
-    email_service.send_application_approval_email(
-        "test@example.com", "foretagskonto", ""
-    )
-
-    normalized_body = " ".join(captured["body"].split())
-
-    assert captured["subject"] == "Ansökan godkänd för företaget"
-    assert "kopplat till företaget" in normalized_body
-    assert "företaget" in normalized_body
-    assert captured["attachments"] is None
-    assert "support@utbildningsintyg.se" in normalized_body
-
 
 def test_send_application_rejection_email_uses_branded_support_email(monkeypatch):
     captured = _capture_send_email(monkeypatch)

@@ -88,6 +88,8 @@ def _ensure_company(
             invoice_reference=cleaned_invoice_reference or None,
         )
     )
+    if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+        raise ValueError("Misslyckades att skapa företag i databasen.")
     company_id = result.inserted_primary_key[0]
     return int(company_id), True, cleaned_name
 
@@ -251,6 +253,8 @@ def create_application_request(
                 personnummer_hash=personnummer_hash,
             )
         )
+        if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+            raise ValueError("Misslyckades att skapa ansökan i databasen.")
         request_id = result.inserted_primary_key[0]
 
     email_hash = hash_value(normalized_email)
@@ -391,6 +395,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             )
         except IntegrityError as exc:
             raise ValueError("E-postadressen är redan registrerad.") from exc
+        if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+            raise ValueError("Misslyckades att skapa företagskonto i databasen.")
         user_id = result.inserted_primary_key[0]
 
         if application.account_type == "standard":

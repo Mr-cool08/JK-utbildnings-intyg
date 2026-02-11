@@ -398,45 +398,6 @@ def send_pdf_share_email(
     send_email(recipient_email, subject, body_html, attachments=attachments)
 
 
-def send_application_approval_email(
-    to_email: str, account_type: str, company_name: str
-) -> None:
-    """Skicka besked om godkänd ansökan."""
-
-    normalized_type = account_type.lower()
-    company_text = (company_name or "").strip()
-    company_text = " ".join(company_text.splitlines())
-    safe_company_html = escape(company_text)
-
-    if normalized_type == "foretagskonto":
-        if not company_text:
-            company_text = "företaget"
-            safe_company_html = "företaget"
-        account_label = "ett företagskonto"
-        subject = f"Ansökan godkänd för {company_text}"
-        content = (
-            "<p>Hej,</p>"
-            f"<p>Din ansökan om {account_label} kopplat till {safe_company_html} har blivit godkänd.</p>"
-            "<p>Vi har registrerat kontot och kopplat det till företaget via organisationsnumret. "
-            "Du får separat information om hur du loggar in.</p>"
-            f"<p>Om något ser fel ut, kontakta oss på {SUPPORT_EMAIL}.</p>"
-            "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
-        )
-    else:
-        account_label = "ett standardkonto"
-        company_phrase = f" kopplat till {safe_company_html}" if company_text else ""
-        subject = (
-            f"Ansökan om standardkonto godkänd{f' för {company_text}' if company_text else ''}"
-        )
-        content = (
-            "<p>Hej,</p>"
-            f"<p>Din ansökan om {account_label}{company_phrase} har blivit godkänd.</p>"
-            "<p>Kontot har skapats och du får separat information om hur du loggar in.</p>"
-            f"<p>Om något ser fel ut, kontakta oss på {SUPPORT_EMAIL}.</p>"
-            "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
-        )
-    body = format_email_html("Din ansökan är godkänd", content, accent_color="#16a34a")
-    send_email(to_email, subject, body)
 
 
 def send_application_rejection_email(

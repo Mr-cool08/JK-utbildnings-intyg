@@ -37,23 +37,8 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     client = app.app.test_client()
     _admin_session(client)
 
-    sent = {}
     creation_sent = {}
 
-    def fake_send(email, account_type, company_name):
-        """
-        Record the provided email details into the outer `sent` dictionary for test assertions.
-        
-        Parameters:
-            email (str): Recipient email address to store under key 'email'.
-            account_type (str): Account type to store under key 'type'.
-            company_name (str): Company name to store under key 'company'.
-        """
-        sent['email'] = email
-        sent['type'] = account_type
-        sent['company'] = company_name
-
-    monkeypatch.setattr(app.email_service, 'send_application_approval_email', fake_send)
     monkeypatch.setattr(
         app.email_service,
         'send_creation_email',
@@ -82,7 +67,6 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'foretagskonto'
     assert payload['data']['supervisor_email'] == 'foretagskonto@example.com'
-    assert sent['email'] == 'foretagskonto@example.com'
     assert creation_sent['email'] == 'foretagskonto@example.com'
     assert 'creation_link' in payload
     assert creation_sent['link'] == payload['creation_link']
@@ -106,17 +90,8 @@ def test_admin_approve_standard_application_creates_activation_link(
     client = app.app.test_client()
     _admin_session(client)
 
-    sent: dict[str, str] = {}
     creation_sent: dict[str, str] = {}
 
-    def fake_send(email, account_type, company_name):
-        sent['email'] = email
-        sent['type'] = account_type
-        sent['company'] = company_name
-
-    monkeypatch.setattr(
-        app.email_service, 'send_application_approval_email', fake_send
-    )
     monkeypatch.setattr(
         app.email_service,
         'send_creation_email',
@@ -142,7 +117,6 @@ def test_admin_approve_standard_application_creates_activation_link(
     payload = response.get_json()
     assert payload['status'] == 'success'
     assert payload['data']['account_type'] == 'standard'
-    assert sent['email'] == 'standard@example.com'
     assert creation_sent['email'] == 'standard@example.com'
     assert 'creation_link' in payload
     assert creation_sent['link'] == payload['creation_link']
