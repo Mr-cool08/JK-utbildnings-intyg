@@ -2114,7 +2114,6 @@ def admin_approve_application(application_id: int):  # pragma: no cover
 
     creation_link: str | None = None  # <- samlad länk för svaret
 
-
     # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
     if result.get("user_activation_required") and result.get("user_personnummer_hash"):
         link = url_for(

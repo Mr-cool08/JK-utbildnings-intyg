@@ -52,9 +52,7 @@ def _ensure_company(
     cleaned_invoice_contact = (invoice_contact or "").strip()
     cleaned_invoice_reference = (invoice_reference or "").strip()
 
-    existing = conn.execute(
-        select(companies_table).where(companies_table.c.orgnr == orgnr)
-    ).first()
+    existing = conn.execute(select(companies_table).where(companies_table.c.orgnr == orgnr)).first()
     if existing:
         updates: Dict[str, str] = {}
         existing_name = existing.name
@@ -64,13 +62,14 @@ def _ensure_company(
             updates["invoice_address"] = cleaned_invoice_address
         if cleaned_invoice_contact and (existing.invoice_contact or "") != cleaned_invoice_contact:
             updates["invoice_contact"] = cleaned_invoice_contact
-        if cleaned_invoice_reference and (existing.invoice_reference or "") != cleaned_invoice_reference:
+        if (
+            cleaned_invoice_reference
+            and (existing.invoice_reference or "") != cleaned_invoice_reference
+        ):
             updates["invoice_reference"] = cleaned_invoice_reference
         if updates:
             conn.execute(
-                update(companies_table)
-                .where(companies_table.c.id == existing.id)
-                .values(**updates)
+                update(companies_table).where(companies_table.c.id == existing.id).values(**updates)
             )
             if "name" in updates:
                 existing_name = updates["name"]
@@ -88,7 +87,11 @@ def _ensure_company(
             invoice_reference=cleaned_invoice_reference or None,
         )
     )
-    if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+    if (
+        result is None
+        or not hasattr(result, "inserted_primary_key")
+        or not result.inserted_primary_key
+    ):
         raise ValueError("Misslyckades att skapa företag i databasen.")
     company_id = result.inserted_primary_key[0]
     return int(company_id), True, cleaned_name
@@ -113,9 +116,7 @@ def create_application_request(
 
     cleaned_name = (name or "").strip()
     if not cleaned_name:
-        raise ValueError(
-            "Namn saknas. Ange ditt fullständiga namn så att vi kan behandla ansökan."
-        )
+        raise ValueError("Namn saknas. Ange ditt fullständiga namn så att vi kan behandla ansökan.")
 
     normalized_email = normalize_email(email)
     personnummer_hash: Optional[str] = None
@@ -135,9 +136,7 @@ def create_application_request(
     raw_orgnr = (orgnr or "").strip()
     if normalized_type == "standard":
         if raw_orgnr:
-            raise ValueError(
-                "Standardkonton kan inte kopplas till organisationsnummer i ansökan."
-            )
+            raise ValueError("Standardkonton kan inte kopplas till organisationsnummer i ansökan.")
         validated_orgnr = ""
     else:
         validated_orgnr = validate_orgnr(raw_orgnr)
@@ -175,9 +174,7 @@ def create_application_request(
     with get_engine().begin() as conn:
         if normalized_type == "standard":
             existing_user = conn.execute(
-                select(users_table.c.id).where(
-                    users_table.c.personnummer == personnummer_hash
-                )
+                select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
             ).first()
             pending_user = conn.execute(
                 select(pending_users_table.c.id).where(
@@ -192,9 +189,7 @@ def create_application_request(
                 )
             ).first()
             if existing_user or pending_user or pending_application:
-                raise ValueError(
-                    "Det finns redan ett standardkonto med detta personnummer."
-                )
+                raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
         if normalized_type == "foretagskonto" and validated_orgnr:
             existing_company_user = conn.execute(
                 select(company_users_table.c.id)
@@ -217,9 +212,7 @@ def create_application_request(
                 )
             ).first()
             if existing_company_user or pending_application:
-                raise ValueError(
-                    "Det finns redan ett företagskonto för detta organisationsnummer."
-                )
+                raise ValueError("Det finns redan ett företagskonto för detta organisationsnummer.")
         # Prevent duplicate pending applications for the same email + orgnr combination.
         pending_query = select(application_requests_table).where(
             application_requests_table.c.email == normalized_email,
@@ -231,9 +224,7 @@ def create_application_request(
                 application_requests_table.c.orgnr_normalized == validated_orgnr
             )
         else:
-            pending_query = pending_query.where(
-                application_requests_table.c.orgnr_normalized == ""
-            )
+            pending_query = pending_query.where(application_requests_table.c.orgnr_normalized == "")
         existing_pending = conn.execute(pending_query).first()
         if existing_pending:
             raise ValueError(
@@ -253,7 +244,11 @@ def create_application_request(
                 personnummer_hash=personnummer_hash,
             )
         )
-        if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+        if (
+            result is None
+            or not hasattr(result, "inserted_primary_key")
+            or not result.inserted_primary_key
+        ):
             raise ValueError("Misslyckades att skapa ansökan i databasen.")
         request_id = result.inserted_primary_key[0]
 
@@ -369,9 +364,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                 )
             ).first()
             if existing_foretagskonto:
-                raise ValueError(
-                    "Det finns redan ett företagskonto för detta organisationsnummer."
-                )
+                raise ValueError("Det finns redan ett företagskonto för detta organisationsnummer.")
 
         normalized_email = normalize_email(application.email)
         existing_user = conn.execute(
@@ -395,7 +388,11 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             )
         except IntegrityError as exc:
             raise ValueError("E-postadressen är redan registrerad.") from exc
-        if result is None or not hasattr(result, 'inserted_primary_key') or not result.inserted_primary_key:
+        if (
+            result is None
+            or not hasattr(result, "inserted_primary_key")
+            or not result.inserted_primary_key
+        ):
             raise ValueError("Misslyckades att skapa företagskonto i databasen.")
         user_id = result.inserted_primary_key[0]
 
@@ -414,16 +411,12 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                 )
             ).first()
             if existing_user or pending_user:
-                raise ValueError(
-                    "Det finns redan ett standardkonto med detta personnummer."
-                )
+                raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
             existing_email_user = conn.execute(
                 select(users_table.c.id).where(users_table.c.email == email_hash)
             ).first()
             pending_email = conn.execute(
-                select(pending_users_table.c.id).where(
-                    pending_users_table.c.email == email_hash
-                )
+                select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
             ).first()
 
             if not existing_user and not existing_email_user:
@@ -505,7 +498,9 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         "user_id": int(user_id),
         "orgnr": validated_orgnr,
         "email": normalized_email,
-        "supervisor_email": normalized_email if application.account_type == "foretagskonto" else None,
+        "supervisor_email": normalized_email
+        if application.account_type == "foretagskonto"
+        else None,
         "account_type": application.account_type,
         "name": application.name,
         "company_name": company_display,
@@ -548,9 +543,7 @@ def reject_application_request(
         company_display = (application.company_name or "").strip()
         if not company_display and validated_orgnr:
             existing_company = conn.execute(
-                select(companies_table.c.name).where(
-                    companies_table.c.orgnr == validated_orgnr
-                )
+                select(companies_table.c.name).where(companies_table.c.orgnr == validated_orgnr)
             ).first()
             if existing_company and existing_company.name:
                 company_display = existing_company.name

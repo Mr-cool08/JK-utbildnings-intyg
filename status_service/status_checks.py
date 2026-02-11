@@ -19,6 +19,7 @@ def get_uptime(now=None):
     seconds = max(0, current_time - START_TIME)
     return timedelta(seconds=int(seconds))
 
+
 def get_cpu_procent():
     try:
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -29,8 +30,7 @@ def get_cpu_procent():
     except Exception:
         LOGGER.warning("CPU-användning kunde inte läsas i den aktuella miljön.")
         return {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
-    
-    
+
 
 def format_uptime(uptime):
     days = uptime.days
@@ -142,9 +142,7 @@ def check_ssl_status():
         return {"status": "Fel", "details": f"TLS + HTTP {exc.code}"}
     except error.URLError as exc:
         reason = exc.reason
-        if isinstance(reason, ConnectionRefusedError) or getattr(
-            reason, "errno", None
-        ) == 111:
+        if isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == 111:
             LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
             return {"status": "Fel", "details": "Anslutning nekades"}
         LOGGER.warning("SSL-kontroll misslyckades för %s: %s", target_url, reason)
@@ -242,9 +240,7 @@ def check_http_status(name, url, timeout=3):
         return {"name": name, "status": "Fel", "details": f"HTTP {exc.code}"}
     except error.URLError as exc:
         reason = exc.reason
-        if isinstance(reason, ConnectionRefusedError) or getattr(
-            reason, "errno", None
-        ) == 111:
+        if isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == 111:
             LOGGER.warning(
                 "HTTP-kontroll '%s' kunde inte ansluta till %s.",
                 name,
@@ -316,7 +312,6 @@ def get_country_availability():
 
 def get_load_average():
     try:
-        
         load1, load5, load15 = os.getloadavg()
         return {
             "status": "OK",
@@ -386,8 +381,7 @@ def get_ram_procent():
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
-        check_http_status(item["name"], item["url"])
-        for item in get_http_check_targets()
+        check_http_status(item["name"], item["url"]) for item in get_http_check_targets()
     ]
     proxy_status = check_traefik_status()
     return {
