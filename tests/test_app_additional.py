@@ -199,3 +199,21 @@ def test_debug_clear_session_clears_session_in_debug(monkeypatch):
     assert response.status_code == 302
     with client.session_transaction() as sess:
         assert "keep" not in sess
+
+
+def test_configure_timezone_uses_stockholm_default(monkeypatch):
+    monkeypatch.delenv("APP_TIMEZONE", raising=False)
+
+    timezone_name = app._configure_timezone()
+
+    assert timezone_name == "Europe/Stockholm"
+    assert app.os.environ["TZ"] == "Europe/Stockholm"
+
+
+def test_configure_timezone_uses_env_override(monkeypatch):
+    monkeypatch.setenv("APP_TIMEZONE", "UTC")
+
+    timezone_name = app._configure_timezone()
+
+    assert timezone_name == "UTC"
+    assert app.os.environ["TZ"] == "UTC"

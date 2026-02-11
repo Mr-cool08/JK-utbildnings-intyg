@@ -4,6 +4,7 @@ from datetime import timedelta
 from urllib import error
 
 from status_service import status_checks
+from status_service import app as status_app
 
 
 def test_format_uptime_includes_swedish_units():
@@ -273,3 +274,33 @@ def test_get_cpu_and_ram_procent_handle_exceptions(monkeypatch, caplog):
     assert cpu_result == {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
     assert ram_result == {"status": "Inte tillgänglig", "details": "Inte tillgänglig"}
     assert "kunde inte läsas" in caplog.text
+
+
+def test_get_display_timestamp_uses_stockholm_timezone(monkeypatch):
+    monkeypatch.delenv("APP_TIMEZONE", raising=False)
+    captured = {}
+
+    def fake_zoneinfo(name):
+        captured["timezone"] = name
+        return "tz-object"
+
+    class FakeNow:
+        def strftime(self, fmt):
+            captured["format"] = fmt
+            return "2025-01-01 12:00:00 CET"
+
+    class FakeDateTime:
+        @staticmethod
+        def now(tz):
+            captured["tz"] = tz
+            return FakeNow()
+
+    monkeypatch.setattr(status_app, "ZoneInfo", fake_zoneinfo)
+    monkeypatch.setattr(status_app, "datetime", FakeDateTime)
+
+    result = status_app.get_display_timestamp()
+
+    assert result == "2025-01-01 12:00:00 CET"
+    assert captured["timezone"] == "Europe/Stockholm"
+    assert captured["tz"] == "tz-object"
+    assert captured["format"] == "%Y-%m-%d %H:%M:%S %Z"

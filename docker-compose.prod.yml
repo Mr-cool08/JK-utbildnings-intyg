@@ -4,9 +4,12 @@ services:
   traefik:
     image: traefik:2.11
     depends_on:
-      - app
-      - app_demo
-      - status_page
+      app:
+        condition: service_healthy
+      app_demo:
+        condition: service_healthy
+      status_page:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

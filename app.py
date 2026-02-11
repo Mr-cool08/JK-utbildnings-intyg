@@ -195,6 +195,16 @@ def _configure_proxy_fix(app: Flask) -> None:
         )
 
 
+def _configure_timezone() -> str:
+    # Sätt applikationens lokala tidszon för all datum/tid-formattering.
+    timezone_name = os.getenv("APP_TIMEZONE", "Europe/Stockholm").strip() or "Europe/Stockholm"
+    os.environ["TZ"] = timezone_name
+    if hasattr(time, "tzset"):
+        time.tzset()
+    logger.info("Applikationens tidszon är satt till %s.", timezone_name)
+    return timezone_name
+
+
 def _parse_otel_headers(raw_value: str | None) -> dict[str, str]:
     # Tolka OTEL_EXPORTER_OTLP_HEADERS (komma-separerade key=value).
     headers: dict[str, str] = {}
@@ -333,6 +343,8 @@ def create_app() -> Flask:
     logger.debug("Loading environment variables and initializing database")
     functions.create_database()
     app = Flask(__name__)
+    timezone_name = _configure_timezone()
+    app.config["APP_TIMEZONE"] = timezone_name
     _configure_proxy_fix(app)
     _configure_opentelemetry(app)
 

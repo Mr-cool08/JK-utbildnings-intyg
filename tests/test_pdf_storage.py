@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 import functions
 from course_categories import COURSE_CATEGORIES
@@ -93,3 +95,57 @@ def test_pdf_content_is_stored_plainly(empty_db):
     filename, fetched = functions.get_pdf_content(pnr_hash, pdf_id)
     assert filename == "okrypterad.pdf"
     assert fetched == original_content
+
+
+def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
+    """Hämtning av användar-PDF:er ska försöka igen vid tillfälligt anslutningsfel."""
+
+    pnr_hash = _personnummer_hash("9001011234")
+    expected_uploaded_at = datetime(2026, 1, 1, 12, 30, 0)
+    row = SimpleNamespace(
+        id=7,
+        filename="retry.pdf",
+        categories="truck,hlr",
+        uploaded_at=expected_uploaded_at,
+    )
+
+    state = {"calls": 0}
+
+    class _FailingConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, _query):
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise OperationalError("SELECT 1", {}, Exception("connection lost"))
+            return [row]
+
+    class _FakeEngine:
+        def __init__(self):
+            self.dispose_calls = 0
+
+        def connect(self):
+            return _FailingConnection()
+
+        def dispose(self):
+            self.dispose_calls += 1
+
+    engine = _FakeEngine()
+    monkeypatch.setattr(functions.pdf_storage, "get_engine", lambda: engine)
+
+    pdfs = functions.get_user_pdfs(pnr_hash)
+
+    assert state["calls"] == 2
+    assert engine.dispose_calls == 1
+    assert pdfs == [
+        {
+            "id": 7,
+            "filename": "retry.pdf",
+            "categories": ["truck", "hlr"],
+            "uploaded_at": expected_uploaded_at,
+        }
+    ]
