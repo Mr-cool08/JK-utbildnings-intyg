@@ -2207,6 +2207,8 @@ def admin_user_overview():  # pragma: no cover
 @app.post('/admin/api/klientlogg')
 def admin_client_log():
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({'status': 'error', 'message': 'Ogiltig CSRF-token.'}), 403
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({'status': 'error', 'message': 'Ogiltigt loggformat.'}), 400

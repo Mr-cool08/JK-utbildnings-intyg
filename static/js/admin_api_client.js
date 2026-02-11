@@ -3,7 +3,26 @@
     'Servern svarade med ett oväntat format. Logga in igen och försök på nytt.';
 
   function getCsrfToken() {
-    return document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
+    const tokenFromDataAttribute = document.querySelector('[data-csrf-token]')?.dataset.csrfToken;
+    if (tokenFromDataAttribute) return tokenFromDataAttribute;
+
+    const tokenFromMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (tokenFromMeta) return tokenFromMeta;
+
+    const tokenFromCookie = document.cookie
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith('csrf_token='))
+      ?.split('=')[1];
+    if (tokenFromCookie) {
+      try {
+        return decodeURIComponent(tokenFromCookie);
+      } catch {
+        return tokenFromCookie;
+      }
+    }
+
+    return '';
   }
 
   function isMutatingMethod(method) {
@@ -15,9 +34,13 @@
     if (!payload) return;
     if (payload.url && payload.url.includes('/admin/api/klientlogg')) return;
     try {
+      const csrfToken = getCsrfToken();
       await fetch('/admin/api/klientlogg', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
         body: JSON.stringify(payload),
       });
     } catch {
@@ -107,7 +130,7 @@
     }
 
     const data = await parseJsonResponse(response, context);
-    if (!data) {
+    if (data === null) {
       throw buildUnexpectedFormatError();
     }
     if (!response.ok) {
