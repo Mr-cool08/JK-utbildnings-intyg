@@ -5,7 +5,7 @@
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-EHG218KKPZ"></script>
-    <script src="{{ url_for('static', filename='js/gtag_init.js') }}" data-measurement-id="G-EHG218KKPZ" defer></script>
+    <script id="gtag-init" src="{{ url_for('static', filename='js/gtag_init.js') }}" data-measurement-id="G-EHG218KKPZ" defer></script>
     
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='pictures/favicon_smaller.png') }}">
     <meta charset="UTF-8">
@@ -14,6 +14,7 @@
     <meta name="theme-color" content="#E93B56">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/toasts.css') }}">
     <script type="text/javascript" data-cmp-ab="1" src="https://cdn.consentmanager.net/delivery/autoblocking/79b762eac2d3b.js" data-cmp-host="a.delivery.consentmanager.net" data-cmp-cdn="cdn.consentmanager.net" data-cmp-codesrc="16"></script>
     {% block head %}{% endblock %}
 </head>
@@ -126,7 +127,6 @@
         </div>
     </footer>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/toasts.css') }}">
     <script src="{{ url_for('static', filename='js/nav.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/toasts.js') }}" defer></script>
     {% block scripts %}{% endblock %}

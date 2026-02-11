@@ -1,6 +1,6 @@
 // # Copyright (c) Liam Suorsa
 (function(){
-    var script = document.currentScript;
+    var script = document.currentScript || document.getElementById('gtag-init');
     var measurementId = script ? script.getAttribute('data-measurement-id') : '';
     if(!measurementId){
         return;

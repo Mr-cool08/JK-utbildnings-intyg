@@ -84,6 +84,23 @@
         list.classList.toggle('is-loading', isLoading);
     }
 
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function allowedStatus(value) {
+        if (value === 'pending' || value === 'approved' || value === 'rejected') {
+            return value;
+        }
+        return 'pending';
+    }
+
     function updateStatusBadge(card, status) {
         const badge = card.querySelector('.status-badge');
         card.dataset.status = status;
@@ -96,27 +113,27 @@
             <dl class="application-detail">
                 <div>
                     <dt>Organisationsnummer</dt>
-                    <dd>${application.orgnr_normalized || '—'}</dd>
+                    <dd>${escapeHtml(application.orgnr_normalized || '—')}</dd>
                 </div>
                 <div>
                     <dt>Företagsnamn</dt>
-                    <dd>${application.company_name || '—'}</dd>
+                    <dd>${escapeHtml(application.company_name || '—')}</dd>
                 </div>
                 <div>
                     <dt>Fakturaadress</dt>
-                    <dd>${application.invoice_address || '—'}</dd>
+                    <dd>${escapeHtml(application.invoice_address || '—')}</dd>
                 </div>
                 <div>
                     <dt>Kontaktperson</dt>
-                    <dd>${application.invoice_contact || '—'}</dd>
+                    <dd>${escapeHtml(application.invoice_contact || '—')}</dd>
                 </div>
                 <div>
                     <dt>Kommentar</dt>
-                    <dd>${application.comment || '—'}</dd>
+                    <dd>${escapeHtml(application.comment || '—')}</dd>
                 </div>
                 <div>
                     <dt>Inskickad</dt>
-                    <dd>${formatDate(application.created_at)}</dd>
+                    <dd>${escapeHtml(formatDate(application.created_at))}</dd>
                 </div>
             </dl>
         `;
@@ -124,23 +141,27 @@
 
     function buildCard(application) {
         const card = document.createElement('article');
+        const status = allowedStatus(application.status);
+        const appId = Number.isInteger(Number(application.id)) ? Number(application.id) : 0;
+        const accountTypeLabel = application.account_type === 'foretagskonto' ? 'Företagskonto' : 'Standardkonto';
+        const accountTypeChip = application.account_type === 'foretagskonto' ? 'Företag' : 'Standard';
         card.className = 'application-item';
-        card.dataset.status = application.status;
-        card.dataset.appId = application.id;
+        card.dataset.status = status;
+        card.dataset.appId = String(appId);
 
         card.innerHTML = `
             <div class="application-card">
                 <div class="application-summary">
                     <div class="application-info">
-                        <span class="application-name">${application.name}</span>
-                        <span class="application-email">${application.email}</span>
-                        <span class="application-type">${application.account_type === 'foretagskonto' ? 'Företagskonto' : 'Standardkonto'}</span>
+                        <span class="application-name">${escapeHtml(application.name || '—')}</span>
+                        <span class="application-email">${escapeHtml(application.email || '—')}</span>
+                        <span class="application-type">${escapeHtml(accountTypeLabel)}</span>
                     </div>
-                    <span class="status-badge badge-${application.status}">${statusLabels[application.status] || application.status}</span>
+                    <span class="status-badge badge-${status}">${escapeHtml(statusLabels[status] || status)}</span>
                 </div>
                 <div class="application-meta">
-                    <span class="meta-chip">${application.account_type === 'foretagskonto' ? 'Företag' : 'Standard'}</span>
-                    <span class="meta-chip">${formatDate(application.created_at)}</span>
+                    <span class="meta-chip">${escapeHtml(accountTypeChip)}</span>
+                    <span class="meta-chip">${escapeHtml(formatDate(application.created_at))}</span>
                 </div>
                 <details class="application-detail-toggle">
                     <summary>Visa detaljer</summary>
@@ -151,8 +172,8 @@
                     <button type="button" class="btn btn-small btn-deny" data-action="reject">Avslå</button>
                 </div>
                 <div class="reject-panel" hidden>
-                    <label for="reject-reason-${application.id}">Motivering (valfritt)</label>
-                    <textarea id="reject-reason-${application.id}" rows="2" placeholder="Kort motivering till avslaget"></textarea>
+                    <label for="reject-reason-${appId}">Motivering (valfritt)</label>
+                    <textarea id="reject-reason-${appId}" rows="2" placeholder="Kort motivering till avslaget"></textarea>
                     <div class="reject-actions">
                         <button type="button" class="btn btn-small btn-deny" data-action="confirm-reject">Skicka avslag</button>
                         <button type="button" class="btn btn-small btn-secondary" data-action="cancel-reject">Avbryt</button>
@@ -161,7 +182,7 @@
             </div>
         `;
 
-        hookCardActions(card, application.id);
+        hookCardActions(card, appId);
         return card;
     }
 

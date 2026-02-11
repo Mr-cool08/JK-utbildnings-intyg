@@ -32,7 +32,7 @@
             close.className = 'toast-close';
             close.setAttribute('aria-label','Stäng meddelande');
             close.textContent = '×';
-            close.addEventListener('click', function(){ container.removeChild(toast); if(btn) btn.disabled = false; });
+            close.addEventListener('click', function(){ container.removeChild(toast); if(btn) { btn.disabled = false; btn.removeAttribute('aria-disabled'); } });
             toast.appendChild(msg);
             toast.appendChild(close);
             container.appendChild(toast);

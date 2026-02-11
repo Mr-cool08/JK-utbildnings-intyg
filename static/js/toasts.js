@@ -19,8 +19,14 @@
     }
     function hideToast(t){
         t.classList.remove('show');
-        // remove from DOM after transition
-        t.addEventListener('transitionend', function(){ if(t.parentNode) t.parentNode.removeChild(t); });
+        // remove from DOM after transition, with fallback if no transition fires
+        var fallbackTimer = setTimeout(function(){
+            if(t.parentNode) t.parentNode.removeChild(t);
+        }, 400);
+        t.addEventListener('transitionend', function(){
+            clearTimeout(fallbackTimer);
+            if(t.parentNode) t.parentNode.removeChild(t);
+        }, { once: true });
     }
     if(document.readyState === 'loading'){
         document.addEventListener('DOMContentLoaded', initToasts);
