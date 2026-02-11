@@ -115,6 +115,29 @@ def test_demo_mode_overrides_database_url(tmp_path, monkeypatch):
     finally:
         functions.reset_engine()
 
+
+def test_build_engine_enables_postgres_pool_safety(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
+    monkeypatch.setattr(
+        functions.importlib.util, "find_spec", lambda name: None
+    )
+    monkeypatch.setenv("POSTGRES_POOL_RECYCLE_SECONDS", "900")
+    captured = {}
+
+    def fake_create_engine(url, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr(functions, "create_engine", fake_create_engine)
+
+    functions._build_engine()
+
+    assert captured["url"].drivername == "postgresql"
+    assert captured["kwargs"]["pool_pre_ping"] is True
+    assert captured["kwargs"]["pool_recycle"] == 900
+
+
 def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
     monkeypatch.setattr(

@@ -720,6 +720,15 @@ def _build_engine() -> Engine:
 
     engine_kwargs: Dict[str, Any] = {"future": True}
 
+    if url.get_backend_name() == "postgresql":
+        # Validate pooled PostgreSQL connections before use to avoid stale sockets.
+        # This protects requests from intermittent libpq state errors after long idle periods.
+        engine_kwargs["pool_pre_ping"] = True
+        # Recycle connections periodically to reduce risk of server/network timeout reuse.
+        engine_kwargs["pool_recycle"] = int(
+            os.getenv("POSTGRES_POOL_RECYCLE_SECONDS", "1800")
+        )
+
     if url.get_backend_name() == "sqlite":
         database = url.database or ""
         if database not in ("", ":memory:"):
