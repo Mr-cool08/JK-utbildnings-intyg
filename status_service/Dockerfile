@@ -21,4 +21,7 @@ COPY status_service /app/status_service
 
 ENV STATUS_PORT=80
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=5 \
+  CMD python -c "import sys, urllib.request; urllib.request.urlopen('http://127.0.0.1:80/', timeout=3); sys.exit(0)" || exit 1
+
 CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:80", "status_service.app:app"]
