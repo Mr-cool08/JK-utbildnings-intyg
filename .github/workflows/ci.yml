@@ -36,26 +36,6 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov coverage ruff mypy
 
-      - name: Lint
-        run: ruff check app.py functions services status_service
-
-      # Auto-format only once (avoid 3 commits from matrix)
-      - name: Auto-format with Ruff
-        if: ${{ matrix.python-version == '3.12' }}
-        run: |
-          ruff format app.py functions services status_service
-
-      - name: Commit formatted code
-        if: ${{ matrix.python-version == '3.12' }}
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git config --global user.name "github-actions"
-            git config --global user.email "github-actions@github.com"
-            git add .
-            git commit -m "Auto-format with Ruff"
-            git push
-          fi
-
       - name: Typkontroll
         run: mypy app.py functions services status_service
 
