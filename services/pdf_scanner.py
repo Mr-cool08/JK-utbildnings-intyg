@@ -166,4 +166,8 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
     if decision == "REJECT":
         logger.warning("PDF blockerad efter skanning")
 
+    if result.returncode not in {0} and decision == "ALLOW":
+        logger.error("Quicksand returnerade kod %s utan fynd: %s", result.returncode, stderr)
+        raise ValueError("Säkerhetsskannern rapporterade ett fel.")
+
     return ScanVerdict(decision, sorted(findings))
