@@ -85,9 +85,7 @@ def save_pdf_for_user(
         content = file_storage.stream.read()
     else:
         content = _convert_image_to_pdf(file_storage)
-        logger.info(
-            "Konverterade %s till PDF för %s", mime, mask_hash(pnr_hash)
-        )
+        logger.info("Konverterade %s till PDF för %s", mime, mask_hash(pnr_hash))
 
     verdict: ScanVerdict = scan_pdf_bytes(content, logger)
     logger.info(

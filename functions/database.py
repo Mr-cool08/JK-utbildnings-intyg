@@ -365,15 +365,9 @@ def _migration_0003_add_invoice_fields(conn: Connection) -> None:
         _add_column_if_missing(conn, companies_table.name, "invoice_contact", "TEXT")
         _add_column_if_missing(conn, companies_table.name, "invoice_reference", "TEXT")
     if application_requests_table.name in existing_tables:
-        _add_column_if_missing(
-            conn, application_requests_table.name, "invoice_address", "TEXT"
-        )
-        _add_column_if_missing(
-            conn, application_requests_table.name, "invoice_contact", "TEXT"
-        )
-        _add_column_if_missing(
-            conn, application_requests_table.name, "invoice_reference", "TEXT"
-        )
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_address", "TEXT")
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_contact", "TEXT")
+        _add_column_if_missing(conn, application_requests_table.name, "invoice_reference", "TEXT")
 
 
 def _migration_0004_make_company_id_nullable(conn: Connection) -> None:
@@ -383,9 +377,7 @@ def _migration_0004_make_company_id_nullable(conn: Connection) -> None:
         return
 
     columns = inspector.get_columns(company_users_table.name)
-    company_id_column = next(
-        (column for column in columns if column["name"] == "company_id"), None
-    )
+    company_id_column = next((column for column in columns if column["name"] == "company_id"), None)
     if not company_id_column or company_id_column.get("nullable", False):
         return
 
@@ -469,10 +461,7 @@ def _migration_0006_add_application_personnummer_hash(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if application_requests_table.name in existing_tables:
-        _add_column_if_missing(
-            conn, application_requests_table.name, "personnummer_hash", "TEXT"
-        )
-
+        _add_column_if_missing(conn, application_requests_table.name, "personnummer_hash", "TEXT")
 
 
 def _migration_0007_add_supervisor_password_resets(conn: Connection) -> None:
@@ -480,6 +469,7 @@ def _migration_0007_add_supervisor_password_resets(conn: Connection) -> None:
     existing_tables = set(inspector.get_table_names())
     if supervisor_password_resets_table.name not in existing_tables:
         supervisor_password_resets_table.create(bind=conn)
+
 
 def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
     inspector = inspect(conn)
@@ -552,9 +542,7 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
 
     if dialect.startswith("postgresql"):
         conn.execute(
-            text(
-                "ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_email_key"
-            )
+            text("ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_email_key")
         )
         conn.execute(
             text(
@@ -566,7 +554,6 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
     raise RuntimeError(
         f"Migration 0007 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
     )
-
 
 
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
@@ -581,7 +568,6 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
 ]
 
 
-
 def run_migrations(engine: Engine) -> None:
     with engine.begin() as conn:
         inspector = inspect(conn)
@@ -589,8 +575,7 @@ def run_migrations(engine: Engine) -> None:
         if schema_migrations_table.name not in existing_tables:
             schema_migrations_table.create(bind=conn)
         applied_versions = {
-            row.version
-            for row in conn.execute(select(schema_migrations_table.c.version))
+            row.version for row in conn.execute(select(schema_migrations_table.c.version))
         }
         for version, migration_fn in MIGRATIONS:
             if version in applied_versions:
@@ -669,26 +654,16 @@ def _build_engine() -> Engine:
         port = os.getenv("POSTGRES_PORT", "5432")
 
         if not user:
-            logger.error(
-                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-            )
-            raise RuntimeError(
-                "POSTGRES_USER must be set when POSTGRES_HOST is configured"
-            )
+            logger.error("POSTGRES_USER must be set when POSTGRES_HOST is configured")
+            raise RuntimeError("POSTGRES_USER must be set when POSTGRES_HOST is configured")
         if not database:
-            logger.error(
-                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-            )
-            raise RuntimeError(
-                "POSTGRES_DB must be set when POSTGRES_HOST is configured"
-            )
+            logger.error("POSTGRES_DB must be set when POSTGRES_HOST is configured")
+            raise RuntimeError("POSTGRES_DB must be set when POSTGRES_HOST is configured")
 
         encoded_user = quote_plus(user)
         encoded_password = quote_plus(password)
         encoded_db = quote_plus(database)
-        credentials = (
-            encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
-        )
+        credentials = encoded_user if password == "" else f"{encoded_user}:{encoded_password}"
         port_segment = f":{port}" if port else ""
         db_url = f"postgresql://{credentials}@{host}{port_segment}/{encoded_db}"
     url = make_url(db_url)
@@ -725,9 +700,7 @@ def _build_engine() -> Engine:
         # This protects requests from intermittent libpq state errors after long idle periods.
         engine_kwargs["pool_pre_ping"] = True
         # Recycle connections periodically to reduce risk of server/network timeout reuse.
-        engine_kwargs["pool_recycle"] = int(
-            os.getenv("POSTGRES_POOL_RECYCLE_SECONDS", "1800")
-        )
+        engine_kwargs["pool_recycle"] = int(os.getenv("POSTGRES_POOL_RECYCLE_SECONDS", "1800"))
 
     if url.get_backend_name() == "sqlite":
         database = url.database or ""
@@ -778,6 +751,7 @@ def reset_engine() -> None:
             _ENGINE.dispose()
             # Brief pause to allow any in-flight operations to complete
             import time
+
             time.sleep(0.2)
         except Exception:
             logger.exception("Kunde inte stänga databasmotorn vid återställning")
@@ -827,9 +801,7 @@ def create_database() -> None:
         columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
         if "categories" not in columns:
             conn.execute(
-                text(
-                    "ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL"
-                )
+                text("ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL")
             )
         existing_tables = set(inspector.get_table_names())
         for table in (
@@ -856,9 +828,7 @@ def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalErro
     fallback_hosts = []
     if configured_fallback_hosts:
         fallback_hosts = [
-            host.strip()
-            for host in configured_fallback_hosts.split(",")
-            if host.strip()
+            host.strip() for host in configured_fallback_hosts.split(",") if host.strip()
         ]
     if not fallback_hosts:
         return False

@@ -42,9 +42,7 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
 
     with get_engine().begin() as conn:
         row = conn.execute(
-            select(users_table.c.email).where(
-                users_table.c.personnummer == personnummer_hash
-            )
+            select(users_table.c.email).where(users_table.c.personnummer == personnummer_hash)
         ).first()
         if not row:
             pending = conn.execute(
@@ -86,9 +84,7 @@ def create_supervisor_password_reset_token(email: str) -> str:
 
     with get_engine().begin() as conn:
         row = conn.execute(
-            select(supervisors_table.c.email).where(
-                supervisors_table.c.email == email_hash
-            )
+            select(supervisors_table.c.email).where(supervisors_table.c.email == email_hash)
         ).first()
         if not row:
             logger.warning(
