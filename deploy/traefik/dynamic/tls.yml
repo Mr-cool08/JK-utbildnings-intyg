@@ -1,0 +1,26 @@
+http:
+  middlewares:
+    security-headers:
+      headers:
+        # HSTS
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+
+        # Grundhärdning
+        contentTypeNosniff: true
+        referrerPolicy: "no-referrer"
+        frameDeny: true
+
+        # Behörigheter (Permissions-Policy)
+        permissionsPolicy: "geolocation=(), microphone=(), camera=()"
+
+    upload-buffer:
+      buffering:
+        # 100 MB
+        maxRequestBodyBytes: 104857600
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/origin.crt
+      keyFile: /etc/traefik/certs/origin.key
