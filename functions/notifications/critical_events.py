@@ -76,7 +76,9 @@ def _send_email_async(recipients: list[str], subject: str, html_body: str) -> No
                 email_service.send_email(recipient, subject, html_body)
         except Exception as e:
             logger.error(
-                "Misslyckades att skicka kritisk event-email till %s: %s", recipient, str(e)
+                "Misslyckades att skicka kritisk event-email till %s: %s",
+                mask_hash(hash_value(recipient)),
+                str(e),
             )
 
 

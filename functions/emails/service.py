@@ -463,7 +463,9 @@ def send_critical_event_alert(event_type: str, details: str = "") -> None:
         try:
             send_email(email_address, subject, body)
             logger.info(
-                "Critical event alert sent to %s for event_type=%s", email_address, event_type
+                "Critical event alert sent to %s for event_type=%s",
+                mask_hash(functions.hash_value(email_address)),
+                event_type,
             )
         except RuntimeError as e:
             logger.error("Failed to send critical event alert to %s: %s", email_address, e)
