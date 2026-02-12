@@ -379,8 +379,12 @@ def create_app() -> Flask:
     }
     app.config["DEMO_DEFAULTS"] = demo_defaults
 
-    if app.config["IS_DEMO"]:
-        logger.info("Demoläge aktiverat – initierar exempeldata")
+    should_seed_demo_accounts = app.config["IS_DEMO"] or dev_mode
+    if should_seed_demo_accounts:
+        if app.config["IS_DEMO"]:
+            logger.info("Demoläge aktiverat – initierar exempeldata")
+        else:
+            logger.info("Utvecklingsläge aktiverat – initierar demokonton utan demoläge")
         functions.ensure_demo_data(
             user_email=demo_defaults["user_email"],
             user_name=demo_defaults["user_name"],
@@ -391,6 +395,7 @@ def create_app() -> Flask:
             supervisor_password=demo_defaults["supervisor_password"],
             supervisor_orgnr=demo_defaults["supervisor_orgnr"],
         )
+    if app.config["IS_DEMO"]:
         _start_demo_reset_scheduler(app, demo_defaults)
 
     with app.app_context():
