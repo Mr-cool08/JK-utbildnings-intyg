@@ -20,9 +20,7 @@ load_environment()
 
 SALT = os.getenv("HASH_SALT", "static_salt")
 if SALT == "static_salt":
-    logger.warning(
-        "Using default HASH_SALT; set HASH_SALT in environment for stronger security"
-    )
+    logger.warning("Using default HASH_SALT; set HASH_SALT in environment for stronger security")
 
 DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
 TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
@@ -51,21 +49,15 @@ def hash_value(value: str) -> str:
 def normalize_email(email: str) -> str:
     # Normalize e-mail addresses before hashing or sending messages.
     if email is None:
-        raise ValueError(
-            "E-postadress saknas. Lägg till en adress så vi kan återkoppla till dig."
-        )
+        raise ValueError("E-postadress saknas. Lägg till en adress så vi kan återkoppla till dig.")
 
     if "\n" in email or "\r" in email:
-        raise ValueError(
-            "Ogiltig e-postadress: adressen får inte innehålla radbrytningar."
-        )
+        raise ValueError("Ogiltig e-postadress: adressen får inte innehålla radbrytningar.")
 
     cleaned = email.strip()
 
     if not cleaned:
-        raise ValueError(
-            "Ogiltig e-postadress: fyll i adressen enligt formatet namn@example.com."
-        )
+        raise ValueError("Ogiltig e-postadress: fyll i adressen enligt formatet namn@example.com.")
 
     if "@" not in cleaned or cleaned.startswith("@") or cleaned.endswith("@"):
         raise ValueError(
@@ -133,9 +125,7 @@ def validate_orgnr(orgnr: str) -> str:
 
     checksum = (10 - (total % 10)) % 10
     if checksum != int(normalized[-1]):
-        raise ValueError(
-            "Ogiltigt organisationsnummer. Kontrollera siffrorna och försök igen."
-        )
+        raise ValueError("Ogiltigt organisationsnummer. Kontrollera siffrorna och försök igen.")
     return normalized
 
 

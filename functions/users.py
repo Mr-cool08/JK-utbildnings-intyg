@@ -50,9 +50,7 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
     personnummer_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
-            select(users_table.c.password).where(
-                users_table.c.personnummer == personnummer_hash
-            )
+            select(users_table.c.password).where(users_table.c.personnummer == personnummer_hash)
         ).first()
     return bool(row and verify_password(row.password, password))
 
@@ -84,9 +82,7 @@ def check_pending_user(personnummer: str) -> bool:
     pnr_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
         row = conn.execute(
-            select(pending_users_table.c.id).where(
-                pending_users_table.c.personnummer == pnr_hash
-            )
+            select(pending_users_table.c.id).where(pending_users_table.c.personnummer == pnr_hash)
         ).first()
     return row is not None
 
@@ -127,9 +123,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 select(users_table.c.id).where(users_table.c.email == hashed_email)
             ).first()
             if existing_user:
-                logger.warning(
-                    "Attempt to recreate existing user hash %s", mask_hash(hashed_email)
-                )
+                logger.warning("Attempt to recreate existing user hash %s", mask_hash(hashed_email))
                 return False
             existing_pending = conn.execute(
                 select(pending_users_table.c.id).where(
@@ -137,9 +131,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                 )
             ).first()
             if existing_pending:
-                logger.warning(
-                    "Pending user already exists for hash %s", mask_hash(pnr_hash)
-                )
+                logger.warning("Pending user already exists for hash %s", mask_hash(pnr_hash))
                 return False
             conn.execute(
                 insert(pending_users_table).values(
@@ -163,9 +155,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
     try:
         with get_engine().begin() as conn:
             existing = conn.execute(
-                select(users_table.c.id).where(
-                    users_table.c.personnummer == personnummer_hash
-                )
+                select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
             ).first()
             if existing:
                 logger.warning("User %s already exists", mask_hash(personnummer_hash))
@@ -178,9 +168,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
                 ).where(pending_users_table.c.personnummer == personnummer_hash)
             ).first()
             if not row:
-                logger.warning(
-                    "Pending user %s not found", mask_hash(personnummer_hash)
-                )
+                logger.warning("Pending user %s not found", mask_hash(personnummer_hash))
                 return False
             conn.execute(
                 delete(pending_users_table).where(
@@ -229,9 +217,7 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
         return None
     with get_engine().connect() as conn:
         row = conn.execute(
-            select(users_table.c.username).where(
-                users_table.c.personnummer == personnummer_hash
-            )
+            select(users_table.c.username).where(users_table.c.personnummer == personnummer_hash)
         ).first()
     return row.username if row else None
 
@@ -275,59 +261,77 @@ def _admin_delete_user_account_by_hash(
             username = pending_row.username
 
         summary: dict[str, int] = {}
-        summary["pdfs"] = conn.execute(
-            delete(user_pdfs_table).where(
-                user_pdfs_table.c.personnummer == personnummer_hash
-            )
-        ).rowcount or 0
-        summary["password_resets"] = conn.execute(
-            delete(password_resets_table).where(
-                password_resets_table.c.personnummer == personnummer_hash
-            )
-        ).rowcount or 0
-        summary["supervisor_connections"] = conn.execute(
-            delete(supervisor_connections_table).where(
-                supervisor_connections_table.c.user_personnummer == personnummer_hash
-            )
-        ).rowcount or 0
-        summary["supervisor_link_requests"] = conn.execute(
-            delete(supervisor_link_requests_table).where(
-                supervisor_link_requests_table.c.user_personnummer == personnummer_hash
-            )
-        ).rowcount or 0
+        summary["pdfs"] = (
+            conn.execute(
+                delete(user_pdfs_table).where(user_pdfs_table.c.personnummer == personnummer_hash)
+            ).rowcount
+            or 0
+        )
+        summary["password_resets"] = (
+            conn.execute(
+                delete(password_resets_table).where(
+                    password_resets_table.c.personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["supervisor_connections"] = (
+            conn.execute(
+                delete(supervisor_connections_table).where(
+                    supervisor_connections_table.c.user_personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["supervisor_link_requests"] = (
+            conn.execute(
+                delete(supervisor_link_requests_table).where(
+                    supervisor_link_requests_table.c.user_personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
         application_ids = [
             row.id
             for row in conn.execute(
                 select(application_requests_table.c.id).where(
-                    application_requests_table.c.personnummer_hash
-                    == personnummer_hash
+                    application_requests_table.c.personnummer_hash == personnummer_hash
                 )
             ).fetchall()
         ]
         if application_ids:
-            summary["company_users"] = conn.execute(
-                delete(company_users_table).where(
-                    company_users_table.c.created_via_application_id.in_(
-                        application_ids
+            summary["company_users"] = (
+                conn.execute(
+                    delete(company_users_table).where(
+                        company_users_table.c.created_via_application_id.in_(application_ids)
                     )
-                )
-            ).rowcount or 0
+                ).rowcount
+                or 0
+            )
         else:
             summary["company_users"] = 0
-        summary["applications"] = conn.execute(
-            delete(application_requests_table).where(
-                application_requests_table.c.personnummer_hash
-                == personnummer_hash
-            )
-        ).rowcount or 0
-        summary["pending_users"] = conn.execute(
-            delete(pending_users_table).where(
-                pending_users_table.c.personnummer == personnummer_hash
-            )
-        ).rowcount or 0
-        summary["users"] = conn.execute(
-            delete(users_table).where(users_table.c.personnummer == personnummer_hash)
-        ).rowcount or 0
+        summary["applications"] = (
+            conn.execute(
+                delete(application_requests_table).where(
+                    application_requests_table.c.personnummer_hash == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["pending_users"] = (
+            conn.execute(
+                delete(pending_users_table).where(
+                    pending_users_table.c.personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["users"] = (
+            conn.execute(
+                delete(users_table).where(users_table.c.personnummer == personnummer_hash)
+            ).rowcount
+            or 0
+        )
 
     verify_certificate.cache_clear()
     logger.info("Admin raderade konto för %s", mask_hash(personnummer_hash))
@@ -339,12 +343,14 @@ def list_admin_accounts() -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     with get_engine().connect() as conn:
         user_rows = conn.execute(
-            select(users_table.c.username, users_table.c.personnummer)
-            .order_by(users_table.c.username.asc())
+            select(users_table.c.username, users_table.c.personnummer).order_by(
+                users_table.c.username.asc()
+            )
         ).fetchall()
         pending_rows = conn.execute(
-            select(pending_users_table.c.username, pending_users_table.c.personnummer)
-            .order_by(pending_users_table.c.username.asc())
+            select(pending_users_table.c.username, pending_users_table.c.personnummer).order_by(
+                pending_users_table.c.username.asc()
+            )
         ).fetchall()
 
     for row in user_rows:
@@ -380,9 +386,7 @@ def admin_update_user_account(
             select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
         ).first()
         pending_row = conn.execute(
-            select(pending_users_table.c.id).where(
-                pending_users_table.c.personnummer == pnr_hash
-            )
+            select(pending_users_table.c.id).where(pending_users_table.c.personnummer == pnr_hash)
         ).first()
         if not user_row and not pending_row:
             return False, None, "missing_account"
@@ -406,16 +410,22 @@ def admin_update_user_account(
             return False, None, "email_in_use"
 
         summary: dict[str, int] = {}
-        summary["users"] = conn.execute(
-            update(users_table)
-            .where(users_table.c.personnummer == pnr_hash)
-            .values(username=username, email=email_hash)
-        ).rowcount or 0
-        summary["pending_users"] = conn.execute(
-            update(pending_users_table)
-            .where(pending_users_table.c.personnummer == pnr_hash)
-            .values(username=username, email=email_hash)
-        ).rowcount or 0
+        summary["users"] = (
+            conn.execute(
+                update(users_table)
+                .where(users_table.c.personnummer == pnr_hash)
+                .values(username=username, email=email_hash)
+            ).rowcount
+            or 0
+        )
+        summary["pending_users"] = (
+            conn.execute(
+                update(pending_users_table)
+                .where(pending_users_table.c.personnummer == pnr_hash)
+                .values(username=username, email=email_hash)
+            ).rowcount
+            or 0
+        )
 
     logger.info(
         "Admin uppdaterade konto för %s",

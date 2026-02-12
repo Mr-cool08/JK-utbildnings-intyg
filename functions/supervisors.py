@@ -42,9 +42,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
     try:
         with get_engine().begin() as conn:
             existing_supervisor = conn.execute(
-                select(supervisors_table.c.id).where(
-                    supervisors_table.c.email == email_hash
-                )
+                select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
             ).first()
             if existing_supervisor:
                 logger.warning("Supervisor %s already exists", mask_hash(email_hash))
@@ -56,9 +54,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 )
             ).first()
             if existing_pending:
-                logger.warning(
-                    "Pending supervisor already exists for %s", mask_hash(email_hash)
-                )
+                logger.warning("Pending supervisor already exists for %s", mask_hash(email_hash))
                 return False
 
             conn.execute(
@@ -100,9 +96,7 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
     try:
         with get_engine().begin() as conn:
             existing = conn.execute(
-                select(supervisors_table.c.id).where(
-                    supervisors_table.c.email == email_hash
-                )
+                select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
             ).first()
             if existing:
                 logger.warning("Supervisor %s already activated", mask_hash(email_hash))
@@ -150,9 +144,7 @@ def supervisor_exists(email: str) -> bool:
     email_hash = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
-            select(supervisors_table.c.id).where(
-                supervisors_table.c.email == email_hash
-            )
+            select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
         ).first()
     return row is not None
 
@@ -163,9 +155,7 @@ def verify_supervisor_credentials(email: str, password: str) -> bool:
     email_hash = hash_value(normalized)
     with get_engine().connect() as conn:
         row = conn.execute(
-            select(supervisors_table.c.password).where(
-                supervisors_table.c.email == email_hash
-            )
+            select(supervisors_table.c.password).where(supervisors_table.c.email == email_hash)
         ).first()
     if not row:
         return False
@@ -271,8 +261,7 @@ def list_supervisor_connections(email_hash: str) -> List[Dict[str, Any]]:
             .select_from(
                 supervisor_connections_table.join(
                     users_table,
-                    supervisor_connections_table.c.user_personnummer
-                    == users_table.c.personnummer,
+                    supervisor_connections_table.c.user_personnummer == users_table.c.personnummer,
                 )
             )
             .where(supervisor_connections_table.c.supervisor_email == email_hash)
@@ -299,17 +288,14 @@ def supervisor_has_access(supervisor_email_hash: str, personnummer_hash: str) ->
     with get_engine().connect() as conn:
         row = conn.execute(
             select(supervisor_connections_table.c.id).where(
-                supervisor_connections_table.c.supervisor_email
-                == supervisor_email_hash,
+                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
                 supervisor_connections_table.c.user_personnummer == personnummer_hash,
             )
         ).first()
     return row is not None
 
 
-def supervisor_remove_connection(
-    supervisor_email_hash: str, personnummer_hash: str
-) -> bool:
+def supervisor_remove_connection(supervisor_email_hash: str, personnummer_hash: str) -> bool:
     # Remove a connection between supervisor and user.
     if not _is_valid_hash(supervisor_email_hash):
         logger.warning("Avvisade ogiltig hash för e-post")
@@ -320,10 +306,8 @@ def supervisor_remove_connection(
     with get_engine().begin() as conn:
         result = conn.execute(
             delete(supervisor_connections_table).where(
-                supervisor_connections_table.c.supervisor_email
-                == supervisor_email_hash,
-                supervisor_connections_table.c.user_personnummer
-                == personnummer_hash,
+                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer == personnummer_hash,
             )
         )
     return result.rowcount > 0
@@ -343,16 +327,14 @@ def list_user_supervisor_connections(personnummer_hash: str) -> List[Dict[str, s
             .select_from(
                 supervisor_connections_table.join(
                     supervisors_table,
-                    supervisor_connections_table.c.supervisor_email
-                    == supervisors_table.c.email,
+                    supervisor_connections_table.c.supervisor_email == supervisors_table.c.email,
                 )
             )
             .where(supervisor_connections_table.c.user_personnummer == personnummer_hash)
             .order_by(supervisors_table.c.name.asc())
         )
         return [
-            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name}
-            for row in rows
+            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name} for row in rows
         ]
 
 
@@ -370,16 +352,14 @@ def list_user_link_requests(personnummer_hash: str) -> List[Dict[str, str]]:
             .select_from(
                 supervisor_link_requests_table.join(
                     supervisors_table,
-                    supervisor_link_requests_table.c.supervisor_email
-                    == supervisors_table.c.email,
+                    supervisor_link_requests_table.c.supervisor_email == supervisors_table.c.email,
                 )
             )
             .where(supervisor_link_requests_table.c.user_personnummer == personnummer_hash)
             .order_by(supervisors_table.c.name.asc())
         )
         return [
-            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name}
-            for row in rows
+            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name} for row in rows
         ]
 
 
@@ -394,9 +374,7 @@ def create_supervisor_link_request(
 
     with get_engine().begin() as conn:
         supervisor_row = conn.execute(
-            select(supervisors_table.c.id).where(
-                supervisors_table.c.email == supervisor_email_hash
-            )
+            select(supervisors_table.c.id).where(supervisors_table.c.email == supervisor_email_hash)
         ).first()
         if not supervisor_row:
             logger.warning(
@@ -418,8 +396,7 @@ def create_supervisor_link_request(
 
         existing_connection = conn.execute(
             select(supervisor_connections_table.c.id).where(
-                supervisor_connections_table.c.supervisor_email
-                == supervisor_email_hash,
+                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
                 supervisor_connections_table.c.user_personnummer == pnr_hash,
             )
         ).first()
@@ -428,8 +405,7 @@ def create_supervisor_link_request(
 
         existing_request = conn.execute(
             select(supervisor_link_requests_table.c.id).where(
-                supervisor_link_requests_table.c.supervisor_email
-                == supervisor_email_hash,
+                supervisor_link_requests_table.c.supervisor_email == supervisor_email_hash,
                 supervisor_link_requests_table.c.user_personnummer == pnr_hash,
             )
         ).first()
@@ -451,9 +427,7 @@ def create_supervisor_link_request(
     return True, "created"
 
 
-def user_accept_link_request(
-    personnummer_hash: str, supervisor_email_hash: str
-) -> bool:
+def user_accept_link_request(personnummer_hash: str, supervisor_email_hash: str) -> bool:
     # Accept a supervisor link request and create the connection.
     if not _is_valid_hash(personnummer_hash):
         logger.warning("Avvisade ogiltig hash för personnummer")
@@ -465,10 +439,8 @@ def user_accept_link_request(
     with get_engine().begin() as conn:
         request_row = conn.execute(
             select(supervisor_link_requests_table.c.id).where(
-                supervisor_link_requests_table.c.supervisor_email
-                == supervisor_email_hash,
-                supervisor_link_requests_table.c.user_personnummer
-                == personnummer_hash,
+                supervisor_link_requests_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_link_requests_table.c.user_personnummer == personnummer_hash,
             )
         ).first()
         if not request_row:
@@ -476,10 +448,8 @@ def user_accept_link_request(
 
         existing_connection = conn.execute(
             select(supervisor_connections_table.c.id).where(
-                supervisor_connections_table.c.supervisor_email
-                == supervisor_email_hash,
-                supervisor_connections_table.c.user_personnummer
-                == personnummer_hash,
+                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer == personnummer_hash,
             )
         ).first()
         if not existing_connection:
@@ -498,9 +468,7 @@ def user_accept_link_request(
     return True
 
 
-def user_reject_link_request(
-    personnummer_hash: str, supervisor_email_hash: str
-) -> bool:
+def user_reject_link_request(personnummer_hash: str, supervisor_email_hash: str) -> bool:
     # Reject a supervisor link request.
     if not _is_valid_hash(personnummer_hash):
         logger.warning("Avvisade ogiltig hash för personnummer")
@@ -511,18 +479,14 @@ def user_reject_link_request(
     with get_engine().begin() as conn:
         result = conn.execute(
             delete(supervisor_link_requests_table).where(
-                supervisor_link_requests_table.c.supervisor_email
-                == supervisor_email_hash,
-                supervisor_link_requests_table.c.user_personnummer
-                == personnummer_hash,
+                supervisor_link_requests_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_link_requests_table.c.user_personnummer == personnummer_hash,
             )
         )
     return result.rowcount > 0
 
 
-def user_remove_supervisor_connection(
-    personnummer_hash: str, supervisor_email_hash: str
-) -> bool:
+def user_remove_supervisor_connection(personnummer_hash: str, supervisor_email_hash: str) -> bool:
     # Remove a supervisor connection from the user side.
     if not _is_valid_hash(personnummer_hash):
         logger.warning("Avvisade ogiltig hash för personnummer")
@@ -533,18 +497,14 @@ def user_remove_supervisor_connection(
     with get_engine().begin() as conn:
         result = conn.execute(
             delete(supervisor_connections_table).where(
-                supervisor_connections_table.c.supervisor_email
-                == supervisor_email_hash,
-                supervisor_connections_table.c.user_personnummer
-                == personnummer_hash,
+                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_connections_table.c.user_personnummer == personnummer_hash,
             )
         )
     return result.rowcount > 0
 
 
-def admin_link_supervisor_to_user(
-    orgnr: str, personnummer: str
-) -> tuple[bool, str, Optional[str]]:
+def admin_link_supervisor_to_user(orgnr: str, personnummer: str) -> tuple[bool, str, Optional[str]]:
     # Create a connection between a supervisor and a user.
     details = get_supervisor_login_details_for_orgnr(orgnr)
     if not details:
@@ -617,8 +577,7 @@ def get_supervisor_overview(email_hash: str) -> Optional[Dict[str, Any]]:
             .select_from(
                 supervisor_connections_table.join(
                     users_table,
-                    supervisor_connections_table.c.user_personnummer
-                    == users_table.c.personnummer,
+                    supervisor_connections_table.c.user_personnummer == users_table.c.personnummer,
                 )
             )
             .where(supervisor_connections_table.c.supervisor_email == email_hash)
@@ -680,43 +639,55 @@ def admin_delete_supervisor_account(
             email_hashes.append(hash_value(normalized_email))
 
         if company_ids:
-            summary["company_users"] = conn.execute(
-                delete(company_users_table).where(
-                    company_users_table.c.company_id.in_(company_ids),
-                    company_users_table.c.role == "foretagskonto",
-                )
-            ).rowcount or 0
+            summary["company_users"] = (
+                conn.execute(
+                    delete(company_users_table).where(
+                        company_users_table.c.company_id.in_(company_ids),
+                        company_users_table.c.role == "foretagskonto",
+                    )
+                ).rowcount
+                or 0
+            )
 
         if email_hashes:
-            summary["supervisors"] = conn.execute(
-                delete(supervisors_table).where(
-                    supervisors_table.c.email.in_(email_hashes)
-                )
-            ).rowcount or 0
-            summary["pending_supervisors"] = conn.execute(
-                delete(pending_supervisors_table).where(
-                    pending_supervisors_table.c.email.in_(email_hashes)
-                )
-            ).rowcount or 0
-            summary["supervisor_connections"] = conn.execute(
-                delete(supervisor_connections_table).where(
-                    supervisor_connections_table.c.supervisor_email.in_(
-                        email_hashes
+            summary["supervisors"] = (
+                conn.execute(
+                    delete(supervisors_table).where(supervisors_table.c.email.in_(email_hashes))
+                ).rowcount
+                or 0
+            )
+            summary["pending_supervisors"] = (
+                conn.execute(
+                    delete(pending_supervisors_table).where(
+                        pending_supervisors_table.c.email.in_(email_hashes)
                     )
-                )
-            ).rowcount or 0
-            summary["supervisor_link_requests"] = conn.execute(
-                delete(supervisor_link_requests_table).where(
-                    supervisor_link_requests_table.c.supervisor_email.in_(
-                        email_hashes
+                ).rowcount
+                or 0
+            )
+            summary["supervisor_connections"] = (
+                conn.execute(
+                    delete(supervisor_connections_table).where(
+                        supervisor_connections_table.c.supervisor_email.in_(email_hashes)
                     )
-                )
-            ).rowcount or 0
-            summary["supervisor_password_resets"] = conn.execute(
-                delete(supervisor_password_resets_table).where(
-                    supervisor_password_resets_table.c.email.in_(email_hashes)
-                )
-            ).rowcount or 0
+                ).rowcount
+                or 0
+            )
+            summary["supervisor_link_requests"] = (
+                conn.execute(
+                    delete(supervisor_link_requests_table).where(
+                        supervisor_link_requests_table.c.supervisor_email.in_(email_hashes)
+                    )
+                ).rowcount
+                or 0
+            )
+            summary["supervisor_password_resets"] = (
+                conn.execute(
+                    delete(supervisor_password_resets_table).where(
+                        supervisor_password_resets_table.c.email.in_(email_hashes)
+                    )
+                ).rowcount
+                or 0
+            )
 
         if company_ids:
             remaining = conn.execute(
@@ -725,11 +696,12 @@ def admin_delete_supervisor_account(
                 )
             ).first()
             if not remaining:
-                summary["companies"] = conn.execute(
-                    delete(companies_table).where(
-                        companies_table.c.id.in_(company_ids)
-                    )
-                ).rowcount or 0
+                summary["companies"] = (
+                    conn.execute(
+                        delete(companies_table).where(companies_table.c.id.in_(company_ids))
+                    ).rowcount
+                    or 0
+                )
 
     logger.info("Admin raderade företagskonto för %s", normalized_orgnr)
     return True, summary, normalized_orgnr

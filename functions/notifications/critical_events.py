@@ -23,7 +23,7 @@ load_environment()
 
 def _get_admin_emails() -> list[str]:
     """Get admin email addresses from environment.
-    
+
     Supports both single and multiple emails:
     - Single: ADMIN_EMAIL=email@example.com
     - Multiple: ADMIN_EMAIL=email1@example.com,email2@example.com
@@ -31,12 +31,12 @@ def _get_admin_emails() -> list[str]:
     email_str = os.getenv("ADMIN_EMAIL")
     if not email_str:
         raise RuntimeError("ADMIN_EMAIL environment variable is not set")
-    
+
     # Split by comma and strip whitespace
     emails = [e.strip() for e in email_str.split(",") if e.strip()]
     if not emails:
         raise RuntimeError("ADMIN_EMAIL environment variable is empty")
-    
+
     return emails
 
 
@@ -64,9 +64,7 @@ def _get_hostname() -> str:
         return "okänd"
 
 
-def _send_email_async(
-    recipients: list[str], subject: str, html_body: str
-) -> None:
+def _send_email_async(recipients: list[str], subject: str, html_body: str) -> None:
     """Send email asynchronously to multiple recipients to avoid blocking the application."""
     attachments: list[tuple[str, bytes]] = collect_log_attachments()
 
@@ -77,7 +75,11 @@ def _send_email_async(
             else:
                 email_service.send_email(recipient, subject, html_body)
         except Exception as e:
-            logger.error("Misslyckades att skicka kritisk event-email till %s: %s", recipient, str(e))
+            logger.error(
+                "Misslyckades att skicka kritisk event-email till %s: %s",
+                mask_hash(hash_value(recipient)),
+                str(e),
+            )
 
 
 def send_critical_event_email(
@@ -88,7 +90,7 @@ def send_critical_event_email(
 ) -> None:
     """
     Send an email notification about a critical application event.
-    
+
     Args:
         event_type: Type of event (startup, shutdown, crash, restart, error)
         title: Email subject title
@@ -100,22 +102,22 @@ def send_critical_event_email(
         app_name = _get_app_name()
         timestamp = _get_timestamp()
         hostname = _get_hostname()
-        
+
         safe_description = escape(description)
         safe_error = escape(error_message) if error_message else None
-        
+
         # Determine event icon and color
         event_colors = {
-            "startup": "#28a745",      # Green
-            "shutdown": "#ffc107",     # Amber
-            "crash": "#dc3545",        # Red
-            "restart": "#17a2b8",      # Cyan
-            "error": "#e74c3c",        # Red-orange
-            "exception": "#dc3545",    # Red
-            "warning": "#ff9800",      # Orange
+            "startup": "#28a745",  # Green
+            "shutdown": "#ffc107",  # Amber
+            "crash": "#dc3545",  # Red
+            "restart": "#17a2b8",  # Cyan
+            "error": "#e74c3c",  # Red-orange
+            "exception": "#dc3545",  # Red
+            "warning": "#ff9800",  # Orange
         }
         color = event_colors.get(event_type.lower(), "#6c757d")  # Gray default
-        
+
         content = (
             f"<p><strong>Tidsstämpel:</strong> {timestamp}</p>"
             f"<p><strong>Applikation:</strong> {escape(app_name)}</p>"
@@ -144,22 +146,20 @@ def send_critical_event_email(
             content,
             accent_color=color,
         )
-        
+
         # Send email asynchronously to avoid blocking
         thread = Thread(
-            target=_send_email_async,
-            args=(admin_emails, title, html_body),
-            daemon=True
+            target=_send_email_async, args=(admin_emails, title, html_body), daemon=True
         )
         thread.start()
-        
+
         logger.info(
             "Kritisk event-email skickad för %s: %s till %d mottagare",
             event_type,
             title,
-            len(admin_emails)
+            len(admin_emails),
         )
-        
+
     except RuntimeError as e:
         logger.error("Kan inte skicka kritisk event-email: %s", str(e))
     except Exception as e:
@@ -215,9 +215,9 @@ def send_unhandled_exception_notification(
     full_error = error_message
     if traceback:
         full_error = f"{error_message}\n\n--- Traceback ---\n{traceback}"
-    
+
     description = f"En obehandlad exception uppstod i applikationen.\n\nKontext: {escape(context)}\nTidsstämpel: {_get_timestamp()}"
-    
+
     send_critical_event_email(
         event_type="exception",
         title="⚠️ Obehandlad Exception",
@@ -237,9 +237,9 @@ def send_critical_error_notification(
         context_parts.append(f"Endpoint: {escape(endpoint)}")
     if user_ip:
         context_parts.append(f"IP-adress: {escape(user_ip)}")
-    
+
     context_str = "\n".join(context_parts) if context_parts else "Okänd kontext"
-    
+
     send_critical_event_email(
         event_type="error",
         title="🔴 Kritiskt HTTP-fel (500)",

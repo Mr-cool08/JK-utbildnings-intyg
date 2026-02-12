@@ -81,9 +81,7 @@ def ensure_demo_data(
     try:
         normalized_orgnr = validate_orgnr(supervisor_orgnr) if supervisor_orgnr else None
     except ValueError:
-        logger.error(
-            "Ogiltigt organisationsnummer för demoföretagskonto: %s", supervisor_orgnr
-        )
+        logger.error("Ogiltigt organisationsnummer för demoföretagskonto: %s", supervisor_orgnr)
         normalized_orgnr = None
 
     pnr_hash = _hash_personnummer(normalized_pnr)
@@ -112,14 +110,10 @@ def ensure_demo_data(
             logger.info("Demodata: uppdaterade demoanvändare")
         else:
             conn.execute(
-                delete(pending_users_table).where(
-                    pending_users_table.c.personnummer == pnr_hash
-                )
+                delete(pending_users_table).where(pending_users_table.c.personnummer == pnr_hash)
             )
             conn.execute(
-                delete(pending_users_table).where(
-                    pending_users_table.c.email == user_email_hash
-                )
+                delete(pending_users_table).where(pending_users_table.c.email == user_email_hash)
             )
             conn.execute(
                 insert(pending_users_table).values(
@@ -142,9 +136,7 @@ def ensure_demo_data(
     supervisor_created = False
     with engine.begin() as conn:
         existing_supervisor = conn.execute(
-            select(supervisors_table.c.id).where(
-                supervisors_table.c.email == supervisor_email_hash
-            )
+            select(supervisors_table.c.id).where(supervisors_table.c.email == supervisor_email_hash)
         ).first()
         if existing_supervisor:
             conn.execute(
@@ -213,8 +205,7 @@ def ensure_demo_data(
                     conn.execute(
                         update(company_users_table)
                         .where(
-                            company_users_table.c.email
-                            == normalized_supervisor_email,
+                            company_users_table.c.email == normalized_supervisor_email,
                             company_users_table.c.role == "foretagskonto",
                         )
                         .values(
@@ -243,9 +234,7 @@ def ensure_demo_data(
                     )
 
     if normalized_orgnr:
-        linked, reason, _ = admin_link_supervisor_to_user(
-            normalized_orgnr, normalized_pnr
-        )
+        linked, reason, _ = admin_link_supervisor_to_user(normalized_orgnr, normalized_pnr)
         if linked:
             logger.info("Demodata: kopplade företagskonto och demoanvändare")
         elif reason != "exists":
@@ -261,12 +250,12 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
     import os
     import time
-    
+
     # Protect against accidental database reset in production
     if not os.getenv("DEV_MODE", "").lower() in ("true", "1", "ja", "on", "sant", "t", "yes", "y"):
         logger.warning("reset_demo_database blocked: DEV_MODE not enabled")
         return False
-    
+
     try:
         engine = get_engine()
         url = engine.url
@@ -313,18 +302,12 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
 DEMO_PDF_DEFINITIONS = [
     {
         "filename": "Kompetensintyg_Demoanvandare.pdf",
-        "path": Path(APP_ROOT)
-        / "demo_assets"
-        / "pdfs"
-        / "Kompetensintyg_Demoanvandare.pdf",
+        "path": Path(APP_ROOT) / "demo_assets" / "pdfs" / "Kompetensintyg_Demoanvandare.pdf",
         "categories": ["fallskydd", "heta-arbeten"],
     },
     {
         "filename": "Utbildningsbevis_Demoanvandare.pdf",
-        "path": Path(APP_ROOT)
-        / "demo_assets"
-        / "pdfs"
-        / "Utbildningsbevis_Demoanvandare.pdf",
+        "path": Path(APP_ROOT) / "demo_assets" / "pdfs" / "Utbildningsbevis_Demoanvandare.pdf",
         "categories": ["lift"],
     },
 ]
@@ -362,5 +345,6 @@ def _ensure_demo_pdfs(personnummer_hash: str) -> None:
         else:
             store_pdf_blob(personnummer_hash, filename, content, pdf.get("categories"))
             existing_filenames.add(filename)
+
 
 # Copyright (c) Liam Suorsa

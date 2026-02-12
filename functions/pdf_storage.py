@@ -49,9 +49,7 @@ def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:
     if deleted:
         logger.info("PDF %s raderades för %s", pdf_id, mask_hash(personnummer_hash))
     else:
-        logger.warning(
-            "PDF %s kunde inte raderas för %s", pdf_id, mask_hash(personnummer_hash)
-        )
+        logger.warning("PDF %s kunde inte raderas för %s", pdf_id, mask_hash(personnummer_hash))
     return deleted
 
 

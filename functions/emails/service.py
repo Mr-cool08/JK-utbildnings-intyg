@@ -59,9 +59,7 @@ def load_smtp_settings() -> SMTPSettings:
     try:
         normalized_from = normalize_valid_email(smtp_from)
     except ValueError as exc:
-        raise RuntimeError(
-            "Ogiltig avsändaradress. Ange en giltig smtp_from."
-        ) from exc
+        raise RuntimeError("Ogiltig avsändaradress. Ange en giltig smtp_from.") from exc
 
     return SMTPSettings(
         server=smtp_server,
@@ -220,9 +218,7 @@ def send_email(
             )
 
     send_email_message(msg, normalized_email, settings)
-    logger.info(
-        "E-post med ämne '%s' skickad till %s", subject, recipient_mask
-    )
+    logger.info("E-post med ämne '%s' skickad till %s", subject, recipient_mask)
 
 
 def format_email_html(
@@ -361,13 +357,9 @@ def send_pdf_share_email(
     if len(attachments) == 1:
         safe_filename = escape(attachments[0][0])
         if safe_owner:
-            sharing_line = (
-                f"<p><strong>{safe_sender}</strong> delar <strong>{safe_owner}</strong>s intyg med dig via utbildningsintyg.se.</p>"
-            )
+            sharing_line = f"<p><strong>{safe_sender}</strong> delar <strong>{safe_owner}</strong>s intyg med dig via utbildningsintyg.se.</p>"
         else:
-            sharing_line = (
-                f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via utbildningsintyg.se.</p>"
-            )
+            sharing_line = f"<p><strong>{safe_sender}</strong> har delat ett intyg med dig via utbildningsintyg.se.</p>"
         content = (
             "<p>Hej,</p>"
             + sharing_line
@@ -375,21 +367,13 @@ def send_pdf_share_email(
             "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
         )
     else:
-        item_list = "".join(
-            f"<li><em>{escape(filename)}</em></li>" for filename, _ in attachments
-        )
+        item_list = "".join(f"<li><em>{escape(filename)}</em></li>" for filename, _ in attachments)
         if safe_owner:
-            sharing_line = (
-                f"<p><strong>{safe_sender}</strong> delar intyg som tillhör <strong>{safe_owner}</strong> med dig via utbildningsintyg.se.</p>"
-            )
+            sharing_line = f"<p><strong>{safe_sender}</strong> delar intyg som tillhör <strong>{safe_owner}</strong> med dig via utbildningsintyg.se.</p>"
         else:
-            sharing_line = (
-                f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via utbildningsintyg.se.</p>"
-            )
+            sharing_line = f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via utbildningsintyg.se.</p>"
         content = (
-            "<p>Hej,</p>"
-            + sharing_line
-            + "<p>Intygen hittar du i följande bilagor:</p>"
+            "<p>Hej,</p>" + sharing_line + "<p>Intygen hittar du i följande bilagor:</p>"
             f"<ul>{item_list}</ul>"
             "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
         )
@@ -398,11 +382,7 @@ def send_pdf_share_email(
     send_email(recipient_email, subject, body_html, attachments=attachments)
 
 
-
-
-def send_application_rejection_email(
-    to_email: str, company_name: str, reason: str
-) -> None:
+def send_application_rejection_email(to_email: str, company_name: str, reason: str) -> None:
     """Skicka besked om avslagen ansökan."""
 
     safe_company = escape((company_name or "").strip())
@@ -425,24 +405,24 @@ def send_application_rejection_email(
 
 def send_critical_event_alert(event_type: str, details: str = "") -> None:
     """Skicka kritisk händelseavisering till en eller flera systemadministratörer.
-    
+
     Supports multiple email addresses separated by commas:
     CRITICAL_ALERTS_EMAIL=admin1@example.com,admin2@example.com
     """
 
     alert_email_str = os.getenv("CRITICAL_ALERTS_EMAIL", "admin@example.com")
-    
+
     if not alert_email_str:
         logger.warning("CRITICAL_ALERTS_EMAIL not configured, cannot send alert")
         return
-    
+
     # Split by comma and strip whitespace
     alert_emails = [e.strip() for e in alert_email_str.split(",") if e.strip()]
-    
+
     if not alert_emails:
         logger.warning("CRITICAL_ALERTS_EMAIL is empty, cannot send alert")
         return
-    
+
     event_labels = {
         "startup": "Applikationen startade",
         "shutdown": "Applikationen stängdes av",
@@ -450,16 +430,17 @@ def send_critical_event_alert(event_type: str, details: str = "") -> None:
         "crash": "Applikationen kraschade",
         "error": "Kritiskt fel inträffade",
     }
-    
+
     event_label = event_labels.get(event_type, event_type)
     safe_details = escape(details) if details else "Ingen ytterligare information."
-    
+
     subject = f"[KRITISK HÄNDELSE] {event_label}"
-    
+
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     hostname = os.getenv("HOSTNAME", "okänd")
-    
+
     content = (
         "<p>En kritisk systemhändelse har inträffat.</p>"
         f"<p><strong>Händelse:</strong> {event_label}</p>"
@@ -476,11 +457,15 @@ def send_critical_event_alert(event_type: str, details: str = "") -> None:
         accent_color="#dc2626",
         footer_text="Detta är ett automatiskt meddelande från systemövervakningen för utbildningsintyg.se.",
     )
-    
+
     # Send to all configured email addresses
     for email_address in alert_emails:
         try:
             send_email(email_address, subject, body)
-            logger.info("Critical event alert sent to %s for event_type=%s", email_address, event_type)
+            logger.info(
+                "Critical event alert sent to %s for event_type=%s",
+                mask_hash(functions.hash_value(email_address)),
+                event_type,
+            )
         except RuntimeError as e:
             logger.error("Failed to send critical event alert to %s: %s", email_address, e)
