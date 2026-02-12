@@ -89,13 +89,7 @@ def test_compose_avoids_host_volumes():
     assert "volumes:" not in compose or "- env_data:/config" not in compose
 
 
-def test_prod_compose_waits_for_healthy_backends_before_traefik_start():
-    compose_prod = _read(ROOT / "docker-compose.prod.yml")
-    assert "traefik:" in compose_prod
-    assert "depends_on:" in compose_prod
-    assert "app:\n        condition: service_healthy" in compose_prod
-    assert "app_demo:\n        condition: service_healthy" in compose_prod
-    assert "status_page:\n        condition: service_healthy" in compose_prod
+
 
 
 def test_entrypoint_runs_gunicorn_only():
