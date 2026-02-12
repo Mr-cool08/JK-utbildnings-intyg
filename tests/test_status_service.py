@@ -223,6 +223,33 @@ def test_build_latency_series_skips_invalid_items():
     ]
 
 
+
+
+def test_check_http_status_handles_timeout_error(monkeypatch, caplog):
+    def fake_urlopen(*_args, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.check_http_status("Test", "http://test")
+
+    assert result == {"name": "Test", "status": "Fel", "details": "Timeout"}
+    assert "nådde timeout" in caplog.text
+
+
+def test_check_http_status_handles_timeout_inside_url_error(monkeypatch, caplog):
+    def fake_urlopen(*_args, **_kwargs):
+        raise error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    with caplog.at_level(logging.WARNING):
+        result = status_checks.check_http_status("Test", "http://test")
+
+    assert result == {"name": "Test", "status": "Fel", "details": "Timeout"}
+    assert "nådde timeout" in caplog.text
+
 def test_check_http_status_handles_http_error(monkeypatch, caplog):
     class FakeResponse:
         def __init__(self, status):
