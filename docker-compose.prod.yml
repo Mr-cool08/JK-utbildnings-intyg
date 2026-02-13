@@ -3,13 +3,6 @@
 services:
   traefik:
     image: traefik:2.11
-    depends_on:
-      app:
-        condition: service_healthy
-      app_demo:
-        condition: service_healthy
-      status_page:
-        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
@@ -185,6 +178,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      traefik:
+        condition: service_started
     mem_limit: 256m
     memswap_limit: 256m
     cpus: "0.30"
