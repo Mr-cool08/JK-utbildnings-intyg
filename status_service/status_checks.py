@@ -60,7 +60,6 @@ def check_tcp(host, port, timeout=2):
             host,
             port,
             timeout,
-            exc_info=True,
         )
         return False
 
@@ -247,8 +246,22 @@ def check_http_status(name, url, timeout=3):
                 url,
             )
             return {"name": name, "status": "Fel", "details": "Anslutning nekades"}
-        LOGGER.exception("HTTP-kontroll '%s' misslyckades för %s.", name, url)
+        if isinstance(reason, TimeoutError):
+            LOGGER.warning(
+                "HTTP-kontroll '%s' nådde timeout för %s.",
+                name,
+                url,
+            )
+            return {"name": name, "status": "Fel", "details": "Timeout"}
+        LOGGER.warning("HTTP-kontroll '%s' misslyckades för %s: %s", name, url, reason)
         return {"name": name, "status": "Fel", "details": "Nätverksfel"}
+    except TimeoutError:
+        LOGGER.warning(
+            "HTTP-kontroll '%s' nådde timeout för %s.",
+            name,
+            url,
+        )
+        return {"name": name, "status": "Fel", "details": "Timeout"}
     except Exception:
         LOGGER.exception("HTTP-kontroll '%s' misslyckades för %s.", name, url)
         return {"name": name, "status": "Fel", "details": "Okänt fel"}
