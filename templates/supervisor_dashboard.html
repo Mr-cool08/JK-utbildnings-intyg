@@ -6,14 +6,19 @@
     <p>Välkommen {{ supervisor_name }}. Här ser du alla användarkonton som administratören har kopplat till dig.</p>
     {% if users %}
         <section class="panel">
-            <label for="supervisor-user-search">Sök efter person</label>
-            <input id="supervisor-user-search" type="search" placeholder="Sök på namn" data-user-search>
+            <form class="supervisor-search" data-user-search-form>
+                <label for="supervisor-user-search">Sök efter person</label>
+                <div class="supervisor-search-controls">
+                    <input id="supervisor-user-search" type="search" placeholder="Sök på namn" data-user-search>
+                    <button type="submit" class="btn btn-secondary" data-user-search-button>Sök</button>
+                </div>
+            </form>
             <p id="supervisor-user-search-empty" hidden>Inga användare matchar din sökning.</p>
         </section>
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}" data-user-panel data-user-name="{{ user.username | lower }}">
                 <details>
-                    <summary>
+                    <summary class="supervisor-user-summary">
                         {{ user.username }}
                         {% if user.pdfs %}
                             ({{ user.pdfs | length }} intyg)
@@ -91,27 +96,36 @@
 (function(){
     var formulär = document.querySelectorAll('[data-supervisor-remove]');
     var sokfalt = document.querySelector('[data-user-search]');
+    var sokFormular = document.querySelector('[data-user-search-form]');
     var användarpaneler = document.querySelectorAll('[data-user-panel]');
     var tomtMeddelande = document.getElementById('supervisor-user-search-empty');
 
-    if (sokfalt && användarpaneler.length) {
-        sokfalt.addEventListener('input', function() {
-            var soktext = sokfalt.value.toLowerCase().trim();
-            var antalTraffar = 0;
+    function filtreraAnvandare() {
+        var soktext = sokfalt.value.toLowerCase().trim();
+        var antalTraffar = 0;
 
-            användarpaneler.forEach(function(panel) {
-                var namn = panel.getAttribute('data-user-name') || '';
-                var matchar = !soktext || namn.indexOf(soktext) !== -1;
-                panel.hidden = !matchar;
-                if (matchar) {
-                    antalTraffar += 1;
-                }
-            });
-
-            if (tomtMeddelande) {
-                tomtMeddelande.hidden = antalTraffar !== 0;
+        användarpaneler.forEach(function(panel) {
+            var namn = panel.getAttribute('data-user-name') || '';
+            var matchar = !soktext || namn.indexOf(soktext) !== -1;
+            panel.hidden = !matchar;
+            if (matchar) {
+                antalTraffar += 1;
             }
         });
+
+        if (tomtMeddelande) {
+            tomtMeddelande.hidden = antalTraffar !== 0;
+        }
+    }
+
+    if (sokfalt && användarpaneler.length) {
+        sokfalt.addEventListener('input', filtreraAnvandare);
+        if (sokFormular) {
+            sokFormular.addEventListener('submit', function(event) {
+                event.preventDefault();
+                filtreraAnvandare();
+            });
+        }
     }
 
     formulär.forEach(function(form){

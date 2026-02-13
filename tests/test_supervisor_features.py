@@ -119,7 +119,9 @@ def test_supervisor_dashboard_has_dropdown_and_search(supervisor_setup):
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert 'data-user-search' in body
+    assert 'data-user-search-button' in body
     assert '<details>' in body
+    assert 'supervisor-user-summary' in body
     assert 'data-user-panel' in body
 
 
