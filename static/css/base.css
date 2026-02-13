@@ -766,6 +766,27 @@ textarea:focus {
     font-size: 0.95rem;
 }
 
+.supervisor-search {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.supervisor-search-controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.supervisor-search-controls input {
+    flex: 1 1 260px;
+    margin-bottom: 0;
+}
+
+.supervisor-user-summary {
+    cursor: pointer;
+}
+
 .filter-group {
     display: flex;
     flex-wrap: wrap;
