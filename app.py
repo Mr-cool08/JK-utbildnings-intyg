@@ -644,12 +644,37 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     # Allow a pending user to set a password and activate the account.
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == "POST":
-        password = request.form["password"]
+        password = request.form.get("password", "").strip()
+        confirm = request.form.get("confirm", password).strip()
+        if password != confirm:
+            return render_template(
+                "create_supervisor.html",
+                invalid=False,
+                page_title="Skapa konto",
+                heading="Skapa konto",
+                description=(
+                    "Välj ett starkt lösenord för ditt konto. "
+                    "Lösenordet måste vara minst åtta tecken långt."
+                ),
+                submit_text="Skapa konto",
+                error="Lösenorden måste matcha.",
+            )
         logger.debug("Creating user with hash %s", pnr_hash)
         functions.user_create_user(password, pnr_hash)
         return redirect("/login")
     if functions.check_pending_user_hash(pnr_hash):
-        return render_template("create_user.html")
+        return render_template(
+            "create_supervisor.html",
+            invalid=False,
+            page_title="Skapa konto",
+            heading="Skapa konto",
+            description=(
+                "Välj ett starkt lösenord för ditt konto. "
+                "Lösenordet måste vara minst åtta tecken långt."
+            ),
+            submit_text="Skapa konto",
+            invalid_message="Länken är ogiltig eller har redan använts.",
+        )
     logger.warning("User hash %s not found during create_user", pnr_hash)
     return "Fel: Standardkontot hittades inte"
 
