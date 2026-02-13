@@ -50,15 +50,14 @@ def test_start_demo_reset_scheduler(monkeypatch):
 
 
 def test_create_user_routes(monkeypatch, client):
-    monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: None)
+    monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: True)
     monkeypatch.setattr(app.functions, "check_pending_user_hash", lambda value: value == "known")
 
     resp = client.get("/create_user/known")
     assert resp.status_code == 200
 
     resp_missing = client.get("/create_user/unknown")
-    assert resp_missing.status_code == 200
-    assert "hittades inte" in resp_missing.text
+    assert resp_missing.status_code == 404
 
     resp_missing_confirm = client.post("/create_user/known", data={"password": "secret"})
     assert resp_missing_confirm.status_code == 200
@@ -71,6 +70,16 @@ def test_create_user_routes(monkeypatch, client):
     assert resp_short.status_code == 200
     assert "minst 8 tecken" in resp_short.text
 
+
+    monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: False)
+    resp_create_failed = client.post(
+        "/create_user/known",
+        data={"password": "hemligt12", "confirm": "hemligt12"},
+    )
+    assert resp_create_failed.status_code == 200
+    assert "kunde inte aktiveras" in resp_create_failed.text.lower()
+
+    monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: True)
     resp_post = client.post(
         "/create_user/known",
         data={"password": "hemligt12", "confirm": "hemligt12"},

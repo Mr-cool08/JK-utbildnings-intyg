@@ -673,7 +673,22 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
                 error="Lösenordet måste vara minst 8 tecken långt.",
             )
         logger.debug("Creating user with hash %s", pnr_hash)
-        functions.user_create_user(password, pnr_hash)
+        if not functions.user_create_user(password, pnr_hash):
+            logger.warning("Kunde inte skapa användare för hash %s", pnr_hash)
+            return render_template(
+                "create_supervisor.html",
+                invalid=False,
+                page_title="Skapa konto",
+                heading="Skapa konto",
+                description=(
+                    "Välj ett starkt lösenord för ditt konto. "
+                    "Lösenordet måste vara minst åtta tecken långt."
+                ),
+                submit_text="Skapa konto",
+                error=(
+                    "Kontot kunde inte aktiveras. Kontrollera att länken är giltig."
+                ),
+            )
         return redirect("/login")
     if functions.check_pending_user_hash(pnr_hash):
         return render_template(
@@ -689,7 +704,7 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
             invalid_message="Länken är ogiltig eller har redan använts.",
         )
     logger.warning("User hash %s not found during create_user", pnr_hash)
-    return "Fel: Standardkontot hittades inte"
+    abort(404, description="Standardkonto hittades inte")
 
 
 @app.route("/foretagskonto/skapa/<email_hash>", methods=["GET", "POST"])
