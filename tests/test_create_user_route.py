@@ -12,7 +12,10 @@ def test_create_user_route_moves_pending_user(empty_db):
         assert resp.status_code == 200
         assert "Skapa konto" in resp.get_data(as_text=True)
 
-        resp = client.post(f"/create_user/{pnr_hash}", data={"password": "newpass"})
+        resp = client.post(
+            f"/create_user/{pnr_hash}",
+            data={"password": "newpass12", "confirm": "newpass12"},
+        )
         assert resp.status_code == 302
 
     with empty_db.connect() as conn:

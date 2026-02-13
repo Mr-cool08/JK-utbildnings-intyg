@@ -60,7 +60,21 @@ def test_create_user_routes(monkeypatch, client):
     assert resp_missing.status_code == 200
     assert "hittades inte" in resp_missing.text
 
-    resp_post = client.post("/create_user/known", data={"password": "secret"})
+    resp_missing_confirm = client.post("/create_user/known", data={"password": "secret"})
+    assert resp_missing_confirm.status_code == 200
+    assert "matcha" in resp_missing_confirm.text
+
+    resp_short = client.post(
+        "/create_user/known",
+        data={"password": "kort", "confirm": "kort"},
+    )
+    assert resp_short.status_code == 200
+    assert "minst 8 tecken" in resp_short.text
+
+    resp_post = client.post(
+        "/create_user/known",
+        data={"password": "hemligt12", "confirm": "hemligt12"},
+    )
     assert resp_post.status_code == 302
     assert resp_post.headers["Location"].endswith("/login")
 

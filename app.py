@@ -645,7 +645,7 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     logger.info("Handling create_user for hash %s", pnr_hash)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
-        confirm = request.form.get("confirm", password).strip()
+        confirm = request.form.get("confirm", "").strip()
         if password != confirm:
             return render_template(
                 "create_supervisor.html",
@@ -658,6 +658,19 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
                 ),
                 submit_text="Skapa konto",
                 error="Lösenorden måste matcha.",
+            )
+        if len(password) < 8:
+            return render_template(
+                "create_supervisor.html",
+                invalid=False,
+                page_title="Skapa konto",
+                heading="Skapa konto",
+                description=(
+                    "Välj ett starkt lösenord för ditt konto. "
+                    "Lösenordet måste vara minst åtta tecken långt."
+                ),
+                submit_text="Skapa konto",
+                error="Lösenordet måste vara minst 8 tecken långt.",
             )
         logger.debug("Creating user with hash %s", pnr_hash)
         functions.user_create_user(password, pnr_hash)
