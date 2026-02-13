@@ -5,58 +5,73 @@
     <h1>Företagskontopanel</h1>
     <p>Välkommen {{ supervisor_name }}. Här ser du alla användarkonton som administratören har kopplat till dig.</p>
     {% if users %}
+        <section class="panel">
+            <label for="supervisor-user-search">Sök efter person</label>
+            <input id="supervisor-user-search" type="search" placeholder="Sök på namn" data-user-search>
+            <p id="supervisor-user-search-empty" hidden>Inga användare matchar din sökning.</p>
+        </section>
         {% for user in users %}
-            <section class="panel" id="user-{{ user.personnummer_hash }}">
-                <div class="panel-header">
-                    <h2>{{ user.username }}</h2>
-                    <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                        <button type="submit" class="btn btn-danger">Ta bort koppling</button>
-                    </form>
-                </div>
-                {% if user.pdfs %}
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Filnamn</th>
-                                    <th>Kategorier</th>
-                                    <th>Åtgärder</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for pdf in user.pdfs %}
-                                    <tr>
-                                        <td>{{ pdf.filename }}</td>
-                                        <td>
-                                            {% if pdf.category_labels %}
-                                                {{ pdf.category_labels | join(', ') }}
-                                            {% else %}
-                                                Okategoriserat
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="actions">
-                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
-                                                <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
-                                                <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                                    <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                                                    <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
-                                                    <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
-                                                    <button type="submit" class="btn btn-secondary">Dela intyg</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+            <section class="panel" id="user-{{ user.personnummer_hash }}" data-user-panel data-user-name="{{ user.username | lower }}">
+                <details>
+                    <summary>
+                        {{ user.username }}
+                        {% if user.pdfs %}
+                            ({{ user.pdfs | length }} intyg)
+                        {% else %}
+                            (0 intyg)
+                        {% endif %}
+                    </summary>
+                    <div class="panel-header">
+                        <h2>{{ user.username }}</h2>
+                        <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                            <button type="submit" class="btn btn-danger">Ta bort koppling</button>
+                        </form>
                     </div>
-                {% else %}
-                    <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
-                {% endif %}
+                    {% if user.pdfs %}
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Filnamn</th>
+                                        <th>Kategorier</th>
+                                        <th>Åtgärder</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pdf in user.pdfs %}
+                                        <tr>
+                                            <td>{{ pdf.filename }}</td>
+                                            <td>
+                                                {% if pdf.category_labels %}
+                                                    {{ pdf.category_labels | join(', ') }}
+                                                {% else %}
+                                                    Okategoriserat
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="actions">
+                                                    <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
+                                                    <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
+                                                    <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                                                        <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
+                                                        <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
+                                                        <button type="submit" class="btn btn-secondary">Dela intyg</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
+                    {% endif %}
+                </details>
             </section>
         {% endfor %}
     {% else %}
@@ -75,6 +90,30 @@
 <script>
 (function(){
     var formulär = document.querySelectorAll('[data-supervisor-remove]');
+    var sokfalt = document.querySelector('[data-user-search]');
+    var användarpaneler = document.querySelectorAll('[data-user-panel]');
+    var tomtMeddelande = document.getElementById('supervisor-user-search-empty');
+
+    if (sokfalt && användarpaneler.length) {
+        sokfalt.addEventListener('input', function() {
+            var soktext = sokfalt.value.toLowerCase().trim();
+            var antalTraffar = 0;
+
+            användarpaneler.forEach(function(panel) {
+                var namn = panel.getAttribute('data-user-name') || '';
+                var matchar = !soktext || namn.indexOf(soktext) !== -1;
+                panel.hidden = !matchar;
+                if (matchar) {
+                    antalTraffar += 1;
+                }
+            });
+
+            if (tomtMeddelande) {
+                tomtMeddelande.hidden = antalTraffar !== 0;
+            }
+        });
+    }
+
     formulär.forEach(function(form){
         form.addEventListener('submit', function(event){
             if(!confirm('Vill du ta bort kopplingen till användaren?')){
