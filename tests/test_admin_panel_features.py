@@ -863,10 +863,12 @@ def _call_with_method(client, method, path):
     return request_method(path)
 
 
-@pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)
-def test_admin_routes_require_login(method, path, expected_status):
+def test_admin_protected_endpoints_count():
     assert len(_ADMIN_PROTECTED_ENDPOINTS) == 52
 
+
+@pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)
+def test_admin_routes_require_login(method, path, expected_status):
     client = app.app.test_client()
     response = _call_with_method(client, method, path)
     assert response.status_code == expected_status

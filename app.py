@@ -2683,11 +2683,11 @@ def admin_send_create_password_link():  # pragma: no cover
         return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
 
     try:
-        personnummer_hash = functions.get_pending_user_personnummer_hash(personnummer, email)
+        pending_account = functions.get_pending_user_personnummer_hash(personnummer, email)
     except ValueError:
         return jsonify({"status": "error", "message": "Ogiltiga uppgifter."}), 400
 
-    if not personnummer_hash:
+    if not pending_account:
         return (
             jsonify(
                 {
@@ -2698,7 +2698,7 @@ def admin_send_create_password_link():  # pragma: no cover
             404,
         )
 
-    normalized_email = functions.normalize_email(email)
+    personnummer_hash, normalized_email = pending_account
     link = url_for("create_user", pnr_hash=personnummer_hash, _external=True)
     try:
         email_service.send_creation_email(normalized_email, link)

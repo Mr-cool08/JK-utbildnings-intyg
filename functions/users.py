@@ -410,8 +410,8 @@ def get_admin_password_status(personnummer: str, email: str) -> dict[str, str | 
     return None
 
 
-def get_pending_user_personnummer_hash(personnummer: str, email: str) -> str | None:
-    # Return pending account personnummer hash when personnummer and email match.
+def get_pending_user_personnummer_hash(personnummer: str, email: str) -> tuple[str, str] | None:
+    # Return pending account hash and normalized email when personnummer and email match.
     pnr_hash = _hash_personnummer(personnummer)
     normalized_email = normalize_email(email)
     email_hash = hash_value(normalized_email)
@@ -426,7 +426,7 @@ def get_pending_user_personnummer_hash(personnummer: str, email: str) -> str | N
 
     if not pending_row:
         return None
-    return str(pending_row.personnummer)
+    return str(pending_row.personnummer), normalized_email
 
 def admin_update_user_account(
     personnummer: str, email: str, username: str
