@@ -5,11 +5,29 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
+
+
+class AppTimezoneFormatter(logging.Formatter):
+    # Formattera loggtider i applikationens tidszon (standard: Europe/Stockholm).
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        timezone_name = os.getenv("APP_TIMEZONE", "Europe/Stockholm").strip() or "Europe/Stockholm"
+        try:
+            zone = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            zone = ZoneInfo("Europe/Stockholm")
+
+        dt = datetime.fromtimestamp(record.created, zone)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat(timespec="seconds")
 
 
 def configure_module_logger(name: str) -> logging.Logger:
@@ -24,7 +42,7 @@ def configure_module_logger(name: str) -> logging.Logger:
         handlers = root_logger.handlers
     else:
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        handler.setFormatter(AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
         root_logger.addHandler(handler)
         handlers = (handler,)
 
@@ -96,7 +114,7 @@ def configure_root_logging() -> None:
 
     root = logging.getLogger()
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
+    formatter = AppTimezoneFormatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
     has_stream_handler = any(
         isinstance(handler, logging.StreamHandler) for handler in root.handlers
     )
