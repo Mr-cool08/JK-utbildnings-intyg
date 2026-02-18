@@ -27,6 +27,8 @@ services:
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
       - --api.insecure=true
+      - --experimental.plugins.crowdsec-bouncer-traefik-plugin.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      - --experimental.plugins.crowdsec-bouncer-traefik-plugin.version=v1.5.0
     networks:
       - public_net
     restart: unless-stopped
