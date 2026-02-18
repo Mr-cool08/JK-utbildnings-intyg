@@ -929,6 +929,120 @@ def test_admin_send_create_password_link(empty_db, monkeypatch):
     assert sent["link"] == data["link"]
 
 
+
+
+def test_admin_password_status_without_email(empty_db):
+    personnummer = "19900707-7777"
+    email = "pending-no-email@example.com"
+    assert functions.admin_create_user(email, "Väntande Utan Epost", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={
+                "personnummer": personnummer,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert data["data"]["password_created"] is False
+    assert data["data"]["status"] == "pending"
+
+
+def test_admin_send_create_password_link_with_override_email(empty_db, monkeypatch):
+    personnummer = "19900808-8888"
+    account_email = "konto@example.com"
+    override_email = "annan.mottagare@example.com"
+    assert functions.admin_create_user(account_email, "Override Mottagare", personnummer)
+
+    sent = {}
+
+    def _fake_send_creation_email(to_email, link):
+        sent["to_email"] = to_email
+        sent["link"] = link
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "email": override_email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert sent["to_email"] == functions.normalize_email(override_email)
+    assert sent["link"] == data["link"]
+
+
+def test_admin_send_create_password_link_rejects_invalid_email(empty_db, monkeypatch):
+    personnummer = "19901010-1010"
+    email = "konto-for-ogiltig-epost@example.com"
+    assert functions.admin_create_user(email, "Ogiltig Epost", personnummer)
+
+    called = {"sent": False}
+
+    def _fake_send_creation_email(_to_email, _link):
+        called["sent"] = True
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "email": "inte-en-epostadress",
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig e-postadress."
+    assert called["sent"] is False
+
+
+def test_admin_send_create_password_link_without_email(empty_db, monkeypatch):
+    personnummer = "19900909-9999"
+    email = "utskickfritt@example.com"
+    assert functions.admin_create_user(email, "Lank Endast", personnummer)
+
+    called = {"sent": False}
+
+    def _fake_send_creation_email(_to_email, _link):
+        called["sent"] = True
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert "Ingen e-post angavs" in data["message"]
+    assert called["sent"] is False
+
 def test_admin_password_status_active_account(empty_db):
     personnummer = "19900606-6666"
     email = "active@example.com"

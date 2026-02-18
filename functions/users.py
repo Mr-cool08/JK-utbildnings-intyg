@@ -374,18 +374,21 @@ def list_admin_accounts() -> list[dict[str, str]]:
     return results
 
 
-def get_admin_password_status(personnummer: str, email: str) -> dict[str, str | bool] | None:
+def get_admin_password_status(
+    personnummer: str,
+    email: str | None = None,
+) -> dict[str, str | bool] | None:
     # Return password and activation status for a standard account.
     pnr_hash = _hash_personnummer(personnummer)
-    normalized_email = normalize_email(email)
-    email_hash = hash_value(normalized_email)
+    normalized_email = normalize_email(email) if email else None
+    email_hash = hash_value(normalized_email) if normalized_email else None
 
     with get_engine().connect() as conn:
+        active_conditions = [users_table.c.personnummer == pnr_hash]
+        if email_hash:
+            active_conditions.append(users_table.c.email == email_hash)
         active_user = conn.execute(
-            select(users_table.c.personnummer).where(
-                users_table.c.personnummer == pnr_hash,
-                users_table.c.email == email_hash,
-            )
+            select(users_table.c.personnummer).where(*active_conditions)
         ).first()
         if active_user:
             return {
@@ -394,11 +397,13 @@ def get_admin_password_status(personnummer: str, email: str) -> dict[str, str | 
                 "status": "active",
             }
 
+        pending_conditions = [
+            pending_users_table.c.personnummer == pnr_hash,
+        ]
+        if email_hash:
+            pending_conditions.append(pending_users_table.c.email == email_hash)
         pending_user = conn.execute(
-            select(pending_users_table.c.personnummer).where(
-                pending_users_table.c.personnummer == pnr_hash,
-                pending_users_table.c.email == email_hash,
-            )
+            select(pending_users_table.c.personnummer).where(*pending_conditions)
         ).first()
         if pending_user:
             return {
@@ -410,23 +415,27 @@ def get_admin_password_status(personnummer: str, email: str) -> dict[str, str | 
     return None
 
 
-def get_pending_user_personnummer_hash(personnummer: str, email: str) -> tuple[str, str] | None:
-    # Return pending account hash and normalized email when personnummer and email match.
+def get_pending_user_personnummer_hash(
+    personnummer: str,
+    email: str | None = None,
+) -> str | None:
+    # Return pending account hash when personnummer exists, optionally constrained by email.
     pnr_hash = _hash_personnummer(personnummer)
-    normalized_email = normalize_email(email)
-    email_hash = hash_value(normalized_email)
+    normalized_email = normalize_email(email) if email else None
+    email_hash = hash_value(normalized_email) if normalized_email else None
 
     with get_engine().connect() as conn:
+        conditions = [pending_users_table.c.personnummer == pnr_hash]
+        if email_hash:
+            conditions.append(pending_users_table.c.email == email_hash)
         pending_row = conn.execute(
-            select(pending_users_table.c.personnummer).where(
-                pending_users_table.c.personnummer == pnr_hash,
-                pending_users_table.c.email == email_hash,
-            )
+            select(pending_users_table.c.personnummer).where(*conditions)
         ).first()
 
     if not pending_row:
         return None
-    return str(pending_row.personnummer), normalized_email
+
+    return str(pending_row.personnummer)
 
 def admin_update_user_account(
     personnummer: str, email: str, username: str
