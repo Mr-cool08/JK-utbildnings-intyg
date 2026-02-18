@@ -196,14 +196,10 @@ services:
 
   mta_sts:
     image: nginx:alpine
-    command:
-      [
-        "/bin/sh",
-        "-c",
-        "mkdir -p /usr/share/nginx/html/.well-known && printf 'version: STSv1\nmode: enforce\nmx: webmail.internetport.se\nmax_age: 86400\n' > /usr/share/nginx/html/.well-known/mta-sts.txt && nginx -g 'daemon off;'"
-      ]
     expose:
       - "80"
+    volumes:
+      - ./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro
     networks:
       - public_net
     labels:
