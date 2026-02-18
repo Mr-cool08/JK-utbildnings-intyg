@@ -1,5 +1,6 @@
 # Copyright (c) Liam Suorsa
 import logging
+from datetime import datetime, timezone
 
 from functions import logging as logging_utils
 
@@ -42,3 +43,41 @@ def test_configure_module_logger_reuses_existing_handlers():
     finally:
         root_logger.handlers = original_handlers
         root_logger.setLevel(original_level)
+
+
+def test_app_timezone_formatter_uses_stockholm_by_default(monkeypatch):
+    monkeypatch.delenv("APP_TIMEZONE", raising=False)
+    formatter = logging_utils.AppTimezoneFormatter("%(asctime)s")
+    record = logging.LogRecord(
+        name="jk.test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Hej",
+        args=(),
+        exc_info=None,
+    )
+    record.created = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+
+    rendered = formatter.formatTime(record)
+
+    assert rendered.startswith("2025-01-01T13:00:00")
+
+
+def test_app_timezone_formatter_falls_back_to_stockholm_for_invalid_timezone(monkeypatch):
+    monkeypatch.setenv("APP_TIMEZONE", "Mars/Olympus")
+    formatter = logging_utils.AppTimezoneFormatter("%(asctime)s")
+    record = logging.LogRecord(
+        name="jk.test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Hej",
+        args=(),
+        exc_info=None,
+    )
+    record.created = datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+
+    rendered = formatter.formatTime(record)
+
+    assert rendered.startswith("2025-06-01T14:00:00")
