@@ -2630,7 +2630,7 @@ def admin_password_status():  # pragma: no cover
     email = (payload.get("email") or "").strip()
 
     if not personnummer or not email:
-        logging.debug(
+        logger.debug(
             "Admin password_status without personnummer or email",
             extra={"admin": admin_name},
         )
@@ -2676,7 +2676,7 @@ def admin_send_create_password_link():  # pragma: no cover
     email = (payload.get("email") or "").strip()
 
     if not personnummer or not email:
-        logging.debug(
+        logger.debug(
             "Admin send_create_password_link without personnummer or email",
             extra={"admin": admin_name},
         )
@@ -2709,10 +2709,10 @@ def admin_send_create_password_link():  # pragma: no cover
     email_hash = functions.hash_value(functions.normalize_email(email))
     functions.log_admin_action(
         admin_name,
-        "skickade skapa-konto-lank",
+        "skickade skapa-konto-länk",
         f"personnummer_hash={pnr_hash}, email_hash={email_hash}",
     )
-    logging.info(
+    logger.info(
         "Admin sent create-password link for %s to %s",
         mask_hash(pnr_hash),
         mask_hash(email_hash),

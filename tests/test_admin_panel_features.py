@@ -823,6 +823,8 @@ _ADMIN_PROTECTED_ENDPOINTS = [
     ("post", "/admin/api/radera-konto", 403),
     ("get", "/admin/api/konton/lista", 403),
     ("post", "/admin/api/konton/uppdatera", 403),
+    ("post", "/admin/api/konton/losenord-status", 403),
+    ("post", "/admin/api/konton/skapa-losenordslank", 403),
     ("post", "/admin/api/uppdatera-pdf", 403),
     ("post", "/admin/api/skicka-aterstallning", 403),
     ("post", "/admin/api/foretagskonto/skapa", 403),
@@ -863,7 +865,7 @@ def _call_with_method(client, method, path):
 
 @pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)
 def test_admin_routes_require_login(method, path, expected_status):
-    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 50
+    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 52
 
     client = app.app.test_client()
     response = _call_with_method(client, method, path)

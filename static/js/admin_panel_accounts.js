@@ -80,7 +80,7 @@
     return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
   }
 
-  function setMessageWithLink(element, text, link) {
+  function setMessageWithLink(element, text, link, linkText) {
     if (!element) return;
     element.textContent = '';
     element.classList.remove('error');
@@ -92,7 +92,7 @@
       element.appendChild(spacer);
       const anchor = document.createElement('a');
       anchor.href = link;
-      anchor.textContent = 'Öppna återställningslänken';
+      anchor.textContent = linkText || 'Öppna återställningslänken';
       anchor.target = '_blank';
       anchor.rel = 'noopener';
       element.appendChild(anchor);
@@ -377,6 +377,7 @@
             passwordStatusMessage,
             data.message || 'Skapa-konto-länk skickad.',
             data.link,
+            'Öppna skapa-konto-länken',
           );
         } catch (err) {
           setMessageElement(passwordStatusMessage, err.message, true);
