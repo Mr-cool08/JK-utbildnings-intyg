@@ -2620,6 +2620,109 @@ def admin_update_pdf():  # pragma: no cover
     return jsonify({"status": "success", "message": "Kategorier uppdaterade."})
 
 
+@app.post("/admin/api/konton/losenord-status")
+def admin_password_status():  # pragma: no cover
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get("personnummer") or "").strip()
+    email = (payload.get("email") or "").strip()
+
+    if not personnummer or not email:
+        logging.debug(
+            "Admin password_status without personnummer or email",
+            extra={"admin": admin_name},
+        )
+        return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
+
+    try:
+        result = functions.get_admin_password_status(personnummer, email)
+    except ValueError:
+        return jsonify({"status": "error", "message": "Ogiltiga uppgifter."}), 400
+
+    if not result:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Uppgifterna matchar inget standardkonto eller väntande konto.",
+                }
+            ),
+            404,
+        )
+
+    if result["password_created"]:
+        message = "Lösenord är redan skapat för kontot."
+    else:
+        message = "Lösenord är inte skapat ännu. Skicka en skapa-konto-länk till användaren."
+
+    return jsonify(
+        {
+            "status": "success",
+            "message": message,
+            "data": result,
+        }
+    )
+
+
+@app.post("/admin/api/konton/skapa-losenordslank")
+def admin_send_create_password_link():  # pragma: no cover
+    admin_name = _require_admin()
+    payload = request.get_json(silent=True) or {}
+    personnummer = (payload.get("personnummer") or "").strip()
+    email = (payload.get("email") or "").strip()
+
+    if not personnummer or not email:
+        logging.debug(
+            "Admin send_create_password_link without personnummer or email",
+            extra={"admin": admin_name},
+        )
+        return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
+
+    try:
+        personnummer_hash = functions.get_pending_user_personnummer_hash(personnummer, email)
+    except ValueError:
+        return jsonify({"status": "error", "message": "Ogiltiga uppgifter."}), 400
+
+    if not personnummer_hash:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Kontot är redan aktiverat eller uppgifterna matchar inget väntande konto.",
+                }
+            ),
+            404,
+        )
+
+    link = url_for("create_user", pnr_hash=personnummer_hash, _external=True)
+    try:
+        email_service.send_creation_email(email, link)
+    except RuntimeError:
+        logger.exception("Misslyckades att skicka skapa-konto-länk")
+        return jsonify({"status": "error", "message": "Kunde inte skicka skapa-konto-länk."}), 500
+
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    email_hash = functions.hash_value(functions.normalize_email(email))
+    functions.log_admin_action(
+        admin_name,
+        "skickade skapa-konto-lank",
+        f"personnummer_hash={pnr_hash}, email_hash={email_hash}",
+    )
+    logging.info(
+        "Admin sent create-password link for %s to %s",
+        mask_hash(pnr_hash),
+        mask_hash(email_hash),
+        extra={"admin": admin_name},
+    )
+    return jsonify(
+        {
+            "status": "success",
+            "message": "Skapa-konto-länk skickad.",
+            "link": link,
+        }
+    )
+
+
 @app.post("/admin/api/skicka-aterstallning")
 def admin_send_password_reset():  # pragma: no cover
     admin_name = _require_admin()

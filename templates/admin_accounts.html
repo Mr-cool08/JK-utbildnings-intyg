@@ -153,6 +153,24 @@
 </section>
 
 <section class="panel">
+    <h2>Lösenordsstatus för standardkonto</h2>
+    <p>Kontrollera om användaren redan har skapat sitt lösenord och hämta skapa-konto-länken vid behov.</p>
+    <form id="passwordStatusForm" class="stacked-form" method="post">
+        <label for="passwordStatusPersonnummer">Personnummer</label>
+        <input id="passwordStatusPersonnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX" data-personnummer-target="true" />
+
+        <label for="passwordStatusEmail">E-post</label>
+        <input id="passwordStatusEmail" name="email" type="email" required placeholder="user@example.com" />
+
+        <div class="button-row">
+            <button type="submit" class="btn">Kontrollera lösenordsstatus</button>
+            <button type="button" class="btn btn-secondary" id="sendCreateLinkBtn">Skicka skapa-konto-länk</button>
+        </div>
+        <p id="passwordStatusMessage" class="message" aria-live="polite"></p>
+    </form>
+</section>
+
+<section class="panel">
     <h2>Skicka återställningsmejl</h2>
     <p>Bekräfta kontots uppgifter och skicka en ny länk för att välja lösenord.</p>
     <form id="resetForm" class="stacked-form" method="post">

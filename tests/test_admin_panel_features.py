@@ -868,3 +868,72 @@ def test_admin_routes_require_login(method, path, expected_status):
     client = app.app.test_client()
     response = _call_with_method(client, method, path)
     assert response.status_code == expected_status
+
+
+def test_admin_password_status_pending_account(empty_db):
+    personnummer = "19900101-9999"
+    email = "pending@example.com"
+    assert functions.admin_create_user(email, "Väntande", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert data["data"]["password_created"] is False
+    assert data["data"]["status"] == "pending"
+
+
+def test_admin_send_create_password_link(empty_db, monkeypatch):
+    personnummer = "19900202-2222"
+    email = "nyttkonto@example.com"
+    assert functions.admin_create_user(email, "Nytt Konto", personnummer)
+
+    sent = {}
+
+    def _fake_send_creation_email(to_email, link):
+        sent["to_email"] = to_email
+        sent["link"] = link
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert "create_user" in data["link"]
+    assert sent["to_email"] == email
+    assert sent["link"] == data["link"]
+
+
+def test_admin_send_create_password_link_rejects_active_account(empty_db, monkeypatch):
+    personnummer = "19900303-3333"
+    email = "redanaktiv@example.com"
+    assert functions.admin_create_user(email, "Redan Aktiv", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("AktivtLosen1!", pnr_hash)
+
+    called = {"sent": False}
+
+    def _fake_send_creation_email(_to_email, _link):
+        called["sent"] = True
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 404
+    assert called["sent"] is False
