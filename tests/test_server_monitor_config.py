@@ -11,6 +11,14 @@ def test_server_monitor_service_exists_in_compose_files():
     assert "CRITICAL_ALERTS_EMAIL" in prod_compose
 
 
+def test_prod_compose_has_mta_sts_service_with_expected_policy():
+    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+
+    assert "mta_sts:" in prod_compose
+    assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
+    assert "version: STSv1\\nmode: enforce\\nmx: webmail.internetport.se\\nmax_age: 86400\\n" in prod_compose
+
+
 def test_monitor_thresholds_are_configured():
     monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
 
