@@ -111,6 +111,20 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     assert "intyg.pdf" in body
 
 
+def test_supervisor_dashboard_has_dropdown_and_search(supervisor_setup):
+    client = _supervisor_client(
+        supervisor_setup["email_hash"], supervisor_setup["name"]
+    )
+    response = client.get("/foretagskonto")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'data-user-search' in body
+    assert 'data-user-search-button' in body
+    assert '<details>' in body
+    assert 'supervisor-user-summary' in body
+    assert 'data-user-panel' in body
+
+
 def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     captured = {}
 
