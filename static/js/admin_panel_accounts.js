@@ -19,6 +19,9 @@
   const refreshAccountListBtn = document.getElementById('refreshAccountList');
   const updateAccountForm = document.getElementById('updateAccountForm');
   const updateAccountMessage = document.getElementById('updateAccountMessage');
+  const passwordStatusForm = document.getElementById('passwordStatusForm');
+  const passwordStatusMessage = document.getElementById('passwordStatusMessage');
+  const sendCreateLinkBtn = document.getElementById('sendCreateLinkBtn');
   const fillLastPersonnummerBtn = document.getElementById('fillLastPersonnummerBtn');
   const copyLastPersonnummerBtn = document.getElementById('copyLastPersonnummerBtn');
   const clearAdminFormsBtn = document.getElementById('clearAdminFormsBtn');
@@ -77,7 +80,7 @@
     return new Error('Servern svarade med ett oväntat format. Logga in igen och försök på nytt.');
   }
 
-  function setMessageWithLink(element, text, link) {
+  function setMessageWithLink(element, text, link, linkText) {
     if (!element) return;
     element.textContent = '';
     element.classList.remove('error');
@@ -89,7 +92,7 @@
       element.appendChild(spacer);
       const anchor = document.createElement('a');
       anchor.href = link;
-      anchor.textContent = 'Öppna återställningslänken';
+      anchor.textContent = linkText || 'Öppna återställningslänken';
       anchor.target = '_blank';
       anchor.rel = 'noopener';
       element.appendChild(anchor);
@@ -295,6 +298,94 @@
     });
   }
 
+
+  if (passwordStatusForm) {
+    const passwordStatusPersonnummerInput = document.getElementById('passwordStatusPersonnummer');
+    const passwordStatusEmailInput = document.getElementById('passwordStatusEmail');
+
+    const getPasswordStatusPayload = () => ({
+      personnummer: passwordStatusPersonnummerInput ? passwordStatusPersonnummerInput.value.trim() : '',
+      email: passwordStatusEmailInput ? passwordStatusEmailInput.value.trim() : '',
+    });
+
+    passwordStatusForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!passwordStatusMessage) return;
+      const payload = getPasswordStatusPayload();
+      if (!payload.personnummer || !payload.email) {
+        setMessageElement(passwordStatusMessage, 'Ange både personnummer och e-post.', true);
+        return;
+      }
+      if (storage) {
+        storage.storeLastPersonnummer(payload.personnummer);
+      }
+      setMessageElement(passwordStatusMessage, 'Kontrollerar lösenordsstatus…', false);
+      try {
+        const res = await fetch('/admin/api/konton/losenord-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            ...payload,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
+        });
+        const data = await parseJsonResponse(res, 'Kontrollerade lösenordsstatus');
+        if (!data) {
+          throw buildUnexpectedFormatError();
+        }
+        if (!res.ok) {
+          throw new Error(data.message || 'Kunde inte kontrollera lösenordsstatus.');
+        }
+        setMessageElement(passwordStatusMessage, data.message || 'Lösenordsstatus hämtad.', false);
+      } catch (err) {
+        setMessageElement(passwordStatusMessage, err.message, true);
+      }
+    });
+
+    if (sendCreateLinkBtn) {
+      sendCreateLinkBtn.addEventListener('click', async () => {
+        if (!passwordStatusMessage) return;
+        const payload = getPasswordStatusPayload();
+        if (!payload.personnummer || !payload.email) {
+          setMessageElement(passwordStatusMessage, 'Ange både personnummer och e-post.', true);
+          return;
+        }
+        setMessageElement(passwordStatusMessage, 'Skickar skapa-konto-länk…', false);
+        try {
+          const res = await fetch('/admin/api/konton/skapa-losenordslank', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              ...payload,
+              ...(csrfToken ? { csrf_token: csrfToken } : {}),
+            }),
+          });
+          const data = await parseJsonResponse(res, 'Skickade skapa-konto-länk');
+          if (!data) {
+            throw buildUnexpectedFormatError();
+          }
+          if (!res.ok) {
+            throw new Error(data.message || 'Kunde inte skicka skapa-konto-länk.');
+          }
+          setMessageWithLink(
+            passwordStatusMessage,
+            data.message || 'Skapa-konto-länk skickad.',
+            data.link,
+            'Öppna skapa-konto-länken',
+          );
+        } catch (err) {
+          setMessageElement(passwordStatusMessage, err.message, true);
+        }
+      });
+    }
+  }
+
   if (resetForm) {
     const resetPersonnummerInput = document.getElementById('resetPersonnummer');
     const resetEmailInput = document.getElementById('resetEmail');
@@ -474,6 +565,7 @@
         verifyCertificateMessage,
         deleteAccountMessage,
         updateAccountMessage,
+        passwordStatusMessage,
       ].forEach((element) => {
         if (element) {
           setMessageElement(element, '', false);

@@ -823,6 +823,8 @@ _ADMIN_PROTECTED_ENDPOINTS = [
     ("post", "/admin/api/radera-konto", 403),
     ("get", "/admin/api/konton/lista", 403),
     ("post", "/admin/api/konton/uppdatera", 403),
+    ("post", "/admin/api/konton/losenord-status", 403),
+    ("post", "/admin/api/konton/skapa-losenordslank", 403),
     ("post", "/admin/api/uppdatera-pdf", 403),
     ("post", "/admin/api/skicka-aterstallning", 403),
     ("post", "/admin/api/foretagskonto/skapa", 403),
@@ -861,10 +863,155 @@ def _call_with_method(client, method, path):
     return request_method(path)
 
 
+def test_admin_protected_endpoints_count():
+    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 52
+
+
 @pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)
 def test_admin_routes_require_login(method, path, expected_status):
-    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 50
-
     client = app.app.test_client()
     response = _call_with_method(client, method, path)
     assert response.status_code == expected_status
+
+
+def test_admin_password_status_pending_account(empty_db):
+    personnummer = "19900101-9999"
+    email = "pending@example.com"
+    assert functions.admin_create_user(email, "Väntande", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert data["data"]["password_created"] is False
+    assert data["data"]["status"] == "pending"
+
+
+def test_admin_send_create_password_link(empty_db, monkeypatch):
+    personnummer = "19900202-2222"
+    email = "NyttKonto@Example.COM"
+    assert functions.admin_create_user(email, "Nytt Konto", personnummer)
+
+    sent = {}
+
+    def _fake_send_creation_email(to_email, link):
+        sent["to_email"] = to_email
+        sent["link"] = link
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert "create_user" in data["link"]
+    assert sent["to_email"] == functions.normalize_email(email)
+    assert sent["link"] == data["link"]
+
+
+def test_admin_password_status_active_account(empty_db):
+    personnummer = "19900606-6666"
+    email = "active@example.com"
+    assert functions.admin_create_user(email, "Aktiv Användare", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("AktivtLosen1!", pnr_hash)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert data["data"]["password_created"] is True
+    assert data["data"]["status"] == "active"
+
+
+def test_admin_send_create_password_link_rejects_active_account(empty_db, monkeypatch):
+    personnummer = "19900303-3333"
+    email = "redanaktiv@example.com"
+    assert functions.admin_create_user(email, "Redan Aktiv", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("AktivtLosen1!", pnr_hash)
+
+    called = {"sent": False}
+
+    def _fake_send_creation_email(_to_email, _link):
+        called["sent"] = True
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 404
+    assert called["sent"] is False
+
+
+def test_admin_password_status_requires_csrf(empty_db):
+    personnummer = "19900404-4444"
+    email = "csrf-status@example.com"
+    assert functions.admin_create_user(email, "CSRF Status", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig CSRF-token."
+
+
+def test_admin_send_create_password_link_requires_csrf(empty_db):
+    personnummer = "19900505-5555"
+    email = "csrf-link@example.com"
+    assert functions.admin_create_user(email, "CSRF Länk", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig CSRF-token."

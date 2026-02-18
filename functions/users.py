@@ -374,6 +374,60 @@ def list_admin_accounts() -> list[dict[str, str]]:
     return results
 
 
+def get_admin_password_status(personnummer: str, email: str) -> dict[str, str | bool] | None:
+    # Return password and activation status for a standard account.
+    pnr_hash = _hash_personnummer(personnummer)
+    normalized_email = normalize_email(email)
+    email_hash = hash_value(normalized_email)
+
+    with get_engine().connect() as conn:
+        active_user = conn.execute(
+            select(users_table.c.personnummer).where(
+                users_table.c.personnummer == pnr_hash,
+                users_table.c.email == email_hash,
+            )
+        ).first()
+        if active_user:
+            return {
+                "account_exists": True,
+                "password_created": True,
+                "status": "active",
+            }
+
+        pending_user = conn.execute(
+            select(pending_users_table.c.personnummer).where(
+                pending_users_table.c.personnummer == pnr_hash,
+                pending_users_table.c.email == email_hash,
+            )
+        ).first()
+        if pending_user:
+            return {
+                "account_exists": True,
+                "password_created": False,
+                "status": "pending",
+            }
+
+    return None
+
+
+def get_pending_user_personnummer_hash(personnummer: str, email: str) -> tuple[str, str] | None:
+    # Return pending account hash and normalized email when personnummer and email match.
+    pnr_hash = _hash_personnummer(personnummer)
+    normalized_email = normalize_email(email)
+    email_hash = hash_value(normalized_email)
+
+    with get_engine().connect() as conn:
+        pending_row = conn.execute(
+            select(pending_users_table.c.personnummer).where(
+                pending_users_table.c.personnummer == pnr_hash,
+                pending_users_table.c.email == email_hash,
+            )
+        ).first()
+
+    if not pending_row:
+        return None
+    return str(pending_row.personnummer), normalized_email
+
 def admin_update_user_account(
     personnummer: str, email: str, username: str
 ) -> tuple[bool, dict[str, int] | None, str | None]:
