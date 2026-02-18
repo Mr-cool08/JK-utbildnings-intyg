@@ -878,7 +878,12 @@ def test_admin_password_status_pending_account(empty_db):
     with _admin_client() as client:
         response = client.post(
             "/admin/api/konton/losenord-status",
-            json={"personnummer": personnummer, "email": email},
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
         )
 
     assert response.status_code == 200
@@ -904,7 +909,12 @@ def test_admin_send_create_password_link(empty_db, monkeypatch):
     with _admin_client() as client:
         response = client.post(
             "/admin/api/konton/skapa-losenordslank",
-            json={"personnummer": personnummer, "email": email},
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
         )
 
     assert response.status_code == 200
@@ -932,8 +942,47 @@ def test_admin_send_create_password_link_rejects_active_account(empty_db, monkey
     with _admin_client() as client:
         response = client.post(
             "/admin/api/konton/skapa-losenordslank",
-            json={"personnummer": personnummer, "email": email},
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
         )
 
     assert response.status_code == 404
     assert called["sent"] is False
+
+
+def test_admin_password_status_requires_csrf(empty_db):
+    personnummer = "19900404-4444"
+    email = "csrf-status@example.com"
+    assert functions.admin_create_user(email, "CSRF Status", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig CSRF-token."
+
+
+def test_admin_send_create_password_link_requires_csrf(empty_db):
+    personnummer = "19900505-5555"
+    email = "csrf-link@example.com"
+    assert functions.admin_create_user(email, "CSRF Länk", personnummer)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={"personnummer": personnummer, "email": email},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig CSRF-token."

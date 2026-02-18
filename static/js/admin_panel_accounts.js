@@ -323,8 +323,14 @@
       try {
         const res = await fetch('/admin/api/konton/losenord-status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            ...payload,
+            ...(csrfToken ? { csrf_token: csrfToken } : {}),
+          }),
         });
         const data = await parseJsonResponse(res, 'Kontrollerade lösenordsstatus');
         if (!data) {
@@ -351,8 +357,14 @@
         try {
           const res = await fetch('/admin/api/konton/skapa-losenordslank', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            headers: {
+              'Content-Type': 'application/json',
+              ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              ...payload,
+              ...(csrfToken ? { csrf_token: csrfToken } : {}),
+            }),
           });
           const data = await parseJsonResponse(res, 'Skickade skapa-konto-länk');
           if (!data) {

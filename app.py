@@ -2623,6 +2623,8 @@ def admin_update_pdf():  # pragma: no cover
 @app.post("/admin/api/konton/losenord-status")
 def admin_password_status():  # pragma: no cover
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get("personnummer") or "").strip()
     email = (payload.get("email") or "").strip()
@@ -2667,6 +2669,8 @@ def admin_password_status():  # pragma: no cover
 @app.post("/admin/api/konton/skapa-losenordslank")
 def admin_send_create_password_link():  # pragma: no cover
     admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get("personnummer") or "").strip()
     email = (payload.get("email") or "").strip()
