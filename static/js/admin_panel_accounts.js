@@ -312,8 +312,8 @@
       event.preventDefault();
       if (!passwordStatusMessage) return;
       const payload = getPasswordStatusPayload();
-      if (!payload.personnummer || !payload.email) {
-        setMessageElement(passwordStatusMessage, 'Ange både personnummer och e-post.', true);
+      if (!payload.personnummer) {
+        setMessageElement(passwordStatusMessage, 'Ange personnummer.', true);
         return;
       }
       if (storage) {
@@ -349,8 +349,8 @@
       sendCreateLinkBtn.addEventListener('click', async () => {
         if (!passwordStatusMessage) return;
         const payload = getPasswordStatusPayload();
-        if (!payload.personnummer || !payload.email) {
-          setMessageElement(passwordStatusMessage, 'Ange både personnummer och e-post.', true);
+        if (!payload.personnummer) {
+          setMessageElement(passwordStatusMessage, 'Ange personnummer.', true);
           return;
         }
         setMessageElement(passwordStatusMessage, 'Skickar skapa-konto-länk…', false);
