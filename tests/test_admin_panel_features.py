@@ -985,6 +985,36 @@ def test_admin_send_create_password_link_with_override_email(empty_db, monkeypat
     assert sent["link"] == data["link"]
 
 
+def test_admin_send_create_password_link_rejects_invalid_email(empty_db, monkeypatch):
+    personnummer = "19901010-1010"
+    email = "konto-for-ogiltig-epost@example.com"
+    assert functions.admin_create_user(email, "Ogiltig Epost", personnummer)
+
+    called = {"sent": False}
+
+    def _fake_send_creation_email(_to_email, _link):
+        called["sent"] = True
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/skapa-losenordslank",
+            json={
+                "personnummer": personnummer,
+                "email": "inte-en-epostadress",
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == "error"
+    assert data["message"] == "Ogiltig e-postadress."
+    assert called["sent"] is False
+
+
 def test_admin_send_create_password_link_without_email(empty_db, monkeypatch):
     personnummer = "19900909-9999"
     email = "utskickfritt@example.com"

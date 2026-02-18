@@ -2700,7 +2700,15 @@ def admin_send_create_password_link():  # pragma: no cover
 
     link = url_for("create_user", pnr_hash=personnummer_hash, _external=True)
     if email:
-        normalized_email = functions.normalize_email(email)
+        try:
+            normalized_email = functions.normalize_email(email)
+        except ValueError:
+            logger.warning(
+                "Admin angav ogiltig e-postadress för skapa-konto-länk till %s",
+                mask_hash(personnummer_hash),
+                extra={"admin": admin_name},
+            )
+            return jsonify({"status": "error", "message": "Ogiltig e-postadress."}), 400
         try:
             email_service.send_creation_email(normalized_email, link)
         except RuntimeError:
