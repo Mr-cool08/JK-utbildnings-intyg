@@ -2698,23 +2698,23 @@ def admin_send_create_password_link():  # pragma: no cover
             404,
         )
 
+    normalized_email = functions.normalize_email(email)
     link = url_for("create_user", pnr_hash=personnummer_hash, _external=True)
     try:
-        email_service.send_creation_email(email, link)
+        email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
         logger.exception("Misslyckades att skicka skapa-konto-länk")
         return jsonify({"status": "error", "message": "Kunde inte skicka skapa-konto-länk."}), 500
 
-    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
-    email_hash = functions.hash_value(functions.normalize_email(email))
+    email_hash = functions.hash_value(normalized_email)
     functions.log_admin_action(
         admin_name,
         "skickade skapa-konto-länk",
-        f"personnummer_hash={pnr_hash}, email_hash={email_hash}",
+        f"personnummer_hash={personnummer_hash}, email_hash={email_hash}",
     )
     logger.info(
         "Admin sent create-password link for %s to %s",
-        mask_hash(pnr_hash),
+        mask_hash(personnummer_hash),
         mask_hash(email_hash),
         extra={"admin": admin_name},
     )

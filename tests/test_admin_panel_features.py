@@ -897,7 +897,7 @@ def test_admin_password_status_pending_account(empty_db):
 
 def test_admin_send_create_password_link(empty_db, monkeypatch):
     personnummer = "19900202-2222"
-    email = "nyttkonto@example.com"
+    email = "NyttKonto@Example.COM"
     assert functions.admin_create_user(email, "Nytt Konto", personnummer)
 
     sent = {}
@@ -923,8 +923,33 @@ def test_admin_send_create_password_link(empty_db, monkeypatch):
     data = response.get_json()
     assert data["status"] == "success"
     assert "create_user" in data["link"]
-    assert sent["to_email"] == email
+    assert sent["to_email"] == functions.normalize_email(email)
     assert sent["link"] == data["link"]
+
+
+def test_admin_password_status_active_account(empty_db):
+    personnummer = "19900606-6666"
+    email = "active@example.com"
+    assert functions.admin_create_user(email, "Aktiv Användare", personnummer)
+    pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("AktivtLosen1!", pnr_hash)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/losenord-status",
+            json={
+                "personnummer": personnummer,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert data["data"]["password_created"] is True
+    assert data["data"]["status"] == "active"
 
 
 def test_admin_send_create_password_link_rejects_active_account(empty_db, monkeypatch):
