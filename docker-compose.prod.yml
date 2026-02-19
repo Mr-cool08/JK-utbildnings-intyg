@@ -195,7 +195,7 @@ services:
       - traefik.http.services.status.loadbalancer.server.port=80
 
   mta_sts:
-    image: nginx:alpine
+    image: nginx:1.28.2-alpine
     expose:
       - "80"
     volumes:
@@ -208,6 +208,7 @@ services:
       - traefik.http.routers.mta_sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
       - traefik.http.routers.mta_sts.entrypoints=websecure
       - traefik.http.routers.mta_sts.tls=true
+      - traefik.http.routers.mta_sts.middlewares=security-headers@file
       - traefik.http.services.mta_sts.loadbalancer.server.port=80
     restart: unless-stopped
     mem_limit: 64m
