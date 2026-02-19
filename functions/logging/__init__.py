@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import lru_cache
 from datetime import datetime, timedelta, timezone, tzinfo
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -27,6 +28,7 @@ class AppTimezoneFormatter(logging.Formatter):
         return dt.isoformat(timespec="seconds")
 
 
+@lru_cache(maxsize=None)
 def _resolve_timezone(timezone_name: str) -> tzinfo:
     # Resolve timezone and gracefully handle environments without tzdata.
     try:
@@ -44,14 +46,17 @@ class _StockholmFallbackTimezone(tzinfo):
         return timedelta(hours=1) + self.dst(dt)
 
     def tzname(self, dt):
-        return "Europe/Stockholm"
+        dst_offset = self.dst(dt)
+        if dst_offset is not None and dst_offset != timedelta(0):
+            return "CEST"
+        return "CET"
 
     def dst(self, dt):
         if dt is None:
             return timedelta(0)
 
-        dt_utc = dt.replace(tzinfo=timezone.utc)
-        if _is_stockholm_summer_time(dt_utc):
+        local = dt.replace(tzinfo=None)
+        if _is_stockholm_summer_time(local - timedelta(hours=1)):
             return timedelta(hours=1)
         return timedelta(0)
 
@@ -69,7 +74,9 @@ def _is_stockholm_summer_time(dt_utc: datetime) -> bool:
 
 def _last_sunday_of_month(year: int, month: int) -> int:
     # Return the day number of the last Sunday in a month.
-    next_month = datetime(year + (month == 12), month % 12 + 1, 1)
+    next_year = year + 1 if month == 12 else year
+    next_month_value = 1 if month == 12 else month + 1
+    next_month = datetime(next_year, next_month_value, 1)
     last_day = next_month - timedelta(days=1)
     return last_day.day - ((last_day.weekday() + 1) % 7)
 
