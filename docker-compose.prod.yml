@@ -194,6 +194,28 @@ services:
       - traefik.http.routers.status.tls=true
       - traefik.http.services.status.loadbalancer.server.port=80
 
+  mta_sts:
+    image: nginx:1.28.2-alpine
+    expose:
+      - "80"
+    volumes:
+      - ./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro
+    networks:
+      - public_net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.mta_sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
+      - traefik.http.routers.mta_sts.entrypoints=websecure
+      - traefik.http.routers.mta_sts.tls=true
+      - traefik.http.routers.mta_sts.middlewares=security-headers@file
+      - traefik.http.services.mta_sts.loadbalancer.server.port=80
+    restart: unless-stopped
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: "0.10"
+    pids_limit: 80
+
   postgres:
     image: postgres:16
     command:
