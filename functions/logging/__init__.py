@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+import threading
+from functools import lru_cache
+from datetime import datetime, timedelta, timezone, tzinfo
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, Any
@@ -13,21 +15,83 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
 
+_TZ_WARNING_STATE = threading.local()
+
 
 class AppTimezoneFormatter(logging.Formatter):
     # Formattera loggtider i applikationens tidszon (standard: Europe/Stockholm).
 
     def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
         timezone_name = os.getenv("APP_TIMEZONE", "Europe/Stockholm").strip() or "Europe/Stockholm"
-        try:
-            zone = ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
-            zone = ZoneInfo("Europe/Stockholm")
+        zone = _resolve_timezone(timezone_name)
 
         dt = datetime.fromtimestamp(record.created, zone)
         if datefmt:
             return dt.strftime(datefmt)
         return dt.isoformat(timespec="seconds")
+
+
+@lru_cache(maxsize=None)
+def _resolve_timezone(timezone_name: str) -> tzinfo:
+    # Resolve timezone and gracefully handle environments without tzdata.
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        if timezone_name != "Europe/Stockholm":
+            logger = logging.getLogger(__name__)
+            if not getattr(_TZ_WARNING_STATE, "active", False):
+                _TZ_WARNING_STATE.active = True
+                try:
+                    logger.warning(
+                        "Tidszonen %s kunde inte laddas eftersom tzdata saknas; använder Europe/Stockholm som fallback.",
+                        timezone_name,
+                    )
+                finally:
+                    _TZ_WARNING_STATE.active = False
+            return _resolve_timezone("Europe/Stockholm")
+        return _StockholmFallbackTimezone()
+
+
+class _StockholmFallbackTimezone(tzinfo):
+    # A timezone fallback for Europe/Stockholm when IANA timezone data is unavailable.
+
+    def utcoffset(self, dt):
+        return timedelta(hours=1) + self.dst(dt)
+
+    def tzname(self, dt):
+        dst_offset = self.dst(dt)
+        if dst_offset != timedelta(0):
+            return "CEST"
+        return "CET"
+
+    def dst(self, dt):
+        if dt is None:
+            return timedelta(0)
+
+        utc_candidate = (dt.replace(tzinfo=None) - timedelta(hours=1)).replace(tzinfo=timezone.utc)
+        if _is_stockholm_summer_time(utc_candidate):
+            return timedelta(hours=1)
+        return timedelta(0)
+
+
+def _is_stockholm_summer_time(dt_utc: datetime) -> bool:
+    # Stockholm follows CET/CEST and changes at 01:00 UTC.
+    year = dt_utc.year
+    dst_start_day = _last_sunday_of_month(year, 3)
+    dst_end_day = _last_sunday_of_month(year, 10)
+
+    dst_start = datetime(year, 3, dst_start_day, 1, 0, tzinfo=timezone.utc)
+    dst_end = datetime(year, 10, dst_end_day, 1, 0, tzinfo=timezone.utc)
+    return dst_start <= dt_utc < dst_end
+
+
+def _last_sunday_of_month(year: int, month: int) -> int:
+    # Return the day number of the last Sunday in a month.
+    next_year = year + 1 if month == 12 else year
+    next_month_value = 1 if month == 12 else month + 1
+    next_month = datetime(next_year, next_month_value, 1)
+    last_day = next_month - timedelta(days=1)
+    return last_day.day - ((last_day.weekday() + 1) % 7)
 
 
 def configure_module_logger(name: str) -> logging.Logger:

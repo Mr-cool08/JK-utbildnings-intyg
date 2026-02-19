@@ -11,6 +11,27 @@ def test_server_monitor_service_exists_in_compose_files():
     assert "CRITICAL_ALERTS_EMAIL" in prod_compose
 
 
+def test_prod_compose_has_mta_sts_service_with_expected_policy():
+    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+
+    assert "mta_sts:" in prod_compose
+    assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
+    assert "./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro" in prod_compose
+    assert "image: nginx:1.28.2-alpine" in prod_compose
+    assert "traefik.http.routers.mta_sts.middlewares=security-headers@file" in prod_compose
+
+
+def test_mta_sts_policy_file_has_expected_content():
+    policy_content = Path("deploy/mta-sts/.well-known/mta-sts.txt").read_text(encoding="utf-8")
+
+    assert policy_content == (
+        "version: STSv1\n"
+        "mode: testing\n"
+        "mx: webmail.internetport.se\n"
+        "max_age: 86400\n"
+    )
+
+
 def test_monitor_thresholds_are_configured():
     monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
 
