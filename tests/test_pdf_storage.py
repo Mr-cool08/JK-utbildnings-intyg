@@ -147,5 +147,6 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             "filename": "retry.pdf",
             "categories": ["truck", "hlr"],
             "uploaded_at": expected_uploaded_at,
+            "note": "",
         }
     ]

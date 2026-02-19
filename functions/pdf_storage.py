@@ -88,6 +88,7 @@ def store_pdf_blob(
     filename: str,
     content: bytes,
     categories: Sequence[str] | None = None,
+    note: str = "",
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
     with get_engine().begin() as conn:
@@ -97,6 +98,7 @@ def store_pdf_blob(
                 filename=filename,
                 content=content,
                 categories=_serialize_categories(categories),
+                note=note,
             )
         )
         pdf_id = result.inserted_primary_key[0]
@@ -121,6 +123,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
             user_pdfs_table.c.filename,
             user_pdfs_table.c.categories,
             user_pdfs_table.c.uploaded_at,
+            user_pdfs_table.c.note,
         )
         .where(user_pdfs_table.c.personnummer == personnummer_hash)
         .order_by(
@@ -139,6 +142,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                         "filename": row.filename,
                         "categories": _deserialize_categories(row.categories),
                         "uploaded_at": row.uploaded_at,
+                        "note": getattr(row, "note", "") or "",
                     }
                     for row in rows
                 ]
@@ -166,6 +170,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
                 user_pdfs_table.c.filename,
                 user_pdfs_table.c.categories,
                 user_pdfs_table.c.uploaded_at,
+                user_pdfs_table.c.note,
             ).where(
                 user_pdfs_table.c.personnummer == personnummer_hash,
                 user_pdfs_table.c.id == pdf_id,
@@ -178,6 +183,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
         "filename": row.filename,
         "categories": _deserialize_categories(row.categories),
         "uploaded_at": row.uploaded_at,
+        "note": getattr(row, "note", "") or "",
     }
 
 

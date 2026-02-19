@@ -81,6 +81,7 @@ user_pdfs_table = Table(
     Column("filename", String, nullable=False),
     Column("content", LargeBinary, nullable=False),
     Column("categories", String, nullable=False, server_default=""),
+    Column("note", String, nullable=False, server_default=""),
     Column(
         "uploaded_at",
         DateTime(timezone=True),
@@ -556,6 +557,15 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
     )
 
 
+def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
+    # Lägg till anteckningsfält för användarens uppladdade intyg.
+    inspector = inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
+    if "note" in columns:
+        return
+    conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -565,6 +575,7 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0006_add_application_personnummer_hash", _migration_0006_add_application_personnummer_hash),
     ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
     ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
+    ("0009_add_user_pdf_note", _migration_0009_add_user_pdf_note),
 ]
 
 
@@ -803,6 +814,8 @@ def create_database() -> None:
             conn.execute(
                 text("ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL")
             )
+        if "note" not in columns:
+            conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
         existing_tables = set(inspector.get_table_names())
         for table in (
             password_resets_table,

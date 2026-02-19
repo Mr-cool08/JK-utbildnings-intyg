@@ -59,7 +59,12 @@
                                     Inte angiven
                                 {% endif %}
                                 <br>
-
+                                <strong>Anteckning:</strong>
+                                {% if pdf.note %}
+                                    {{ pdf.note }}
+                                {% else %}
+                                    Ingen anteckning
+                                {% endif %}
                             </span>
                         </div>
                     </div>
@@ -112,6 +117,10 @@
                         </optgroup>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="form-field">
+                <label for="note">Anteckning (valfritt)</label>
+                <textarea id="note" name="note" maxlength="300" rows="3" placeholder="Skriv en kort anteckning om intyget"></textarea>
             </div>
             <button type="submit" class="btn">Ladda upp intyg</button>
         </form>
