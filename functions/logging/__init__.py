@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone, tzinfo
 from logging.handlers import RotatingFileHandler
@@ -13,6 +14,8 @@ from typing import Iterable, Mapping, Sequence, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
+
+_TZ_WARNING_STATE = threading.local()
 
 
 class AppTimezoneFormatter(logging.Formatter):
@@ -35,6 +38,16 @@ def _resolve_timezone(timezone_name: str) -> tzinfo:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError:
         if timezone_name != "Europe/Stockholm":
+            logger = logging.getLogger(__name__)
+            if not getattr(_TZ_WARNING_STATE, "active", False):
+                _TZ_WARNING_STATE.active = True
+                try:
+                    logger.warning(
+                        "Tidszonen %s kunde inte laddas eftersom tzdata saknas; använder Europe/Stockholm som fallback.",
+                        timezone_name,
+                    )
+                finally:
+                    _TZ_WARNING_STATE.active = False
             return _resolve_timezone("Europe/Stockholm")
         return _StockholmFallbackTimezone()
 
@@ -47,7 +60,7 @@ class _StockholmFallbackTimezone(tzinfo):
 
     def tzname(self, dt):
         dst_offset = self.dst(dt)
-        if dst_offset is not None and dst_offset != timedelta(0):
+        if dst_offset != timedelta(0):
             return "CEST"
         return "CET"
 
