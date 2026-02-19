@@ -46,6 +46,7 @@ def save_pdf_for_user(
     pnr: str,
     file_storage,
     categories: Sequence[str],
+    note: str = "",
     logger: logging.Logger | None = None,
 ):
     """Validera och spara PDF i databasen för angivet personnummer."""
@@ -96,6 +97,12 @@ def save_pdf_for_user(
     )
     if verdict.decision != "ALLOW":
         raise ValueError("PDF:en blockerades av säkerhetsskannern.")
-    pdf_id = functions.store_pdf_blob(pnr_hash, filename, content, selected_categories)
+    pdf_id = functions.store_pdf_blob(
+        pnr_hash,
+        filename,
+        content,
+        selected_categories,
+        note=note.strip(),
+    )
     logger.info("Stored PDF for %s as id %s", mask_hash(pnr_hash), pdf_id)
-    return {"id": pdf_id, "filename": filename, "categories": selected_categories}
+    return {"id": pdf_id, "filename": filename, "categories": selected_categories, "note": note.strip()}

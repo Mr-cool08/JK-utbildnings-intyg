@@ -1496,6 +1496,7 @@ def user_upload_pdf_route():
 
     uploaded_file = request.files.get("certificate")
     category = request.form.get("category", "")
+    note = (request.form.get("note", "") or "").strip()
 
     if not uploaded_file or uploaded_file.filename == "":
         flash("Ingen fil vald.", "error")
@@ -1505,8 +1506,12 @@ def user_upload_pdf_route():
         flash("Välj en kurskategori.", "error")
         return redirect("/dashboard")
 
+    if len(note) > 300:
+        flash("Anteckningen får vara högst 300 tecken.", "error")
+        return redirect("/dashboard")
+
     try:
-        pdf.save_pdf_for_user(personnummer, uploaded_file, [category], logger)
+        pdf.save_pdf_for_user(personnummer, uploaded_file, [category], note=note, logger=logger)
     except ValueError as exc:
         flash(
             _safe_user_error(
@@ -1831,7 +1836,7 @@ def admin():  # pragma: no cover
 
             # --- Save PDFs ---
             pdf_records = [
-                pdf.save_pdf_for_user(personnummer, file_storage, [category], logger)
+                pdf.save_pdf_for_user(personnummer, file_storage, [category], logger=logger)
                 for file_storage, category in zip(pdf_files, normalized_categories)
             ]
 
