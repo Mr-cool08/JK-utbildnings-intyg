@@ -55,8 +55,8 @@ class _StockholmFallbackTimezone(tzinfo):
         if dt is None:
             return timedelta(0)
 
-        local = dt.replace(tzinfo=None)
-        if _is_stockholm_summer_time(local - timedelta(hours=1)):
+        utc_candidate = (dt.replace(tzinfo=None) - timedelta(hours=1)).replace(tzinfo=timezone.utc)
+        if _is_stockholm_summer_time(utc_candidate):
             return timedelta(hours=1)
         return timedelta(0)
 
