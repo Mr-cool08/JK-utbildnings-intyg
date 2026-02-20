@@ -134,7 +134,11 @@ def test_builds_dev_status_image_with_pytest_docker(tmp_path):
 
 def test_status_service_dockerfile_copies_functions_package():
     status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
-    assert "COPY functions /app/functions" in status_dockerfile
+    assert re.search(
+        r"^\s*COPY\s+functions\s+/app/functions\s*$",
+        status_dockerfile,
+        re.MULTILINE,
+    )
 
 
 def test_status_service_dockerfile_has_healthcheck_for_root_endpoint():
