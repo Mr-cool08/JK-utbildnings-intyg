@@ -98,6 +98,11 @@ def check_database_status():
         return {"status": "Fel", "details": "Anslutning misslyckades"}
 
 
+def _is_reachable_http_status(status_code):
+    # Statussidan ska visa tjänsten som uppe när den svarar, även vid 4xx.
+    return 100 <= status_code < 500
+
+
 def check_ssl_status():
     raw_target = os.getenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
     port = int(os.getenv("STATUS_SSL_PORT", "443"))
@@ -192,13 +197,6 @@ def check_traefik_status():
     }
 
 
-
-
-def _is_reachable_http_status(status_code):
-    # Statussidan ska visa tjänsten som uppe när den svarar, även vid 4xx.
-    return 100 <= status_code < 500
-
-
 def check_http_status(name, url, timeout=3):
     if not url:
         LOGGER.warning("HTTP-kontroll '%s' saknar URL.", name)
@@ -238,13 +236,14 @@ def check_http_status(name, url, timeout=3):
             "response_time_ms": round(elapsed_ms),
         }
     except error.HTTPError as exc:
-        LOGGER.exception(
-            "HTTP-kontroll '%s' misslyckades med HTTP-fel %s för %s.",
+        LOGGER.warning(
+            "HTTP-kontroll '%s' fick HTTP-fel %s för %s.",
             name,
             exc.code,
             url,
         )
-        return {"name": name, "status": "Fel", "details": f"HTTP {exc.code}"}
+        status = "Nåbar" if _is_reachable_http_status(exc.code) else "Fel"
+        return {"name": name, "status": status, "details": f"HTTP {exc.code}"}
     except error.URLError as exc:
         reason = exc.reason
         if isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == 111:
