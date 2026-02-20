@@ -18,6 +18,7 @@ RUN apk update \
     && apk del build-base zlib-dev libffi-dev
 
 COPY status_service /app/status_service
+COPY functions /app/functions
 
 ENV STATUS_PORT=80
 
