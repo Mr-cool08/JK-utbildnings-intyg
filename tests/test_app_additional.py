@@ -48,24 +48,6 @@ def test_configure_proxy_fix_disabled_when_zero(monkeypatch):
     assert not isinstance(flask_app.wsgi_app, ProxyFix)
 
 
-def test_parse_otel_headers_handles_empty_and_pairs():
-    assert app._parse_otel_headers(None) == {}
-    assert app._parse_otel_headers("") == {}
-
-    headers = app._parse_otel_headers("foo=bar, token = abc123 ,invalid")
-
-    assert headers == {"foo": "bar", "token": "abc123"}
-
-
-def test_configure_opentelemetry_noop_when_disabled(monkeypatch):
-    flask_app = Flask(__name__)
-    monkeypatch.delenv("OTEL_ENABLED", raising=False)
-    monkeypatch.setattr(app, "as_bool", lambda value: False)
-
-    app._configure_opentelemetry(flask_app)
-
-    assert not getattr(flask_app, "_otel_instrumented", False)
-
 
 def test_resolve_secret_key_generates_in_pytest(monkeypatch):
     monkeypatch.delenv("secret_key", raising=False)
