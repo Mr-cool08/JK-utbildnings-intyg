@@ -6,12 +6,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
+
+# Configure logging with email notifications for ERROR and CRITICAL logs
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from functions.logging import configure_root_logging
+    from config_loader import load_environment
+    load_environment()
+    configure_root_logging()
+except Exception:
+    # Fallback if functions module not available
+    logging.basicConfig(level=logging.INFO)
+
+
+logger = logging.getLogger(__name__)
 
 
 class ActionError(RuntimeError):
@@ -200,14 +215,9 @@ def send_notification(action: str, details: str = "") -> None:
         event_type = "compose_action"
         title = action_labels.get(action, f"Docker Compose åtgärd: {action}")
 
-        try:
-            email_service.send_critical_event_alert(
-                event_type,
-                f"Åtgärd: {title}\nDetaljer: {details}" if details else title,
-            )
-        except Exception as e:
-            # Log but don't fail if email sending fails
-            print(f"Varning: Kunde inte skicka avisering: {e}", file=sys.stderr)
+        # Log critical event which will trigger email notification via logging handler
+        details_msg = f"Åtgärd: {title}\nDetaljer: {details}" if details else title
+        logger.critical("Docker Compose action: %s\n%s", event_type, details_msg)
     except Exception:
         # Silently fail if email module isn't available
         pass

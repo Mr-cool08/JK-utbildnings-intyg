@@ -36,16 +36,16 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
             if self._target:
                 self._target(*self._args)
 
-    monkeypatch.setenv("ERROR_ALERTS_EMAIL", "one@example.com,two@example.com")
+    monkeypatch.setenv("ADMIN_EMAIL", "one@example.com,two@example.com")
     monkeypatch.setenv("HOSTNAME", "test-host")
     monkeypatch.setenv("APP_NAME", "utbildningsintyg.se")
-    monkeypatch.setattr("functions.notifications.error_notifications.Thread", SyncThread)
+    monkeypatch.setattr("functions.notifications.critical_events.Thread", SyncThread)
     monkeypatch.setattr("functions.emails.service.send_email", fake_send_email)
 
     # Attach the EmailErrorHandler from the module under test
-    from functions.notifications import error_notifications as en
+    from functions.notifications import critical_events as ce
 
-    handler = en.EmailErrorHandler()
+    handler = ce.EmailErrorHandler()
     handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
     root.addHandler(handler)
 

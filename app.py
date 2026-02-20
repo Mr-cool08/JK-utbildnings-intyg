@@ -303,6 +303,7 @@ def _resolve_secret_key() -> str:
         return secrets.token_hex(32)
     error_msg = "FATAL: secret_key environment variable must be set and non-empty"
     logger.critical(error_msg)
+    
     raise RuntimeError(error_msg)
 
 
@@ -371,29 +372,8 @@ def create_app() -> Flask:
             _enable_debug_mode(app)
 
     logger.debug("Application created and database initialized")
-    # If configured, attach a logging handler to email ERROR-level (non-critical) logs.
-    try:
-        if os.getenv("ERROR_ALERTS_EMAIL"):
-            try:
-                from functions.notifications.error_notifications import EmailErrorHandler
-
-                handler = EmailErrorHandler()
-                # Give it a simple formatter
-                handler.setFormatter(
-                    logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-                )
-                root = logging.getLogger()
-                # Avoid adding duplicate handlers
-                if not any(isinstance(h, EmailErrorHandler) for h in root.handlers):
-                    root.addHandler(handler)
-                if not any(isinstance(h, EmailErrorHandler) for h in app.logger.handlers):
-                    app.logger.addHandler(handler)
-                logger.info("EmailErrorHandler attached for ERROR_ALERTS_EMAIL")
-            except Exception:
-                logger.warning("Could not attach EmailErrorHandler for ERROR_ALERTS_EMAIL")
-    except Exception:
-        # ignore any issues when checking environment
-        pass
+    # Email handlers for ERROR and CRITICAL logs are now automatically attached
+    # via configure_root_logging() in functions.logging module.
 
     # Startup email is sent from the first request handler to avoid duplicate
     # notifications from multiple app creation points (reloader or multiple workers).
@@ -3419,16 +3399,14 @@ if __name__ == "__main__":  # pragma: no cover
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
         try:
-            email_service.send_critical_event_alert(
-                "shutdown", "Applikationen stängdes av normalt."
-            )
+            critical_events.send_shutdown_notification("Applikationen stängdes av normalt.")
         except Exception as e:
             logger.warning("Failed to send shutdown alert: %s", e)
     except Exception as e:
         logger.critical("Application crashed with exception: %s", e, exc_info=True)
         try:
             error_details = f"Exception: {type(e).__name__}\nMessage: {str(e)}"
-            email_service.send_critical_event_alert("crash", error_details)
+            critical_events.send_crash_notification(error_details)
         except Exception as alert_error:
             logger.warning("Failed to send crash alert: %s", alert_error)
         raise

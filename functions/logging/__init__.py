@@ -204,6 +204,20 @@ def configure_root_logging() -> None:
 
     root.setLevel(log_level)
 
+    # Attach email handler for ERROR and CRITICAL level logs
+    try:
+        from functions.notifications.critical_events import EmailErrorHandler
+        has_email_handler = any(
+            isinstance(handler, EmailErrorHandler) for handler in root.handlers
+        )
+        if not has_email_handler:
+            email_handler = EmailErrorHandler()
+            email_handler.setFormatter(formatter)
+            root.addHandler(email_handler)
+    except Exception:
+        # Silently fail if email handler can't be attached (e.g., during early initialization)
+        pass
+
 
 def _iter_configured_loggers() -> Iterable[logging.Logger]:
     root = logging.getLogger()
