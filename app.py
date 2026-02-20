@@ -418,6 +418,10 @@ def _before_first_request():
 
 @app.before_request
 def _log_request_start() -> None:
+    # Skip logging for health check endpoint and other non-essential endpoints
+    if request.endpoint in ("health", "robots_txt"):
+        return
+    
     g.request_start = time.monotonic()
     g.view_start = g.request_start
     view_func = app.view_functions.get(request.endpoint) if request.endpoint else None
@@ -453,6 +457,10 @@ def _log_request_start() -> None:
 
 @app.after_request
 def _log_request_end(response: Response) -> Response:
+    # Skip logging for health check endpoint and other non-essential endpoints
+    if request.endpoint in ("health", "robots_txt", "sitemap_xml"):
+        return response
+    
     start = getattr(g, "request_start", None)
     duration = time.monotonic() - start if isinstance(start, (int, float)) else 0.0
     status_code = response.status_code
