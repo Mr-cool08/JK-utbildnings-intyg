@@ -272,7 +272,53 @@ def test_check_http_status_handles_http_error(monkeypatch, caplog):
     assert result["status"] == "Fel"
     assert result["details"] == "HTTP 503"
     assert "response_time_ms" in result
-    assert "oväntad statuskod" in caplog.text
+    assert "serverfel" in caplog.text
+
+
+def test_check_http_status_treats_client_error_as_reachable(monkeypatch):
+    class FakeResponse:
+        def __init__(self, status):
+            self.status = status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(*_args, **_kwargs):
+        return FakeResponse(404)
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    result = status_checks.check_http_status("Test", "http://test")
+
+    assert result["status"] == "OK"
+    assert result["details"] == "HTTP 404"
+    assert "response_time_ms" in result
+
+
+def test_check_ssl_status_treats_client_error_as_reachable(monkeypatch):
+    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
+
+    class DummyContext:
+        minimum_version = None
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise error.HTTPError(
+            url="https://utbildningsintyg.se/health",
+            code=404,
+            msg="Not found",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    result = status_checks.check_ssl_status()
+
+    assert result == {"status": "OK", "details": "TLS + HTTP 404"}
 
 
 def test_check_tcp_returns_false_on_error(monkeypatch, caplog):

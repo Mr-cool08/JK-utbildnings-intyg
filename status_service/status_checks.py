@@ -130,7 +130,7 @@ def check_ssl_status():
         req = request.Request(target_url, method="GET", headers={"User-Agent": "StatusCheck"})
         with request.urlopen(req, timeout=4, context=context) as response:
             status_code = response.status
-        if 200 <= status_code < 400:
+        if _is_reachable_http_status(status_code):
             return {"status": "OK", "details": f"TLS + HTTP {status_code}"}
         return {"status": "Fel", "details": f"TLS + HTTP {status_code}"}
     except ConnectionRefusedError:
@@ -138,7 +138,8 @@ def check_ssl_status():
         return {"status": "Fel", "details": "Anslutning nekades"}
     except error.HTTPError as exc:
         LOGGER.warning("SSL-kontroll fick HTTP-fel %s från %s.", exc.code, target_url)
-        return {"status": "Fel", "details": f"TLS + HTTP {exc.code}"}
+        status = "OK" if _is_reachable_http_status(exc.code) else "Fel"
+        return {"status": status, "details": f"TLS + HTTP {exc.code}"}
     except error.URLError as exc:
         reason = exc.reason
         if isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == 111:
@@ -191,6 +192,13 @@ def check_traefik_status():
     }
 
 
+
+
+def _is_reachable_http_status(status_code):
+    # Statussidan ska visa tjänsten som uppe när den svarar, även vid 4xx.
+    return 100 <= status_code < 500
+
+
 def check_http_status(name, url, timeout=3):
     if not url:
         LOGGER.warning("HTTP-kontroll '%s' saknar URL.", name)
@@ -210,7 +218,7 @@ def check_http_status(name, url, timeout=3):
             status_code,
             round(elapsed_ms),
         )
-        if 200 <= status_code < 400:
+        if _is_reachable_http_status(status_code):
             return {
                 "name": name,
                 "status": "OK",
@@ -218,7 +226,7 @@ def check_http_status(name, url, timeout=3):
                 "response_time_ms": round(elapsed_ms),
             }
         LOGGER.warning(
-            "HTTP-kontroll '%s' fick oväntad statuskod %s för %s.",
+            "HTTP-kontroll '%s' fick serverfel %s för %s.",
             name,
             status_code,
             url,

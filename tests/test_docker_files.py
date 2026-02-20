@@ -132,6 +132,15 @@ def test_builds_dev_status_image_with_pytest_docker(tmp_path):
     _build_image_with_pytest_docker(compose_file, "build status_page")
 
 
+def test_status_service_dockerfile_copies_functions_package():
+    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
+    assert re.search(
+        r"^\s*COPY\s+functions\s+/app/functions\s*$",
+        status_dockerfile,
+        re.MULTILINE,
+    )
+
+
 def test_status_service_dockerfile_has_healthcheck_for_root_endpoint():
     status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
     assert "HEALTHCHECK" in status_dockerfile
