@@ -3281,6 +3281,7 @@ def login_admin():  # pragma: no cover
         if not admin_password or not admin_username:
             error_msg = "FATAL: admin_username and admin_password environment variables must be set and non-empty"
             logger.critical(error_msg)
+            critical_events.send_critical_error_notification(error_message=error_msg, endpoint="/login_admin", user_ip=get_request_ip())
             raise RuntimeError(error_msg)
         if (
             request.form["username"] == admin_username
