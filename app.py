@@ -40,8 +40,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
 from functions.logging import (
-    configure_module_logger,
-    configure_root_logging,
+    bootstrap_logging,
     mask_email,
     mask_hash,
     mask_headers,
@@ -62,7 +61,6 @@ from functions import security as sec
 from functions.requests import as_bool, get_request_ip, register_public_submission
 
 
-configure_root_logging()
 load_environment()
 
 import functions
@@ -72,8 +70,7 @@ validate_csrf_token = sec.validate_csrf_token
 save_pdf_for_user = pdf.save_pdf_for_user
 
 
-logger = configure_module_logger(__name__)
-logger.setLevel(logging.INFO)
+logger = bootstrap_logging(__name__)
 
 
 def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> str:
@@ -242,7 +239,6 @@ def _enable_debug_mode(app: Flask) -> None:
         app.logger.addHandler(stream)
     app.logger.setLevel(logging.DEBUG)
 
-    logger.setLevel(logging.DEBUG)
     functions.logger.setLevel(logging.DEBUG)
     if not any(isinstance(h, logging.StreamHandler) for h in functions.logger.handlers):
         functions.logger.addHandler(stream)
