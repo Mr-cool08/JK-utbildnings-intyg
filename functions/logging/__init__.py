@@ -172,7 +172,7 @@ def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
     for env_var in level_env_vars:
         value = os.getenv(env_var)
         if value:
-            return value.upper()
+            return value.strip().upper()
     return "INFO"
 
 
