@@ -167,9 +167,18 @@ def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
     return masked
 
 
-def configure_root_logging() -> None:
+def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
+    # Resolve log level from the first configured environment variable.
+    for env_var in level_env_vars:
+        value = os.getenv(env_var)
+        if value:
+            return value.upper()
+    return "INFO"
+
+
+def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> None:
     # Configure root logging with console + rotating file handler.
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = _resolve_log_level(level_env_vars)
     log_dir = os.getenv("LOG_DIR", "logs")
     default_log_file = os.path.join(log_dir, "app.log")
     log_file = os.getenv("LOG_FILE", default_log_file)
@@ -217,6 +226,15 @@ def configure_root_logging() -> None:
     except Exception:
         # Silently fail if email handler can't be attached (e.g., during early initialization)
         pass
+
+
+def bootstrap_logging(
+    module_name: str,
+    level_env_vars: Sequence[str] = ("LOG_LEVEL",),
+) -> logging.Logger:
+    # Configure root logging and return a configured module logger.
+    configure_root_logging(level_env_vars=level_env_vars)
+    return configure_module_logger(module_name)
 
 
 def _iter_configured_loggers() -> Iterable[logging.Logger]:

@@ -1,6 +1,7 @@
 # Copyright (c) Liam Suorsa
 # Test for critical events email notifications
 
+import logging
 import pytest
 import os
 from unittest.mock import patch, MagicMock
@@ -202,3 +203,57 @@ class TestCriticalEventIntegration:
         response = client.get('/health')
         assert response.status_code == 200
         assert response.json == {"status": "ok"}
+
+
+def test_email_error_handler_logs_failure_without_recursive_notification(monkeypatch):
+    handler = critical_events.EmailErrorHandler()
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="Fel i tjänst",
+        args=(),
+        exc_info=None,
+    )
+
+    monkeypatch.setattr(
+        critical_events,
+        "send_unified_notification",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("smtp nere")),
+    )
+
+    logged_messages = []
+
+    def fake_error(message, *args, **kwargs):
+        _ = kwargs
+        logged_messages.append(message % args)
+
+    monkeypatch.setattr(critical_events._EMAIL_FAILURE_LOGGER, "error", fake_error)
+
+    handler.emit(record)
+
+    assert len(logged_messages) == 1
+    assert "Emailnotifiering misslyckades" in logged_messages[0]
+
+
+def test_send_email_async_logs_email_failure_via_failure_logger(monkeypatch):
+    monkeypatch.setattr(critical_events, "collect_log_attachments", lambda: [])
+
+    def failing_send_email(*_args, **_kwargs):
+        raise RuntimeError("smtp timeout")
+
+    monkeypatch.setattr(critical_events.email_service, "send_email", failing_send_email)
+
+    logged_messages = []
+
+    def fake_error(message, *args, **kwargs):
+        _ = kwargs
+        logged_messages.append(message % args)
+
+    monkeypatch.setattr(critical_events._EMAIL_FAILURE_LOGGER, "error", fake_error)
+
+    critical_events._send_email_async(["admin@example.com"], "Ämne", "Hej")
+
+    assert len(logged_messages) == 1
+    assert "Misslyckades att skicka e-post" in logged_messages[0]

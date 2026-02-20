@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import datetime as dt
+import logging
 import os
 import shutil
 import smtplib
@@ -10,6 +11,13 @@ from email.message import EmailMessage
 from pathlib import Path
 
 import docker
+
+try:
+    from functions.logging import bootstrap_logging
+
+    logger = bootstrap_logging(__name__)
+except Exception:
+    logger = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SECONDS = int(os.getenv("MONITOR_CHECK_INTERVAL_SECONDS", "60"))
 SMTP_SERVER = os.getenv("smtp_server", "")
@@ -184,7 +192,7 @@ def send_email(subject: str, body: str, attachments: list[Path]):
                 server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(message)
     except (smtplib.SMTPException, TimeoutError, OSError) as exc:
-        print(f"Kunde inte skicka e-postvarning: {exc}")
+        logger.error("Kunde inte skicka e-postvarning: %s", str(exc))
 
 
 def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):

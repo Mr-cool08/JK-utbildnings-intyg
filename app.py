@@ -251,7 +251,7 @@ def _enable_debug_mode(app: Flask) -> None:
     logger.debug("Debug mode is on")
     # Skapa testanvändare endast i debug-läge
     functions.create_test_user()
-    print("Debug mode is on, test user created")
+    logger.debug("Debug mode is on, test user created")
 
 
 def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
