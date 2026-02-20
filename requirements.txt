@@ -11,6 +11,7 @@ SQLAlchemy
 MarkupSafe
 Markdown
 pytest
+pytest-xdist
 pytest-docker
 requests
 Pillow>=11.3.0

@@ -110,6 +110,7 @@ def test_dockerfile_installs_openssl():
     )
 
 
+@pytest.mark.docker
 def test_builds_production_app_image_with_pytest_docker(tmp_path):
     _require_working_docker()
     compose_file = _create_temp_compose_for_build(
@@ -120,6 +121,7 @@ def test_builds_production_app_image_with_pytest_docker(tmp_path):
     _build_image_with_pytest_docker(compose_file, "build app")
 
 
+@pytest.mark.docker
 def test_builds_dev_status_image_with_pytest_docker(tmp_path):
     _require_working_docker()
     compose_file = _create_temp_compose_for_build(
