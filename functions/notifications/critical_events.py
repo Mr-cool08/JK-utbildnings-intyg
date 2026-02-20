@@ -140,6 +140,7 @@ def _send_email_async(recipients: list[str], subject: str, html_body: str) -> No
                 "Misslyckades att skicka e-post till %s: %s",
                 recipient,
                 str(error),
+                exc_info=True
             )
 
 
