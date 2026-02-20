@@ -41,11 +41,11 @@ jobs:
 
       - name: Kör tester
         if: ${{ env.CODACY_PROJECT_TOKEN == '' }}
-        run: pytest -n auto
+        run: pytest
 
       - name: Kör tester med täckning
         if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
-        run: pytest -n auto --cov=. --cov-report xml
+        run: pytest --cov=. --cov-report xml
 
       - name: Rapportera täckning till Codacy
         if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
