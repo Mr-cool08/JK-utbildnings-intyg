@@ -79,6 +79,7 @@ class EmailErrorHandler(logging.Handler):
             _EMAIL_FAILURE_LOGGER.error(
                 "Emailnotifiering misslyckades i EmailErrorHandler: %s",
                 str(error),
+                exc_info=True
             )
 
 
