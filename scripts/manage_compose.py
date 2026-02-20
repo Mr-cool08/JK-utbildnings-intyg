@@ -17,16 +17,14 @@ from typing import Callable, Iterable, Sequence
 # Configure logging with email notifications for ERROR and CRITICAL logs
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 try:
-    from functions.logging import configure_root_logging
+    from functions.logging import bootstrap_logging
     from config_loader import load_environment
     load_environment()
-    configure_root_logging()
+    logger = bootstrap_logging(__name__)
 except Exception:
     # Fallback if functions module not available
-    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
-
-logger = logging.getLogger(__name__)
 
 
 class ActionError(RuntimeError):

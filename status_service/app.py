@@ -1,15 +1,14 @@
 # Copyright (c) Liam Suorsa
-import logging
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template
 
+from functions.logging import bootstrap_logging
 from status_service.status_checks import build_status
 
 app = Flask(__name__)
-logging.basicConfig(level=os.getenv("STATUS_LOG_LEVEL", "INFO"))
-LOGGER = logging.getLogger(__name__)
+LOGGER = bootstrap_logging(__name__, level_env_vars=("STATUS_LOG_LEVEL", "LOG_LEVEL"))
 
 
 def get_display_timestamp():

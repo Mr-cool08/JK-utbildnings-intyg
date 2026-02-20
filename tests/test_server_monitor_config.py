@@ -52,7 +52,7 @@ def test_send_email_handles_smtp_timeouts_gracefully():
     monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
 
     assert "except (smtplib.SMTPException, TimeoutError, OSError) as exc:" in monitor_script
-    assert 'print(f"Kunde inte skicka e-postvarning: {exc}")' in monitor_script
+    assert 'logger.error("Kunde inte skicka e-postvarning: %s", str(exc))' in monitor_script
 
 
 # Copyright (c) Liam Suorsa

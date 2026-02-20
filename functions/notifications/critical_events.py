@@ -8,18 +8,29 @@ import os
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from html import escape
-from threading import Thread
+from threading import Thread, local
 from typing import Optional
 
 from config_loader import load_environment
 from functions.emails import service as email_service
-from functions.logging import collect_log_attachments, configure_module_logger
+from functions.logging import AppTimezoneFormatter, collect_log_attachments, configure_module_logger
 
 
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 
 load_environment()
+
+_EMAIL_HANDLER_STATE = local()
+_EMAIL_FAILURE_LOGGER = logging.getLogger("notifications.email_failures")
+if not _EMAIL_FAILURE_LOGGER.handlers:
+    _email_failure_handler = logging.StreamHandler()
+    _email_failure_handler.setFormatter(
+        AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    _EMAIL_FAILURE_LOGGER.addHandler(_email_failure_handler)
+_EMAIL_FAILURE_LOGGER.propagate = False
+_EMAIL_FAILURE_LOGGER.setLevel(logging.ERROR)
 
 
 class EmailErrorHandler(logging.Handler):
@@ -39,27 +50,37 @@ class EmailErrorHandler(logging.Handler):
                 return
             if getattr(record, "_email_error_handler_sent", False):
                 return
+            if getattr(_EMAIL_HANDLER_STATE, "active", False):
+                return
+
             record._email_error_handler_sent = True
+            _EMAIL_HANDLER_STATE.active = True
+            try:
+                # Format the log message
+                message = self.format(record)
 
-            # Format the log message
-            message = self.format(record)
+                # Notification type for ERROR level logs
+                notification_type = "error"
+                title = f"[FEL] {record.levelname}: {record.name}"
+                log_level = logging.ERROR
 
-            # Notification type for ERROR level logs
-            notification_type = "error"
-            title = f"[FEL] {record.levelname}: {record.name}"
-            log_level = logging.ERROR
+                # Use unified notification system - will get ADMIN_EMAIL automatically
+                send_unified_notification(
+                    notification_type=notification_type,
+                    title=title,
+                    description=message,
+                    log_level=log_level,
+                )
+            finally:
+                _EMAIL_HANDLER_STATE.active = False
 
-            # Use unified notification system - will get ADMIN_EMAIL automatically
-            send_unified_notification(
-                notification_type=notification_type,
-                title=title,
-                description=message,
-                log_level=log_level,
+        except Exception as error:
+            # Never raise from a logging handler, but log failure without recursive email handler usage.
+            _EMAIL_FAILURE_LOGGER.error(
+                "Emailnotifiering misslyckades i EmailErrorHandler: %s",
+                str(error),
+                exc_info=True
             )
-
-        except Exception:
-            # Never raise from a logging handler
-            pass
 
 
 def _get_admin_emails() -> list[str]:
@@ -115,11 +136,12 @@ def _send_email_async(recipients: list[str], subject: str, html_body: str) -> No
                 email_service.send_email(recipient, subject, html_body, attachments=attachments)
             else:
                 email_service.send_email(recipient, subject, html_body)
-        except Exception as e:
-            logger.error(
-                "Misslyckades att skicka email till %s: %s",
+        except Exception as error:
+            _EMAIL_FAILURE_LOGGER.error(
+                "Misslyckades att skicka e-post till %s: %s",
                 recipient,
-                str(e),
+                str(error),
+                exc_info=True
             )
 
 
