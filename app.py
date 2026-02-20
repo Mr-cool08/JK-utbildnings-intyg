@@ -35,7 +35,6 @@ from flask import (
     url_for,
 )
 from markupsafe import Markup
-import importlib.util
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -75,7 +74,27 @@ save_pdf_for_user = pdf.save_pdf_for_user
 
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
-# functions.create_test_user()  # Skapa en testanvändare vid start
+
+
+def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> Response:
+    """Returnerar render_template för create_supervisor/create_user-sidor med standard-kwargs.
+
+    Detta förenklar upprepade anrop som tidigare skickade samma kwargs flera gånger.
+    """
+    common = {
+        "invalid": invalid,
+        "page_title": "Skapa konto",
+        "heading": "Skapa konto",
+        "description": (
+            "Välj ett starkt lösenord för ditt konto. "
+            "Lösenordet måste vara minst åtta tecken långt."
+        ),
+        "submit_text": "Skapa konto",
+    }
+    common.update(extra or {})
+    if error:
+        common["error"] = error
+    return render_template("create_supervisor.html", **common)
 
 
 def _render_basic_markdown(text: str) -> str:
@@ -132,6 +151,10 @@ CLIENT_LOG_TRUNCATION_LIMITS = {
     "url": 500,
     "details": 1000,
 }
+
+# Gemensamma användarmeddelanden
+CSRF_EXPIRED_MESSAGE = "Formuläret är inte längre giltigt. Ladda om sidan och försök igen."
+TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund och prova igen."
 
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
@@ -615,7 +638,6 @@ def inject_flags():
 
 @app.route("/robots.txt")
 def robots_txt():
-    """Servera robots.txt från den statiska katalogen."""
     # Serve robots.txt to disallow all crawlers.
     if app.static_folder is None:
         abort(404)
@@ -624,7 +646,6 @@ def robots_txt():
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
-    """Servera sitemap.xml med publika URL:er."""
     # Serve sitemap.xml with public URLs only.
     if app.static_folder is None:
         abort(404)
@@ -647,47 +668,15 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
         if password != confirm:
-            return render_template(
-                "create_supervisor.html",
-                invalid=False,
-                page_title="Skapa konto",
-                heading="Skapa konto",
-                description=(
-                    "Välj ett starkt lösenord för ditt konto. "
-                    "Lösenordet måste vara minst åtta tecken långt."
-                ),
-                submit_text="Skapa konto",
-                error="Lösenorden måste matcha.",
-            )
+            return _render_create_supervisor_page(error="Lösenorden måste matcha.", invalid=False)
         if len(password) < 8:
-            return render_template(
-                "create_supervisor.html",
-                invalid=False,
-                page_title="Skapa konto",
-                heading="Skapa konto",
-                description=(
-                    "Välj ett starkt lösenord för ditt konto. "
-                    "Lösenordet måste vara minst åtta tecken långt."
-                ),
-                submit_text="Skapa konto",
-                error="Lösenordet måste vara minst 8 tecken långt.",
-            )
+            return _render_create_supervisor_page(error="Lösenordet måste vara minst 8 tecken långt.", invalid=False)
         logger.debug("Creating user with hash %s", pnr_hash)
         if not functions.user_create_user(password, pnr_hash):
             logger.warning("Kunde inte skapa användare för hash %s", pnr_hash)
-            return render_template(
-                "create_supervisor.html",
+            return _render_create_supervisor_page(
+                error=("Kontot kunde inte aktiveras. Kontrollera att länken är giltig."),
                 invalid=False,
-                page_title="Skapa konto",
-                heading="Skapa konto",
-                description=(
-                    "Välj ett starkt lösenord för ditt konto. "
-                    "Lösenordet måste vara minst åtta tecken långt."
-                ),
-                submit_text="Skapa konto",
-                error=(
-                    "Kontot kunde inte aktiveras. Kontrollera att länken är giltig."
-                ),
             )
         return redirect("/login")
     if functions.check_pending_user_hash(pnr_hash):
