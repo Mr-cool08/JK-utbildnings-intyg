@@ -76,7 +76,7 @@ logger = configure_module_logger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> Response:
+def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> str:
     """Returnerar render_template för create_supervisor/create_user-sidor med standard-kwargs.
 
     Detta förenklar upprepade anrop som tidigare skickade samma kwargs flera gånger.
