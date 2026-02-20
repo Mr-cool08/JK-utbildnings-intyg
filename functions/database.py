@@ -665,10 +665,10 @@ def _build_engine() -> Engine:
         port = os.getenv("POSTGRES_PORT", "5432")
 
         if not user:
-            logger.error("POSTGRES_USER must be set when POSTGRES_HOST is configured")
+            logger.critical("POSTGRES_USER must be set when POSTGRES_HOST is configured")
             raise RuntimeError("POSTGRES_USER must be set when POSTGRES_HOST is configured")
         if not database:
-            logger.error("POSTGRES_DB must be set when POSTGRES_HOST is configured")
+            logger.critical("POSTGRES_DB must be set when POSTGRES_HOST is configured")
             raise RuntimeError("POSTGRES_DB must be set when POSTGRES_HOST is configured")
 
         encoded_user = quote_plus(user)

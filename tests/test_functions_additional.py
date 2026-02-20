@@ -237,3 +237,24 @@ def test_switch_postgres_host_after_dns_error(monkeypatch):
 
     assert switched is True
     assert os.environ["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/testdb"
+
+
+def test_build_engine_logs_critical_when_postgres_user_missing(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("POSTGRES_HOST", "db.local")
+    monkeypatch.delenv("POSTGRES_USER", raising=False)
+    monkeypatch.setenv("POSTGRES_DB", "appdb")
+    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
+    monkeypatch.delenv("DEV_MODE", raising=False)
+
+    captured = {}
+
+    def fake_critical(message):
+        captured["message"] = message
+
+    monkeypatch.setattr(database_module.logger, "critical", fake_critical)
+
+    with pytest.raises(RuntimeError):
+        functions._build_engine()
+
+    assert captured["message"] == "POSTGRES_USER must be set when POSTGRES_HOST is configured"

@@ -213,9 +213,9 @@ def send_notification(action: str, details: str = "") -> None:
         event_type = "compose_action"
         title = action_labels.get(action, f"Docker Compose åtgärd: {action}")
 
-        # Log critical event which will trigger email notification via logging handler
+        # Logga livscykelhändelse för compose-åtgärden
         details_msg = f"Åtgärd: {title}\nDetaljer: {details}" if details else title
-        logger.critical("Docker Compose action: %s\n%s", event_type, details_msg)
+        logger.info("Docker Compose action: %s\n%s", event_type, details_msg)
     except Exception:
         # Silently fail if email module isn't available
         pass

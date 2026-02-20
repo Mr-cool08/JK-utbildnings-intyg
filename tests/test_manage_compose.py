@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import importlib.util
 import subprocess
+import sys
+import types
 from pathlib import Path
 
 
@@ -452,3 +454,29 @@ def test_run_menu_executes_selected_action():
 
     assert result == 0
     assert calls == ["docker compose -f docker-compose.yml stop"]
+
+
+def test_send_notification_logs_compose_action_as_info(monkeypatch):
+    module = _load_module()
+
+    services_module = types.ModuleType("services")
+    services_email_module = types.ModuleType("services.email")
+    services_module.email = services_email_module
+    monkeypatch.setitem(sys.modules, "services", services_module)
+    monkeypatch.setitem(sys.modules, "services.email", services_email_module)
+
+    captured = {}
+
+    class FakeLogger:
+        def info(self, message, event_type, details):
+            captured["message"] = message
+            captured["event_type"] = event_type
+            captured["details"] = details
+
+    monkeypatch.setattr(module, "logger", FakeLogger())
+
+    module.send_notification("up", "klart")
+
+    assert captured["message"] == "Docker Compose action: %s\n%s"
+    assert captured["event_type"] == "compose_action"
+    assert "Docker Compose tjänsterna startades" in captured["details"]

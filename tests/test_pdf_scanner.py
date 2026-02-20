@@ -81,3 +81,15 @@ def test_scan_pdf_handles_timeout(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _timeout)
     with pytest.raises(ValueError):
         pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 slow", logging.getLogger(__name__))
+
+
+def test_scan_pdf_missing_quicksand_logs_critical(monkeypatch, caplog):
+    def _missing_binary(*_args, **_kwargs):
+        raise FileNotFoundError("quicksand")
+
+    monkeypatch.setattr(subprocess, "run", _missing_binary)
+    with caplog.at_level(logging.CRITICAL):
+        with pytest.raises(ValueError):
+            pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 missing", logging.getLogger(__name__))
+
+    assert "Quicksand saknas på systemet" in caplog.text

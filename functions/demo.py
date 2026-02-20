@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -34,7 +33,6 @@ from functions.applications import _ensure_company
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def create_test_user() -> None:
