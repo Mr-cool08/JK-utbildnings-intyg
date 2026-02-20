@@ -107,7 +107,7 @@ def test_run_compose_action_cycle_orders_commands():
 
         {"event": "install", "root": repo_root},
 
-        {"event": "cmd", "cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root},
+        {"event": "cmd", "cmd": ["venv/bin/pytest", "-n", "auto"], "check": True, "cwd": repo_root},
 
         {"event": "cmd", "cmd": ["docker", "system", "df"], "check": True, "cwd": None},
 
@@ -230,7 +230,7 @@ def test_run_compose_action_pytest_uses_repo_root():
 
     repo_root = Path(module.__file__).resolve().parents[1]
 
-    assert calls == [{"cmd": ["venv/bin/pytest"], "check": True, "cwd": repo_root}]
+    assert calls == [{"cmd": ["venv/bin/pytest", "-n", "auto"], "check": True, "cwd": repo_root}]
 
 
 def test_build_pip_command_uses_repo_venv(tmp_path):
