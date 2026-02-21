@@ -198,7 +198,6 @@ def test_log_level_controls_module_loggers_without_module_overrides(monkeypatch)
         logging_utils.configure_root_logging()
 
         for module_name in module_names:
-            module_logger = logging.getLogger(module_name)
             module_logger = logging_utils.configure_module_logger(module_name)
             assert module_logger.level == logging.ERROR
             assert module_logger.getEffectiveLevel() == logging.ERROR
@@ -226,5 +225,15 @@ def test_log_level_controls_module_loggers_without_module_overrides(monkeypatch)
 def test_app_uses_module_logger_instead_of_direct_logging_calls():
     app_path = Path(__file__).resolve().parent.parent / "app.py"
     app_source = app_path.read_text(encoding="utf-8")
-    direct_logging_pattern = r"\blogging\.(debug|info|warning|error|exception|critical)\("
-    assert re.search(direct_logging_pattern, app_source) is None
+    direct_logging_pattern = r"\blogging\.([A-Za-z_][A-Za-z0-9_]*)"
+    matches = re.findall(direct_logging_pattern, app_source)
+    allowed_logging_attributes = {
+        "DEBUG",
+        "ERROR",
+        "INFO",
+        "WARNING",
+        "NOTSET",
+        "StreamHandler",
+        "getLogger",
+    }
+    assert set(matches).issubset(allowed_logging_attributes)

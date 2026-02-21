@@ -174,6 +174,22 @@ def _truncate_log_value(value: Any, limit: int) -> str:
     return f"{text[:limit]}…"
 
 
+def _mask_sensitive_fields(value: Any) -> Any:
+    # Maskera potentiellt känsliga fält i API-svar/loggar för adminverktyg.
+    if isinstance(value, dict):
+        masked: dict[str, Any] = {}
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if any(token in lowered for token in ("email", "personnummer", "ssn", "name", "namn")):
+                masked[key] = "***"
+            else:
+                masked[key] = _mask_sensitive_fields(item)
+        return masked
+    if isinstance(value, list):
+        return [_mask_sensitive_fields(item) for item in value]
+    return value
+
+
 def _trusted_proxy_hops(raw_value: str | None) -> int:
     # Tolka TRUSTED_PROXY_COUNT och hantera ogiltiga värden på ett säkert sätt.
     default_hops = 1
@@ -3121,7 +3137,7 @@ def admin_delete_supervisor_account_route():  # pragma: no cover
     )
     logger.info(
         "Admin deleted supervisor account for %s",
-        normalized_orgnr,
+        mask_hash(functions.hash_value(normalized_orgnr)),
         extra={"admin": admin_name},
     )
     return jsonify(
@@ -3144,28 +3160,40 @@ def admin_advanced():  # pragma: no cover
 
 @app.get("/admin/advanced/api/schema/<table_name>")
 def admin_advanced_schema(table_name: str):  # pragma: no cover
-    _require_admin()
+    admin_name = _require_admin()
     try:
         schema = functions.get_table_schema(table_name)
     except ValueError:
-        logger.debug("Admin advanced schema with unknown table: %s", table_name)
+        logger.debug(
+            "Admin advanced schema with unknown table: %s",
+            table_name,
+            extra={"admin": admin_name},
+        )
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
-    logger.debug("Admin advanced schema for table: %s", table_name)
+    logger.debug("Admin advanced schema for table: %s", table_name, extra={"admin": admin_name})
     return jsonify({"status": "success", "schema": schema})
 
 
 @app.get("/admin/advanced/api/rows/<table_name>")
 def admin_advanced_rows(table_name: str):  # pragma: no cover
-    _require_admin()
+    admin_name = _require_admin()
     search_term = request.args.get("sok")
     limit = request.args.get("limit", type=int) or 100
     try:
         rows = functions.fetch_table_rows(table_name, search_term, limit)
     except ValueError:
-        logger.debug("Admin advanced rows with unknown table: %s", table_name)
+        logger.debug(
+            "Admin advanced rows with unknown table: %s",
+            table_name,
+            extra={"admin": admin_name},
+        )
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
     logger.debug(
-        "Admin advanced rows for table: %s, search: %r, limit: %d", table_name, search_term, limit
+        "Admin advanced rows for table: %s, search: %r, limit: %d",
+        table_name,
+        search_term,
+        limit,
+        extra={"admin": admin_name},
     )
     return jsonify({"status": "success", "rows": rows})
 
@@ -3179,13 +3207,24 @@ def admin_advanced_create(table_name: str):  # pragma: no cover
     except ValueError as exc:
         logger.warning(f"Error in create_table_row: {exc}")
         return jsonify({"status": "error", "message": "Kunde inte skapa posten."}), 400
+    masked_row = _mask_sensitive_fields(row)
     functions.log_admin_action(
         admin_name,
         "skapade post",
         f"tabell={table_name}",
     )
-    logger.info("Admin created row in table %s: %s", table_name, row, extra={"admin": admin_name})
-    return jsonify({"status": "success", "row": row}), 201
+    logger.info(
+        "Admin created row in table %s",
+        table_name,
+        extra={"admin": admin_name},
+    )
+    logger.debug(
+        "Admin created masked row in table %s: %s",
+        table_name,
+        masked_row,
+        extra={"admin": admin_name},
+    )
+    return jsonify({"status": "success", "row": masked_row}), 201
 
 
 @app.put("/admin/advanced/api/rows/<table_name>/<int:row_id>")
