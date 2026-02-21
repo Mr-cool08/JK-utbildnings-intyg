@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const STORAGE_KEY = 'admin_last_personnummer';
 
@@ -28,4 +28,4 @@
     loadLastPersonnummer,
   };
 })();
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa

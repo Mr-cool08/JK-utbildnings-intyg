@@ -90,3 +90,5 @@ Vid fel i administrationspanelen, följ dessa steg:
 [^B]: Företagskonto har en konstnad baserad på antalet användare som är kopplade till företagskontot.
 [^C]: Standardkonto är gratis.
 [^D]: Systemadministratören E-post: `liam@utbildningsintyg.se`
+
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

@@ -55,4 +55,4 @@ def test_send_email_handles_smtp_timeouts_gracefully():
     assert 'logger.error("Kunde inte skicka e-postvarning: %s", str(exc))' in monitor_script
 
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 set -euo pipefail
 
 # Generera Cloudflare IP-listor för Nginx och brandvägg

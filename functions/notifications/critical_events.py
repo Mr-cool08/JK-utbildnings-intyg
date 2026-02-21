@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 # Service for sending email notifications about critical application events.
 
 from __future__ import annotations

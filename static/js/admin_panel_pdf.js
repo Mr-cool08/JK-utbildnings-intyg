@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const pdfLookupForm = document.getElementById('pdfLookupForm');
   const pdfLookupMessage = document.getElementById('pdfLookupMessage');
@@ -256,4 +256,4 @@
     });
   }
 })();
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa

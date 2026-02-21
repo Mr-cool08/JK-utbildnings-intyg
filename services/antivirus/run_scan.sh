@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 set -euo pipefail
 
 source /etc/antivirus.env

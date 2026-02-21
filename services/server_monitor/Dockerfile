@@ -18,4 +18,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY monitor.py ./monitor.py
 
 CMD ["python", "/app/monitor.py"]
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 # Flask application for issuing and serving course certificates.
 
 from __future__ import annotations
@@ -3532,4 +3532,4 @@ if __name__ == "__main__":  # pragma: no cover
             logger.critical("Failed to send crash notification: %s", alert_error)
         raise
 
-# © 2025 Liam Suorsa. All rights reserved.
+# © 2026 Liam Suorsa. All rights reserved.

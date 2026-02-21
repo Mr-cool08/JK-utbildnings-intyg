@@ -45,4 +45,4 @@ flowchart TD
     AA --> AA1[Skicka e-post: PDF uppladdad]
 ```
 
-<!-- Copyright (c) Liam Suorsa -->
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

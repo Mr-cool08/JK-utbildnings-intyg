@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Adminpanelen – superenkel guide
 
 Den här guiden är skriven för att vara så enkel som möjligt. Följ stegen i ordning.
@@ -68,4 +68,4 @@ Dessa sidor har egna knappar på startvyn. Följ instruktionerna på respektive 
 - Alla åtgärder loggas automatiskt.
 - Kontrollera alltid personnummer innan du raderar konto.
 
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

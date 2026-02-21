@@ -24,4 +24,4 @@ def test_antivirus_send_alert_email_command_present():
     assert '[ -z "${SMTP_PASSWORD}" ]' in run_scan
 
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

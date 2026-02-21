@@ -17,4 +17,4 @@ enabled = false
 port = http,https
 logpath = /var/log/traefik/access.log
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
