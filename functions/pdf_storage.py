@@ -103,7 +103,7 @@ def store_pdf_blob(
         )
         pdf_id = result.inserted_primary_key[0]
     logger.info(
-        "Stored PDF %s for %s as id %s",
+        "Sparade PDF %s för %s med id %s",
         filename,
         mask_hash(personnummer_hash),
         pdf_id,
