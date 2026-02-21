@@ -182,7 +182,7 @@ def _mask_username_for_log(username: str | None) -> str:
         return "<saknas>"
     if "@" in cleaned:
         return mask_email(cleaned)
-    return mask_hash(functions.hash_value(cleaned.lower()))
+    return mask_sensitive_data(cleaned, keep_prefix=2, keep_suffix=1)
 
 
 def _trusted_proxy_hops(raw_value: str | None) -> int:
@@ -816,7 +816,7 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
     if not functions.supervisor_has_access(email_hash, person_hash):
         logger.warning(
-            "Supervisor %s attempted to access pdf %s for %s without permission",
+            "Handledare %s försökte komma åt pdf %s för %s utan behörighet",
             email_hash,
             pdf_id,
             person_hash,
@@ -828,7 +828,7 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     filename, content = pdf
     as_attachment = request.args.get("download", "1") != "0"
     logger.info(
-        "Supervisor %s retrieving %s for %s",
+        "Handledare %s hämtar %s för %s",
         email_hash,
         filename,
         person_hash,
@@ -1608,7 +1608,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
 
     pnr_hash = session.get("personnummer")
     if not pnr_hash:
-        logger.error("Delningsbegäran saknar personnummer i session: %r", session)
+        logger.error("Delningsbegäran saknar personnummer i session. Nycklar: %s", sorted(session.keys()))
         return jsonify({"fel": "Saknar användaruppgifter."}), 400
 
     attachments: list[tuple[str, bytes]] = []
@@ -1761,7 +1761,7 @@ def admin():  # pragma: no cover
             # --- Return early for existing or pending users ---
             if user_exists:
                 logger.info(
-                    "PDFs uploaded for existing user %s (%d files)",
+                    "PDF:er uppladdade för befintlig användare %s (%d filer)",
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
@@ -1774,7 +1774,7 @@ def admin():  # pragma: no cover
 
             if pending_exists:
                 logger.info(
-                    "PDFs uploaded for pending user %s (%d files)",
+                    "PDF:er uppladdade för väntande användare %s (%d filer)",
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
@@ -3275,7 +3275,9 @@ def login_admin():  # pragma: no cover
             raise RuntimeError(error_msg)
         submitted_username = request.form.get("username")
         submitted_password = request.form.get("password")
-        if submitted_username == admin_username and submitted_password == admin_password:
+        user_ok = secrets.compare_digest(str(submitted_username or ""), str(admin_username))
+        pass_ok = secrets.compare_digest(str(submitted_password or ""), str(admin_password))
+        if user_ok and pass_ok:
             session["admin_logged_in"] = True
             session["admin_username"] = admin_username
             logger.info("Admin %s loggade in", _mask_username_for_log(admin_username))
