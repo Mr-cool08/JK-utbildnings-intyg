@@ -265,16 +265,6 @@ def send_startup_notification(hostname: str = "Unknown") -> None:
         description=f"Applikationen har startats framgångsrikt.\n\nVärd: {escape(hostname)}\nTidsstämpel: {_get_timestamp()}",
     )
 
-
-def send_shutdown_notification(reason: str = "Planerad nedstängning") -> None:
-    """Send notification that the application is shutting down."""
-    send_critical_event_email(
-        event_type="shutdown",
-        title="🟡 Applikation stängs ner",
-        description=f"Applikationen stängs ner.\n\nAnledning: {escape(reason)}\nTidsstämpel: {_get_timestamp()}",
-    )
-
-
 def send_crash_notification(
     error_message: str,
     traceback: str = "",

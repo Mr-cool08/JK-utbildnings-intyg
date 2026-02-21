@@ -162,16 +162,16 @@ def send_email_message(
         )
 
     except SMTPAuthenticationError as exc:
-        logger.exception("SMTP login failed for %s", settings.user)
+        logger.error("SMTP login failed for %s", settings.user)
         raise RuntimeError("SMTP-inloggning misslyckades") from exc
     except SMTPServerDisconnected as exc:
-        logger.exception("Server closed the connection during SMTP session")
+        logger.error("Server closed the connection during SMTP session")
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except SMTPException as exc:
-        logger.exception("SMTP error when sending to %s", recipient_mask)
+        logger.error("SMTP error when sending to %s", recipient_mask)
         raise RuntimeError("Det gick inte att skicka e-post") from exc
     except OSError as exc:
-        logger.exception("Connection error to email server")
+        logger.error("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
 

@@ -277,7 +277,7 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
                         else:
                             logger.warning("Demoreset returnerade false")
                 except Exception as exc:
-                    logger.exception("Automatisk demoreset misslyckades: %s", exc)
+                    logger.error("Automatisk demoreset misslyckades: %s", exc)
                 finally:
                     reset_lock.release()
             else:
@@ -381,18 +381,10 @@ def create_app() -> Flask:
     return app
 
 
-def _register_shutdown_hook() -> None:
-    # Registrera en hook som alltid försöker logga nedstängning.
-    def _shutdown() -> None:
-        logging.raiseExceptions = False
-        logger.debug("Applikationen håller på att stängas ner")
-        _send_shutdown_notification()
-
-    atexit.register(_shutdown)
 
 
 app = create_app()
-_register_shutdown_hook()
+
 
 
 @app.before_request
@@ -502,16 +494,10 @@ def _log_request_end(response: Response) -> Response:
 @app.teardown_request
 def _log_request_exception(exception: Exception | None) -> None:
     if exception is not None:
-        logger.exception("Undantag under begäran: %s", str(exception))
+        logger.error("Undantag under begäran: %s", str(exception))
 
 
-def _send_shutdown_notification():
-    # Send shutdown notification when the app is shutting down
-    try:
-        critical_events.send_shutdown_notification(reason="Applikationen stängs ner")
-        logger.info("Nedstängning-notifikation skickad")
-    except Exception as e:
-        logger.warning("Kunde inte skicka nedstängning-notifikation: %s", str(e))
+
 
 
 @app.teardown_appcontext
@@ -893,7 +879,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
             owner_name=owner_name,
         )
     except RuntimeError:
-        logger.exception(
+        logger.error(
             "Failed to share pdf %s for %s by supervisor %s",
             pdf_id,
             person_hash,
@@ -1095,7 +1081,7 @@ def apply_standardkonto():
                         form_errors.append(message)
                         _flag_application_field_error(message, field_errors)
                     except Exception as exc:  # pragma: no cover - defensiv loggning
-                        logger.exception("Kunde inte spara ansökan")
+                        logger.error("Kunde inte spara ansökan")
                         form_errors.append(
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
@@ -1197,7 +1183,7 @@ def apply_foretagskonto():
                         form_errors.append(message)
                         _flag_application_field_error(message, field_errors)
                     except Exception as exc:  # pragma: no cover - defensiv loggning
-                        logger.exception("Kunde inte spara ansökan")
+                        logger.error("Kunde inte spara ansökan")
                         form_errors.append(
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
@@ -1445,7 +1431,7 @@ def user_upload_pdf_route():
         )
         return redirect("/dashboard")
     except Exception:
-        logger.exception("Kunde inte spara intyg för användare")
+        logger.error("Kunde inte spara intyg för användare")
         flash("Ett fel inträffade när intyget skulle sparas.", "error")
         return redirect("/dashboard")
 
@@ -1527,7 +1513,7 @@ def user_delete_pdf_route(pdf_id: int):
         else:
             flash("Intyget kunde inte tas bort.", "error")
     except Exception:
-        logger.exception("Kunde inte ta bort intyg %s för användare", pdf_id)
+        logger.error("Kunde inte ta bort intyg %s för användare", pdf_id)
         flash("Ett fel inträffade när intyget skulle tas bort.", "error")
 
     return redirect("/dashboard")
@@ -1653,7 +1639,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
             sender_display,
         )
     except RuntimeError as exc:
-        logger.exception(
+        logger.error(
             "Failed to share pdf %s from %s to %s. Error: %s",
             pdf_ids,
             pnr_hash,
@@ -1819,7 +1805,7 @@ def admin():  # pragma: no cover
             logger.error("Value error during admin upload: %s", ve)
             return jsonify({"status": "error", "message": "Felaktiga användardata."}), 400
         except Exception as e:
-            logger.exception("Server error during admin upload", exc_info=e)
+            logger.error("Server error during admin upload", exc_info=e)
             return jsonify({"status": "error", "message": "Serverfel"}), 500
 
     # --- GET request ---
@@ -1848,7 +1834,7 @@ def admin():  # pragma: no cover
                 }
             )
     except Exception:
-        logger.exception("Misslyckades att hämta adminlogg")
+        logger.error("Misslyckades att hämta adminlogg")
 
     logger.debug("Rendering admin page")
     return render_template(
@@ -1866,7 +1852,7 @@ def admin_guide():  # pragma: no cover
     try:
         guide_content = guide_path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        logger.exception("Admin guide file missing")
+        logger.error("Admin guide file missing")
         guide_content = "Guiden kunde inte hittas."
     rendered_guide = render_markdown_content(guide_content)
     logger.debug("Rendering admin guide page")
@@ -2087,7 +2073,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             }
         ), 400
     except Exception:
-        logger.exception("Misslyckades att godkänna ansökan %s", application_id)
+        logger.error("Misslyckades att godkänna ansökan %s", application_id)
         return jsonify({"status": "error", "message": "Kunde inte godkänna ansökan."}), 500
 
     email_warnings: list[str] = []
@@ -2105,7 +2091,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             email_service.send_creation_email(result["email"], link)
             creation_link = link  # <- spara till payload
         except Exception:
-            logger.exception(
+            logger.error(
                 "Misslyckades att skicka aktiveringslänk till sökande för ansökan %s",
                 application_id,
             )
@@ -2122,7 +2108,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             if creation_link is None:
                 creation_link = link  # <- använd denna om ingen tidigare satt
         except Exception:
-            logger.exception(
+            logger.error(
                 "Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)",
                 application_id,
             )
@@ -2172,7 +2158,7 @@ def admin_reject_application(application_id: int):  # pragma: no cover
             }
         ), 400
     except Exception:
-        logger.exception("Misslyckades att avslå ansökan %s", application_id)
+        logger.error("Misslyckades att avslå ansökan %s", application_id)
         return jsonify({"status": "error", "message": "Kunde inte avslå ansökan."}), 500
 
     email_error = None
@@ -2181,7 +2167,7 @@ def admin_reject_application(application_id: int):  # pragma: no cover
             result["email"], result["company_name"], decision_reason
         )
     except RuntimeError as exc:
-        logger.exception("Misslyckades att skicka avslag för ansökan %s", application_id)
+        logger.error("Misslyckades att skicka avslag för ansökan %s", application_id)
         email_error = str(exc)
 
     masked_email = mask_hash(functions.hash_value(result["email"]))
@@ -2380,7 +2366,7 @@ def admin_delete_account():  # pragma: no cover
     try:
         deleted, summary, username = functions.admin_delete_user_account_by_hash(personnummer_hash)
     except Exception:
-        logger.exception(
+        logger.error(
             "Misslyckades att radera konto för %s",
             personnummer_masked,
         )
@@ -2394,7 +2380,7 @@ def admin_delete_account():  # pragma: no cover
         try:
             email_service.send_account_deletion_email(normalized_email, username)
         except Exception:
-            logger.exception("Misslyckades att skicka raderingsmejl")
+            logger.error("Misslyckades att skicka raderingsmejl")
             email_warning = "Kontot raderades, men mejlet kunde inte skickas."
 
     pnr_hash = personnummer_hash
@@ -2639,7 +2625,7 @@ def admin_send_create_password_link():  # pragma: no cover
         try:
             email_service.send_creation_email(normalized_email, link)
         except RuntimeError:
-            logger.exception("Misslyckades att skicka skapa-konto-länk")
+            logger.error("Misslyckades att skicka skapa-konto-länk")
             return jsonify({"status": "error", "message": "Kunde inte skicka skapa-konto-länk."}), 500
 
         email_hash = functions.hash_value(normalized_email)
@@ -2715,14 +2701,14 @@ def admin_send_password_reset():  # pragma: no cover
             )
             return jsonify({"status": "error", "message": "Företagskontot hittades inte."}), 404
         except Exception as exc:
-            logger.exception(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
+            logger.error(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
             return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
 
         link = url_for("supervisor_password_reset", token=token, _external=True)
         try:
             email_service.send_password_reset_email(email, link)
         except RuntimeError as exc:
-            logger.exception(f"Misslyckades att skicka återställningsmejl för företagskonto: {exc}")
+            logger.error(f"Misslyckades att skicka återställningsmejl för företagskonto: {exc}")
             return jsonify(
                 {"status": "error", "message": "Kunde inte skicka återställningsmejl."}
             ), 500
@@ -2770,14 +2756,14 @@ def admin_send_password_reset():  # pragma: no cover
             status_code = 404
         return jsonify({"status": "error", "message": message}), status_code
     except Exception as exc:
-        logger.exception(f"Misslyckades att skapa återställningstoken: {exc}")
+        logger.error(f"Misslyckades att skapa återställningstoken: {exc}")
         return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
 
     link = url_for("password_reset", token=token, _external=True)
     try:
         email_service.send_password_reset_email(email, link)
     except RuntimeError as exc:
-        logger.exception(f"Misslyckades att skicka återställningsmejl: {exc}")
+        logger.error(f"Misslyckades att skicka återställningsmejl: {exc}")
         return jsonify({"status": "error", "message": "Kunde inte skicka återställningsmejl."}), 500
 
     pnr_hash = functions.hash_value(normalized_personnummer)
@@ -2831,7 +2817,7 @@ def admin_create_supervisor_route():  # pragma: no cover
     try:
         email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
-        logger.exception("Failed to send supervisor creation email to %s", email_hash)
+        logger.error("Failed to send supervisor creation email to %s", email_hash)
         return (
             jsonify({"status": "error", "message": "Det gick inte att skicka inloggningslänken."}),
             500,
@@ -3104,7 +3090,7 @@ def admin_delete_supervisor_account_route():  # pragma: no cover
     except ValueError:
         return jsonify({"status": "error", "message": "Ogiltigt organisationsnummer."}), 400
     except Exception:
-        logger.exception("Misslyckades att radera företagskonto för %s", orgnr)
+        logger.error("Misslyckades att radera företagskonto för %s", orgnr)
         return jsonify({"status": "error", "message": "Kunde inte radera företagskontot."}), 500
 
     if not deleted:
@@ -3192,7 +3178,7 @@ def admin_advanced_update(table_name: str, row_id: int):  # pragma: no cover
     try:
         updated = functions.update_table_row(table_name, row_id, values)
     except ValueError as exc:
-        logger.exception(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
+        logger.error(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
         return jsonify({"status": "error", "message": "Felaktiga data."}), 400
     if not updated:
         logging.debug("Admin advanced update with missing row: table=%s, id=%d", table_name, row_id)
@@ -3344,7 +3330,7 @@ def handle_unexpected_exception(error: Exception):  # pragma: no cover
     # Logga oväntade fel och låt HTTP-fel hanteras av sina egna handlers.
     if isinstance(error, HTTPException):
         return error
-    logger.exception("Oväntat fel inträffade: %s", str(error))
+    logger.error("Oväntat fel inträffade: %s", str(error))
     return internal_server_error(error)
 
 
@@ -3407,16 +3393,17 @@ if __name__ == "__main__":  # pragma: no cover
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
         try:
-            critical_events.send_shutdown_notification("Applikationen stängdes av normalt.")
+            critical_events.send_crash_notification("Application interrupted by user (KeyboardInterrupt)")
         except Exception as e:
-            logger.warning("Failed to send shutdown alert: %s", e)
+            logger.critical("Failed to send crash notification: %s", e)
+            critical_events.send_crash_notification("Failed to send crash notification: " + str(e))
     except Exception as e:
         logger.critical("Application crashed with exception: %s", e, exc_info=True)
         try:
             error_details = f"Exception: {type(e).__name__}\nMessage: {str(e)}"
             critical_events.send_crash_notification(error_details)
         except Exception as alert_error:
-            logger.warning("Failed to send crash alert: %s", alert_error)
+            logger.critical("Failed to send crash notification: %s", alert_error)
         raise
 
 # © 2025 Liam Suorsa. All rights reserved.

@@ -170,7 +170,7 @@ def ensure_demo_data(
             else:
                 logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")
         except ValueError:
-            logger.exception("Demodata: lösenordet för demoföretagskontot är ogiltigt")
+            logger.error("Demodata: lösenordet för demoföretagskontot är ogiltigt")
 
     if normalized_orgnr:
         with engine.begin() as conn:
@@ -184,7 +184,7 @@ def ensure_demo_data(
                     invoice_reference="DEMOKONTO",
                 )
             except ValueError:
-                logger.exception(
+                logger.error(
                     "Demodata: kunde inte skapa företag för organisationsnummer %s",
                     normalized_orgnr,
                 )
@@ -281,7 +281,7 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
         # Brief delay to ensure file is fully released
         time.sleep(0.1)
     except OSError:
-        logger.exception("Demodatabasen kunde inte tas bort")
+        logger.error("Demodatabasen kunde inte tas bort")
         return False
 
     try:

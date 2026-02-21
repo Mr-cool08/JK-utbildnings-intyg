@@ -765,7 +765,7 @@ def reset_engine() -> None:
 
             time.sleep(0.2)
         except Exception:
-            logger.exception("Kunde inte stänga databasmotorn vid återställning")
+            logger.error("Kunde inte stänga databasmotorn vid återställning")
     _ENGINE = None
 
 

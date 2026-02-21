@@ -89,7 +89,7 @@ def check_database_status():
         connection.close()
         return {"status": "OK", "details": "Anslutning lyckades"}
     except Exception:
-        LOGGER.exception(
+        logger.error(
             "Databaskontroll misslyckades mot %s:%s/%s.",
             host,
             port,
@@ -153,7 +153,7 @@ def check_ssl_status():
         LOGGER.warning("SSL-kontroll misslyckades för %s: %s", target_url, reason)
         return {"status": "Fel", "details": "TLS/anslutning misslyckades"}
     except OSError:
-        LOGGER.exception("SSL-kontroll misslyckades mot %s:%s.", host, port)
+        logger.error("SSL-kontroll misslyckades mot %s:%s.", host, port)
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
 
 
@@ -270,7 +270,7 @@ def check_http_status(name, url, timeout=3):
         )
         return {"name": name, "status": "Fel", "details": "Timeout"}
     except Exception:
-        LOGGER.exception("HTTP-kontroll '%s' misslyckades för %s.", name, url)
+        logger.error("HTTP-kontroll '%s' misslyckades för %s.", name, url)
         return {"name": name, "status": "Fel", "details": "Okänt fel"}
 
 

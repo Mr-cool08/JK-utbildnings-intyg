@@ -89,18 +89,6 @@ class TestCriticalEventsNotifications:
         assert any("admin2@example.com" in call for call in calls)
 
     @patch('functions.notifications.critical_events.email_service.send_email')
-    def test_send_shutdown_notification(self, mock_send_email):
-        """Test shutdown notification is sent correctly."""
-        critical_events.send_shutdown_notification(reason="Maintenance")
-        
-        import time
-        time.sleep(0.1)
-        
-        assert mock_send_email.called
-        call_args = mock_send_email.call_args
-        assert "admin@example.com" in str(call_args)
-
-    @patch('functions.notifications.critical_events.email_service.send_email')
     def test_send_crash_notification(self, mock_send_email):
         """Test crash notification is sent correctly."""
         critical_events.send_crash_notification(
