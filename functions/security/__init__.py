@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
 import hmac

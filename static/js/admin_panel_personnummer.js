@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const storage = window.AdminPanelStorage;
   if (!storage) return;
@@ -9,4 +9,4 @@
     });
   });
 })();
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa

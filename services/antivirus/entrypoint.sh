@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 set -euo pipefail
 
 SCAN_SCHEDULE="${SCAN_SCHEDULE:-0 */6 * * *}"

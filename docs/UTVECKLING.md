@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Utveckling
 
 Den här guiden beskriver hur du kör applikationen lokalt med eller utan Docker.

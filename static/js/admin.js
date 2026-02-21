@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const form = document.getElementById('adminForm');
   const result = document.getElementById('result');

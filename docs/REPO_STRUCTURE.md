@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Struktur för JK Utbildningsintyg
 
 Den här filen beskriver hur repositoryt är organiserat och var nya filer bör placeras framöver.

@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 import os
 from pathlib import Path
 from app import app as application

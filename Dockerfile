@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 #  Stabil Python (byt version om du vill)
 FROM python:3.13-alpine3.21
 

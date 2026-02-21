@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 # Helpers for consistent logging configuration across the project.
 
 from __future__ import annotations

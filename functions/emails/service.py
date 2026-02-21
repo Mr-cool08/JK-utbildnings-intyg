@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
 import logging
@@ -402,4 +402,4 @@ def send_application_rejection_email(to_email: str, company_name: str, reason: s
     body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ef4444")
     send_email(to_email, subject, body)
 
-# © 2025 Liam Suorsa. All rights reserved.
+# © 2026 Liam Suorsa. All rights reserved.

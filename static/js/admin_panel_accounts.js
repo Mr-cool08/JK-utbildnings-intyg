@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const resetForm = document.getElementById('resetForm');
   const resetAccountType = document.getElementById('resetAccountType');
@@ -577,4 +577,4 @@
 
   loadAccountList();
 })();
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa

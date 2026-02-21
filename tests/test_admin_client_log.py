@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 import app
 
 
@@ -33,4 +33,4 @@ def test_admin_client_log_rejects_invalid_payload(_empty_db):
     assert response.status_code == 400
     assert response.get_json()["status"] == "error"
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

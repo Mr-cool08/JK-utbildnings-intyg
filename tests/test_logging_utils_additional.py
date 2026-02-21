@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 import logging
 from pathlib import Path
 import re
@@ -67,11 +67,11 @@ def test_app_timezone_formatter_uses_stockholm_by_default(monkeypatch):
         args=(),
         exc_info=None,
     )
-    record.created = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+    record.created = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
 
     rendered = formatter.formatTime(record)
 
-    assert rendered.startswith("2025-01-01T13:00:00")
+    assert rendered.startswith("2026-01-01T13:00:00")
 
 
 def test_app_timezone_formatter_falls_back_to_stockholm_for_invalid_timezone(monkeypatch):
@@ -86,11 +86,11 @@ def test_app_timezone_formatter_falls_back_to_stockholm_for_invalid_timezone(mon
         args=(),
         exc_info=None,
     )
-    record.created = datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+    record.created = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc).timestamp()
 
     rendered = formatter.formatTime(record)
 
-    assert rendered.startswith("2025-06-01T14:00:00")
+    assert rendered.startswith("2026-06-01T14:00:00")
 
 
 def test_configure_root_logging_uses_first_available_env_var(monkeypatch):

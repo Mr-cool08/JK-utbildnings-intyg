@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 import logging
 from datetime import timedelta
 from urllib import error
@@ -355,7 +355,7 @@ def test_get_display_timestamp_uses_stockholm_timezone(monkeypatch):
     class FakeNow:
         def strftime(self, fmt):
             captured["format"] = fmt
-            return "2025-01-01 12:00:00 CET"
+            return "2026-01-01 12:00:00 CET"
 
     class FakeDateTime:
         @staticmethod
@@ -368,7 +368,7 @@ def test_get_display_timestamp_uses_stockholm_timezone(monkeypatch):
 
     result = status_app.get_display_timestamp()
 
-    assert result == "2025-01-01 12:00:00 CET"
+    assert result == "2026-01-01 12:00:00 CET"
     assert captured["timezone"] == "Europe/Stockholm"
     assert captured["tz"] == "tz-object"
     assert captured["format"] == "%Y-%m-%d %H:%M:%S %Z"

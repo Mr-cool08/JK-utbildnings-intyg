@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # GitHub Actions-arbetsflöden
 
 Den här dokumentationen beskriver hur våra arbetsflöden i `.github/workflows` är tänkta att användas.

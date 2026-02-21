@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Driftsättning
 
 Den här guiden beskriver hur du kör applikationen med Docker lokalt samt hur du sätter upp produktion med Traefik, PostgreSQL och valfri Cloudflare-proxy.

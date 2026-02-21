@@ -1,4 +1,4 @@
-<!-- # Copyright (c) Liam Suorsa -->
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # JK Utbildningsintyg
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)

@@ -347,4 +347,4 @@ def _ensure_demo_pdfs(personnummer_hash: str) -> None:
             existing_filenames.add(filename)
 
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

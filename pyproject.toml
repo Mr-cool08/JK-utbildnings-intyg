@@ -47,4 +47,4 @@ warn_return_any = false
 warn_unused_ignores = false
 no_implicit_optional = false
 
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa

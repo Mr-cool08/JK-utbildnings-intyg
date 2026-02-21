@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 # Script to stop, update, and start Docker Compose services.
 
 from __future__ import annotations

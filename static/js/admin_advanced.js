@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (function () {
   const tableForm = document.getElementById('tableForm');
   const tableSelect = document.getElementById('tableSelect');

@@ -1,4 +1,4 @@
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa
 (() => {
   const createSupervisorForm = document.getElementById('createSupervisorForm');
   const createSupervisorMessage = document.getElementById('createSupervisorMessage');
@@ -431,4 +431,4 @@
     });
   }
 })();
-// # Copyright (c) Liam Suorsa
+// # Copyright (c) Liam Suorsa and Mika Suorsa

@@ -11,6 +11,6 @@ Den här katalogen innehåller policyfilen som publiceras på:
   3. TLS-certifikat och kompatibilitet är verifierat för berörda MX-värdar.
   4. Policyn är åtkomlig externt från flera nätverk och cache-ttl har passerat.
 
-Copyright (c) Liam Suorsa - Denna attribution gäller även för `deploy/mta-sts/.well-known/mta-sts.txt`.
+Copyright (c) Liam Suorsa and Mika Suorsa - Denna attribution gäller även för `deploy/mta-sts/.well-known/mta-sts.txt`.
 
-<!-- Copyright (c) Liam Suorsa -->
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

@@ -1,4 +1,4 @@
-# Copyright (c) Liam Suorsa
+# Copyright (c) Liam Suorsa and Mika Suorsa
 # Konstanter och hjälpmetoder för kurskategorier.
 
 from __future__ import annotations
