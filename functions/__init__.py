@@ -126,10 +126,7 @@ from functions.users import (
 )
 
 
-_stdlib_logging = importlib.import_module("logging")
-
 logger = configure_module_logger(__name__)
-logger.setLevel(_stdlib_logging.DEBUG)
 
 __all__ = [
     "APP_ROOT",
