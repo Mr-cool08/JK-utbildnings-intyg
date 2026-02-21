@@ -1,6 +1,5 @@
 # Copyright (c) Liam Suorsa
 import logging
-import importlib
 from pathlib import Path
 import re
 from datetime import datetime, timezone
@@ -199,9 +198,8 @@ def test_log_level_controls_module_loggers_without_module_overrides(monkeypatch)
         logging_utils.configure_root_logging()
 
         for module_name in module_names:
-            module = importlib.import_module(module_name)
-            importlib.reload(module)
-            module_logger = getattr(module, "logger")
+            module_logger = logging.getLogger(module_name)
+            module_logger = logging_utils.configure_module_logger(module_name)
             assert module_logger.level == logging.ERROR
             assert module_logger.getEffectiveLevel() == logging.ERROR
 
@@ -226,6 +224,7 @@ def test_log_level_controls_module_loggers_without_module_overrides(monkeypatch)
 
 
 def test_app_uses_module_logger_instead_of_direct_logging_calls():
-    app_source = Path("app.py").read_text(encoding="utf-8")
+    app_path = Path(__file__).resolve().parent.parent / "app.py"
+    app_source = app_path.read_text(encoding="utf-8")
     direct_logging_pattern = r"\blogging\.(debug|info|warning|error|exception|critical)\("
     assert re.search(direct_logging_pattern, app_source) is None

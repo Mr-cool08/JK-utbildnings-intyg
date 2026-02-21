@@ -231,6 +231,9 @@ def _configure_timezone() -> str:
 
 def _enable_debug_mode(app: Flask) -> None:
     # Aktivera extra loggning och ev. testdata i debug-läge.
+    if not as_bool(os.getenv("DEV_MODE")):
+        return
+
     stream = logging.StreamHandler()
     root = logging.getLogger()
     if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
@@ -2019,7 +2022,11 @@ def admin_list_applications():  # pragma: no cover
     try:
         rows = functions.list_application_requests(status)
     except ValueError as exc:
-        logger.exception("Failed to list application requests")
+        logger.warning(
+            "Invalid status in list_application_requests: %s",
+            exc,
+            exc_info=True,
+        )
         return jsonify({"status": "error", "message": "Felaktig begäran."}), 400
 
     serialized = [_serialize_application_row(row) for row in rows]
@@ -2192,14 +2199,15 @@ def admin_user_overview():  # pragma: no cover
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get("personnummer") or "").strip()
     if not personnummer:
-        logger.debug("Admin overview without personnummer: ", extra={"admin": admin_name})
+        logger.debug("Admin overview without personnummer", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange personnummer."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
-            "Admin overview with invalid personnummer: %s",
-            personnummer,
+            "Admin overview with invalid personnummer hash: %s",
+            personnummer_masked,
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
@@ -2293,9 +2301,10 @@ def admin_delete_pdf():  # pragma: no cover
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
-            "Admin delete_pdf with invalid personnummer: %s",
-            personnummer,
+            "Admin delete_pdf with invalid personnummer hash: %s",
+            personnummer_masked,
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
@@ -2491,9 +2500,10 @@ def admin_update_pdf():  # pragma: no cover
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
-            "Admin update_pdf with invalid personnummer: %s",
-            personnummer,
+            "Admin update_pdf with invalid personnummer hash: %s",
+            personnummer_masked,
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
@@ -2738,9 +2748,10 @@ def admin_send_password_reset():  # pragma: no cover
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
+        personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
-            "Admin send_password_reset with invalid personnummer: %s",
-            personnummer,
+            "Admin send_password_reset with invalid personnummer hash: %s",
+            personnummer_masked,
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
@@ -2799,7 +2810,9 @@ def admin_create_supervisor_route():  # pragma: no cover
         normalized_email = functions.normalize_email(email)
     except ValueError:
         logger.debug(
-            "Admin create_supervisor with invalid email: %s", email, extra={"admin": admin_name}
+            "Admin create_supervisor with invalid email: %s",
+            mask_email(email),
+            extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltig e-postadress."}), 400
 
@@ -2852,10 +2865,11 @@ def admin_link_supervisor_route():  # pragma: no cover
     try:
         success, reason, email_hash = functions.admin_link_supervisor_to_user(orgnr, personnummer)
     except ValueError:
+        personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
-            "Admin link_supervisor with invalid orgnr or personnummer: %s, %s",
+            "Admin link_supervisor with invalid orgnr or personnummer hash: %s, %s",
             orgnr,
-            personnummer,
+            personnummer_masked,
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Ogiltiga uppgifter."}), 400
