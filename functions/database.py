@@ -636,9 +636,9 @@ def _build_engine() -> Engine:
         if test_db_path == ":memory:":
             db_url = "sqlite:///:memory:"
             if dev_mode and not demo_mode:
-                logger.info("Using in-memory SQLite test database")
+                logger.info("Använder SQLite-testdatabas i minnet")
             else:
-                logger.info("Using in-memory SQLite demo database")
+                logger.info("Använder SQLite-demodatabas i minnet")
         else:
             raw_path = Path(test_db_path).expanduser()
             if not raw_path.is_absolute():
@@ -648,9 +648,9 @@ def _build_engine() -> Engine:
             sqlite_database_path = str(resolved)
             db_url = f"sqlite:///{resolved.as_posix()}"
             if dev_mode and not demo_mode:
-                logger.info("Using local SQLite test database at %s", resolved)
+                logger.info("Använder lokal SQLite-testdatabas på %s", resolved)
             else:
-                logger.info("Using local SQLite demo database at %s", resolved)
+                logger.info("Använder lokal SQLite-demodatabas på %s", resolved)
     elif not db_url:
         host = os.getenv("POSTGRES_HOST")
         if not host:
@@ -665,11 +665,11 @@ def _build_engine() -> Engine:
         port = os.getenv("POSTGRES_PORT", "5432")
 
         if not user:
-            logger.error("POSTGRES_USER must be set when POSTGRES_HOST is configured")
-            raise RuntimeError("POSTGRES_USER must be set when POSTGRES_HOST is configured")
+            logger.error("POSTGRES_USER måste vara satt när POSTGRES_HOST är konfigurerad")
+            raise RuntimeError("POSTGRES_USER måste vara satt när POSTGRES_HOST är konfigurerad")
         if not database:
-            logger.error("POSTGRES_DB must be set when POSTGRES_HOST is configured")
-            raise RuntimeError("POSTGRES_DB must be set when POSTGRES_HOST is configured")
+            logger.error("POSTGRES_DB måste vara satt när POSTGRES_HOST är konfigurerad")
+            raise RuntimeError("POSTGRES_DB måste vara satt när POSTGRES_HOST är konfigurerad")
 
         encoded_user = quote_plus(user)
         encoded_password = quote_plus(password)
@@ -680,7 +680,7 @@ def _build_engine() -> Engine:
     url = make_url(db_url)
     if sqlite_database_path and url.get_backend_name() == "sqlite":
         url = url.set(database=sqlite_database_path)
-    logger.debug("Creating engine for %s", url.render_as_string(hide_password=True))
+    logger.debug("Skapar engine för %s", url.render_as_string(hide_password=True))
 
     if url.get_backend_name() == "postgresql":
         driver = url.get_driver_name() or ""
@@ -696,10 +696,10 @@ def _build_engine() -> Engine:
                     psycopg_available = True
             if psycopg_available:
                 url = url.set(drivername="postgresql+psycopg")
-                logger.debug("Using psycopg driver for PostgreSQL connections")
+                logger.debug("Använder psycopg-drivrutin för PostgreSQL-anslutningar")
             else:
                 logger.warning(
-                    "psycopg driver not available; falling back to %s%s",
+                    "psycopg-drivrutinen är inte tillgänglig; faller tillbaka till %s%s",
                     driver or "default driver",
                     f" ({import_error})" if import_error else "",
                 )
@@ -824,7 +824,7 @@ def create_database() -> None:
         ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
-    logger.info("Database initialized")
+    logger.info("Databasen har initialiserats")
 
 
 def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalError) -> bool:
