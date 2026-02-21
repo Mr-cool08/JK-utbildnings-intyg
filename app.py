@@ -73,7 +73,6 @@ save_pdf_for_user = pdf.save_pdf_for_user
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> str:
@@ -236,13 +235,17 @@ def _enable_debug_mode(app: Flask) -> None:
     root = logging.getLogger()
     if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
         root.addHandler(stream)
+    # Höj nivån till DEBUG endast i DEV_MODE för felsökning under utveckling.
     root.setLevel(logging.DEBUG)
 
     if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
         app.logger.addHandler(stream)
+    # Flask-loggaren följer också DEBUG i DEV_MODE för samlad felsökning.
     app.logger.setLevel(logging.DEBUG)
 
+    # Modulens logger höjs explicit i DEV_MODE för att visa debug-flöden lokalt.
     logger.setLevel(logging.DEBUG)
+    # Samma gäller paketloggaren i DEV_MODE; produktion styrs av LOG_LEVEL.
     functions.logger.setLevel(logging.DEBUG)
     if not any(isinstance(h, logging.StreamHandler) for h in functions.logger.handlers):
         functions.logger.addHandler(stream)
@@ -2016,7 +2019,7 @@ def admin_list_applications():  # pragma: no cover
     try:
         rows = functions.list_application_requests(status)
     except ValueError as exc:
-        logging.exception("Failed to list application requests")
+        logger.exception("Failed to list application requests")
         return jsonify({"status": "error", "message": "Felaktig begäran."}), 400
 
     serialized = [_serialize_application_row(row) for row in rows]
@@ -2189,12 +2192,12 @@ def admin_user_overview():  # pragma: no cover
     payload = request.get_json(silent=True) or {}
     personnummer = (payload.get("personnummer") or "").strip()
     if not personnummer:
-        logging.debug("Admin overview without personnummer: ", extra={"admin": admin_name})
+        logger.debug("Admin overview without personnummer: ", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange personnummer."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin overview with invalid personnummer: %s",
             personnummer,
             extra={"admin": admin_name},
@@ -2236,7 +2239,7 @@ def admin_user_overview():  # pragma: no cover
         "visade användaröversikt",
         f"personnummer_hash={pnr_hash}",
     )
-    logging.debug(
+    logger.debug(
         "Admin overview for %s with %d pdfs",
         mask_hash(pnr_hash),
         len(pdfs),
@@ -2283,14 +2286,14 @@ def admin_delete_pdf():  # pragma: no cover
     personnummer = (payload.get("personnummer") or "").strip()
     pdf_id = payload.get("pdf_id")
     if not personnummer or pdf_id is None:
-        logging.debug(
+        logger.debug(
             "Admin delete_pdf without personnummer or pdf_id", extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ange personnummer och PDF-id."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin delete_pdf with invalid personnummer: %s",
             personnummer,
             extra={"admin": admin_name},
@@ -2300,7 +2303,7 @@ def admin_delete_pdf():  # pragma: no cover
     try:
         pdf_id_int = int(pdf_id)
     except (ValueError, TypeError):
-        logging.debug(
+        logger.debug(
             "Admin delete_pdf with invalid pdf_id: %s", pdf_id, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ogiltigt PDF-id."}), 400
@@ -2317,7 +2320,7 @@ def admin_delete_pdf():  # pragma: no cover
         "raderade PDF",
         f"personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}",
     )
-    logging.info(
+    logger.info(
         "Admin deleted pdf %s for %s", pdf_id_int, mask_hash(pnr_hash), extra={"admin": admin_name}
     )
     return jsonify({"status": "success", "message": "PDF borttagen."})
@@ -2334,7 +2337,7 @@ def admin_delete_account():  # pragma: no cover
     notify_email = (payload.get("email") or "").strip()
     if not personnummer:
         if not personnummer_hash:
-            logging.debug(
+            logger.debug(
                 "Admin delete_account without personnummer",
                 extra={"admin": admin_name},
             )
@@ -2349,7 +2352,7 @@ def admin_delete_account():  # pragma: no cover
         elif not functions._is_valid_hash(personnummer_hash):
             raise ValueError("Ogiltig hash")
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin delete_account with invalid personnummer: %s",
             personnummer_masked,
             extra={"admin": admin_name},
@@ -2395,7 +2398,7 @@ def admin_delete_account():  # pragma: no cover
         "raderade konto",
         f"personnummer_hash={pnr_hash}, email_hash={email_hash}, {summary_details}",
     )
-    logging.info(
+    logger.info(
         "Admin deleted account for %s",
         mask_hash(pnr_hash),
         extra={"admin": admin_name},
@@ -2458,7 +2461,7 @@ def admin_update_account():  # pragma: no cover
         "uppdaterade konto",
         f"personnummer_hash={pnr_hash}, email_hash={email_hash}, {summary_details}",
     )
-    logging.info("Admin updated account for %s", mask_hash(pnr_hash), extra={"admin": admin_name})
+    logger.info("Admin updated account for %s", mask_hash(pnr_hash), extra={"admin": admin_name})
     return jsonify(
         {
             "status": "success",
@@ -2476,19 +2479,19 @@ def admin_update_pdf():  # pragma: no cover
     pdf_id = payload.get("pdf_id")
     categories = payload.get("categories")
     if not isinstance(categories, list):
-        logging.debug(
+        logger.debug(
             "Admin update_pdf with invalid categories: %r", categories, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Kategorier måste vara en lista."}), 400
     if not personnummer or pdf_id is None:
-        logging.debug(
+        logger.debug(
             "Admin update_pdf without personnummer or pdf_id", extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ange personnummer och PDF-id."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin update_pdf with invalid personnummer: %s",
             personnummer,
             extra={"admin": admin_name},
@@ -2497,7 +2500,7 @@ def admin_update_pdf():  # pragma: no cover
     try:
         pdf_id_int = int(pdf_id)
     except (ValueError, TypeError):
-        logging.debug(
+        logger.debug(
             "Admin update_pdf with invalid pdf_id: %s", pdf_id, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ogiltigt PDF-id."}), 400
@@ -2505,7 +2508,7 @@ def admin_update_pdf():  # pragma: no cover
     try:
         normalized_categories = normalize_category_slugs(categories)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin update_pdf with invalid categories: %r", categories, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ogiltig kategori vald."}), 400
@@ -2524,7 +2527,7 @@ def admin_update_pdf():  # pragma: no cover
         "uppdaterade PDF-kategorier",
         f"personnummer_hash={pnr_hash}, pdf_id={pdf_id_int}, kategorier={';'.join(normalized_categories)}",
     )
-    logging.info(
+    logger.info(
         "Admin updated categories for pdf %s for %s",
         pdf_id_int,
         mask_hash(pnr_hash),
@@ -2671,7 +2674,7 @@ def admin_send_password_reset():  # pragma: no cover
     personnummer = (payload.get("personnummer") or "").strip()
     email = (payload.get("email") or "").strip()
     if account_type not in {"standard", "foretagskonto"}:
-        logging.debug(
+        logger.debug(
             "Admin send_password_reset with invalid account_type: %s",
             account_type,
             extra={"admin": admin_name},
@@ -2679,12 +2682,12 @@ def admin_send_password_reset():  # pragma: no cover
         return jsonify({"status": "error", "message": "Ogiltig kontotyp."}), 400
 
     if account_type == "standard" and (not personnummer or not email):
-        logging.debug(
+        logger.debug(
             "Admin send_password_reset without personnummer or email", extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
     if account_type == "foretagskonto" and not email:
-        logging.debug(
+        logger.debug(
             "Admin send_password_reset without email for foretagskonto", extra={"admin": admin_name}
         )
         return jsonify(
@@ -2719,7 +2722,7 @@ def admin_send_password_reset():  # pragma: no cover
             "skickade företagskonto-återställning",
             f"email_hash={email_hash}",
         )
-        logging.info(
+        logger.info(
             "Admin sent supervisor password reset to %s",
             mask_hash(email_hash),
             extra={"admin": admin_name},
@@ -2735,7 +2738,7 @@ def admin_send_password_reset():  # pragma: no cover
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin send_password_reset with invalid personnummer: %s",
             personnummer,
             extra={"admin": admin_name},
@@ -2773,7 +2776,7 @@ def admin_send_password_reset():  # pragma: no cover
         "skickade lösenordsåterställning",
         f"personnummer_hash={pnr_hash}, email_hash={email_hash}",
     )
-    logging.info(
+    logger.info(
         "Admin sent password reset for %s to %s",
         mask_hash(pnr_hash),
         mask_hash(email_hash),
@@ -2789,13 +2792,13 @@ def admin_create_supervisor_route():  # pragma: no cover
     email = (payload.get("email") or "").strip()
     name = (payload.get("name") or "").strip()
     if not email or not name:
-        logging.debug("Admin create_supervisor without email or name", extra={"admin": admin_name})
+        logger.debug("Admin create_supervisor without email or name", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange namn och e-post."}), 400
 
     try:
         normalized_email = functions.normalize_email(email)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin create_supervisor with invalid email: %s", email, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ogiltig e-postadress."}), 400
@@ -2828,7 +2831,7 @@ def admin_create_supervisor_route():  # pragma: no cover
         "skapade företagskonto",
         f"email_hash={email_hash}",
     )
-    logging.info("Admin created supervisor %s", mask_hash(email_hash), extra={"admin": admin_name})
+    logger.info("Admin created supervisor %s", mask_hash(email_hash), extra={"admin": admin_name})
     return jsonify({"status": "success", "message": "Företagskonto skapat.", "link": link})
 
 
@@ -2839,7 +2842,7 @@ def admin_link_supervisor_route():  # pragma: no cover
     orgnr = (payload.get("orgnr") or "").strip()
     personnummer = (payload.get("personnummer") or "").strip()
     if not orgnr or not personnummer:
-        logging.debug(
+        logger.debug(
             "Admin link_supervisor without orgnr or personnummer", extra={"admin": admin_name}
         )
         return jsonify(
@@ -2849,7 +2852,7 @@ def admin_link_supervisor_route():  # pragma: no cover
     try:
         success, reason, email_hash = functions.admin_link_supervisor_to_user(orgnr, personnummer)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin link_supervisor with invalid orgnr or personnummer: %s, %s",
             orgnr,
             personnummer,
@@ -2869,11 +2872,11 @@ def admin_link_supervisor_route():  # pragma: no cover
         elif reason == "exists":
             status_code = 409
             message = "Kopplingen finns redan."
-        logging.debug("Admin link_supervisor failed: %s", reason, extra={"admin": admin_name})
+        logger.debug("Admin link_supervisor failed: %s", reason, extra={"admin": admin_name})
         return jsonify({"status": "error", "message": message}), status_code
 
     if not email_hash:
-        logging.debug(
+        logger.debug(
             "Admin link_supervisor missing email hash for orgnr %s",
             orgnr,
             extra={"admin": admin_name},
@@ -2887,7 +2890,7 @@ def admin_link_supervisor_route():  # pragma: no cover
         "kopplade företagskonto",
         f"orgnr={normalized_orgnr}, email_hash={email_hash}, personnummer_hash={personnummer_hash}",
     )
-    logging.info(
+    logger.info(
         "Admin linked supervisor %s to user %s",
         mask_hash(email_hash),
         mask_hash(personnummer_hash),
@@ -2904,19 +2907,19 @@ def admin_supervisor_overview():  # pragma: no cover
     payload = request.get_json(silent=True) or {}
     orgnr = (payload.get("orgnr") or "").strip()
     if not orgnr:
-        logging.debug("Admin supervisor_overview without orgnr", extra={"admin": admin_name})
+        logger.debug("Admin supervisor_overview without orgnr", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange organisationsnummer."}), 400
 
     try:
         details = functions.get_supervisor_login_details_for_orgnr(orgnr)
     except ValueError:
-        logging.debug(
+        logger.debug(
             "Admin supervisor_overview with invalid orgnr: %s", orgnr, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Ogiltigt organisationsnummer."}), 400
 
     if not details:
-        logging.debug(
+        logger.debug(
             "Admin supervisor_overview not found for orgnr: %s", orgnr, extra={"admin": admin_name}
         )
         return jsonify({"status": "error", "message": "Företagskontot hittades inte."}), 404
@@ -2924,7 +2927,7 @@ def admin_supervisor_overview():  # pragma: no cover
     email_hash = details["email_hash"]
     overview = functions.get_supervisor_overview(email_hash)
     if not overview:
-        logging.debug(
+        logger.debug(
             "Admin supervisor_overview not found for email hash: %s",
             email_hash,
             extra={"admin": admin_name},
@@ -2936,7 +2939,7 @@ def admin_supervisor_overview():  # pragma: no cover
         "visade företagskontoöversikt",
         f"orgnr={details['orgnr']}, email_hash={email_hash}",
     )
-    logging.debug(
+    logger.debug(
         "Admin supervisor_overview for %s with %d users",
         mask_hash(email_hash),
         len(overview.get("users", [])),
@@ -2986,7 +2989,7 @@ def admin_remove_supervisor_connection():  # pragma: no cover
         "tog bort företagskoppling",
         f"orgnr={details['orgnr']}, email_hash={details['email_hash']}, personnummer_hash={personnummer_hash}",
     )
-    logging.info(
+    logger.info(
         "Admin removed supervisor connection for %s",
         mask_hash(personnummer_hash),
         extra={"admin": admin_name},
@@ -3067,7 +3070,7 @@ def admin_change_supervisor_connection():  # pragma: no cover
             f"email_hash={email_hash}, personnummer_hash={personnummer_hash}"
         ),
     )
-    logging.info(
+    logger.info(
         "Admin changed supervisor connection for %s",
         mask_hash(personnummer_hash),
         extra={"admin": admin_name},
@@ -3102,7 +3105,7 @@ def admin_delete_supervisor_account_route():  # pragma: no cover
         "raderade företagskonto",
         f"orgnr={normalized_orgnr}, {summary_details}",
     )
-    logging.info(
+    logger.info(
         "Admin deleted supervisor account for %s",
         normalized_orgnr,
         extra={"admin": admin_name},
@@ -3131,9 +3134,9 @@ def admin_advanced_schema(table_name: str):  # pragma: no cover
     try:
         schema = functions.get_table_schema(table_name)
     except ValueError:
-        logging.debug("Admin advanced schema with unknown table: %s", table_name)
+        logger.debug("Admin advanced schema with unknown table: %s", table_name)
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
-    logging.debug("Admin advanced schema for table: %s", table_name)
+    logger.debug("Admin advanced schema for table: %s", table_name)
     return jsonify({"status": "success", "schema": schema})
 
 
@@ -3145,9 +3148,9 @@ def admin_advanced_rows(table_name: str):  # pragma: no cover
     try:
         rows = functions.fetch_table_rows(table_name, search_term, limit)
     except ValueError:
-        logging.debug("Admin advanced rows with unknown table: %s", table_name)
+        logger.debug("Admin advanced rows with unknown table: %s", table_name)
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
-    logging.debug(
+    logger.debug(
         "Admin advanced rows for table: %s, search: %r, limit: %d", table_name, search_term, limit
     )
     return jsonify({"status": "success", "rows": rows})
@@ -3167,7 +3170,7 @@ def admin_advanced_create(table_name: str):  # pragma: no cover
         "skapade post",
         f"tabell={table_name}",
     )
-    logging.info("Admin created row in table %s: %s", table_name, row, extra={"admin": admin_name})
+    logger.info("Admin created row in table %s: %s", table_name, row, extra={"admin": admin_name})
     return jsonify({"status": "success", "row": row}), 201
 
 
@@ -3181,14 +3184,14 @@ def admin_advanced_update(table_name: str, row_id: int):  # pragma: no cover
         logger.error(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
         return jsonify({"status": "error", "message": "Felaktiga data."}), 400
     if not updated:
-        logging.debug("Admin advanced update with missing row: table=%s, id=%d", table_name, row_id)
+        logger.debug("Admin advanced update with missing row: table=%s, id=%d", table_name, row_id)
         return jsonify({"status": "error", "message": "Posten hittades inte."}), 404
     functions.log_admin_action(
         admin_name,
         "uppdaterade post",
         f"tabell={table_name}, id={row_id}",
     )
-    logging.info(
+    logger.info(
         "Admin updated row in table %s, id=%d: %s",
         table_name,
         row_id,
@@ -3204,17 +3207,17 @@ def admin_advanced_delete(table_name: str, row_id: int):  # pragma: no cover
     try:
         deleted = functions.delete_table_row(table_name, row_id)
     except ValueError:
-        logging.debug("Admin advanced delete with unknown table: %s", table_name)
+        logger.debug("Admin advanced delete with unknown table: %s", table_name)
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
     if not deleted:
-        logging.debug("Admin advanced delete with missing row: table=%s, id=%d", table_name, row_id)
+        logger.debug("Admin advanced delete with missing row: table=%s, id=%d", table_name, row_id)
         return jsonify({"status": "error", "message": "Posten hittades inte."}), 404
     functions.log_admin_action(
         admin_name,
         "raderade post",
         f"tabell={table_name}, id={row_id}",
     )
-    logging.info(
+    logger.info(
         "Admin deleted row in table %s, id=%d", table_name, row_id, extra={"admin": admin_name}
     )
     return jsonify({"status": "success"})

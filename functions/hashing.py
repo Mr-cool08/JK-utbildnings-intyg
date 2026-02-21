@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import re
 from functools import lru_cache
@@ -14,7 +13,6 @@ from functions.logging import configure_module_logger
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
 
 load_environment()
 
