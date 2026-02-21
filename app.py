@@ -174,13 +174,27 @@ def _truncate_log_value(value: Any, limit: int) -> str:
     return f"{text[:limit]}…"
 
 
+_SENSITIVE_KEYS = frozenset(
+    {
+        "email",
+        "personnummer",
+        "ssn",
+        "name",
+        "namn",
+        "forename",
+        "surname",
+        "username",
+    }
+)
+
+
 def _mask_sensitive_fields(value: Any) -> Any:
     # Maskera potentiellt känsliga fält i API-svar/loggar för adminverktyg.
     if isinstance(value, dict):
         masked: dict[str, Any] = {}
         for key, item in value.items():
             lowered = str(key).lower()
-            if any(token in lowered for token in ("email", "personnummer", "ssn", "name", "namn")):
+            if lowered in _SENSITIVE_KEYS:
                 masked[key] = "***"
             else:
                 masked[key] = _mask_sensitive_fields(item)
@@ -188,6 +202,27 @@ def _mask_sensitive_fields(value: Any) -> Any:
     if isinstance(value, list):
         return [_mask_sensitive_fields(item) for item in value]
     return value
+
+
+def _sanitize_search_term(search_term: str | None) -> str | None:
+    # Maskera söktermer i loggar för att undvika PII-läckage.
+    if not search_term:
+        return search_term
+
+    cleaned = search_term.strip()
+    if not cleaned:
+        return cleaned
+
+    if "@" in cleaned:
+        return mask_email(cleaned)
+
+    digits = "".join(ch for ch in cleaned if ch.isdigit())
+    if len(digits) in {10, 12}:
+        return mask_hash(functions.hash_value(digits))
+
+    if len(cleaned) <= 3:
+        return "***"
+    return f"{cleaned[:1]}***{cleaned[-1:]}"
 
 
 def _trusted_proxy_hops(raw_value: str | None) -> int:
@@ -2041,7 +2076,6 @@ def admin_list_applications():  # pragma: no cover
         logger.warning(
             "Invalid status in list_application_requests: %s",
             exc,
-            exc_info=True,
         )
         return jsonify({"status": "error", "message": "Felaktig begäran."}), 400
 
@@ -3188,10 +3222,11 @@ def admin_advanced_rows(table_name: str):  # pragma: no cover
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Okänd tabell."}), 404
+    masked_search = _sanitize_search_term(search_term)
     logger.debug(
         "Admin advanced rows for table: %s, search: %r, limit: %d",
         table_name,
-        search_term,
+        masked_search,
         limit,
         extra={"admin": admin_name},
     )
@@ -3248,7 +3283,7 @@ def admin_advanced_update(table_name: str, row_id: int):  # pragma: no cover
         "Admin updated row in table %s, id=%d: %s",
         table_name,
         row_id,
-        values,
+        _mask_sensitive_fields(values),
         extra={"admin": admin_name},
     )
     return jsonify({"status": "success"})
