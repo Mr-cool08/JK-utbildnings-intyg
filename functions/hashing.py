@@ -18,7 +18,7 @@ load_environment()
 
 SALT = os.getenv("HASH_SALT", "static_salt")
 if SALT == "static_salt":
-    logger.warning("Using default HASH_SALT; set HASH_SALT in environment for stronger security")
+    logger.warning("Standardvärdet för HASH_SALT används; ange HASH_SALT i miljön för starkare säkerhet")
 
 DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
 TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
@@ -40,7 +40,7 @@ def _hash_value_cached(value: str, salt: str, iterations: int) -> str:
 def hash_value(value: str) -> str:
     # Return a strong deterministic hash of ``value`` using PBKDF2.
     iterations = _pbkdf2_iterations()
-    logger.debug("Hashing value with %s iterations", iterations)
+    logger.debug("Hashar värde med %s iterationer", iterations)
     return _hash_value_cached(value, SALT, iterations)
 
 
@@ -69,7 +69,7 @@ def normalize_email(email: str) -> str:
         )
 
     normalized = cleaned.lower()
-    logger.debug("Normalizing email address")
+    logger.debug("Normaliserar e-postadress")
     return normalized
 
 
@@ -85,7 +85,7 @@ def verify_password(hashed: str, password: str) -> bool:
 
 def normalize_personnummer(pnr: str) -> str:
     # Normalize Swedish personal numbers to the YYMMDDXXXX format.
-    logger.debug("Normalizing personnummer")
+    logger.debug("Normaliserar personnummer")
     digits = re.sub(r"\D", "", pnr)
     if len(digits) == 12:
         digits = digits[2:]

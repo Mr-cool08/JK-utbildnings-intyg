@@ -164,6 +164,68 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     return fallback
 
 
+def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    # Samla korrelationsdata för enhetlig felloggning.
+    context: dict[str, Any] = {
+        "endpoint": request.path,
+        "method": request.method,
+        "admin": session.get("admin_username") if session.get("admin_logged_in") else None,
+        "user": mask_hash(session.get("personnummer")) if session.get("personnummer") else None,
+    }
+    if extra:
+        context.update(extra)
+    return context
+
+
+def _log_api_error(
+    *,
+    user_message: str,
+    status_code: int,
+    severity: str,
+    error: Exception | None = None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    # Standardiserad loggning av API-fel med korrelationsdata.
+    context = _request_error_context(extra)
+    if severity == "warning":
+        logger.warning(
+            "API-fel (%s): %s | context=%s | error=%s",
+            status_code,
+            user_message,
+            context,
+            str(error) if error else "-",
+        )
+        return
+    if error is not None:
+        logger.exception(
+            "API-systemfel (%s): %s | context=%s",
+            status_code,
+            user_message,
+            context,
+        )
+        return
+    logger.error("API-systemfel (%s): %s | context=%s", status_code, user_message, context)
+
+
+def _api_error_response(
+    user_message: str,
+    status_code: int,
+    *,
+    severity: str = "warning",
+    error: Exception | None = None,
+    extra: dict[str, Any] | None = None,
+) -> tuple[Response, int]:
+    # Standardiserad felrespons för JSON-API.
+    _log_api_error(
+        user_message=user_message,
+        status_code=status_code,
+        severity=severity,
+        error=error,
+        extra=extra,
+    )
+    return jsonify({"status": "error", "message": user_message}), status_code
+
+
 def _truncate_log_value(value: Any, limit: int) -> str:
     # Begränsa loggsträngar för att undvika enorma loggar.
     if value is None:
@@ -223,6 +285,18 @@ def _sanitize_search_term(search_term: str | None) -> str | None:
     if len(cleaned) <= 3:
         return "***"
     return f"{cleaned[:1]}***{cleaned[-1:]}"
+
+def _mask_username_for_log(username: str | None) -> str:
+    # Maskera användarnamn före loggning för att undvika persondata i klartext.
+    cleaned = (username or "").strip()
+    if not cleaned:
+        return "<saknas>"
+    if "@" in cleaned:
+        return mask_email(cleaned)
+    if len(cleaned) <= 3:
+        return "***"
+    return f"{cleaned[:2]}***{cleaned[-1]}"
+
 
 
 def _trusted_proxy_hops(raw_value: str | None) -> int:
@@ -304,11 +378,11 @@ def _enable_debug_mode(app: Flask) -> None:
     if not any(isinstance(h, logging.StreamHandler) for h in functions.logger.handlers):
         functions.logger.addHandler(stream)
 
-    functions.logger.debug("Debug mode is on")
-    logger.debug("Debug mode is on")
+    functions.logger.debug("Utvecklingsläge är aktiverat")
+    logger.debug("Utvecklingsläge är aktiverat")
     # Skapa testanvändare endast i debug-läge
     functions.create_test_user()
-    logger.debug("Debug mode is on, test user created")
+    logger.debug("Utvecklingsläge är aktiverat, testanvändare skapad")
 
 
 def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
@@ -332,7 +406,7 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
                         if functions.reset_demo_database(demo_defaults):
                             logger.info("Demoreset slutfördes framgångsrikt")
                         else:
-                            logger.warning("Demoreset returnerade false")
+                            logger.warning("Demoreset returnerade falskt")
                 except Exception as exc:
                     logger.error("Automatisk demoreset misslyckades: %s", exc)
                 finally:
@@ -358,7 +432,7 @@ def _resolve_secret_key() -> str:
     if _is_pytest_running() and as_bool(os.getenv("DEV_MODE")):
         logger.warning("secret_key saknas i testmiljön. Genererar temporär nyckel.")
         return secrets.token_hex(32)
-    error_msg = "FATAL: secret_key environment variable must be set and non-empty"
+    error_msg = "KRITISKT: miljövariabeln secret_key måste vara satt och inte tom"
     logger.critical(error_msg)
     
     raise RuntimeError(error_msg)
@@ -367,7 +441,7 @@ def _resolve_secret_key() -> str:
 def create_app() -> Flask:
     # Create and configure the Flask application.
     logger.debug("Applikationen initieras")
-    logger.debug("Loading environment variables and initializing database")
+    logger.debug("Laddar miljövariabler och initierar databas")
     functions.create_database()
     app = Flask(__name__)
     timezone_name = _configure_timezone()
@@ -381,7 +455,7 @@ def create_app() -> Flask:
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
-    logger.debug("Debug mode: %s", debug_mode)
+    logger.debug("Utvecklingsläge: %s", debug_mode)
 
     demo_defaults = {
         "user_email": os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
@@ -428,7 +502,7 @@ def create_app() -> Flask:
         if debug_mode:
             _enable_debug_mode(app)
 
-    logger.debug("Application created and database initialized")
+    logger.debug("Applikationen skapad och databasen initialiserad")
     # Email handlers for ERROR and CRITICAL logs are now automatically attached
     # via configure_root_logging() in functions.logging module.
 
@@ -639,7 +713,7 @@ def debug_clear_session():
 @app.route("/create_user/<pnr_hash>", methods=["POST", "GET"])
 def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     # Allow a pending user to set a password and activate the account.
-    logger.info("Handling create_user for hash %s", pnr_hash)
+    logger.info("Hanterar create_user för hash %s", pnr_hash)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
@@ -647,7 +721,7 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
             return _render_create_supervisor_page(error="Lösenorden måste matcha.", invalid=False)
         if len(password) < 8:
             return _render_create_supervisor_page(error="Lösenordet måste vara minst 8 tecken långt.", invalid=False)
-        logger.debug("Creating user with hash %s", pnr_hash)
+        logger.debug("Skapar användare med hash %s", pnr_hash)
         if not functions.user_create_user(password, pnr_hash):
             logger.warning("Kunde inte skapa användare för hash %s", pnr_hash)
             return _render_create_supervisor_page(
@@ -668,13 +742,13 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
             submit_text="Skapa konto",
             invalid_message="Länken är ogiltig eller har redan använts.",
         )
-    logger.warning("User hash %s not found during create_user", pnr_hash)
+    logger.warning("Användarhash %s hittades inte under create_user", pnr_hash)
     abort(404, description="Standardkonto hittades inte")
 
 
 @app.route("/foretagskonto/skapa/<email_hash>", methods=["GET", "POST"])
 def supervisor_create(email_hash: str):
-    logger.info("Handling supervisor creation for hash %s", email_hash)
+    logger.info("Hanterar skapande av handledarkonto för hash %s", email_hash)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
@@ -704,12 +778,12 @@ def supervisor_create(email_hash: str):
                 ),
                 invalid=False,
             )
-        logger.info("Supervisor account activated for %s", email_hash)
+        logger.info("Handledarkonto aktiverat för %s", email_hash)
         return redirect(url_for("supervisor_login"))
 
     if functions.check_pending_supervisor_hash(email_hash):
         return render_template("create_supervisor.html", invalid=False)
-    logger.warning("Supervisor hash %s not found during activation", email_hash)
+    logger.warning("Handledarhash %s hittades inte under aktivering", email_hash)
     return render_template("create_supervisor.html", invalid=True)
 
 
@@ -863,7 +937,7 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     email_hash, _ = _require_supervisor()
     if not functions.supervisor_has_access(email_hash, person_hash):
         logger.warning(
-            "Supervisor %s attempted to access pdf %s for %s without permission",
+            "Handledare %s försökte komma åt pdf %s för %s utan behörighet",
             email_hash,
             pdf_id,
             person_hash,
@@ -875,7 +949,7 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     filename, content = pdf
     as_attachment = request.args.get("download", "1") != "0"
     logger.info(
-        "Supervisor %s retrieving %s for %s",
+        "Handledare %s hämtar %s för %s",
         email_hash,
         filename,
         person_hash,
@@ -901,7 +975,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
 
     if not functions.supervisor_has_access(email_hash, person_hash):
         logger.warning(
-            "Supervisor %s attempted to share pdf %s for %s without permission",
+            "Handledare %s försökte dela pdf %s för %s utan behörighet",
             email_hash,
             pdf_id,
             person_hash,
@@ -937,7 +1011,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
         )
     except RuntimeError:
         logger.error(
-            "Failed to share pdf %s for %s by supervisor %s",
+            "Misslyckades med att dela pdf %s för %s av handledare %s",
             pdf_id,
             person_hash,
             email_hash,
@@ -946,11 +1020,11 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
         return redirect(redirect_target)
 
     logger.info(
-        "Supervisor %s shared pdf %s for %s to %s",
+        "Handledare %s delade pdf %s för %s till %s",
         email_hash,
         pdf_id,
         person_hash,
-        normalized_recipient,
+        mask_email(normalized_recipient),
     )
     flash("Intyget har skickats via e-post.", "success")
     return redirect(redirect_target)
@@ -969,7 +1043,7 @@ def supervisor_remove_connection_route(person_hash: str):
         return redirect(redirect_target)
 
     if functions.supervisor_remove_connection(email_hash, person_hash):
-        logger.info("Supervisor %s removed access to %s", email_hash, person_hash)
+        logger.info("Handledare %s tog bort åtkomst till %s", email_hash, person_hash)
         flash("Kopplingen har tagits bort.", "success")
     else:
         flash("Kopplingen kunde inte tas bort.", "error")
@@ -1035,7 +1109,7 @@ def supervisor_password_reset(token: str):
 @app.route("/", methods=["GET"])
 def home():
     # Render the landing page.
-    logger.debug("Rendering home page")
+    logger.debug("Renderar startsida")
     return render_template("index.html")
 
 
@@ -1334,7 +1408,7 @@ def login():
         password = request.form["password"]
         personnummer_hash = functions.hash_value(personnummer)
         if password == "":
-            logger.warning("Empty password provided for %s", mask_hash(personnummer_hash))
+            logger.warning("Tomt lösenord angavs för %s", mask_hash(personnummer_hash))
             return (
                 render_template(
                     "user_login.html",
@@ -1343,16 +1417,16 @@ def login():
                 ),
                 401,
             )
-        logger.debug("Login attempt for %s", mask_hash(personnummer_hash))
+        logger.debug("Inloggningsförsök för %s", mask_hash(personnummer_hash))
         if functions.check_personnummer_password(personnummer, password):
             session["user_logged_in"] = True
             session["personnummer"] = personnummer_hash
             session["personnummer_raw"] = personnummer
             session["username"] = functions.get_username_by_personnummer_hash(personnummer_hash)
-            logger.info("User %s logged in", mask_hash(personnummer_hash))
+            logger.info("Användare %s loggade in", mask_hash(personnummer_hash))
             return redirect("/dashboard")
         else:
-            logger.warning("Invalid login for %s", mask_hash(personnummer_hash))
+            logger.warning("Ogiltig inloggning för %s", mask_hash(personnummer_hash))
             return (
                 render_template(
                     "user_login.html",
@@ -1361,7 +1435,7 @@ def login():
                 ),
                 401,
             )
-    logger.debug("Rendering login page")
+    logger.debug("Renderar inloggningssida")
     return render_template("user_login.html", csrf_token=csrf_token)
 
 
@@ -1369,7 +1443,7 @@ def login():
 def dashboard():
     # Visa alla PDF:er för den inloggade användaren.
     if not session.get("user_logged_in"):
-        logger.debug("Unauthenticated access to dashboard")
+        logger.debug("Oautentiserad åtkomst till dashboard")
         return redirect("/login")
     pnr_hash = session.get("personnummer")
     user_name = session.get("username")
@@ -1424,7 +1498,7 @@ def dashboard():
         )
     pending_link_requests = functions.list_user_link_requests(pnr_hash)
     supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
-    logger.debug("Dashboard for %s shows %d pdfs", pnr_hash, len(pdfs))
+    logger.debug("Dashboard för %s visar %d pdfer", pnr_hash, len(pdfs))
     user_name = (user_name or "").capitalize()
     csrf_token = sec.ensure_csrf_token()
     return render_template(
@@ -1580,7 +1654,7 @@ def user_delete_pdf_route(pdf_id: int):
 def download_pdf(pdf_id: int):
     # Serve a stored PDF for the logged-in user from the database.
     if not session.get("user_logged_in"):
-        logger.debug("Unauthenticated download attempt for %s", pdf_id)
+        logger.debug("Oautentiserat nedladdningsförsök för %s", pdf_id)
         return redirect("/login")
     pnr_hash = session.get("personnummer")
     if not pnr_hash:
@@ -1588,10 +1662,10 @@ def download_pdf(pdf_id: int):
     as_attachment = request.args.get("download", "1") != "0"
     pdf = functions.get_pdf_content(pnr_hash, pdf_id)
     if not pdf:
-        logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
+        logger.warning("PDF %s hittades inte för användare %s", pdf_id, pnr_hash)
         abort(404)
     filename, content = pdf
-    logger.info("User %s retrieving %s (as_attachment=%s)", pnr_hash, filename, as_attachment)
+    logger.info("Användare %s hämtar %s (as_attachment=%s)", pnr_hash, filename, as_attachment)
     response = make_response(content)
     response.headers["Content-Type"] = "application/pdf"
     disposition = "attachment" if as_attachment else "inline"
@@ -1603,12 +1677,12 @@ def download_pdf(pdf_id: int):
 def share_pdf() -> tuple[Response, int]:  # pragma: no cover
     # Share a PDF with a recipient via e-post.
     if not session.get("user_logged_in"):
-        logger.debug("Unauthenticated share attempt")
+        logger.debug("Oautentiserat delningsförsök")
         return jsonify({"fel": "Du måste vara inloggad för att dela intyg."}), 401
 
     payload = request.get_json(silent=True) or request.form
     if not payload:
-        logger.error(f"Empty payload in share_pdf:{payload!r}")
+        logger.error("Tom payload i share_pdf: %r", payload)
         return jsonify({"fel": "Ogiltig begäran."}), 400
 
     pdf_ids_raw = payload.get("pdf_ids") if hasattr(payload, "get") else None
@@ -1622,7 +1696,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
             pdf_ids_raw = [pdf_id_raw]
 
     if pdf_ids_raw is None:
-        logger.debug(f"No pdf_ids provided in share_pdf: {payload!r}")
+        logger.debug("Inga pdf_ids angavs i share_pdf: %r", payload)
         return jsonify({"fel": "Ogiltigt intyg angivet."}), 400
 
     if isinstance(pdf_ids_raw, (str, bytes)):
@@ -1638,7 +1712,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
         try:
             pdf_id = int(raw_id)
         except (TypeError, ValueError):
-            logger.warning("Invalid pdf_id provided for sharing: %r", raw_id)
+            logger.warning("Ogiltigt pdf_id angavs för delning: %r", raw_id)
             return jsonify({"fel": "Ogiltigt intyg angivet."}), 400
         if pdf_id in seen_ids:
             continue
@@ -1646,16 +1720,16 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
         pdf_ids.append(pdf_id)
 
     if not pdf_ids:
-        logger.debug(f"Empty pdf_ids after processing in share_pdf: {payload!r}")
+        logger.debug("Tomma pdf_ids efter bearbetning i share_pdf: %r", payload)
         return jsonify({"fel": "Ogiltigt intyg angivet."}), 400
 
     if not recipient_email:
-        logger.debug("Empty recipient_email in share_pdf: %r", payload)
+        logger.debug("Tom recipient_email i share_pdf: %r", payload)
         return jsonify({"fel": "Ange en e-postadress."}), 400
 
     pnr_hash = session.get("personnummer")
     if not pnr_hash:
-        logger.error("Share request missing personnummer in session: %r", session)
+        logger.error("Delningsbegäran saknar personnummer i session. Nycklar: %s", sorted(session.keys()))
         return jsonify({"fel": "Saknar användaruppgifter."}), 400
 
     attachments: list[tuple[str, bytes]] = []
@@ -1663,7 +1737,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
     for pdf_id in pdf_ids:
         pdf = functions.get_pdf_content(pnr_hash, pdf_id)
         if not pdf:
-            logger.debug("PDF %s not found for user %s when sharing", pdf_id, pnr_hash)
+            logger.debug("PDF %s hittades inte för användare %s vid delning", pdf_id, pnr_hash)
             return jsonify({"fel": "Intyget kunde inte hittas."}), 404
         filename, content = pdf
         attachments.append((filename, content))
@@ -1679,14 +1753,14 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
     try:
         normalized_recipient = email_service.normalize_valid_email(recipient_email)
     except ValueError:
-        logger.debug("Invalid recipient_email in share_pdf: %r", recipient_email)
+        logger.debug("Ogiltig recipient_email i share_pdf: %s", mask_email(recipient_email))
         return jsonify({"fel": "Ogiltig e-postadress."}), 400
 
     if normalized_recipient != recipient_email:
         logger.debug(
-            "Normalized share recipient email from %r to %s",
-            recipient_email,
-            normalized_recipient,
+            "Normaliserade mottagaradress för delning från %r till %s",
+            mask_email(recipient_email),
+            mask_email(normalized_recipient),
         )
 
     try:
@@ -1697,19 +1771,19 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
         )
     except RuntimeError as exc:
         logger.error(
-            "Failed to share pdf %s from %s to %s. Error: %s",
+            "Misslyckades med att dela pdf %s från %s till %s. Fel: %s",
             pdf_ids,
             pnr_hash,
-            normalized_recipient,
+            mask_email(normalized_recipient),
             exc,
         )
         return jsonify({"fel": "Ett internt fel har inträffat."}), 500
 
     logger.info(
-        "User %s delade intyg %s med %s",
+        "Användare %s delade intyg %s med %s",
         pnr_hash,
         pdf_ids,
-        normalized_recipient,
+        mask_email(normalized_recipient),
     )
     success_message = (
         "Intyget har skickats via e-post."
@@ -1723,16 +1797,16 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
 def view_pdf(pdf_id: int):
     # Redirect to a direct download of the specified PDF.
     if not session.get("user_logged_in"):
-        logger.debug("Unauthenticated view attempt for %s", pdf_id)
+        logger.debug("Oautentiserat visningsförsök för %s", pdf_id)
         return redirect("/login")
     pnr_hash = session.get("personnummer")
     if not pnr_hash:
         return redirect("/login")
     pdf = functions.get_pdf_metadata(pnr_hash, pdf_id)
     if not pdf:
-        logger.warning("PDF %s not found for user %s", pdf_id, pnr_hash)
+        logger.warning("PDF %s hittades inte för användare %s", pdf_id, pnr_hash)
         abort(404)
-    logger.info("User %s laddar ned %s via direktlänk", pnr_hash, pdf["filename"])
+    logger.info("Användare %s laddar ned %s via direktlänk", pnr_hash, pdf["filename"])
     return redirect(url_for("download_pdf", pdf_id=pdf_id))
 
 
@@ -1741,7 +1815,7 @@ def admin():  # pragma: no cover
     # Admin dashboard for uploading certificates and creating users.
     if request.method == "POST":
         if not session.get("admin_logged_in"):
-            logger.warning("Unauthorized admin POST")
+            logger.warning("Obehörigt admin-POST-anrop")
             return redirect("/error", code=401)
 
         try:
@@ -1759,22 +1833,22 @@ def admin():  # pragma: no cover
             raw_categories = request.form.getlist("categories")
             pdf_files = request.files.getlist("pdf")
             if not raw_categories:
-                logger.warning("Admin upload missing categories (no selection)")
+                logger.warning("Adminuppladdning saknar kategorier (inget val)")
                 return jsonify({"status": "error", "message": "Välj kategori för varje PDF."}), 400
             if not pdf_files:
-                logger.warning("Admin upload without PDF")
+                logger.warning("Adminuppladdning utan PDF")
                 return jsonify({"status": "error", "message": "PDF-fil saknas"}), 400
 
             if len(raw_categories) != len(pdf_files):
                 logger.warning(
-                    "Admin upload category mismatch (categories=%d, files=%d)",
+                    "Adminuppladdning med mismatch i kategorier och filer (kategorier=%d, filer=%d)",
                     len(raw_categories),
                     len(pdf_files),
                 )
                 return jsonify({"status": "error", "message": "Välj kategori för varje PDF."}), 400
 
             logger.debug(
-                "Admin upload for %s with categories %s",
+                "Adminuppladdning för %s med kategorier %s",
                 mask_hash(pnr_hash),
                 raw_categories,
             )
@@ -1784,7 +1858,7 @@ def admin():  # pragma: no cover
                 selected = normalize_category_slugs([raw])
                 if len(selected) != 1:
                     logger.warning(
-                        "Admin upload invalid category for file %d (value=%r)",
+                        "Adminuppladdning med ogiltig kategori för fil %d (värde=%r)",
                         idx,
                         raw,
                     )
@@ -1808,7 +1882,7 @@ def admin():  # pragma: no cover
             # --- Return early for existing or pending users ---
             if user_exists:
                 logger.info(
-                    "PDFs uploaded for existing user %s (%d files)",
+                    "PDF:er uppladdade för befintlig användare %s (%d filer)",
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
@@ -1821,7 +1895,7 @@ def admin():  # pragma: no cover
 
             if pending_exists:
                 logger.info(
-                    "PDFs uploaded for pending user %s (%d files)",
+                    "PDF:er uppladdade för väntande användare %s (%d filer)",
                     mask_hash(pnr_hash),
                     len(pdf_records),
                 )
@@ -1839,7 +1913,7 @@ def admin():  # pragma: no cover
                     email_service.send_creation_email(email, link)
                 except RuntimeError as e:
                     logger.error(
-                        "Failed to send creation email to %s",
+                        "Misslyckades med att skicka skapandemejl till %s",
                         mask_hash(email_hash),
                         exc_info=True,
                     )
@@ -1850,24 +1924,24 @@ def admin():  # pragma: no cover
                         }
                     ), 500
 
-                logger.info("Admin created user %s", mask_hash(pnr_hash))
+                logger.info("Admin skapade användare %s", mask_hash(pnr_hash))
                 return jsonify(
                     {"status": "success", "message": "Standardkonto skapat", "link": link}
                 )
 
-            logger.error("Failed to create pending user for %s", mask_hash(pnr_hash))
+            logger.error("Misslyckades med att skapa väntande användare för %s", mask_hash(pnr_hash))
             return jsonify({"status": "error", "message": "Kunde inte skapa standardkonto"}), 500
 
         except ValueError as ve:
-            logger.error("Value error during admin upload: %s", ve)
+            logger.error("Värdefel under adminuppladdning: %s", ve)
             return jsonify({"status": "error", "message": "Felaktiga användardata."}), 400
         except Exception as e:
-            logger.error("Server error during admin upload", exc_info=e)
+            logger.error("Serverfel under adminuppladdning", exc_info=e)
             return jsonify({"status": "error", "message": "Serverfel"}), 500
 
     # --- GET request ---
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin GET")
+        logger.warning("Obehörigt admin-GET-anrop")
         return redirect("/login_admin")
 
     admin_log_entries = []
@@ -1893,7 +1967,7 @@ def admin():  # pragma: no cover
     except Exception:
         logger.error("Misslyckades att hämta adminlogg")
 
-    logger.debug("Rendering admin page")
+    logger.debug("Renderar adminsida")
     return render_template(
         "admin.html",
         admin_log_entries=admin_log_entries,
@@ -1903,26 +1977,26 @@ def admin():  # pragma: no cover
 @app.get("/admin/guide")
 def admin_guide():  # pragma: no cover
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin guide GET")
+        logger.warning("Obehörigt admin guide-GET-anrop")
         return redirect("/login_admin")
     guide_path = Path(current_app.root_path) / "admin.md"
     try:
         guide_content = guide_path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        logger.error("Admin guide file missing")
+        logger.error("Admin guide-fil saknas")
         guide_content = "Guiden kunde inte hittas."
     rendered_guide = render_markdown_content(guide_content)
-    logger.debug("Rendering admin guide page")
+    logger.debug("Renderar admin guide-sida")
     return render_template("admin_guide.html", guide_content=rendered_guide)
 
 
 @app.get("/admin/konton")
 def admin_accounts():  # pragma: no cover
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin accounts GET")
+        logger.warning("Obehörigt admin accounts-GET-anrop")
         return redirect("/login_admin")
     csrf_token = ensure_csrf_token()
-    logger.debug("Rendering admin accounts page")
+    logger.debug("Renderar admin accounts-sida")
     return render_template(
         "admin_accounts.html",
         categories=COURSE_CATEGORIES,
@@ -1934,9 +2008,9 @@ def admin_accounts():  # pragma: no cover
 @app.get("/admin/intyg")
 def admin_certificates():  # pragma: no cover
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin certificates GET")
+        logger.warning("Obehörigt admin certificates-GET-anrop")
         return redirect("/login_admin")
-    logger.debug("Rendering admin certificates page")
+    logger.debug("Renderar admin certificates-sida")
     return render_template(
         "admin_certificates.html",
         categories=COURSE_CATEGORIES,
@@ -1946,9 +2020,9 @@ def admin_certificates():  # pragma: no cover
 @app.get("/admin/foretagskonto")
 def admin_company_accounts():  # pragma: no cover
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin company accounts GET")
+        logger.warning("Obehörigt admin company accounts-GET-anrop")
         return redirect("/login_admin")
-    logger.debug("Rendering admin company accounts page")
+    logger.debug("Renderar admin company accounts-sida")
     csrf_token = ensure_csrf_token()
     return render_template("admin_company_accounts.html", csrf_token=csrf_token)
 
@@ -1971,11 +2045,11 @@ def admin_applications():  # pragma: no cover
             return jsonify({"status": "error", "message": "Ansökans ID saknas."}), 400
         if application_status == "approved":
             functions.approve_application_request(int(application_id), "admin")
-            logger.debug("Ansökan har godkänts, success")
+            logger.debug("Ansökan har godkänts, lyckat")
             return jsonify({"status": "success", "message": "Ansökan har godkänts."})
         elif application_status == "rejected":
             functions.reject_application_request(int(application_id), "admin")
-            logger.debug("Ansökan har avslagits, success")
+            logger.debug("Ansökan har avslagits, lyckat")
             return jsonify({"status": "success", "message": "Ansökan har avslagits."})
         else:
             logger.error("Ogiltig status för ansökan.")
@@ -2077,6 +2151,7 @@ def admin_list_applications():  # pragma: no cover
             "Invalid status in list_application_requests: %s",
             exc,
         )
+        logging.exception("Misslyckades med att lista ansökningar")
         return jsonify({"status": "error", "message": "Felaktig begäran."}), 400
 
     serialized = [_serialize_application_row(row) for row in rows]
@@ -2100,7 +2175,12 @@ def admin_approve_application(application_id: int):  # pragma: no cover
     """
     admin_name = _require_admin()
     if not validate_csrf_token():
-        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
+        return _api_error_response(
+            "Ogiltig CSRF-token.",
+            400,
+            severity="warning",
+            extra={"route": "admin_approve_application", "admin": admin_name},
+        )
 
     try:
         # Förväntat result-format (exempel):
@@ -2115,26 +2195,36 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         # }
         result = functions.approve_application_request(application_id, admin_name)
     except ValueError as exc:
-        # Logga det interna felet på serversidan utan att exponera detaljer för användaren.
-        logger.warning(
-            "ValueError vid godkännande av ansökan %s: %s", application_id, exc, exc_info=True
-        )
-        return jsonify(
-            {
-                "status": "error",
-                "message": _safe_user_error(
-                    "",
-                    ALLOWED_ADMIN_APPROVAL_ERRORS,
-                    (
-                        "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
-                        "är väntande och att uppgifterna är kompletta."
-                    ),
+        return _api_error_response(
+            _safe_user_error(
+                "",
+                ALLOWED_ADMIN_APPROVAL_ERRORS,
+                (
+                    "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
+                    "är väntande och att uppgifterna är kompletta."
                 ),
-            }
-        ), 400
-    except Exception:
-        logger.error("Misslyckades att godkänna ansökan %s", application_id)
-        return jsonify({"status": "error", "message": "Kunde inte godkänna ansökan."}), 500
+            ),
+            400,
+            severity="warning",
+            error=exc,
+            extra={
+                "route": "admin_approve_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
+    except Exception as exc:
+        return _api_error_response(
+            "Kunde inte godkänna ansökan.",
+            500,
+            severity="error",
+            error=exc,
+            extra={
+                "route": "admin_approve_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
 
     email_warnings: list[str] = []
 
@@ -2196,7 +2286,12 @@ def admin_approve_application(application_id: int):  # pragma: no cover
 def admin_reject_application(application_id: int):  # pragma: no cover
     admin_name = _require_admin()
     if not validate_csrf_token():
-        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
+        return _api_error_response(
+            "Ogiltig CSRF-token.",
+            400,
+            severity="warning",
+            extra={"route": "admin_reject_application", "admin": admin_name},
+        )
 
     payload = request.get_json(silent=True) or {}
     decision_reason = (payload.get("reason") or "").strip()
@@ -2206,20 +2301,32 @@ def admin_reject_application(application_id: int):  # pragma: no cover
     try:
         result = functions.reject_application_request(application_id, admin_name, decision_reason)
     except ValueError as exc:
-        # Logga detaljerat fel, men exponera inte undantagstexten för användaren.
-        logger.warning("Kunde inte avslå ansökan %s: %s", application_id, exc)
-        return jsonify(
-            {
-                "status": "error",
-                "message": (
-                    "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
-                    "är väntande och försök igen."
-                ),
-            }
-        ), 400
-    except Exception:
-        logger.error("Misslyckades att avslå ansökan %s", application_id)
-        return jsonify({"status": "error", "message": "Kunde inte avslå ansökan."}), 500
+        return _api_error_response(
+            (
+                "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
+                "är väntande och försök igen."
+            ),
+            400,
+            severity="warning",
+            error=exc,
+            extra={
+                "route": "admin_reject_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
+    except Exception as exc:
+        return _api_error_response(
+            "Kunde inte avslå ansökan.",
+            500,
+            severity="error",
+            error=exc,
+            extra={
+                "route": "admin_reject_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
 
     email_error = None
     try:
@@ -2739,42 +2846,57 @@ def admin_send_password_reset():  # pragma: no cover
             account_type,
             extra={"admin": admin_name},
         )
-        return jsonify({"status": "error", "message": "Ogiltig kontotyp."}), 400
 
     if account_type == "standard" and (not personnummer or not email):
         logger.debug(
             "Admin send_password_reset without personnummer or email", extra={"admin": admin_name}
+        return _api_error_response(
+            "Ange både personnummer och e-post.",
+            400,
+            severity="warning",
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
     if account_type == "foretagskonto" and not email:
         logger.debug(
             "Admin send_password_reset without email for foretagskonto", extra={"admin": admin_name}
+        return _api_error_response(
+            "Ange e-postadressen för företagskontot.",
+            400,
+            severity="warning",
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify(
-            {"status": "error", "message": "Ange e-postadressen för företagskontot."}
-        ), 400
 
     if account_type == "foretagskonto":
         try:
             token = functions.create_supervisor_password_reset_token(email)
         except ValueError as exc:
-            logger.warning(
-                "Misslyckades att skapa återställningstoken för företagskonto: %s",
-                exc,
+            return _api_error_response(
+                "Företagskontot hittades inte.",
+                404,
+                severity="warning",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
             )
-            return jsonify({"status": "error", "message": "Företagskontot hittades inte."}), 404
         except Exception as exc:
-            logger.error(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
-            return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
+            return _api_error_response(
+                "Kunde inte skapa återställning.",
+                500,
+                severity="error",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
+            )
 
         link = url_for("supervisor_password_reset", token=token, _external=True)
         try:
             email_service.send_password_reset_email(email, link)
         except RuntimeError as exc:
-            logger.error(f"Misslyckades att skicka återställningsmejl för företagskonto: {exc}")
-            return jsonify(
-                {"status": "error", "message": "Kunde inte skicka återställningsmejl."}
-            ), 500
+            return _api_error_response(
+                "Kunde inte skicka återställningsmejl.",
+                500,
+                severity="error",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
+            )
 
         email_hash = functions.hash_value(functions.normalize_email(email))
         functions.log_admin_action(
@@ -2803,13 +2925,18 @@ def admin_send_password_reset():  # pragma: no cover
             "Admin send_password_reset with invalid personnummer hash: %s",
             personnummer_masked,
             extra={"admin": admin_name},
+    except ValueError as exc:
+        return _api_error_response(
+            "Ogiltigt personnummer.",
+            400,
+            severity="warning",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
 
     try:
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
-        logger.warning("Misslyckades att skapa återställningstoken: %s", exc)
         # Do not expose raw exception messages to the client; map to safe, user-facing text instead.
         exc_message = str(exc)
         if exc_message == "Kontot är inte aktiverat ännu.":
@@ -2818,17 +2945,33 @@ def admin_send_password_reset():  # pragma: no cover
         else:
             message = "Uppgifterna matchar inget aktivt standardkonto."
             status_code = 404
-        return jsonify({"status": "error", "message": message}), status_code
+        return _api_error_response(
+            message,
+            status_code,
+            severity="warning",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
     except Exception as exc:
-        logger.error(f"Misslyckades att skapa återställningstoken: {exc}")
-        return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
+        return _api_error_response(
+            "Kunde inte skapa återställning.",
+            500,
+            severity="error",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
 
     link = url_for("password_reset", token=token, _external=True)
     try:
         email_service.send_password_reset_email(email, link)
     except RuntimeError as exc:
-        logger.error(f"Misslyckades att skicka återställningsmejl: {exc}")
-        return jsonify({"status": "error", "message": "Kunde inte skicka återställningsmejl."}), 500
+        return _api_error_response(
+            "Kunde inte skicka återställningsmejl.",
+            500,
+            severity="error",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
 
     pnr_hash = functions.hash_value(normalized_personnummer)
     email_hash = functions.hash_value(functions.normalize_email(email))
@@ -2883,7 +3026,7 @@ def admin_create_supervisor_route():  # pragma: no cover
     try:
         email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
-        logger.error("Failed to send supervisor creation email to %s", email_hash)
+        logger.error("Misslyckades med att skicka skapandemejl för handledare till %s", email_hash)
         return (
             jsonify({"status": "error", "message": "Det gick inte att skicka inloggningslänken."}),
             500,
@@ -3186,7 +3329,7 @@ def admin_delete_supervisor_account_route():  # pragma: no cover
 @app.get("/admin/avancerat")
 def admin_advanced():  # pragma: no cover
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized admin advanced GET")
+        logger.warning("Obehörigt admin advanced-GET-anrop")
         return redirect("/login_admin")
     tables = sorted(functions.TABLE_REGISTRY.keys())
     return render_template("admin_advanced.html", tables=tables)
@@ -3240,7 +3383,7 @@ def admin_advanced_create(table_name: str):  # pragma: no cover
     try:
         row = functions.create_table_row(table_name, values)
     except ValueError as exc:
-        logger.warning(f"Error in create_table_row: {exc}")
+        logger.warning("Fel i create_table_row: %s", exc)
         return jsonify({"status": "error", "message": "Kunde inte skapa posten."}), 400
     masked_row = _mask_sensitive_fields(row)
     functions.log_admin_action(
@@ -3269,7 +3412,13 @@ def admin_advanced_update(table_name: str, row_id: int):  # pragma: no cover
     try:
         updated = functions.update_table_row(table_name, row_id, values)
     except ValueError as exc:
-        logger.error(f"Failed to update row in table '{table_name}', id={row_id}: {exc}")
+        logger.error(
+            "Misslyckades med att uppdatera rad i tabell '%s', id=%s: %s",
+            table_name,
+            row_id,
+            exc,
+            exc_info=True,
+        )
         return jsonify({"status": "error", "message": "Felaktiga data."}), 400
     if not updated:
         logger.debug("Admin advanced update with missing row: table=%s, id=%d", table_name, row_id)
@@ -3320,13 +3469,13 @@ def verify_certificate_route(personnummer):  # pragma: no cover
     # status. If the certificate isn't verified, an informative message is sent
     # back to the administrator.
     if not session.get("admin_logged_in"):
-        logger.warning("Unauthorized certificate verification attempt")
+        logger.warning("Obehörigt försök att verifiera intyg")
         return redirect("/login_admin")
 
     if functions.verify_certificate(personnummer):
-        logger.info("Certificate for %s is verified", mask_hash(functions.hash_value(personnummer)))
+        logger.info("Intyg för %s är verifierat", mask_hash(functions.hash_value(personnummer)))
         return jsonify({"status": "success", "verified": True})
-    logger.info("Certificate for %s is NOT verified", mask_hash(functions.hash_value(personnummer)))
+    logger.info("Intyg för %s är INTE verifierat", mask_hash(functions.hash_value(personnummer)))
     return jsonify(
         {
             "status": "error",
@@ -3344,27 +3493,31 @@ def login_admin():  # pragma: no cover
 
         # Require admin credentials to be explicitly set (no insecure defaults)
         if not admin_password or not admin_username:
-            error_msg = "FATAL: admin_username and admin_password environment variables must be set and non-empty"
+            error_msg = "KRITISKT: miljövariablerna admin_username och admin_password måste vara satta och inte tomma"
             logger.critical(error_msg)
             critical_events.send_critical_error_notification(error_message=error_msg, endpoint="/login_admin", user_ip=get_request_ip())
             raise RuntimeError(error_msg)
-        if (
-            request.form["username"] == admin_username
-            and request.form["password"] == admin_password
-        ):
+        submitted_username = request.form.get("username")
+        submitted_password = request.form.get("password")
+        user_ok = secrets.compare_digest(str(submitted_username or ""), str(admin_username))
+        pass_ok = secrets.compare_digest(str(submitted_password or ""), str(admin_password))
+        if user_ok and pass_ok:
             session["admin_logged_in"] = True
             session["admin_username"] = admin_username
-            logger.info("Admin %s logged in", admin_username)
+            logger.info("Admin %s loggade in", _mask_username_for_log(admin_username))
             return redirect("/admin")
-        else:
-            logger.warning("Invalid admin login attempt for %s", request.form["username"])
-            return jsonify({"status": "error", "message": "Ogiltiga inloggningsuppgifter"})
+
+        logger.warning(
+            "Ogiltigt admin-inloggningsförsök för %s",
+            _mask_username_for_log(submitted_username),
+        )
+        return jsonify({"status": "error", "message": "Ogiltiga inloggningsuppgifter"})
 
     elif request.method == "GET":
-        logger.debug("Rendering admin login page")
+        logger.debug("Renderar admin-inloggningssida")
         return render_template("admin_login.html")
     else:
-        logger.warning("Invalid request method %s to login_admin", request.method)
+        logger.warning("Ogiltig förfrågningsmetod %s till login_admin", request.method)
         return jsonify(
             {"status": "error", "message": "Ogiltig HTTP-metod", "method": request.method}
         )
@@ -3373,7 +3526,7 @@ def login_admin():  # pragma: no cover
 @app.route("/logout")
 def logout():
     # Logga ut både admin och användare.
-    logger.info("Logging out user and admin")
+    logger.info("Loggar ut användare och admin")
     session.pop("user_logged_in", None)
     session.pop("admin_logged_in", None)
     session.pop("admin_username", None)
@@ -3396,7 +3549,7 @@ def error():  # pragma: no cover
 
 @app.errorhandler(500)
 def internal_server_error(_):  # pragma: no cover
-    logger.error("500 Internal Server Error: %s", request.path)
+    logger.error("500 Internt serverfel: %s", request.path)
 
     try:
         user_ip = get_request_ip()
@@ -3428,7 +3581,7 @@ def handle_unexpected_exception(error: Exception):  # pragma: no cover
 @app.errorhandler(401)
 def unauthorized_error(_):  # pragma: no cover
     # Visa en användarvänlig 401-sida vid obehörig åtkomst.
-    logger.warning("401 Unauthorized: %s", request.path)
+    logger.warning("401 Obehörig åtkomst: %s", request.path)
     error_code = 401
     error_message = "Du måste vara inloggad för att se denna sida."
     return render_template(
@@ -3439,7 +3592,7 @@ def unauthorized_error(_):  # pragma: no cover
 @app.errorhandler(409)
 def conflict_error(_):  # pragma: no cover
     # Visa en användarvänlig 409-sida vid konflikt.
-    logger.error("409 Conflict: %s", request.path)
+    logger.error("409 Konflikt: %s", request.path)
     error_code = 409
     error_message = "Det uppstod en konflikt vid hantering av din begäran."
     return render_template(
@@ -3450,7 +3603,7 @@ def conflict_error(_):  # pragma: no cover
 @app.errorhandler(404)
 def page_not_found(_):  # pragma: no cover
     # Visa en användarvänlig 404-sida när en sida saknas.
-    logger.warning("Page not found: %s", request.path)
+    logger.warning("Sidan hittades inte: %s", request.path)
     error_code = 404
     error_message = "Sidan du letade efter kunde inte hittas."
     return render_template(
@@ -3482,19 +3635,19 @@ if __name__ == "__main__":  # pragma: no cover
             port=int(os.getenv("PORT", 8000)),
         )
     except KeyboardInterrupt:
-        logger.info("Application interrupted by user")
+        logger.info("Applikationen avbröts av användaren")
         try:
             critical_events.send_crash_notification("Application interrupted by user (KeyboardInterrupt)")
         except Exception as e:
-            logger.critical("Failed to send crash notification: %s", e)
-            critical_events.send_crash_notification("Failed to send crash notification: " + str(e))
+            logger.critical("Misslyckades med att skicka kraschnotifikation: %s", e)
+            critical_events.send_crash_notification("Misslyckades med att skicka kraschnotifikation: " + str(e))
     except Exception as e:
-        logger.critical("Application crashed with exception: %s", e, exc_info=True)
+        logger.critical("Applikationen kraschade med undantag: %s", e, exc_info=True)
         try:
             error_details = f"Exception: {type(e).__name__}\nMessage: {str(e)}"
             critical_events.send_crash_notification(error_details)
         except Exception as alert_error:
-            logger.critical("Failed to send crash notification: %s", alert_error)
+            logger.critical("Misslyckades med att skicka kraschnotifikation: %s", alert_error)
         raise
 
 # © 2025 Liam Suorsa. All rights reserved.
