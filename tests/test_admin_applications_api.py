@@ -141,6 +141,46 @@ def test_admin_approve_standard_application_creates_activation_link(
         assert pending_supervisor == []
 
 
+
+
+def test_admin_approve_application_validation_error_returns_400(empty_db, monkeypatch):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    monkeypatch.setattr(
+        functions,
+        'approve_application_request',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError('invalid state')),
+    )
+
+    response = client.post(
+        '/admin/api/ansokningar/1/godkann',
+        json={'csrf_token': 'test-csrf'},
+        headers={'X-CSRF-Token': 'test-csrf'},
+    )
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload['status'] == 'error'
+
+
+def test_admin_reject_application_system_error_returns_500(empty_db, monkeypatch):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    def _raise_runtime(*_args, **_kwargs):
+        raise RuntimeError('boom')
+
+    monkeypatch.setattr(functions, 'reject_application_request', _raise_runtime)
+
+    response = client.post(
+        '/admin/api/ansokningar/1/avslag',
+        json={'csrf_token': 'test-csrf', 'reason': 'Test'},
+        headers={'X-CSRF-Token': 'test-csrf'},
+    )
+    assert response.status_code == 500
+    payload = response.get_json()
+    assert payload['status'] == 'error'
+
 def test_admin_reject_application_api(empty_db, monkeypatch):
     """
     Verifies that the admin reject-application API records a rejection, sends a rejection email, and persists the decision reason.
