@@ -182,7 +182,9 @@ def _mask_username_for_log(username: str | None) -> str:
         return "<saknas>"
     if "@" in cleaned:
         return mask_email(cleaned)
-    return mask_sensitive_data(cleaned, keep_prefix=2, keep_suffix=1)
+    if len(cleaned) <= 3:
+        return "***"
+    return f"{cleaned[:2]}***{cleaned[-1]}"
 
 
 def _trusted_proxy_hops(raw_value: str | None) -> int:
