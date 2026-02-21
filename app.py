@@ -2151,7 +2151,7 @@ def admin_list_applications():  # pragma: no cover
             "Invalid status in list_application_requests: %s",
             exc,
         )
-        logging.exception("Misslyckades med att lista ansökningar")
+        logger.exception("Misslyckades med att lista ansökningar")
         return jsonify({"status": "error", "message": "Felaktig begäran."}), 400
 
     serialized = [_serialize_application_row(row) for row in rows]
@@ -2850,6 +2850,7 @@ def admin_send_password_reset():  # pragma: no cover
     if account_type == "standard" and (not personnummer or not email):
         logger.debug(
             "Admin send_password_reset without personnummer or email", extra={"admin": admin_name}
+        )
         return _api_error_response(
             "Ange både personnummer och e-post.",
             400,
@@ -2859,6 +2860,7 @@ def admin_send_password_reset():  # pragma: no cover
     if account_type == "foretagskonto" and not email:
         logger.debug(
             "Admin send_password_reset without email for foretagskonto", extra={"admin": admin_name}
+        )
         return _api_error_response(
             "Ange e-postadressen för företagskontot.",
             400,
@@ -2919,13 +2921,13 @@ def admin_send_password_reset():  # pragma: no cover
 
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
-    except ValueError:
+    except ValueError as exc:
         personnummer_masked = mask_hash(functions.hash_value(personnummer))
         logger.debug(
             "Admin send_password_reset with invalid personnummer hash: %s",
             personnummer_masked,
             extra={"admin": admin_name},
-    except ValueError as exc:
+        )
         return _api_error_response(
             "Ogiltigt personnummer.",
             400,
