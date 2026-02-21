@@ -1,37 +1,37 @@
 # -----------------------
 # Core (alla plattformar)
 # -----------------------
-Flask
-python-dotenv
-Werkzeug
-Jinja2
-itsdangerous
-click
-SQLAlchemy
-MarkupSafe
-Markdown
-pytest
-pytest-xdist
-pytest-docker
-requests
-Pillow>=11.3.0
-psutil
+Flask==3.1.2
+python-dotenv==1.2.1
+Werkzeug==3.1.5
+Jinja2==3.1.6
+itsdangerous==2.2.0
+click==8.3.1
+SQLAlchemy==2.0.46
+MarkupSafe==3.0.3
+Markdown==3.10.1
+pytest==9.0.2
+pytest-xdist==3.8.0
+pytest-docker==3.2.5
+requests==2.32.5
+Pillow==12.1.0
+psutil==7.2.2
 
 # -----------------------
 # PostgreSQL
 # -----------------------
 # Windows: använd binary wheels
-psycopg2-binary; platform_system == "Windows"
+psycopg2-binary==2.9.11; platform_system == "Windows"
 
 # Linux: modern psycopg + ev. fallback
-psycopg; platform_system == "Linux"
-psycopg2-binary; platform_system == "Linux"
+psycopg==3.2.1; platform_system == "Linux"
+psycopg2-binary==2.9.11; platform_system == "Linux"
 
 # -----------------------
 # WSGI-server
 # -----------------------
 # Gunicorn fungerar endast på Unix
-gunicorn; platform_system == "Linux"
+gunicorn==25.0.0; platform_system == "Linux"
 
 # -----------------------
 # SQLite (Linux < 3.12)
@@ -41,7 +41,7 @@ pysqlite3-binary>=0.5.3; platform_system == "Linux" and python_version < "3.12"
 # -----------------------
 # Linux-only extras
 # -----------------------
-quicksand; platform_system == "Linux"
+quicksand==2.1.2; platform_system == "Linux"
 
 # -----------------------
 # Optional
