@@ -165,6 +165,68 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     return fallback
 
 
+def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    # Samla korrelationsdata för enhetlig felloggning.
+    context: dict[str, Any] = {
+        "endpoint": request.path,
+        "method": request.method,
+        "admin": session.get("admin_username") if session.get("admin_logged_in") else None,
+        "user": mask_hash(session.get("personnummer")) if session.get("personnummer") else None,
+    }
+    if extra:
+        context.update(extra)
+    return context
+
+
+def _log_api_error(
+    *,
+    user_message: str,
+    status_code: int,
+    severity: str,
+    error: Exception | None = None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    # Standardiserad loggning av API-fel med korrelationsdata.
+    context = _request_error_context(extra)
+    if severity == "warning":
+        logger.warning(
+            "API-fel (%s): %s | context=%s | error=%s",
+            status_code,
+            user_message,
+            context,
+            str(error) if error else "-",
+        )
+        return
+    if error is not None:
+        logger.exception(
+            "API-systemfel (%s): %s | context=%s",
+            status_code,
+            user_message,
+            context,
+        )
+        return
+    logger.error("API-systemfel (%s): %s | context=%s", status_code, user_message, context)
+
+
+def _api_error_response(
+    user_message: str,
+    status_code: int,
+    *,
+    severity: str = "warning",
+    error: Exception | None = None,
+    extra: dict[str, Any] | None = None,
+) -> tuple[Response, int]:
+    # Standardiserad felrespons för JSON-API.
+    _log_api_error(
+        user_message=user_message,
+        status_code=status_code,
+        severity=severity,
+        error=error,
+        extra=extra,
+    )
+    return jsonify({"status": "error", "message": user_message}), status_code
+
+
 def _truncate_log_value(value: Any, limit: int) -> str:
     # Begränsa loggsträngar för att undvika enorma loggar.
     if value is None:
@@ -2040,7 +2102,12 @@ def admin_approve_application(application_id: int):  # pragma: no cover
     """
     admin_name = _require_admin()
     if not validate_csrf_token():
-        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
+        return _api_error_response(
+            "Ogiltig CSRF-token.",
+            400,
+            severity="warning",
+            extra={"route": "admin_approve_application", "admin": admin_name},
+        )
 
     try:
         # Förväntat result-format (exempel):
@@ -2055,26 +2122,36 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         # }
         result = functions.approve_application_request(application_id, admin_name)
     except ValueError as exc:
-        # Logga det interna felet på serversidan utan att exponera detaljer för användaren.
-        logger.warning(
-            "ValueError vid godkännande av ansökan %s: %s", application_id, exc, exc_info=True
-        )
-        return jsonify(
-            {
-                "status": "error",
-                "message": _safe_user_error(
-                    "",
-                    ALLOWED_ADMIN_APPROVAL_ERRORS,
-                    (
-                        "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
-                        "är väntande och att uppgifterna är kompletta."
-                    ),
+        return _api_error_response(
+            _safe_user_error(
+                "",
+                ALLOWED_ADMIN_APPROVAL_ERRORS,
+                (
+                    "Ansökan kunde inte godkännas. Kontrollera att den fortfarande "
+                    "är väntande och att uppgifterna är kompletta."
                 ),
-            }
-        ), 400
-    except Exception:
-        logger.error("Misslyckades att godkänna ansökan %s", application_id)
-        return jsonify({"status": "error", "message": "Kunde inte godkänna ansökan."}), 500
+            ),
+            400,
+            severity="warning",
+            error=exc,
+            extra={
+                "route": "admin_approve_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
+    except Exception as exc:
+        return _api_error_response(
+            "Kunde inte godkänna ansökan.",
+            500,
+            severity="error",
+            error=exc,
+            extra={
+                "route": "admin_approve_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
 
     email_warnings: list[str] = []
 
@@ -2136,7 +2213,12 @@ def admin_approve_application(application_id: int):  # pragma: no cover
 def admin_reject_application(application_id: int):  # pragma: no cover
     admin_name = _require_admin()
     if not validate_csrf_token():
-        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
+        return _api_error_response(
+            "Ogiltig CSRF-token.",
+            400,
+            severity="warning",
+            extra={"route": "admin_reject_application", "admin": admin_name},
+        )
 
     payload = request.get_json(silent=True) or {}
     decision_reason = (payload.get("reason") or "").strip()
@@ -2146,20 +2228,32 @@ def admin_reject_application(application_id: int):  # pragma: no cover
     try:
         result = functions.reject_application_request(application_id, admin_name, decision_reason)
     except ValueError as exc:
-        # Logga detaljerat fel, men exponera inte undantagstexten för användaren.
-        logger.warning("Kunde inte avslå ansökan %s: %s", application_id, exc)
-        return jsonify(
-            {
-                "status": "error",
-                "message": (
-                    "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
-                    "är väntande och försök igen."
-                ),
-            }
-        ), 400
-    except Exception:
-        logger.error("Misslyckades att avslå ansökan %s", application_id)
-        return jsonify({"status": "error", "message": "Kunde inte avslå ansökan."}), 500
+        return _api_error_response(
+            (
+                "Ansökan kunde inte avslås. Kontrollera att den fortfarande "
+                "är väntande och försök igen."
+            ),
+            400,
+            severity="warning",
+            error=exc,
+            extra={
+                "route": "admin_reject_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
+    except Exception as exc:
+        return _api_error_response(
+            "Kunde inte avslå ansökan.",
+            500,
+            severity="error",
+            error=exc,
+            extra={
+                "route": "admin_reject_application",
+                "application_id": application_id,
+                "admin": admin_name,
+            },
+        )
 
     email_error = None
     try:
@@ -2671,47 +2765,63 @@ def admin_send_password_reset():  # pragma: no cover
     personnummer = (payload.get("personnummer") or "").strip()
     email = (payload.get("email") or "").strip()
     if account_type not in {"standard", "foretagskonto"}:
-        logging.debug(
-            "Admin send_password_reset with invalid account_type: %s",
-            account_type,
-            extra={"admin": admin_name},
+        return _api_error_response(
+            "Ogiltig kontotyp.",
+            400,
+            severity="warning",
+            extra={
+                "route": "admin_send_password_reset",
+                "admin": admin_name,
+                "account_type": account_type,
+            },
         )
-        return jsonify({"status": "error", "message": "Ogiltig kontotyp."}), 400
 
     if account_type == "standard" and (not personnummer or not email):
-        logging.debug(
-            "Admin send_password_reset without personnummer or email", extra={"admin": admin_name}
+        return _api_error_response(
+            "Ange både personnummer och e-post.",
+            400,
+            severity="warning",
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify({"status": "error", "message": "Ange både personnummer och e-post."}), 400
     if account_type == "foretagskonto" and not email:
-        logging.debug(
-            "Admin send_password_reset without email for foretagskonto", extra={"admin": admin_name}
+        return _api_error_response(
+            "Ange e-postadressen för företagskontot.",
+            400,
+            severity="warning",
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify(
-            {"status": "error", "message": "Ange e-postadressen för företagskontot."}
-        ), 400
 
     if account_type == "foretagskonto":
         try:
             token = functions.create_supervisor_password_reset_token(email)
         except ValueError as exc:
-            logger.warning(
-                "Misslyckades att skapa återställningstoken för företagskonto: %s",
-                exc,
+            return _api_error_response(
+                "Företagskontot hittades inte.",
+                404,
+                severity="warning",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
             )
-            return jsonify({"status": "error", "message": "Företagskontot hittades inte."}), 404
         except Exception as exc:
-            logger.error(f"Misslyckades att skapa återställningstoken för företagskonto: {exc}")
-            return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
+            return _api_error_response(
+                "Kunde inte skapa återställning.",
+                500,
+                severity="error",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
+            )
 
         link = url_for("supervisor_password_reset", token=token, _external=True)
         try:
             email_service.send_password_reset_email(email, link)
         except RuntimeError as exc:
-            logger.error(f"Misslyckades att skicka återställningsmejl för företagskonto: {exc}")
-            return jsonify(
-                {"status": "error", "message": "Kunde inte skicka återställningsmejl."}
-            ), 500
+            return _api_error_response(
+                "Kunde inte skicka återställningsmejl.",
+                500,
+                severity="error",
+                error=exc,
+                extra={"route": "admin_send_password_reset", "admin": admin_name},
+            )
 
         email_hash = functions.hash_value(functions.normalize_email(email))
         functions.log_admin_action(
@@ -2734,18 +2844,18 @@ def admin_send_password_reset():  # pragma: no cover
 
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
-    except ValueError:
-        logging.debug(
-            "Admin send_password_reset with invalid personnummer: %s",
-            personnummer,
-            extra={"admin": admin_name},
+    except ValueError as exc:
+        return _api_error_response(
+            "Ogiltigt personnummer.",
+            400,
+            severity="warning",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
         )
-        return jsonify({"status": "error", "message": "Ogiltigt personnummer."}), 400
 
     try:
         token = functions.create_password_reset_token(normalized_personnummer, email)
     except ValueError as exc:
-        logger.warning("Misslyckades att skapa återställningstoken: %s", exc)
         # Do not expose raw exception messages to the client; map to safe, user-facing text instead.
         exc_message = str(exc)
         if exc_message == "Kontot är inte aktiverat ännu.":
@@ -2754,17 +2864,33 @@ def admin_send_password_reset():  # pragma: no cover
         else:
             message = "Uppgifterna matchar inget aktivt standardkonto."
             status_code = 404
-        return jsonify({"status": "error", "message": message}), status_code
+        return _api_error_response(
+            message,
+            status_code,
+            severity="warning",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
     except Exception as exc:
-        logger.error(f"Misslyckades att skapa återställningstoken: {exc}")
-        return jsonify({"status": "error", "message": "Kunde inte skapa återställning."}), 500
+        return _api_error_response(
+            "Kunde inte skapa återställning.",
+            500,
+            severity="error",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
 
     link = url_for("password_reset", token=token, _external=True)
     try:
         email_service.send_password_reset_email(email, link)
     except RuntimeError as exc:
-        logger.error(f"Misslyckades att skicka återställningsmejl: {exc}")
-        return jsonify({"status": "error", "message": "Kunde inte skicka återställningsmejl."}), 500
+        return _api_error_response(
+            "Kunde inte skicka återställningsmejl.",
+            500,
+            severity="error",
+            error=exc,
+            extra={"route": "admin_send_password_reset", "admin": admin_name},
+        )
 
     pnr_hash = functions.hash_value(normalized_personnummer)
     email_hash = functions.hash_value(functions.normalize_email(email))
