@@ -10,7 +10,7 @@ Denna guide beskriver hur loggmeddelanden ska skrivas i projektet.
 ## Ton
 - Skriv sakligt, kort och handlingsbart.
 - Beskriv vad som hände och gärna varför, utan skuldformuleringar.
-- Använd konsekvent tempus i presens, till exempel "Misslyckades med att spara" eller "Använder lokal databas".
+- Använd konsekvent tempus: presens för pågående tillstånd och preteritum för avslutade händelser, till exempel "Misslyckades med att spara" och "Använder lokal databas".
 
 ## Fältordning i strukturerad loggning
 När parametrar skickas till loggern ska ordningen vara:
@@ -22,7 +22,7 @@ När parametrar skickas till loggern ska ordningen vara:
 Exempel:
 - `logger.info("Sparade PDF för %s med id %s", mask_hash(pnr_hash), pdf_id)`
 - `logger.warning("Obehörigt admin-GET-anrop")`
-- `logger.error("Misslyckades med att dela pdf %s från %s till %s. Fel: %s", pdf_id, avsandare, mottagare, exc)`
+- `logger.error("Misslyckades med att dela pdf %s från %s till %s. Fel: %s", pdf_id, avsändare, mottagare, exc)`
 
 ## Verb och ordval
 Använd dessa verb konsekvent:

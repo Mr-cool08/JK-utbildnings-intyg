@@ -824,7 +824,7 @@ def create_database() -> None:
         ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
-    logger.info("Database initialized")
+    logger.info("Databasen har initialiserats")
 
 
 def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalError) -> bool:
