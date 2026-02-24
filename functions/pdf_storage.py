@@ -13,7 +13,6 @@ from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def _serialize_categories(categories: Sequence[str] | None) -> str:
