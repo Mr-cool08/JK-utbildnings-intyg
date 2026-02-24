@@ -1,10 +1,10 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Användarkontoinloggning{% endblock %}
+{% block title %}Privat inloggning{% endblock %}
 {% block content %}
     <div class="auth-layout">
         <div class="auth-main">
-            <h1>Användarkontoinloggning</h1>
+            <h1>Privat inloggning</h1>
             {% if error %}<p class="message error">{{ error }}</p>{% endif %}
             <form action="/login" method="POST" class="form-card">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

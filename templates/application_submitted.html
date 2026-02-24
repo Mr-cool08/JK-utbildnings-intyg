@@ -17,6 +17,7 @@
         <div class="message success" role="status" aria-live="polite">
             Tack för ditt intresse! Du får en bekräftelse via e-post så snart vi har påbörjat granskningen.
         </div>
+        <p></p>
 
         <section class="apply-steps" aria-labelledby="steps-title">
             <div class="apply-steps-header">
@@ -36,7 +37,7 @@
                 </li>
                 <li>
                     <h3>Aktivering av konto</h3>
-                    <p>När ansökan är godkänd skickar vi inloggningsinstruktioner och en sammanfattning av villkoren. För företagskonton kan avtalsunderlag bifogas.</p>
+                    <p>När ansökan är godkänd skickar vi inloggningsinstruktioner. För företagskonton kan avtalsunderlag bifogas.</p>
                 </li>
                 <li>
                     <h3>Kom igång</h3>
@@ -48,9 +49,9 @@
         <div class="cta-actions">
             <a class="btn" href="/">Till startsidan</a>
             <a class="btn btn-secondary" href="{{ url_for('pricing') }}">Se priser</a>
-            <a class="btn-link" href="{{ url_for('terms_of_service') }}">Läs villkoren</a>
+            <a class="btn" href="{{ url_for('terms_of_service') }}">Läs villkoren</a>
         </div>
-
+        
         <p>Har du frågor under tiden? Hör av dig till <a href="mailto:support@utbildningsintyg.se">support@utbildningsintyg.se</a> så hjälper vi dig.</p>
     </div>
 </section>

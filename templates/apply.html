@@ -1,6 +1,6 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Ansök om konto – Utbildningsintyg{% endblock %}
+{% block title %}Ansök om konto{% endblock %}
 {% block head %}
     <meta name="description" content="Välj ansökningsväg för att skapa konto i Utbildningsintygets portal.">
 {% endblock %}
@@ -11,26 +11,25 @@
             <h1 id="apply-title">Ansök om konto</h1>
             <p>Välj vilken typ av konto du behöver för att komma igång med Utbildningsintyg.</p>
             <!-- Buttons moved into each choice card below to make selection more direct -->
-         </div>
-         <div class="apply-choice-panels">
-             <article class="apply-choice-card">
-                 <h2>Användarkonto</h2>
-                 <p>Passar dig som vill logga in och ta del av utbildningsmaterial och intyg kopplat till din arbetsplats.</p>
-                 <ul>
-                     <li>Snabb ansökan med personuppgifter och kontaktväg.</li>
-                     <li>Företagskonto hanterar koppling till organisation vid behov.</li>
-                     <li>Ingen kostnad per användarkonto.</li>
-                     <li>Ansökan tar bara någon minut.</li>
-                 </ul>
-                 <a class="btn btn-secondary" href="{{ url_for('apply_standardkonto') }}" aria-label="Ansök om användarkonto">Ansök om användarkonto</a>
+        </div>
+        <div class="apply-choice-panels">
+            <article class="apply-choice-card">
+                <h2>Privatkonto</h2>
+                    <p>För användare som vill hantera sina egna intyg.</p>
+                <ul>
+                    <li>Enkel tillgång till intyg dina egna intyg</li>
+                    <li>Ingen kostnad per användarkonto.</li>
+                    <li>Ansökan tar bara någon minut.</li>
+                </ul>
+                <a class="btn btn-secondary" href="{{ url_for('apply_standardkonto') }}" aria-label="Ansök om användarkonto">Ansök om användarkonto</a>
              </article>
              <article class="apply-choice-card">
                  <h2>Företagskonto</h2>
-                 <p>För företag som vill administrera flera användarkonton, följa upp intyg och få samlad fakturering.</p>
+                    <p>För organisationer som behöver hantera flera användare och intyg.</p>
                  <ul>
-                     <li>Enkel hantering över flera användarkonton.</li>
-                     <li>Vi hjälper dig att skapa företaget och administrera konton.</li>
-                     <li>Fakturaadress, kontaktperson och märkning krävs.</li>
+                     <li>Administrera flera intyg och användare.</li>
+                     <li>Enkel hantering av flera intyg.</li>
+                     <li>Sammanställning av fakturering.</li>
                 </ul>
                 <a class="btn btn-secondary" href="{{ url_for('apply_foretagskonto') }}" aria-label="Ansök om företagskonto">Ansök om företagskonto</a>
              </article>

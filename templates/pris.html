@@ -1,38 +1,66 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Prislista – Utbildningsintyg{% endblock %}
+{% block title %}Prislista{% endblock %}
 {% block content %}
 <section class="pricing-page" aria-labelledby="pricing-page-title">
     <div class="pricing-page-header">
         <h1 id="pricing-page-title">Prislista</h1>
-        <p>Välj en nivå som passar ert team. Alla priser är per månad och inkluderar full åtkomst till intygsportalen.</p>
     </div>
-    <div class="pricing-table-wrapper">
-        <table class="pricing-table">
-            <thead>
-                <tr>
-                    <th scope="col">Antal användare</th>
-                    <th scope="col">Pris per månad</th>
-                    
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td data-label="Antal användare">1–10</td>
-                    <td data-label="Pris per månad">190 kr</td>
-                    
-                </tr>
-                <tr>
-                    <td data-label="Antal användare">11–20</td>
-                    <td data-label="Pris per månad">390 kr</td>
-                    
-                </tr>
-                <tr>
-                    <td data-label="Antal användare">21–50</td>
-                    <td data-label="Pris per månad">690 kr</td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="pricing-tables-container">
+        <div class="pricing-section">
+            <h2 class="pricing-page-subtitle">Företagskonto</h2>
+            <p>Företagskonto är utformat för organisationer som behöver hantera flera användare och intyg.</p>
+            <div class="pricing-table-wrapper">
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Antal användare</th>
+                            <th scope="col">Pris per månad</th>
+                            
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td data-label="Antal användare">1–10</td>
+                            <td data-label="Pris per månad">190 kr</td>
+                            
+                        </tr>
+                        <tr>
+                            <td data-label="Antal användare">11–20</td>
+                            <td data-label="Pris per månad">390 kr</td>
+                            
+                        </tr>
+                        <tr>
+                            <td data-label="Antal användare">21–50</td>
+                            <td data-label="Pris per månad">690 kr</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="pricing-section">
+            <h2 class="pricing-page-subtitle">Privatkonto</h2>
+            <div class="private-account-note">
+                <p>Privatkonto är gratis och tillgängligt för alla användare.</p>
+            </div>
+            <div class="pricing-table-wrapper">
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Privatkonto</th>
+                            <th scope="col">Pris per månad</th>
+                            
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td data-label="Privatkonto"></td>
+                            <td data-label="Pris per månad">0 kr</td>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div class="pricing-note">
         <p>Samtliga priser anges exklusive moms om inget annat anges.</p>

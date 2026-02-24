@@ -295,7 +295,7 @@ def send_creation_email(to_email: str, link: str) -> None:
         "<p>Om du inte begärde detta e-postmeddelande kan du ignorera det.</p>"
     )
 
-    body = format_email_html("Skapa ditt konto", content)
+    body = format_email_html("Skapa ditt konto", content, accent_color="#07b91f")
     send_email(to_email, "Skapa ditt konto", body)
 
 
@@ -378,7 +378,7 @@ def send_pdf_share_email(
             "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
         )
 
-    body_html = format_email_html(subject, content, accent_color="#0ea5e9")
+    body_html = format_email_html(subject, content, accent_color="#a40ee9")
     send_email(recipient_email, subject, body_html, attachments=attachments)
 
 
@@ -399,7 +399,19 @@ def send_application_rejection_email(to_email: str, company_name: str, reason: s
         f"<p>Har du frågor är du välkommen att kontakta oss på {SUPPORT_EMAIL}.</p>"
         "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
     )
-    body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ef4444")
+    body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ff0000")
     send_email(to_email, subject, body)
+def new_application_email_to_support(account_type) -> None:
+    """Notify support about a new application."""
 
+    subject = f"Ny ansökan om konto för {account_type}"
+    content = (
+        "<p>Hej supportteamet,</p>"
+        f"<p>En ny ansökan har inkommit för {account_type}.</p>"
+        "<p>Vänligen granska ansökan i adminpanelen och vidta nödvändiga åtgärder.</p>"
+        "<p>Vänliga hälsningar<br>utbildningsintyg.se</p>"
+    )
+    body = format_email_html("Ny ansökan om konto", content, accent_color="#2563eb")
+    send_email(SUPPORT_EMAIL, subject, body)
+    logger.info("Support har informerats om en ny ansökan för %s", account_type)
 # © 2026 Liam Suorsa. All rights reserved.
