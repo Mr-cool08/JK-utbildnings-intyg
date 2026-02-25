@@ -1207,7 +1207,14 @@ def apply_standardkonto():
                             request_id,
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
-                        email_service.new_application_email_to_support(account_type=account_type)
+                        try:
+                            email_service.new_application_email_to_support(
+                                account_type=account_type
+                            )
+                        except Exception:  # pragma: no cover - e-postfel ska inte stoppa ansökan
+                            logger.exception(
+                                "Ansökan sparades men supportmejl kunde inte skickas"
+                            )
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
@@ -1310,7 +1317,14 @@ def apply_foretagskonto():
                             request_id,
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
-                        email_service.new_application_email_to_support(account_type=account_type)
+                        try:
+                            email_service.new_application_email_to_support(
+                                account_type=account_type
+                            )
+                        except Exception:  # pragma: no cover - e-postfel ska inte stoppa ansökan
+                            logger.exception(
+                                "Ansökan sparades men supportmejl kunde inte skickas"
+                            )
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
