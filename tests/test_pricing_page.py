@@ -22,3 +22,4 @@ def test_home_page_links_pricing(empty_db):
         assert response.status_code == 200
         body = response.data.decode('utf-8')
         assert '/pris' in body
+        assert 'Privatkonto är gratis för privatpersoner.' in body
