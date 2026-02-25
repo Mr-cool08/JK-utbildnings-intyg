@@ -1,6 +1,8 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import os
 import sys
+import tempfile
+from pathlib import Path
 
 import pytest
 import werkzeug
@@ -11,6 +13,9 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
 os.environ.setdefault("DEV_MODE", "true")
+# Ensure tests use a temp directory for logs to avoid permission issues
+_test_log_file = os.path.join(tempfile.gettempdir(), "pytest.log")
+os.environ.setdefault("LOG_FILE", _test_log_file)
 import app  # noqa: E402
 import functions  # noqa: E402
 from services.pdf_scanner import ScanVerdict  # noqa: E402

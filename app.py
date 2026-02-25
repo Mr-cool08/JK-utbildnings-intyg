@@ -62,8 +62,8 @@ from functions import security as sec
 from functions.requests import as_bool, get_request_ip, register_public_submission
 
 
-configure_root_logging()
 load_environment()
+configure_root_logging()
 
 import functions
 
