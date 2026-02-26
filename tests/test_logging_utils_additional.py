@@ -117,6 +117,38 @@ def test_configure_root_logging_uses_first_available_env_var(monkeypatch):
         root_logger.setLevel(original_level)
 
 
+def test_configure_root_logging_handles_directory_log_file(monkeypatch, tmp_path):
+    log_dir = tmp_path / "min-loggar"
+    log_dir.mkdir()
+    monkeypatch.setenv("LOG_FILE", str(log_dir))
+    monkeypatch.delenv("LOG_DIR", raising=False)
+
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    try:
+        root_logger.handlers = []
+        root_logger.setLevel(logging.NOTSET)
+
+        logging_utils.configure_root_logging()
+
+        file_handlers = [
+            handler for handler in root_logger.handlers if isinstance(handler, logging.FileHandler)
+        ]
+        assert len(file_handlers) == 1
+        configured_path = Path(file_handlers[0].baseFilename)
+        assert configured_path.parent == log_dir
+        assert configured_path.name == "app.log"
+    finally:
+        for handler in list(root_logger.handlers):
+            try:
+                handler.close()
+            except Exception:
+                pass
+        root_logger.handlers = original_handlers
+        root_logger.setLevel(original_level)
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
 
