@@ -176,12 +176,23 @@ def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
     return "INFO"
 
 
+def _resolve_log_file_path(log_file_value: str, fallback_file: str) -> str:
+    # Resolve log file path and guard against directory-only values.
+    candidate = (log_file_value or "").strip() or fallback_file
+    path = Path(candidate)
+
+    if path.exists() and path.is_dir():
+        return str(path / Path(fallback_file).name)
+
+    return str(path)
+
+
 def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> None:
     # Configure root logging with console + rotating file handler.
     log_level = _resolve_log_level(level_env_vars)
     log_dir = os.getenv("LOG_DIR", "logs")
     default_log_file = os.path.join(log_dir, "app.log")
-    log_file = os.getenv("LOG_FILE", default_log_file)
+    log_file = _resolve_log_file_path(os.getenv("LOG_FILE", default_log_file), default_log_file)
     max_bytes = int(os.getenv("LOG_MAX_BYTES", str(5 * 1024 * 1024)))
     backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
 
