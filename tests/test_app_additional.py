@@ -184,6 +184,32 @@ def test_create_app_defaults_without_debug(monkeypatch):
     assert flask_app.config["IS_DEMO"] is False
 
 
+def test_create_app_forces_info_level_when_dev_mode_is_off(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
+    monkeypatch.setenv("secret_key", "start-secret")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("DEV_MODE", "false")
+
+    monkeypatch.setattr(app.functions, "create_database", lambda: None)
+
+    root_logger = logging.getLogger()
+    original_root_level = root_logger.level
+    original_app_level = app.logger.level
+    original_functions_level = app.functions.logger.level
+
+    try:
+        flask_app = app.create_app()
+
+        assert root_logger.getEffectiveLevel() == logging.INFO
+        assert flask_app.logger.level == logging.INFO
+        assert app.logger.level == logging.INFO
+        assert app.functions.logger.level == logging.INFO
+    finally:
+        root_logger.setLevel(original_root_level)
+        app.logger.setLevel(original_app_level)
+        app.functions.logger.setLevel(original_functions_level)
+
+
 def test_debug_clear_session_requires_debug(monkeypatch):
     app.app.secret_key = "test-secret"
     monkeypatch.setattr(app.app, "debug", False)
