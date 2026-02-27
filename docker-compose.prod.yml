@@ -217,7 +217,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PUBLIC_PORT:-1543}:5432"
+      # Publik exponering kräver POSTGRES_BIND_IP=0.0.0.0 i .env.
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -225,6 +226,7 @@ services:
       retries: 20
       start_period: 5s
     networks:
+      - pg_pub_net
       - db_net
     restart: unless-stopped
     mem_limit: 768m
@@ -275,5 +277,6 @@ volumes:
 networks:
   public_net:
     name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
+  pg_pub_net: {}
   db_net:
     internal: true

@@ -30,6 +30,16 @@ Produktion använder bland annat:
 - Backup-service
 - (valfritt) antivirus via security-profil
 
+## PostgreSQL publik exponering
+
+Som standard exponeras PostgreSQL endast lokalt via `127.0.0.1`.
+
+För att exponera PostgreSQL publikt, sätt i `.env`:
+- `POSTGRES_BIND_IP=0.0.0.0`
+- (valfritt) `POSTGRES_PUBLIC_PORT` för att byta extern port (default `1543`)
+
+Varning: detta exponerar databasen mot internet. Begränsa alltid åtkomst med brandvägg och/eller IP-allowlist.
+
 ## Viktiga volymer
 
 - `env_data`
