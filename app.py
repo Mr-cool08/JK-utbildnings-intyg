@@ -166,11 +166,15 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
 
 def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any]:
     # Samla korrelationsdata för enhetlig felloggning.
+    session_personnummer = session.get("personnummer")
+    masked_user = (
+        mask_hash(session_personnummer) if isinstance(session_personnummer, str) and session_personnummer else None
+    )
     context: dict[str, Any] = {
         "endpoint": request.path,
         "method": request.method,
         "admin": session.get("admin_username") if session.get("admin_logged_in") else None,
-        "user": mask_hash(session.get("personnummer")) if session.get("personnummer") else None,
+        "user": masked_user,
     }
     if extra:
         context.update(extra)
@@ -346,8 +350,9 @@ def _configure_timezone() -> str:
     # Sätt applikationens lokala tidszon för all datum/tid-formattering.
     timezone_name = os.getenv("APP_TIMEZONE", "Europe/Stockholm").strip() or "Europe/Stockholm"
     os.environ["TZ"] = timezone_name
-    if hasattr(time, "tzset"):
-        time.tzset()
+    tzset = getattr(time, "tzset", None)
+    if callable(tzset):
+        tzset()
     logger.info("Applikationens tidszon är satt till %s.", timezone_name)
     return timezone_name
 
@@ -393,7 +398,7 @@ def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> No
     reset_lock = threading.Lock()
 
     # Store as app config so error handlers can check reset status
-    app.demo_reset_lock = reset_lock
+    app.config["DEMO_RESET_LOCK"] = reset_lock
 
     def _reset_loop() -> None:
         logger.info("Bakgrundsjobb för demoreset startat")
@@ -631,7 +636,7 @@ def _log_request_end(response: Response) -> Response:
 
 
 @app.teardown_request
-def _log_request_exception(exception: Exception | None) -> None:
+def _log_request_exception(exception: BaseException | None) -> None:
     if exception is not None:
         logger.error("Undantag under begäran: %s", str(exception))
 
@@ -2648,6 +2653,8 @@ def admin_update_account():  # pragma: no cover
             return jsonify({"status": "error", "message": "Kontot hittades inte."}), 404
         if error == "email_in_use":
             return jsonify({"status": "error", "message": "E-postadressen används redan."}), 409
+        return jsonify({"status": "error", "message": "Kunde inte uppdatera kontot."}), 400
+    if summary is None:
         return jsonify({"status": "error", "message": "Kunde inte uppdatera kontot."}), 400
 
     pnr_hash = functions.hash_value(normalized_personnummer)
