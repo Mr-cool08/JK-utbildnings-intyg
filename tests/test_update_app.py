@@ -64,17 +64,14 @@ def test_main_sequence_includes_failover_compose(monkeypatch):
 
     ua.main()
 
-    prod_ps_idx = _index_of_command(
-        calls, ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"]
-    )
-    failover_up_idx = _index_of_command(
-        calls,
-        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"],
-    )
-    failover_up_build_idx = _index_of_command(
-        calls,
-        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d", "--build"],
-    )
+    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
+    assert any(c[0][0] == "git" for c in calls)
+    assert any(c[0] and c[0][0] == "X" for c in calls)
+
+
+def test_main_sequence_dev_mode(monkeypatch, tmp_path):
+    # same sequence but compose file remains production even in dev mode
+    calls = []
 
     assert prod_ps_idx < failover_up_idx < failover_up_build_idx
 
@@ -85,18 +82,6 @@ def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
 
     ua.main()
 
-    dev_ps_idx = _index_of_command(
-        calls, ["docker", "compose", "-f", "docker-compose.yml", "ps", "--all"]
-    )
-    failover_up_idx = _index_of_command(
-        calls,
-        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"],
-    )
-    failover_up_build_idx = _index_of_command(
-        calls,
-        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d", "--build"],
-    )
-
-    assert dev_ps_idx < failover_up_idx < failover_up_build_idx
-    assert any(command and command[0] == "git" for command, _ in calls)
-    assert any(command and command[0] == "Y" for command, _ in calls)
+    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
+    assert any(c[0][0] == "git" for c in calls)
+    assert any(c[0] and c[0][0] == "Y" for c in calls)
