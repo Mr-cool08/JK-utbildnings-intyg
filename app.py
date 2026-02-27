@@ -710,6 +710,13 @@ def sitemap_xml():
     return send_from_directory(app.static_folder, "sitemap.xml", mimetype="application/xml")
 
 
+@app.route("/.well-known/mta-sts.txt")
+def mta_sts_policy():
+    # Serve MTA-STS policyfilen för den dedikerade mta-sts-domänen.
+    mta_sts_directory = Path(app.root_path) / "deploy" / "mta-sts" / ".well-known"
+    return send_from_directory(mta_sts_directory, "mta-sts.txt", mimetype="text/plain")
+
+
 @app.route("/debug/clear-session", methods=["GET", "POST"])
 def debug_clear_session():
     if not current_app.config.get("DEV_MODE"):

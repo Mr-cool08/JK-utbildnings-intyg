@@ -11,18 +11,22 @@ def test_server_monitor_service_exists_in_compose_files():
     assert "CRITICAL_ALERTS_EMAIL" in prod_compose
 
 
-def test_prod_compose_has_mta_sts_service_with_expected_policy():
+def test_prod_compose_routes_mta_sts_via_app_service():
     prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
 
-    assert "mta_sts:" in prod_compose
+    assert "mta_sts:" not in prod_compose
     assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
-    assert "./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro" in prod_compose
-    assert "image: nginx:1.28.2-alpine" in prod_compose
-    assert "traefik.http.routers.mta_sts.middlewares=security-headers@file" in prod_compose
+    assert "traefik.http.routers.app-mta-sts.entrypoints=websecure" in prod_compose
+    assert "traefik.http.routers.app-mta-sts.tls=true" in prod_compose
+    assert "traefik.http.routers.app-mta-sts.middlewares=security-headers@file" in prod_compose
 
 
 def test_mta_sts_policy_file_has_expected_content():
-    policy_content = Path("deploy/mta-sts/.well-known/mta-sts.txt").read_text(encoding="utf-8")
+    policy_path = Path("deploy/mta-sts/.well-known/mta-sts.txt")
+    assert policy_path.exists()
+    assert policy_path.stat().st_mode & 0o444
+
+    policy_content = policy_path.read_text(encoding="utf-8")
 
     assert policy_content == (
         "version: STSv1\n"
@@ -54,5 +58,12 @@ def test_send_email_handles_smtp_timeouts_gracefully():
     assert "except (smtplib.SMTPException, TimeoutError, OSError) as exc:" in monitor_script
     assert 'logger.error("Kunde inte skicka e-postvarning: %s", str(exc))' in monitor_script
 
+
+def test_dockerfile_copies_mta_sts_policy_into_image():
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    dockerignore = Path(".dockerignore").read_text(encoding="utf-8")
+
+    assert "COPY . ." in dockerfile
+    assert "deploy/mta-sts" not in dockerignore
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

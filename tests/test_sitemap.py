@@ -30,3 +30,14 @@ class TestSitemapXml(unittest.TestCase):
         self.assertNotIn('/admin', body)
         self.assertNotIn('/dashboard', body)
         self.assertNotIn('/create_user', body)
+
+    def test_mta_sts_policy_is_public(self):
+        with _client() as client:
+            response = client.get('/.well-known/mta-sts.txt')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'text/plain')
+
+        body = response.data.decode('utf-8')
+        self.assertIn('version: STSv1', body)
+        self.assertIn('mode: testing', body)
