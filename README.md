@@ -1,4 +1,13 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
+![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374823-3a8d4541c53b344b63c35538?label=Demo%20site%20uptime)
+![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374820-0fe3051da2a9b338bddefd42?label=Status%20site%20uptime)
+![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374649-19fecede0f8e395e27276d11?label=Utbildningsintyg.se%20uptime)
+![Website](https://img.shields.io/website?url=https%3A%2F%2Futbildningsintyg.se&label=utbildningsintyg.se)
+![GitHub top language](https://img.shields.io/github/languages/top/Mr-cool08/JK-utbildnings-intyg)
+
+
 # JK Utbildningsintyg
 
 Det här systemet hjälper skolor och företag att spara utbildningsintyg i PDF.
