@@ -87,7 +87,7 @@ def _get_valid_postgres_public_port(default: str = "15432") -> str:
         port = int(raw)
     except ValueError:
         print(
-            "Ogiltigt värde i POSTGRES_PUBLIC_PORT, använder standardport 15432."
+            f"Ogiltigt värde i POSTGRES_PUBLIC_PORT, använder standardport {default}."
         )
         return default
 
@@ -95,7 +95,7 @@ def _get_valid_postgres_public_port(default: str = "15432") -> str:
         return str(port)
 
     print(
-        "POSTGRES_PUBLIC_PORT måste vara mellan 1 och 65535, använder standardport 15432."
+        f"POSTGRES_PUBLIC_PORT måste vara mellan 1 och 65535, använder standardport {default}."
     )
     return default
 

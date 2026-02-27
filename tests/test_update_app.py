@@ -61,14 +61,15 @@ def test_main_sequence(monkeypatch, tmp_path):
     monkeypatch.setattr(ua, "_build_venv_command", lambda root, a, b: ["X"])
     monkeypatch.setattr(ua, "_find_requirements", lambda root: [])
     monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: type("P", (), {"terminate": lambda self: None, "wait": lambda self: None})())
-
-    # force dev mode off
     monkeypatch.setattr(ua, "_dev_mode_enabled", lambda: False)
+    monkeypatch.setenv("POSTGRES_PUBLIC_PORT", "5432")
 
     ua.main()
 
-    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
-    assert calls[0][2]["POSTGRES_PUBLIC_PORT"] == "15432"
+    compose_calls = [c for c in calls if c[0][:3] == ["docker", "compose", "-f"]]
+    assert compose_calls
+    assert any(c[0][:6] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"] for c in compose_calls)
+    assert all(c[2]["POSTGRES_PUBLIC_PORT"] == "5432" for c in compose_calls)
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "X" for c in calls)
 
@@ -87,10 +88,13 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: type("P", (), {"terminate": lambda self: None, "wait": lambda self: None})())
 
     monkeypatch.setattr(ua, "_dev_mode_enabled", lambda: True)
+    monkeypatch.setenv("POSTGRES_PUBLIC_PORT", "99999")
 
     ua.main()
 
-    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
-    assert calls[0][2]["POSTGRES_PUBLIC_PORT"] == "15432"
+    compose_calls = [c for c in calls if c[0][:3] == ["docker", "compose", "-f"]]
+    assert compose_calls
+    assert any(c[0][:6] == ["docker", "compose", "-f", "docker-compose.yml", "ps", "--all"] for c in compose_calls)
+    assert all(c[2]["POSTGRES_PUBLIC_PORT"] == "15432" for c in compose_calls)
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "Y" for c in calls)
