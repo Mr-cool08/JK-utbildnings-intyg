@@ -142,8 +142,7 @@ def main() -> None:
     root = Path(__file__).resolve().parent.parent
 
     def compose(*args: str) -> list[str]:
-        # choose compose file based on DEV_MODE flag
-        file = "docker-compose.yml" if _dev_mode_enabled() else "docker-compose.prod.yml"
+        file = "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
 
     def failover_compose(*args: str) -> list[str]:
