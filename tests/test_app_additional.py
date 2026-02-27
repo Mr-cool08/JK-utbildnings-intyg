@@ -201,6 +201,7 @@ def test_create_app_forces_info_level_when_dev_mode_is_off(monkeypatch):
         flask_app = app.create_app()
 
         assert root_logger.getEffectiveLevel() == logging.INFO
+        assert flask_app.logger.level == logging.INFO
         assert app.logger.level == logging.INFO
         assert app.functions.logger.level == logging.INFO
     finally:
