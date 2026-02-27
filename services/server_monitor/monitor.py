@@ -186,14 +186,24 @@ def send_email(subject: str, body: str, attachments: list[Path]):
         )
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
-            server.starttls()
-            if SMTP_USER:
-                server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(message)
+        if SMTP_PORT == 465:
+            # Implicit TLS (SMTPS)
+            with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                if SMTP_USER:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(message)
+        else:
+            # STARTTLS (vanligen 587)
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                if SMTP_USER:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(message)
+
     except (smtplib.SMTPException, TimeoutError, OSError) as exc:
         logger.error("Kunde inte skicka e-postvarning: %s", str(exc))
-
 
 def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):
     with tempfile.TemporaryDirectory() as tempdir:
