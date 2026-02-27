@@ -19,6 +19,7 @@ RUN apk update \
 
 COPY status_service /app/status_service
 COPY functions /app/functions
+COPY config_loader.py /app/config_loader.py
 
 ENV STATUS_PORT=80
 

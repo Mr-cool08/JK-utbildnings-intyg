@@ -141,6 +141,15 @@ def test_status_service_dockerfile_copies_functions_package():
     )
 
 
+def test_status_service_dockerfile_copies_config_loader_module():
+    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
+    assert re.search(
+        r"^\s*COPY\s+config_loader\.py\s+/app/config_loader\.py\s*$",
+        status_dockerfile,
+        re.MULTILINE,
+    )
+
+
 def test_status_service_dockerfile_has_healthcheck_for_root_endpoint():
     status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
     assert "HEALTHCHECK" in status_dockerfile
