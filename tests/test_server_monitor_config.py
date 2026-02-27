@@ -64,7 +64,7 @@ def test_prod_compose_exposes_postgres_on_random_host_port():
 
     assert 'postgres:' in prod_compose
     assert 'ports:' in prod_compose
-    assert '- "5432"' in prod_compose
+    assert '- "15432"' in prod_compose
 
 
 def test_dockerfile_copies_mta_sts_policy_into_image():
