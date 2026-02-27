@@ -30,6 +30,7 @@ underlying exceptions such as ``subprocess.CalledProcessError`` and
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -77,12 +78,7 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
 
 
 def _command_exists(command: str) -> bool:
-    return subprocess.run(
-        ["sh", "-lc", f"command -v {command}"],
-        check=False,
-        capture_output=True,
-        text=True,
-    ).returncode == 0
+    return shutil.which(command) is not None
 
 
 def _os_upgrade_enabled() -> bool:

@@ -82,6 +82,7 @@ def test_update_dns_record_omits_proxied_when_missing(monkeypatch):
         record_id="record",
         record={"type": "A", "name": "example.org", "ttl": 120},
         target="1.2.3.4",
+        timeout_seconds=20.0,
     )
 
     assert "proxied" not in captured["payload"]
@@ -95,6 +96,21 @@ def test_update_dns_record_rejects_unsupported_record_type():
             record_id="record",
             record={"type": "TXT", "name": "example.org", "ttl": 120},
             target="hello",
+            timeout_seconds=20.0,
         )
+
+def test_parse_positive_timeout_uses_default_when_invalid(monkeypatch):
+    monkeypatch.setenv("FAILOVER_HTTP_TIMEOUT_SECONDS", "abc")
+    assert cf.parse_positive_timeout("FAILOVER_HTTP_TIMEOUT_SECONDS", 8.0) == 8.0
+
+
+def test_parse_positive_timeout_uses_default_when_non_positive(monkeypatch):
+    monkeypatch.setenv("FAILOVER_HTTP_TIMEOUT_SECONDS", "0")
+    assert cf.parse_positive_timeout("FAILOVER_HTTP_TIMEOUT_SECONDS", 8.0) == 8.0
+
+
+def test_parse_positive_timeout_accepts_valid_value(monkeypatch):
+    monkeypatch.setenv("FAILOVER_HTTP_TIMEOUT_SECONDS", "3.5")
+    assert cf.parse_positive_timeout("FAILOVER_HTTP_TIMEOUT_SECONDS", 8.0) == 3.5
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

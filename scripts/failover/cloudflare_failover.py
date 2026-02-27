@@ -2,6 +2,7 @@
 """Övervakar huvudsida och Traefik och växlar Cloudflare DNS vid driftstopp."""
 
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -53,7 +54,30 @@ def http_ok(url: str, timeout_seconds: float) -> bool:
         return False
 
 
-def get_dns_record(api_token: str, zone_id: str, record_id: str) -> dict:
+def parse_positive_timeout(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+
+    try:
+        parsed = float(raw)
+    except (TypeError, ValueError):
+        print(
+            f"Varning: {name} måste vara ett positivt tal. Standardvärde {default} används.",
+            flush=True,
+        )
+        return default
+
+    if not math.isfinite(parsed) or parsed <= 0:
+        print(
+            f"Varning: {name} måste vara större än 0. Standardvärde {default} används.",
+            flush=True,
+        )
+        return default
+    return parsed
+
+
+def get_dns_record(api_token: str, zone_id: str, record_id: str, timeout_seconds: float) -> dict:
     request = Request(
         url=f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}",
         headers={
@@ -62,14 +86,21 @@ def get_dns_record(api_token: str, zone_id: str, record_id: str) -> dict:
         },
         method="GET",
     )
-    with urlopen(request, timeout=20) as response:
+    with urlopen(request, timeout=timeout_seconds) as response:
         payload = json.loads(response.read().decode("utf-8"))
         if not payload.get("success"):
             raise RuntimeError(f"Cloudflare GET misslyckades: {payload}")
         return payload["result"]
 
 
-def update_dns_record(api_token: str, zone_id: str, record_id: str, record: dict, target: str) -> None:
+def update_dns_record(
+    api_token: str,
+    zone_id: str,
+    record_id: str,
+    record: dict,
+    target: str,
+    timeout_seconds: float,
+) -> None:
     record_type = record["type"]
     if record_type not in {"A", "AAAA", "CNAME"}:
         raise RuntimeError(f"DNS-recordtyp stöds inte för failover: {record_type}")
@@ -94,7 +125,7 @@ def update_dns_record(api_token: str, zone_id: str, record_id: str, record: dict
         method="PUT",
         data=body,
     )
-    with urlopen(request, timeout=20) as response:
+    with urlopen(request, timeout=timeout_seconds) as response:
         payload = json.loads(response.read().decode("utf-8"))
         if not payload.get("success"):
             raise RuntimeError(f"Cloudflare PUT misslyckades: {payload}")
@@ -112,7 +143,8 @@ def main() -> int:
     traefik_url = env("FAILOVER_TRAEFIK_URL")
     primary_target = parse_hostname(env("FAILOVER_PRIMARY_TARGET"))
     fallback_target = parse_hostname(env("FAILOVER_FALLBACK_TARGET"))
-    timeout_seconds = float(os.getenv("FAILOVER_HTTP_TIMEOUT_SECONDS", "8"))
+    timeout_seconds = parse_positive_timeout("FAILOVER_HTTP_TIMEOUT_SECONDS", 8.0)
+    cloudflare_timeout_seconds = parse_positive_timeout("FAILOVER_CLOUDFLARE_TIMEOUT_SECONDS", 20.0)
 
     api_token = env("CLOUDFLARE_API_TOKEN")
     zone_id = env("CLOUDFLARE_ZONE_ID")
@@ -124,7 +156,7 @@ def main() -> int:
     )
     desired_target, reason = determine_target(state, primary_target, fallback_target)
 
-    record = get_dns_record(api_token, zone_id, record_id)
+    record = get_dns_record(api_token, zone_id, record_id, cloudflare_timeout_seconds)
     current_target = parse_hostname(record.get("content", ""))
 
     print(
@@ -137,7 +169,14 @@ def main() -> int:
         print("Ingen DNS-ändring behövs.", flush=True)
         return 0
 
-    update_dns_record(api_token, zone_id, record_id, record, desired_target)
+    update_dns_record(
+        api_token,
+        zone_id,
+        record_id,
+        record,
+        desired_target,
+        cloudflare_timeout_seconds,
+    )
     print(f"DNS uppdaterad till: {desired_target}", flush=True)
     return 0
 
