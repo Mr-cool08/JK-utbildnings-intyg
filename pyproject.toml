@@ -47,4 +47,9 @@ warn_return_any = false
 warn_unused_ignores = false
 no_implicit_optional = false
 
+[tool.pytest.ini_options]
+markers = [
+  "docker: marker for tests that require a working Docker environment",
+]
+
 # Copyright (c) Liam Suorsa and Mika Suorsa
