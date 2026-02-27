@@ -15,6 +15,7 @@ def test_apply_landing_has_links(empty_db):
         body = response.data.decode('utf-8')
         assert '/ansok/standardkonto' in body
         assert '/ansok/foretagskonto' in body
+        assert 'Privatkonto är alltid gratis.' in body
 
 
 def test_user_application_submission(empty_db):
