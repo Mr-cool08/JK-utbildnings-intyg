@@ -455,6 +455,14 @@ def create_app() -> Flask:
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
+    if not dev_mode:
+        root_logger = logging.getLogger()
+        if root_logger.getEffectiveLevel() < logging.INFO:
+            root_logger.setLevel(logging.INFO)
+        app.logger.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
+        functions.logger.setLevel(logging.INFO)
+
     logger.debug("Utvecklingsläge: %s", debug_mode)
 
     demo_defaults = {
