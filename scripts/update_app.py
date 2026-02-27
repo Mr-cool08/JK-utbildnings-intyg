@@ -34,7 +34,13 @@ import time
 from pathlib import Path
 from typing import Iterable, List
 from subprocess import Popen
-from temp_page import tempwebsite
+# ``tests`` import this module as a package, while the standalone
+# helper script is normally executed directly from the ``scripts``
+# directory.  importing needs to work in both situations.
+try:
+    from scripts.temp_page import tempwebsite
+except ImportError:  # pragma: no cover - changes path when run as script
+    from temp_page import tempwebsite
 
 
 # --- helpers ----------------------------------------------------------------
