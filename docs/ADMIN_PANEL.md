@@ -1,71 +1,47 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
-# Adminpanelen – superenkel guide
+# Adminpanelen (lättläst)
 
-Den här guiden är skriven för att vara så enkel som möjligt. Följ stegen i ordning.
+Det här är en enkel guide för admin.
 
-## 1) Starta på adminsidan
+## 1. Start
 
-1. Logga in som administratör.
-2. Du hamnar på sidan **Admin — Start**.
-3. Klicka på den del du vill arbeta med (konton, intyg eller företagskonton).
+1. Logga in på admin.
+2. Välj rätt del i menyn.
 
-## 2) Konton & återställning
+## 2. Konton
 
-Gå till **Admin — Konton** när du ska skapa konton, återställa lösenord eller radera konton.
+På sidan **Konton** kan du:
 
-### Skapa nytt standardkonto
-1. Fyll i e-post, namn och personnummer.
-2. Ladda upp PDF-intyg.
-3. Välj kategori för varje PDF.
-4. Klicka **Skapa användarkonto** och invänta bekräftelsen.
+- skapa standardkonto
+- radera konto
+- skicka lösenordsåterställning
+- verifiera intyg
 
-### Radera konto
-1. Skriv personnummer.
-2. Klicka **Radera konto**.
-3. Bekräfta i popupen. (Obs! Det går inte att ångra.)
+## 3. Intyg och PDF
 
-### Skicka återställningsmejl
-1. Välj kontotyp.
-2. Fyll i uppgifterna.
-3. Klicka **Skicka återställningslänk**.
+På sidan **Intyg** kan du:
 
-### Verifiera intyg
-1. Fyll i personnummer.
-2. Klicka **Verifiera**.
+- visa användarens PDF:er
+- byta kategori
+- ta bort en PDF
 
-## 3) Intyg & PDF:er
+## 4. Företagskonton
 
-Gå till **Admin — Intyg & PDF:er** när du vill hantera uppladdade intyg.
+På sidan **Företagskonton** kan du:
 
-1. Fyll i personnummer.
-2. Klicka **Visa PDF:er**.
-3. Uppdatera kategorier eller ta bort PDF.
+- skapa företagskonto
+- koppla företag till användare
+- visa befintliga kopplingar
 
-## 4) Företagskonton
+## 5. Ansökningar och fakturering
 
-Gå till **Admin — Företagskonton** för att skapa och koppla företagskonton.
+- **Ansökningar**: godkänn eller avslå.
+- **Fakturering**: se underlag för företag.
 
-### Skapa företagskonto
-1. Fyll i namn och e-post.
-2. Klicka **Skapa företagskonto**.
+## Kom ihåg
 
-### Koppla företagskonto
-1. Fyll i organisationsnummer.
-2. Fyll i personnummer.
-3. Klicka **Skapa koppling**.
+- Kontrollera personnummer innan du sparar.
+- Kontrollera en extra gång innan du raderar.
+- Alla ändringar loggas.
 
-### Visa kopplingar
-1. Fyll i organisationsnummer.
-2. Klicka **Visa kopplingar**.
-
-## 5) Ansökningar och fakturering
-
-Dessa sidor har egna knappar på startvyn. Följ instruktionerna på respektive sida.
-
-## Tips
-
-- Om du är osäker: gör inget och be om en extra kontroll.
-- Alla åtgärder loggas automatiskt.
-- Kontrollera alltid personnummer innan du raderar konto.
-
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

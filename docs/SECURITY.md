@@ -1,26 +1,21 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
-## Rapportera en sårbarhet
+# Säkerhetsrapportering
 
-Vi tar säkerhet på största allvar och uppskattar att du hjälper oss att skydda våra system och användare.
+Hittar du en säkerhetsbrist? Mejla oss direkt.
 
-Om du upptäcker en sårbarhet, vänligen rapportera den till oss på följande sätt:
+- E-post: `liam@utbildningsintyg.se`
 
-E-postadress: liam@utbildningsintyg.se
+## Skriv med i mejlet
 
-Beskrivning: Inkludera en så detaljerad beskrivning som möjligt, gärna med steg för att reproducera problemet.
+1. Vad som är fel.
+2. Hur vi kan återskapa felet.
+3. Skärmbilder eller loggar om du har.
 
-Bilagor: Skärmdumpar, loggar eller proof-of-concept är välkomna för att underlätta felsökningen.
+## Viktigt
 
-Vad du kan förvänta dig
+- Använd inte bristen för att skada systemet.
+- Dela inte information offentligt innan felet är fixat.
 
-Bedömning: Om sårbarheten accepteras kommer vi att påbörja åtgärdsarbetet och ge en uppskattad tidsram för fixen.
+Tack för att du hjälper oss göra tjänsten säkrare.
 
-Avslag: Om sårbarheten inte accepteras förklarar vi varför, och om möjligt hänvisar vi till bästa praxis.
-
-Vi ber att du:
-
-Inte utnyttjar sårbarheten för annat än att verifiera dess existens.
-
-Inte delar informationen offentligt förrän vi har hunnit åtgärda problemet.
-
-Tillsammans kan vi skapa en tryggare digital miljö.
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->
