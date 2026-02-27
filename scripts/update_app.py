@@ -8,7 +8,6 @@ been implemented inline so the module can be invoked independently.
 The sequence executed by :func:`main` is:
 
 1. display current Docker container status
-2. ensure the standalone failover cron service is running
 3. pause five seconds and optionally run OS package update/upgrade
 4. display Docker storage usage
 5. git pull to fetch updates
@@ -18,7 +17,6 @@ The sequence executed by :func:`main` is:
 9. stop main compose containers
 10. pull latest images
 11. rebuild and bring up the main compose services without cache
-12. rebuild and re-deploy the standalone failover cron service
 13. display live ``docker stats`` for sixty seconds
 14. run a series of ``docker prune`` commands to clean up space
 
@@ -145,15 +143,10 @@ def main() -> None:
         file = "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
 
-    def failover_compose(*args: str) -> list[str]:
-        # failover service must stay independent and always on
-        return ["docker", "compose", "-f", "docker-compose.failover.yml", *args]
 
     # 1. container status
     _run(compose("ps", "--all"), cwd=root)
 
-    # 2. keep independent failover running during the full update
-    _run(failover_compose("up", "-d"), cwd=root)
 
     # 3. wait and optionally update OS packages
     time.sleep(5)
@@ -190,9 +183,6 @@ def main() -> None:
     # 11. rebuild & up without cache
     _run(compose("build", "--no-cache"), cwd=root)
     _run(compose("up", "-d"), cwd=root)
-
-    # 12. rebuild and enforce failover service after repository update
-    _run(failover_compose("up", "-d", "--build"), cwd=root)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)

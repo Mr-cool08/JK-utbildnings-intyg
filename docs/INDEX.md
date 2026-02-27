@@ -14,7 +14,6 @@ Här hittar du rätt dokument snabbt.
 - [Deployment](DEPLOYMENT.md)
 - [Cloudflare](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
 - [Kritiska aviseringar](CRITICAL_EVENTS_NOTIFICATIONS.md)
-- [Fristående failover med cron](FAILOVER_BACKUP_SETUP.md)
 
 ## Säkerhet
 
