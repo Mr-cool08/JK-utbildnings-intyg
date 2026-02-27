@@ -97,7 +97,7 @@ def main() -> None:
 
     def compose(*args: str) -> list[str]:
         # helper to build a compose command choosing file based on DEV_MODE
-        file = "docker-compose.yml" if _dev_mode_enabled() else "docker-compose.prod.yml"
+        file = "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
 
     # 1. container status
