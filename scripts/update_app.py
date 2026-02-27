@@ -96,7 +96,6 @@ def main() -> None:
     root = Path(__file__).resolve().parent.parent
 
     def compose(*args: str) -> list[str]:
-        # helper to build a compose command choosing file based on DEV_MODE
         file = "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
 
