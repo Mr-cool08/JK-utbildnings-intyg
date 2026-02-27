@@ -72,6 +72,28 @@ def test_main_sequence_includes_failover_compose(monkeypatch):
 def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     # same sequence but compose file remains production even in dev mode
     calls = []
+    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", dev_mode=True)
+
+    ua.main()
+
+    prod_ps_idx = _index_of_command(
+        calls, ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"]
+    )
+    failover_up_idx = _index_of_command(
+        calls, ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"]
+    )
+    failover_up_build_idx = _index_of_command(
+        calls,
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.failover.yml",
+            "up",
+            "-d",
+            "--build",
+        ],
+    )
 
     assert prod_ps_idx < failover_up_idx < failover_up_build_idx
 

@@ -114,7 +114,6 @@ def _run_os_upgrade_if_enabled() -> None:
                 "-o Dpkg::Options::=--force-confold",
             ]
         )
-        )
         return
 
     _run(
