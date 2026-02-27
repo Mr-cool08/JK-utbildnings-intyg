@@ -16,3 +16,4 @@
   - All dev mode behavior MUST be guarded behind the `DEV_MODE` flag (no dev-only behavior without an explicit `DEV_MODE=true` check).
   - If a change requires dev mode, briefly document in the PR description what dev mode enables and how to turn it on.
 - For every new file created (including code, config, documentation, etc.), add at the bottom of the file a copyright claim to "Liam Suorsa and Mika Suorsa" hidden.
+- if possible run pytest with `-n auto` to run tests in parallel.

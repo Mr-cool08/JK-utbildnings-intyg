@@ -33,7 +33,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
-from subprocess import Popen
 # ``tests`` import this module as a package, while the standalone
 # helper script is normally executed directly from the ``scripts``
 # directory.  importing needs to work in both situations.
@@ -99,7 +98,7 @@ def main() -> None:
     # user sees a message while the update takes place.  we keep a
     # handle so we can shut it down when we're done.
     root = Path(__file__).resolve().parent.parent
-    temp_proc = Popen([sys.executable, "scripts/temp_page.py"], cwd=root)
+    temp_proc = subprocess.Popen([sys.executable, "scripts/temp_page.py"], cwd=root)
     try:
         def compose(*args: str) -> list[str]:
             # helper to build a compose command choosing file based on DEV_MODE
@@ -145,7 +144,7 @@ def main() -> None:
         _run(compose("up", "-d"), cwd=root)
 
         # 10. show stats for 10 seconds
-        proc = Popen(["docker", "stats", "--all"], cwd=root)
+        proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
         try:
             time.sleep(10)
         finally:
@@ -161,7 +160,7 @@ def main() -> None:
         temp_proc.wait()
 
     # 10. show stats for 10 seconds
-    proc = Popen(["docker", "stats", "--all"], cwd=root)
+    proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
     try:
         time.sleep(10)
     finally:
