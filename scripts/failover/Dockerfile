@@ -8,11 +8,13 @@ RUN apk add --no-cache busybox-suid \
 
 COPY scripts/failover /app/scripts/failover
 
-RUN chmod +x /app/scripts/failover/run_failover_check.sh \
+# 👇 Se till att cronfilen heter exakt som usern: failover
+RUN if [ -f /app/scripts/failover/crontab ]; then mv /app/scripts/failover/crontab /app/scripts/failover/failover; fi \
+    && chmod +x /app/scripts/failover/run_failover_check.sh \
     && chown -R failover:failover /app/scripts/failover
 
 USER failover
 
-CMD ["crond", "-f", "-l", "2", "-c", "/app/scripts/failover"]
+CMD ["crond", "-f", "-d", "8", "-c", "/app/scripts/failover"]
 
 # Copyright (c) Liam Suorsa and Mika Suorsa
