@@ -78,42 +78,24 @@ def test_get_country_availability_parses_entries(monkeypatch):
     ]
 
 
-def test_get_http_check_targets_includes_extras(monkeypatch):
-    monkeypatch.setenv("STATUS_MAIN_URL", "https://huvudsida.test/health")
-    monkeypatch.setenv("STATUS_DEMO_URL", "https://demo.test/health")
-    monkeypatch.setenv(
-        "STATUS_EXTRA_HTTP_CHECKS",
-        "API|https://api.test/health,CDN|https://cdn.test/status",
-    )
-
+def test_get_http_check_targets_is_hardcoded_for_primary_site():
     targets = status_checks.get_http_check_targets()
 
     assert targets == [
-        {"name": "Huvudsidan", "url": "https://huvudsida.test/health"},
-        {"name": "Demosidan", "url": "https://demo.test/health"},
-        {"name": "API", "url": "https://api.test/health"},
-        {"name": "CDN", "url": "https://cdn.test/status"},
-    ]
-
-
-def test_get_http_check_targets_defaults_to_internal_services(monkeypatch):
-    monkeypatch.delenv("STATUS_MAIN_URL", raising=False)
-    monkeypatch.delenv("STATUS_DEMO_URL", raising=False)
-    monkeypatch.delenv("STATUS_EXTRA_HTTP_CHECKS", raising=False)
-
-    targets = status_checks.get_http_check_targets()
-
-    assert targets == [
-        {"name": "Huvudsidan", "url": "https://utbildningsintyg.se/health"},
-        {"name": "Demosidan", "url": "https://demo.utbildningsintyg.se/health"},
+        {
+            "name": "Huvudsidan",
+            "url": "https://utbildningsintyg.se/health",
+            "fallback_url": "http://app:80/health",
+            "fallback_host_header": "utbildningsintyg.se",
+        }
     ]
 
 
 def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
-    def fake_connection(*_args, **_kwargs):
-        raise ConnectionRefusedError(111, "Connection refused")
+    def fake_urlopen(*_args, **_kwargs):
+        raise error.URLError(ConnectionRefusedError(111, "Connection refused"))
 
-    monkeypatch.setattr(status_checks.socket, "create_connection", fake_connection)
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
 
     with caplog.at_level(logging.WARNING):
         result = status_checks.check_ssl_status()
@@ -122,8 +104,7 @@ def test_check_ssl_status_handles_connection_refused(monkeypatch, caplog):
     assert "kunde inte ansluta" in caplog.text
 
 
-def test_check_ssl_status_supports_url_in_host_env(monkeypatch):
-    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se")
+def test_check_ssl_status_uses_hardcoded_primary_url(monkeypatch):
 
     class DummyResponse:
         status = 200
@@ -152,7 +133,6 @@ def test_check_ssl_status_supports_url_in_host_env(monkeypatch):
 
 
 def test_check_ssl_status_returns_error_for_http_error(monkeypatch):
-    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
 
     class DummyContext:
         minimum_version = None
@@ -185,6 +165,71 @@ def test_check_http_status_handles_connection_refused(monkeypatch, caplog):
 
     assert result == {"name": "Test", "status": "Fel", "details": "Anslutning nekades"}
     assert "kunde inte ansluta" in caplog.text
+
+
+def test_check_http_status_uses_fallback_url(monkeypatch):
+    calls = []
+
+    class DummyResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req, timeout=0):
+        calls.append((req.full_url, req.headers.get("Host"), timeout))
+        if req.full_url == "https://utbildningsintyg.se/health":
+            raise error.URLError(ConnectionRefusedError(111, "Connection refused"))
+        return DummyResponse()
+
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    result = status_checks.check_http_status(
+        "Huvudsidan",
+        "https://utbildningsintyg.se/health",
+        fallback_url="http://app:80/health",
+        fallback_host_header="utbildningsintyg.se",
+    )
+
+    assert result["status"] == "OK"
+    assert calls[0][0] == "https://utbildningsintyg.se/health"
+    assert calls[1][0] == "http://app:80/health"
+    assert calls[1][1] == "utbildningsintyg.se"
+
+
+def test_check_ssl_status_uses_internal_fallback_url(monkeypatch):
+
+    class DummyContext:
+        minimum_version = None
+
+    class DummyResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    calls = []
+
+    def fake_urlopen(req, timeout=0, context=None):
+        calls.append((req.full_url, req.headers.get("Host"), timeout, context))
+        if req.full_url == "https://utbildningsintyg.se/health":
+            raise error.URLError(ConnectionRefusedError(111, "Connection refused"))
+        return DummyResponse()
+
+    monkeypatch.setattr(status_checks.ssl, "create_default_context", lambda: DummyContext())
+    monkeypatch.setattr(status_checks.request, "urlopen", fake_urlopen)
+
+    result = status_checks.check_ssl_status()
+
+    assert result == {"status": "OK", "details": "TLS + HTTP 200 (intern kontroll)"}
+    assert calls[1][0] == "http://app:80/health"
+    assert calls[1][1] == "utbildningsintyg.se"
 
 def test_get_load_average_handles_missing_support(monkeypatch, caplog):
     def raise_os_error():
@@ -294,8 +339,6 @@ def test_check_http_status_treats_client_error_as_reachable(monkeypatch):
 
 
 def test_check_ssl_status_treats_client_error_as_reachable(monkeypatch):
-    monkeypatch.setenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
-
     class DummyContext:
         minimum_version = None
 

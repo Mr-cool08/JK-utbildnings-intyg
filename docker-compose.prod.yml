@@ -168,7 +168,6 @@ services:
       STATUS_DB_NAME: ${POSTGRES_DB}
       STATUS_DB_USER: ${POSTGRES_USER}
       STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      STATUS_SSL_HOST: https://utbildningsintyg.se
       STATUS_TRAEFIK_HOST: traefik
       STATUS_TRAEFIK_PORT: "80"
     expose:

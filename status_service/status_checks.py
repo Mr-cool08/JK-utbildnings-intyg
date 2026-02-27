@@ -7,11 +7,14 @@ import time
 from datetime import timedelta
 from statistics import mean
 from urllib import error, request
-from urllib.parse import urlparse
 import psutil
 
 START_TIME = time.monotonic()
 LOGGER = logging.getLogger(__name__)
+
+PRIMARY_SITE_HOST = "utbildningsintyg.se"
+PRIMARY_SITE_HEALTH_URL = "https://utbildningsintyg.se/health"
+PRIMARY_SITE_INTERNAL_HEALTH_URL = "http://app:80/health"
 
 
 def get_uptime(now=None):
@@ -89,7 +92,7 @@ def check_database_status():
         connection.close()
         return {"status": "OK", "details": "Anslutning lyckades"}
     except Exception:
-        logger.error(
+        LOGGER.error(
             "Databaskontroll misslyckades mot %s:%s/%s.",
             host,
             port,
@@ -103,25 +106,14 @@ def _is_reachable_http_status(status_code):
     return 100 <= status_code < 500
 
 
+def _request_with_host_header(url, host_header=None):
+    headers = {"User-Agent": "StatusCheck"}
+    if host_header:
+        headers["Host"] = host_header
+    return request.Request(url, method="GET", headers=headers)
+
+
 def check_ssl_status():
-    raw_target = os.getenv("STATUS_SSL_HOST", "https://utbildningsintyg.se/health")
-    port = int(os.getenv("STATUS_SSL_PORT", "443"))
-
-    # Tillåt både värdnamn och URL-format i miljövariabeln.
-    if "://" in raw_target:
-        parsed = urlparse(raw_target)
-        host = parsed.hostname or raw_target
-        target_url = raw_target
-        if parsed.port:
-            port = parsed.port
-    else:
-        host = raw_target
-        target_url = f"https://{host}/health"
-
-    parsed_target = urlparse(target_url)
-    if not parsed_target.path:
-        target_url = f"{target_url.rstrip('/')}/health"
-
     context = ssl.create_default_context()
     # Kräv modern TLS-version för handskakning.
     if hasattr(ssl, "TLSVersion") and hasattr(context, "minimum_version"):
@@ -131,29 +123,50 @@ def check_ssl_status():
             context.options |= ssl.OP_NO_TLSv1
         if hasattr(ssl, "OP_NO_TLSv1_1"):
             context.options |= ssl.OP_NO_TLSv1_1
-    try:
-        req = request.Request(target_url, method="GET", headers={"User-Agent": "StatusCheck"})
+
+    def _execute_ssl_request(url, host_header=None):
+        req = _request_with_host_header(url, host_header=host_header)
         with request.urlopen(req, timeout=4, context=context) as response:
-            status_code = response.status
+            return response.status
+
+    try:
+        status_code = _execute_ssl_request(PRIMARY_SITE_HEALTH_URL)
         if _is_reachable_http_status(status_code):
             return {"status": "OK", "details": f"TLS + HTTP {status_code}"}
         return {"status": "Fel", "details": f"TLS + HTTP {status_code}"}
-    except ConnectionRefusedError:
-        LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
-        return {"status": "Fel", "details": "Anslutning nekades"}
     except error.HTTPError as exc:
-        LOGGER.warning("SSL-kontroll fick HTTP-fel %s från %s.", exc.code, target_url)
+        LOGGER.warning("SSL-kontroll fick HTTP-fel %s från %s.", exc.code, PRIMARY_SITE_HEALTH_URL)
         status = "OK" if _is_reachable_http_status(exc.code) else "Fel"
         return {"status": status, "details": f"TLS + HTTP {exc.code}"}
     except error.URLError as exc:
         reason = exc.reason
         if isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == 111:
-            LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:%s.", host, port)
+            LOGGER.warning("SSL-kontroll kunde inte ansluta till %s:443.", PRIMARY_SITE_HOST)
+            try:
+                fallback_status = _execute_ssl_request(
+                    PRIMARY_SITE_INTERNAL_HEALTH_URL,
+                    host_header=PRIMARY_SITE_HOST,
+                )
+                if _is_reachable_http_status(fallback_status):
+                    return {
+                        "status": "OK",
+                        "details": f"TLS + HTTP {fallback_status} (intern kontroll)",
+                    }
+                return {
+                    "status": "Fel",
+                    "details": f"TLS + HTTP {fallback_status} (intern kontroll)",
+                }
+            except Exception as fallback_exc:
+                LOGGER.warning(
+                    "Intern SSL-kontroll misslyckades för %s: %s",
+                    PRIMARY_SITE_INTERNAL_HEALTH_URL,
+                    fallback_exc,
+                )
             return {"status": "Fel", "details": "Anslutning nekades"}
-        LOGGER.warning("SSL-kontroll misslyckades för %s: %s", target_url, reason)
+        LOGGER.warning("SSL-kontroll misslyckades för %s: %s", PRIMARY_SITE_HEALTH_URL, reason)
         return {"status": "Fel", "details": "TLS/anslutning misslyckades"}
     except OSError:
-        logger.error("SSL-kontroll misslyckades mot %s:%s.", host, port)
+        LOGGER.error("SSL-kontroll misslyckades mot %s:443.", PRIMARY_SITE_HOST)
         return {"status": "Fel", "details": "TLS-handshake misslyckades"}
 
 
@@ -197,14 +210,21 @@ def check_traefik_status():
     }
 
 
-def check_http_status(name, url, timeout=3):
+def check_http_status(
+    name,
+    url,
+    timeout=3,
+    host_header=None,
+    fallback_url=None,
+    fallback_host_header=None,
+):
     if not url:
         LOGGER.warning("HTTP-kontroll '%s' saknar URL.", name)
         return {"name": name, "status": "Inte konfigurerad", "details": "Saknar URL"}
 
     try:
         LOGGER.debug("HTTP-kontroll startar: %s %s", name, url)
-        req = request.Request(url, method="GET", headers={"User-Agent": "StatusCheck"})
+        req = _request_with_host_header(url, host_header=host_header)
         start_time = time.monotonic()
         with request.urlopen(req, timeout=timeout) as response:
             status_code = response.status
@@ -252,6 +272,13 @@ def check_http_status(name, url, timeout=3):
                 name,
                 url,
             )
+            if fallback_url:
+                return check_http_status(
+                    name,
+                    fallback_url,
+                    timeout=timeout,
+                    host_header=fallback_host_header,
+                )
             return {"name": name, "status": "Fel", "details": "Anslutning nekades"}
         if isinstance(reason, TimeoutError):
             LOGGER.warning(
@@ -270,37 +297,19 @@ def check_http_status(name, url, timeout=3):
         )
         return {"name": name, "status": "Fel", "details": "Timeout"}
     except Exception:
-        logger.error("HTTP-kontroll '%s' misslyckades för %s.", name, url)
+        LOGGER.error("HTTP-kontroll '%s' misslyckades för %s.", name, url)
         return {"name": name, "status": "Fel", "details": "Okänt fel"}
 
 
 def get_http_check_targets():
-    targets = [
+    return [
         {
             "name": "Huvudsidan",
-            "url": os.getenv("STATUS_MAIN_URL", "https://utbildningsintyg.se/health"),
-        },
-        {
-            "name": "Demosidan",
-            "url": os.getenv("STATUS_DEMO_URL", "https://demo.utbildningsintyg.se/health"),
-        },
+            "url": PRIMARY_SITE_HEALTH_URL,
+            "fallback_url": PRIMARY_SITE_INTERNAL_HEALTH_URL,
+            "fallback_host_header": PRIMARY_SITE_HOST,
+        }
     ]
-    raw_extra = os.getenv("STATUS_EXTRA_HTTP_CHECKS", "")
-    if not raw_extra:
-        return targets
-    for entry in raw_extra.split(","):
-        entry = entry.strip()
-        if not entry:
-            continue
-        if "|" not in entry:
-            LOGGER.warning(
-                "Extra HTTP-kontroll saknar formatet Namn|URL: %s",
-                entry,
-            )
-            continue
-        name, url = entry.split("|", 1)
-        targets.append({"name": name.strip(), "url": url.strip()})
-    return targets
 
 
 def get_country_availability():
@@ -401,7 +410,14 @@ def get_ram_procent():
 def build_status(now=None):
     uptime = get_uptime(now=now)
     http_checks = [
-        check_http_status(item["name"], item["url"]) for item in get_http_check_targets()
+        check_http_status(
+            item["name"],
+            item["url"],
+            host_header=item.get("host_header"),
+            fallback_url=item.get("fallback_url"),
+            fallback_host_header=item.get("fallback_host_header"),
+        )
+        for item in get_http_check_targets()
     ]
     proxy_status = check_traefik_status()
     return {
