@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
+os.environ.setdefault("secret_key", "test-secret-key")
 os.environ.setdefault("DEV_MODE", "true")
 # Ensure tests use a temp directory for logs to avoid permission issues
 _test_log_file = os.path.join(tempfile.gettempdir(), "pytest.log")
