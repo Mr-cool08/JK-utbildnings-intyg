@@ -8,19 +8,21 @@ been implemented inline so the module can be invoked independently.
 The sequence executed by :func:`main` is:
 
 1. display current Docker container status
-2. pause five seconds
-3. display Docker storage usage
-4. git pull to fetch updates
-5. locate virtualenv commands
-6. install Python requirements found in the repo tree
-7. run the test suite with pytest
-8. stop all compose containers
-9. pull latest images
-10. rebuild and bring up the compose services without cache
-11. display live ``docker stats`` for ten seconds
-12. run a series of ``docker prune`` commands to clean up space
+2. ensure the standalone failover cron service is running
+3. pause five seconds
+4. display Docker storage usage
+5. git pull to fetch updates
+6. locate virtualenv commands
+7. install Python requirements found in the repo tree
+8. run the test suite with pytest
+9. stop main compose containers
+10. pull latest images
+11. rebuild and bring up the main compose services without cache
+12. ensure standalone failover cron service is still running
+13. display live ``docker stats`` for sixty seconds
+14. run a series of ``docker prune`` commands to clean up space
 
-All output is written to stdout and errors raise ``RuntimeError``.  This
+All output is written to stdout and errors raise ``RuntimeError``. This
 module deliberately avoids any external dependencies other than the
 standard library so it can run on minimal environments.
 """
@@ -33,12 +35,10 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
-# ``tests`` import this module as a package, while the standalone
-# helper script is normally executed directly from the ``scripts``
-# directory.  importing needs to work in both situations.
 
 
 # --- helpers ----------------------------------------------------------------
+
 
 def _build_venv_command(root: Path, unix_exe: str, win_exe: str) -> list[str]:
     """Return the full path to an executable inside the project's venv."""
@@ -79,9 +79,6 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
 # --- workflow ---------------------------------------------------------------
 
 
-
-# utilities for dev mode
-
 def _dev_mode_enabled() -> bool:
     raw = os.getenv("DEV_MODE")
     if not raw:
@@ -90,34 +87,38 @@ def _dev_mode_enabled() -> bool:
 
 
 def main() -> None:
-    # start temporary maintenance page in a subprocess so that the
-    # user sees a message while the update takes place.  we keep a
-    # handle so we can shut it down when we're done.
     root = Path(__file__).resolve().parent.parent
 
     def compose(*args: str) -> list[str]:
-        # helper to build a compose command choosing file based on DEV_MODE
+        # choose compose file based on DEV_MODE flag
         file = "docker-compose.yml" if _dev_mode_enabled() else "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
+
+    def failover_compose(*args: str) -> list[str]:
+        # failover service must stay independent and always on
+        return ["docker", "compose", "-f", "docker-compose.failover.yml", *args]
 
     # 1. container status
     _run(compose("ps", "--all"), cwd=root)
 
-    # 2. wait 5s
+    # 2. keep independent failover running during the full update
+    _run(failover_compose("up", "-d", "--build"), cwd=root)
+
+    # 3. wait and update OS packages
     time.sleep(5)
     _run(["bash", "-lc", "sudo apt update && sudo apt upgrade -y"])
 
-    # 3. storage stats
+    # 4. storage stats
     _run(["docker", "system", "df"])
 
-    # 4. git pull
+    # 5. git pull
     _run(["git", "pull"], cwd=root)
 
-    # 5. prepare venv commands
+    # 6. prepare venv commands
     pip_cmd = _build_venv_command(root, "pip", "pip.exe")
     pytest_cmd = [*_build_venv_command(root, "pytest", "pytest.exe"), "-n", "auto"]
 
-    # 6. install requirements
+    # 7. install requirements
     reqs = _find_requirements(root)
     if not reqs:
         print("No requirements files found.")
@@ -126,20 +127,23 @@ def main() -> None:
             print(f"Installing {r.relative_to(root)}")
             _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
 
-    # 7. run pytest
+    # 8. run pytest
     _run([*pytest_cmd], cwd=root)
 
-    # 8. stop containers
+    # 9. stop only main containers
     _run(compose("stop"), cwd=root)
 
-    # 8.5 pull images
+    # 10. pull images
     _run(compose("pull"), cwd=root)
 
-    # 9. rebuild & up without cache
+    # 11. rebuild & up without cache
     _run(compose("build", "--no-cache"), cwd=root)
     _run(compose("up", "-d"), cwd=root)
 
-    # 10. show stats for 10 seconds
+    # 12. enforce failover service is still running after main restart
+    _run(failover_compose("up", "-d"), cwd=root)
+
+    # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
     try:
         time.sleep(60)
@@ -147,7 +151,7 @@ def main() -> None:
         proc.terminate()
         proc.wait()
 
-    # 11. prune docker data
+    # 14. prune docker data
     _run(["docker", "image", "prune", "-a", "-f"])
     _run(["docker", "builder", "prune", "-f"])
     _run(["docker", "system", "prune", "-a", "-f"])
