@@ -4,6 +4,11 @@ import pytest
 from functions.emails import service as email_service
 
 
+@pytest.fixture(autouse=True)
+def _enable_email_sending(monkeypatch):
+    monkeypatch.setenv("DISABLE_EMAILS", "false")
+
+
 def test_send_creation_email_uses_env_credentials(monkeypatch):
     """Säkerställ att send_creation_email använder uppgifterna från .env och skickar korrekt EmailMessage via STARTTLS."""
     from dotenv import dotenv_values
