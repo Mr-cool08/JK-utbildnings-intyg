@@ -59,6 +59,14 @@ def test_send_email_handles_smtp_timeouts_gracefully():
     assert 'logger.error("Kunde inte skicka e-postvarning: %s", str(exc))' in monitor_script
 
 
+def test_prod_compose_exposes_postgres_on_random_host_port():
+    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+
+    assert 'postgres:' in prod_compose
+    assert 'ports:' in prod_compose
+    assert '- "5432"' in prod_compose
+
+
 def test_dockerfile_copies_mta_sts_policy_into_image():
     dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
     dockerignore = Path(".dockerignore").read_text(encoding="utf-8")
