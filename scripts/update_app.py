@@ -105,7 +105,7 @@ def main() -> None:
 
     # 2. wait 5s
     time.sleep(5)
-    _run(["sudo", "apt", "update", "&&", "sudo", "apt", "upgrade", "-y"])
+    _run(["bash", "-lc", "sudo apt update && sudo apt upgrade -y"])
 
     # 3. storage stats
     _run(["docker", "system", "df"])
