@@ -1,9 +1,5 @@
 import subprocess
-import sys
-import time
 from pathlib import Path
-
-import pytest
 
 import scripts.update_app as ua
 
@@ -33,12 +29,32 @@ def test_build_venv_command_prefers_windows_and_unix(tmp_path, monkeypatch):
     assert Path(pip_cmd[0]).name == "pip"
 
 
+
+def test_get_valid_postgres_public_port_defaults_when_missing(monkeypatch):
+    monkeypatch.delenv("POSTGRES_PUBLIC_PORT", raising=False)
+
+    assert ua._get_valid_postgres_public_port() == "15432"
+
+
+def test_get_valid_postgres_public_port_defaults_when_invalid(monkeypatch, capsys):
+    monkeypatch.setenv("POSTGRES_PUBLIC_PORT", "154321")
+
+    assert ua._get_valid_postgres_public_port() == "15432"
+    assert "mellan 1 och 65535" in capsys.readouterr().out
+
+
+def test_get_valid_postgres_public_port_accepts_valid_value(monkeypatch):
+    monkeypatch.setenv("POSTGRES_PUBLIC_PORT", "5432")
+
+    assert ua._get_valid_postgres_public_port() == "5432"
+
+
 def test_main_sequence(monkeypatch, tmp_path):
     # verify that main invokes the expected steps in order (production)
     calls = []
 
     def fake_run(cmd, check=True, **kwargs):
-        calls.append((list(cmd), kwargs.get("cwd")))
+        calls.append((list(cmd), kwargs.get("cwd"), kwargs.get("env")))
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(ua, "_run", fake_run)
@@ -52,6 +68,7 @@ def test_main_sequence(monkeypatch, tmp_path):
     ua.main()
 
     assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
+    assert calls[0][2]["POSTGRES_PUBLIC_PORT"] == "15432"
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "X" for c in calls)
 
@@ -61,7 +78,7 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     calls = []
 
     def fake_run(cmd, check=True, **kwargs):
-        calls.append((list(cmd), kwargs.get("cwd")))
+        calls.append((list(cmd), kwargs.get("cwd"), kwargs.get("env")))
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(ua, "_run", fake_run)
@@ -74,5 +91,6 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     ua.main()
 
     assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
+    assert calls[0][2]["POSTGRES_PUBLIC_PORT"] == "15432"
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "Y" for c in calls)
