@@ -8,37 +8,38 @@ been implemented inline so the module can be invoked independently.
 The sequence executed by :func:`main` is:
 
 1. display current Docker container status
-2. pause five seconds
-3. display Docker storage usage
-4. git pull to fetch updates
-5. locate virtualenv commands
-6. install Python requirements found in the repo tree
-7. run the test suite with pytest
-8. stop all compose containers
-9. pull latest images
-10. rebuild and bring up the compose services without cache
-11. display live ``docker stats`` for ten seconds
-12. run a series of ``docker prune`` commands to clean up space
+2. ensure the standalone failover cron service is running
+3. pause five seconds and optionally run OS package update/upgrade
+4. display Docker storage usage
+5. git pull to fetch updates
+6. locate virtualenv commands
+7. install Python requirements found in the repo tree
+8. run the test suite with pytest
+9. stop main compose containers
+10. pull latest images
+11. rebuild and bring up the main compose services without cache
+12. rebuild and re-deploy the standalone failover cron service
+13. display live ``docker stats`` for sixty seconds
+14. run a series of ``docker prune`` commands to clean up space
 
-All output is written to stdout and errors raise ``RuntimeError``.  This
-module deliberately avoids any external dependencies other than the
-standard library so it can run on minimal environments.
+Most shell steps are executed via :func:`_run`. If a command fails,
+underlying exceptions such as ``subprocess.CalledProcessError`` and
+``OSError`` (or other standard exceptions) can bubble up to :func:`main`.
 """
 
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
-# ``tests`` import this module as a package, while the standalone
-# helper script is normally executed directly from the ``scripts``
-# directory.  importing needs to work in both situations.
 
 
 # --- helpers ----------------------------------------------------------------
+
 
 def _build_venv_command(root: Path, unix_exe: str, win_exe: str) -> list[str]:
     """Return the full path to an executable inside the project's venv."""
@@ -76,11 +77,59 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
     subprocess.run(list(cmd), check=True, **kwargs)
 
 
+def _command_exists(command: str) -> bool:
+    return shutil.which(command) is not None
+
+
+def _os_upgrade_enabled() -> bool:
+    raw = os.getenv("ENABLE_OS_UPGRADE") or os.getenv("CHECK_OS_UPDATES")
+    if not raw:
+        return False
+    return raw.strip().lower() in {"1", "true", "on", "ja", "yes"}
+
+
+def _run_os_upgrade_if_enabled() -> None:
+    if not _os_upgrade_enabled():
+        print("OS-uppdatering är avstängd. Sätt ENABLE_OS_UPGRADE=true för att aktivera.")
+        return
+
+    apt_get_available = _command_exists("apt-get")
+    sudo_available = _command_exists("sudo")
+    if not apt_get_available:
+        print("Hoppar över OS-uppdatering: apt-get finns inte i miljön.")
+        return
+
+    if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() != 0:
+        if not sudo_available:
+            print("Hoppar över OS-uppdatering: kräver root eller sudo -n utan prompt.")
+            return
+
+        _run(
+            [
+                "bash",
+                "-lc",
+                "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update && "
+                "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y "
+                "-o Dpkg::Options::=--force-confdef "
+                "-o Dpkg::Options::=--force-confold",
+            ]
+        )
+        return
+
+    _run(
+        [
+            "bash",
+            "-lc",
+            "DEBIAN_FRONTEND=noninteractive apt-get update && "
+            "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y "
+            "-o Dpkg::Options::=--force-confdef "
+            "-o Dpkg::Options::=--force-confold",
+        ]
+    )
+
+
 # --- workflow ---------------------------------------------------------------
 
-
-
-# utilities for dev mode
 
 def _dev_mode_enabled() -> bool:
     raw = os.getenv("DEV_MODE")
@@ -90,33 +139,37 @@ def _dev_mode_enabled() -> bool:
 
 
 def main() -> None:
-    # start temporary maintenance page in a subprocess so that the
-    # user sees a message while the update takes place.  we keep a
-    # handle so we can shut it down when we're done.
     root = Path(__file__).resolve().parent.parent
 
     def compose(*args: str) -> list[str]:
         file = "docker-compose.prod.yml"
         return ["docker", "compose", "-f", file, *args]
 
+    def failover_compose(*args: str) -> list[str]:
+        # failover service must stay independent and always on
+        return ["docker", "compose", "-f", "docker-compose.failover.yml", *args]
+
     # 1. container status
     _run(compose("ps", "--all"), cwd=root)
 
-    # 2. wait 5s
-    time.sleep(5)
-    _run(["bash", "-lc", "sudo apt update && sudo apt upgrade -y"])
+    # 2. keep independent failover running during the full update
+    _run(failover_compose("up", "-d"), cwd=root)
 
-    # 3. storage stats
+    # 3. wait and optionally update OS packages
+    time.sleep(5)
+    _run_os_upgrade_if_enabled()
+
+    # 4. storage stats
     _run(["docker", "system", "df"])
 
-    # 4. git pull
+    # 5. git pull
     _run(["git", "pull"], cwd=root)
 
-    # 5. prepare venv commands
+    # 6. prepare venv commands
     pip_cmd = _build_venv_command(root, "pip", "pip.exe")
     pytest_cmd = [*_build_venv_command(root, "pytest", "pytest.exe"), "-n", "auto"]
 
-    # 6. install requirements
+    # 7. install requirements
     reqs = _find_requirements(root)
     if not reqs:
         print("No requirements files found.")
@@ -125,20 +178,23 @@ def main() -> None:
             print(f"Installing {r.relative_to(root)}")
             _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
 
-    # 7. run pytest
+    # 8. run pytest
     _run([*pytest_cmd], cwd=root)
 
-    # 8. stop containers
+    # 9. stop only main containers
     _run(compose("stop"), cwd=root)
 
-    # 8.5 pull images
+    # 10. pull images
     _run(compose("pull"), cwd=root)
 
-    # 9. rebuild & up without cache
+    # 11. rebuild & up without cache
     _run(compose("build", "--no-cache"), cwd=root)
     _run(compose("up", "-d"), cwd=root)
 
-    # 10. show stats for 10 seconds
+    # 12. rebuild and enforce failover service after repository update
+    _run(failover_compose("up", "-d", "--build"), cwd=root)
+
+    # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
     try:
         time.sleep(60)
@@ -146,7 +202,7 @@ def main() -> None:
         proc.terminate()
         proc.wait()
 
-    # 11. prune docker data
+    # 14. prune docker data
     _run(["docker", "image", "prune", "-a", "-f"])
     _run(["docker", "builder", "prune", "-f"])
     _run(["docker", "system", "prune", "-a", "-f"])
