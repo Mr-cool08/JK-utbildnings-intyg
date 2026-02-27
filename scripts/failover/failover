@@ -1,6 +1,0 @@
-SHELL=/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-*/2 * * * * /app/scripts/failover/run_failover_check.sh >> /proc/1/fd/1 2>> /proc/1/fd/2
-
-# Copyright (c) Liam Suorsa and Mika Suorsa

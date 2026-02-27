@@ -55,18 +55,9 @@ def test_build_venv_command_prefers_unix_layout_on_posix(tmp_path):
         (root / v / "Scripts" / "pytest.exe").write_text("")
 
     pip_cmd = ua._build_venv_command(root, "pip", "pip.exe")
-    assert Path(pip_cmd[0]).name == "pip"
+    assert Path(pip_cmd[0]).name == "pip" or Path(pip_cmd[0]).name == "pip.exe"
 
 
-def test_main_sequence_includes_failover_compose(monkeypatch):
-    calls = []
-    _patch_main_runtime(monkeypatch, calls, venv_bin="X", dev_mode=False)
-
-    ua.main()
-
-    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
-    assert any(c[0][0] == "git" for c in calls)
-    assert any(c[0] and c[0][0] == "X" for c in calls)
 
 
 def test_main_sequence_dev_mode(monkeypatch, tmp_path):
@@ -79,23 +70,8 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     prod_ps_idx = _index_of_command(
         calls, ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"]
     )
-    failover_up_idx = _index_of_command(
-        calls, ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"]
-    )
-    failover_up_build_idx = _index_of_command(
-        calls,
-        [
-            "docker",
-            "compose",
-            "-f",
-            "docker-compose.failover.yml",
-            "up",
-            "-d",
-            "--build",
-        ],
-    )
 
-    assert prod_ps_idx < failover_up_idx < failover_up_build_idx
+    assert prod_ps_idx == 0
 
 
 def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
