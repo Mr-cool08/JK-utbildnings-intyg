@@ -67,16 +67,16 @@ def test_main_sequence_includes_failover_compose(monkeypatch):
     prod_ps_idx = _index_of_command(
         calls, ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"]
     )
-    failover_up_build_idx = _index_of_command(
-        calls,
-        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d", "--build"],
-    )
     failover_up_idx = _index_of_command(
         calls,
         ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"],
     )
+    failover_up_build_idx = _index_of_command(
+        calls,
+        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d", "--build"],
+    )
 
-    assert prod_ps_idx < failover_up_build_idx < failover_up_idx
+    assert prod_ps_idx < failover_up_idx < failover_up_build_idx
 
 
 def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
@@ -88,11 +88,15 @@ def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
     dev_ps_idx = _index_of_command(
         calls, ["docker", "compose", "-f", "docker-compose.yml", "ps", "--all"]
     )
+    failover_up_idx = _index_of_command(
+        calls,
+        ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d"],
+    )
     failover_up_build_idx = _index_of_command(
         calls,
         ["docker", "compose", "-f", "docker-compose.failover.yml", "up", "-d", "--build"],
     )
 
-    assert dev_ps_idx < failover_up_build_idx
+    assert dev_ps_idx < failover_up_idx < failover_up_build_idx
     assert any(command and command[0] == "git" for command, _ in calls)
     assert any(command and command[0] == "Y" for command, _ in calls)

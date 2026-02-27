@@ -18,7 +18,7 @@ The sequence executed by :func:`main` is:
 9. stop main compose containers
 10. pull latest images
 11. rebuild and bring up the main compose services without cache
-12. ensure standalone failover cron service is still running
+12. rebuild and re-deploy the standalone failover cron service
 13. display live ``docker stats`` for sixty seconds
 14. run a series of ``docker prune`` commands to clean up space
 
@@ -154,7 +154,7 @@ def main() -> None:
     _run(compose("ps", "--all"), cwd=root)
 
     # 2. keep independent failover running during the full update
-    _run(failover_compose("up", "-d", "--build"), cwd=root)
+    _run(failover_compose("up", "-d"), cwd=root)
 
     # 3. wait and optionally update OS packages
     time.sleep(5)
@@ -192,8 +192,8 @@ def main() -> None:
     _run(compose("build", "--no-cache"), cwd=root)
     _run(compose("up", "-d"), cwd=root)
 
-    # 12. enforce failover service is still running after main restart
-    _run(failover_compose("up", "-d"), cwd=root)
+    # 12. rebuild and enforce failover service after repository update
+    _run(failover_compose("up", "-d", "--build"), cwd=root)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
