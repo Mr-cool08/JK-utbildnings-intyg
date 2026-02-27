@@ -98,9 +98,13 @@ services:
       - traefik.enable=true
       - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
       - traefik.http.routers.app.rule=Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)
+      - traefik.http.routers.app-mta-sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
       - traefik.http.routers.app.entrypoints=websecure
+      - traefik.http.routers.app-mta-sts.entrypoints=websecure
       - traefik.http.routers.app.tls=true
+      - traefik.http.routers.app-mta-sts.tls=true
       - traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file
+      - traefik.http.routers.app-mta-sts.middlewares=security-headers@file
       - traefik.http.services.app.loadbalancer.server.port=80
     restart: unless-stopped
     mem_limit: 512m
@@ -164,7 +168,6 @@ services:
       STATUS_DB_NAME: ${POSTGRES_DB}
       STATUS_DB_USER: ${POSTGRES_USER}
       STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      STATUS_SSL_HOST: https://utbildningsintyg.se
       STATUS_TRAEFIK_HOST: traefik
       STATUS_TRAEFIK_PORT: "80"
     expose:
@@ -192,27 +195,6 @@ services:
       - traefik.http.routers.status.tls=true
       - traefik.http.services.status.loadbalancer.server.port=80
 
-  mta_sts:
-    image: nginx:1.28.2-alpine
-    expose:
-      - "80"
-    volumes:
-      - ./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro
-    networks:
-      - public_net
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
-      - traefik.http.routers.mta_sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
-      - traefik.http.routers.mta_sts.entrypoints=websecure
-      - traefik.http.routers.mta_sts.tls=true
-      - traefik.http.routers.mta_sts.middlewares=security-headers@file
-      - traefik.http.services.mta_sts.loadbalancer.server.port=80
-    restart: unless-stopped
-    mem_limit: 64m
-    memswap_limit: 64m
-    cpus: "0.10"
-    pids_limit: 80
 
   postgres:
     image: postgres:16
@@ -235,6 +217,8 @@ services:
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
       interval: 5s
