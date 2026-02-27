@@ -108,7 +108,7 @@ def test_demo_menu_link_points_to_main_domain(monkeypatch):
 def test_reset_demo_database_recreates_defaults(tmp_path, monkeypatch):
     db_path = tmp_path / "demo-reset.db"
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
     monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_path))
     functions.reset_engine()
     functions.create_database()

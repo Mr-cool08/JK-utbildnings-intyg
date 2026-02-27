@@ -252,8 +252,8 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     import time
 
     # Protect against accidental database reset in production
-    if not os.getenv("DEV_MODE", "").lower() in ("true", "1", "ja", "on", "sant", "t", "yes", "y"):
-        logger.warning("reset_demo_database blocked: DEV_MODE not enabled")
+    if not os.getenv("ENABLE_DEMO_MODE", "").lower() in ("true", "1", "ja", "on", "sant", "t", "yes", "y"):
+        logger.warning("reset_demo_database blocked: ENABLE_DEMO_MODE not enabled")
         return False
 
     try:
