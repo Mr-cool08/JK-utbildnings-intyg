@@ -1,25 +1,27 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Dokumentationsindex
 
-All dokumentation är sorterad efter ämne nedan så att det är lätt att hitta rätt guide.
+Här hittar du rätt dokument snabbt.
 
 ## Kom igång
 
-- [Snabbstart och översikt](../README.md)
-- [Adminpanelen – superenkel guide](ADMIN_PANEL.md)
-- [Utveckling (lokalt och med Docker)](UTVECKLING.md)
+- [README](../README.md)
+- [Utveckling](UTVECKLING.md)
+- [Adminpanel](ADMIN_PANEL.md)
 
-## Drift och produktion
+## Drift
 
-- [Driftsättning (Docker, volymer, Portainer)](DEPLOYMENT.md)
-- [Publik driftsättning med Cloudflare](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
-- [Kritiska händelser och e-postaviseringar](CRITICAL_EVENTS_NOTIFICATIONS.md)
+- [Deployment](DEPLOYMENT.md)
+- [Cloudflare](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+- [Kritiska aviseringar](CRITICAL_EVENTS_NOTIFICATIONS.md)
 
 ## Säkerhet
 
 - [Sårbarhetsrapportering](SECURITY.md)
-- [CI-säkerhetsflöden](workflows.md)
+- [CI-workflows](workflows.md)
 
-## Struktur och underhåll
+## Struktur
 
 - [Repo-struktur](REPO_STRUCTURE.md)
+
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

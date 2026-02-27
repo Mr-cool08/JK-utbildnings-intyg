@@ -1,64 +1,55 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Utveckling
 
-Den här guiden beskriver hur du kör applikationen lokalt med eller utan Docker.
+Snabb guide för lokal utveckling.
 
-## Förutsättningar
+## Utan Docker
 
-- Python 3.12
-- Git
-- (Valfritt) Docker + Docker Compose för containerbaserad utveckling
+1. Installera paket:
 
-## Utveckling utan Docker
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-1. **Skapa virtuell miljö och installera beroenden**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-   På Windows räcker `pip install -r requirements.txt` eftersom beroendefilen redan använder binära hjul för PostgreSQL.
-2. **Skapa lokal konfiguration**
-   ```bash
-   cp .example.env .env
-   ```
-3. **Aktivera utvecklingsläge**
-   Lägg till eller uppdatera följande i `.env`:
-   ```env
-   DEV_MODE=True
-   PORT=8080
-   ```
-   `DEV_MODE` aktiverar Flask-debuggning, lokal SQLite samt mer detaljerade loggar. Demoläge styrs separat via `ENABLE_DEMO_MODE`.
-4. **Starta applikationen**
-   ```bash
-   python app.py
-   ```
-   Appen svarar på <http://localhost:8080>.
+2. Skapa `.env`:
 
-## Utveckling med Docker Compose
+```bash
+cp .example.env .env
+```
 
-Docker-stacken för utveckling finns i `docker-compose.yml` och kör applikationen med en lokal PostgreSQL-container.
+3. Slå på dev-läge:
 
-1. **Skapa en lokal miljöfil**
-   ```bash
-   cp .example.env dev_stack.env
-   ```
-   Uppdatera `dev_stack.env` med korrekta värden för `POSTGRES_*` och övriga inställningar.
-2. **Starta stacken**
-   ```bash
-   docker compose up --build
-   ```
+```env
+DEV_MODE=true
+PORT=8080
+```
 
-### Lokala URL:er
+4. Starta app:
 
-- Appen: <http://localhost:8080>
-- Demoapp: <http://localhost:8081>
-- Statussida: <http://localhost:8082>
+```bash
+python app.py
+```
+
+## Med Docker
+
+```bash
+docker compose up --build
+```
 
 ## Tester
 
-Kör hela testsviten med:
+Försök först:
+
+```bash
+pytest -n auto
+```
+
+Annars:
 
 ```bash
 pytest
 ```
+
+<!-- Copyright (c) Liam Suorsa and Mika Suorsa -->
