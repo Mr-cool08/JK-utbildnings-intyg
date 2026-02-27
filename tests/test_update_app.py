@@ -53,7 +53,7 @@ def test_main_sequence(monkeypatch, tmp_path):
 
     assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
     assert any(c[0][0] == "git" for c in calls)
-    assert any(c[0] == ["X"] for c in calls)
+    assert any(c[0] and c[0][0] == "X" for c in calls)
 
 
 def test_main_sequence_dev_mode(monkeypatch, tmp_path):
@@ -75,4 +75,4 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
 
     assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
     assert any(c[0][0] == "git" for c in calls)
-    assert any(c[0] == ["Y"] for c in calls)
+    assert any(c[0] and c[0][0] == "Y" for c in calls)
