@@ -40,11 +40,16 @@ def determine_target(state: HealthState, primary_target: str, fallback_target: s
 
 def http_ok(url: str, timeout_seconds: float) -> bool:
     """Kontrollera att URL svarar med HTTP 2xx/3xx."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+
     request = Request(url=url, method="GET")
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
-            return 200 <= response.status < 400
-    except (HTTPError, URLError, TimeoutError, ValueError):
+            status_code = response.getcode()
+            return status_code is not None and 200 <= status_code < 400
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
         return False
 
 
@@ -65,15 +70,21 @@ def get_dns_record(api_token: str, zone_id: str, record_id: str) -> dict:
 
 
 def update_dns_record(api_token: str, zone_id: str, record_id: str, record: dict, target: str) -> None:
-    body = json.dumps(
-        {
-            "type": record["type"],
-            "name": record["name"],
-            "content": target,
-            "ttl": record.get("ttl", 1),
-            "proxied": record.get("proxied", True),
-        }
-    ).encode("utf-8")
+    record_type = record["type"]
+    if record_type not in {"A", "AAAA", "CNAME"}:
+        raise RuntimeError(f"DNS-recordtyp stöds inte för failover: {record_type}")
+
+    payload = {
+        "type": record_type,
+        "name": record["name"],
+        "content": target,
+        "ttl": record.get("ttl", 1),
+    }
+    proxied = record.get("proxied")
+    if proxied is not None:
+        payload["proxied"] = proxied
+
+    body = json.dumps(payload).encode("utf-8")
     request = Request(
         url=f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}",
         headers={

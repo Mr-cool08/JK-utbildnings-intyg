@@ -9,7 +9,7 @@ The sequence executed by :func:`main` is:
 
 1. display current Docker container status
 2. ensure the standalone failover cron service is running
-3. pause five seconds
+3. pause five seconds and optionally run OS package update/upgrade
 4. display Docker storage usage
 5. git pull to fetch updates
 6. locate virtualenv commands
@@ -22,9 +22,9 @@ The sequence executed by :func:`main` is:
 13. display live ``docker stats`` for sixty seconds
 14. run a series of ``docker prune`` commands to clean up space
 
-All output is written to stdout and errors raise ``RuntimeError``. This
-module deliberately avoids any external dependencies other than the
-standard library so it can run on minimal environments.
+Most shell steps are executed via :func:`_run`. If a command fails,
+underlying exceptions such as ``subprocess.CalledProcessError`` and
+``OSError`` (or other standard exceptions) can bubble up to :func:`main`.
 """
 
 from __future__ import annotations
@@ -76,6 +76,62 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
     subprocess.run(list(cmd), check=True, **kwargs)
 
 
+def _command_exists(command: str) -> bool:
+    return subprocess.run(
+        ["sh", "-lc", f"command -v {command}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    ).returncode == 0
+
+
+def _os_upgrade_enabled() -> bool:
+    raw = os.getenv("ENABLE_OS_UPGRADE") or os.getenv("CHECK_OS_UPDATES")
+    if not raw:
+        return False
+    return raw.strip().lower() in {"1", "true", "on", "ja", "yes"}
+
+
+def _run_os_upgrade_if_enabled() -> None:
+    if not _os_upgrade_enabled():
+        print("OS-uppdatering är avstängd. Sätt ENABLE_OS_UPGRADE=true för att aktivera.")
+        return
+
+    apt_get_available = _command_exists("apt-get")
+    sudo_available = _command_exists("sudo")
+    if not apt_get_available:
+        print("Hoppar över OS-uppdatering: apt-get finns inte i miljön.")
+        return
+
+    if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() != 0:
+        if not sudo_available:
+            print("Hoppar över OS-uppdatering: kräver root eller sudo -n utan prompt.")
+            return
+
+        _run(
+            [
+                "bash",
+                "-lc",
+                "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update && "
+                "DEBIAN_FRONTEND=noninteractive sudo -n apt-get upgrade -y "
+                "-o Dpkg::Options::=--force-confdef "
+                "-o Dpkg::Options::=--force-confold",
+            ]
+        )
+        return
+
+    _run(
+        [
+            "bash",
+            "-lc",
+            "DEBIAN_FRONTEND=noninteractive apt-get update && "
+            "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y "
+            "-o Dpkg::Options::=--force-confdef "
+            "-o Dpkg::Options::=--force-confold",
+        ]
+    )
+
+
 # --- workflow ---------------------------------------------------------------
 
 
@@ -104,9 +160,9 @@ def main() -> None:
     # 2. keep independent failover running during the full update
     _run(failover_compose("up", "-d", "--build"), cwd=root)
 
-    # 3. wait and update OS packages
+    # 3. wait and optionally update OS packages
     time.sleep(5)
-    _run(["bash", "-lc", "sudo apt update && sudo apt upgrade -y"])
+    _run_os_upgrade_if_enabled()
 
     # 4. storage stats
     _run(["docker", "system", "df"])
