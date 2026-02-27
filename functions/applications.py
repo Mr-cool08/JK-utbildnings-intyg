@@ -12,6 +12,7 @@ from functions.database import (
     companies_table,
     company_users_table,
     pending_users_table,
+    supervisor_connections_table,
     users_table,
     pending_supervisors_table,
     supervisors_table,
@@ -586,7 +587,6 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
     foretagskonto_count_expr = func.sum(
         case((company_users_table.c.role == "foretagskonto", 1), else_=0)
     ).label("foretagskonto_count")
-    user_count_expr = func.count(company_users_table.c.id).label("user_count")
 
     query = (
         select(
@@ -597,7 +597,6 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
             companies_table.c.invoice_contact,
             companies_table.c.invoice_reference,
             foretagskonto_count_expr,
-            user_count_expr,
         )
         .select_from(
             companies_table.join(
@@ -620,19 +619,71 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
     with get_engine().connect() as conn:
         rows = conn.execute(query).fetchall()
 
+        company_ids = [int(row._mapping["id"]) for row in rows]
+        connected_user_count_by_company: Dict[int, int] = {
+            company_id: 0 for company_id in company_ids
+        }
+
+        if company_ids:
+            supervisor_rows = conn.execute(
+                select(company_users_table.c.company_id, company_users_table.c.email).where(
+                    company_users_table.c.company_id.in_(company_ids),
+                    company_users_table.c.role == "foretagskonto",
+                )
+            ).fetchall()
+
+            company_ids_by_supervisor_hash: Dict[str, set[int]] = {}
+            for row in supervisor_rows:
+                if row.company_id is None:
+                    continue
+                try:
+                    supervisor_hash = hash_value(normalize_email(row.email))
+                except ValueError:
+                    continue
+                company_ids_by_supervisor_hash.setdefault(supervisor_hash, set()).add(
+                    int(row.company_id)
+                )
+
+            if company_ids_by_supervisor_hash:
+                connection_rows = conn.execute(
+                    select(
+                        supervisor_connections_table.c.supervisor_email,
+                        supervisor_connections_table.c.user_personnummer,
+                    ).where(
+                        supervisor_connections_table.c.supervisor_email.in_(
+                            tuple(company_ids_by_supervisor_hash.keys())
+                        )
+                    )
+                ).fetchall()
+
+                connected_users_by_company: Dict[int, set[str]] = {
+                    company_id: set() for company_id in company_ids
+                }
+                for row in connection_rows:
+                    for company_id in company_ids_by_supervisor_hash.get(
+                        row.supervisor_email, set()
+                    ):
+                        connected_users_by_company[company_id].add(row.user_personnummer)
+
+                connected_user_count_by_company = {
+                    company_id: len(user_hashes)
+                    for company_id, user_hashes in connected_users_by_company.items()
+                }
+
     companies: List[Dict[str, Any]] = []
     for row in rows:
         mapping = row._mapping
+        company_id = int(mapping["id"])
         companies.append(
             {
-                "id": mapping["id"],
+                "id": company_id,
                 "name": mapping["name"],
                 "orgnr": mapping["orgnr"],
                 "invoice_address": mapping.get("invoice_address"),
                 "invoice_contact": mapping.get("invoice_contact"),
                 "invoice_reference": mapping.get("invoice_reference"),
                 "foretagskonto_count": int(mapping["foretagskonto_count"] or 0),
-                "user_count": int(mapping["user_count"] or 0),
+                "user_count": connected_user_count_by_company.get(company_id, 0),
             }
         )
 

@@ -312,7 +312,66 @@ def test_list_companies_for_invoicing(fresh_app_db):
     assert company["invoice_contact"] == "Kontakt 1"
     assert company["invoice_reference"] == "Ref 1"
     assert company["foretagskonto_count"] == 1
-    assert company["user_count"] == 1
+    assert company["user_count"] == 0
+
+
+def test_list_companies_for_invoicing_counts_connected_users(fresh_app_db):
+    foretagskonto_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Företagskonto 1",
+        email="foretagskonto1@example.com",
+        orgnr="5569668337",
+        company_name="Bolag 1",
+        comment=None,
+        invoice_address="Adress 1",
+        invoice_contact="Kontakt 1",
+        invoice_reference="Ref 1",
+    )
+    user_id_1 = functions.create_application_request(
+        account_type="standard",
+        name="Användare 1",
+        email="user1@example.com",
+        orgnr="",
+        company_name="",
+        comment=None,
+        personnummer="9012311234",
+    )
+    user_id_2 = functions.create_application_request(
+        account_type="standard",
+        name="Användare 2",
+        email="user2@example.com",
+        orgnr="",
+        company_name="",
+        comment=None,
+        personnummer="9201011234",
+    )
+
+    functions.approve_application_request(foretagskonto_id, "admin")
+    functions.approve_application_request(user_id_1, "admin")
+    functions.approve_application_request(user_id_2, "admin")
+
+    supervisor_hash = functions.hash_value(
+        functions.normalize_email("foretagskonto1@example.com")
+    )
+    user_1_hash = functions.hash_value(functions.normalize_personnummer("9012311234"))
+    user_2_hash = functions.hash_value(functions.normalize_personnummer("9201011234"))
+    with fresh_app_db.begin() as conn:
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=user_1_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=user_2_hash,
+            )
+        )
+
+    companies = functions.list_companies_for_invoicing()
+    assert len(companies) == 1
+    assert companies[0]["user_count"] == 2
 
 
 def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
