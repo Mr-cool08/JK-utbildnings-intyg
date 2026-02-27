@@ -146,7 +146,7 @@ def main() -> None:
         # 10. show stats for 10 seconds
         proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
         try:
-            time.sleep(10)
+            time.sleep(60)
         finally:
             proc.terminate()
             proc.wait()
