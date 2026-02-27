@@ -33,6 +33,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
+from subprocess import Popen
+from temp_page import tempwebsite
 
 
 # --- helpers ----------------------------------------------------------------
@@ -87,53 +89,73 @@ def _dev_mode_enabled() -> bool:
 
 
 def main() -> None:
+    # start temporary maintenance page in a subprocess so that the
+    # user sees a message while the update takes place.  we keep a
+    # handle so we can shut it down when we're done.
     root = Path(__file__).resolve().parent.parent
+    temp_proc = Popen([sys.executable, "scripts/temp_page.py"], cwd=root)
+    try:
+        def compose(*args: str) -> list[str]:
+            # helper to build a compose command choosing file based on DEV_MODE
+            file = "docker-compose.yml" if _dev_mode_enabled() else "docker-compose.prod.yml"
+            return ["docker", "compose", "-f", file, *args]
 
-    def compose(*args: str) -> list[str]:
-        # helper to build a compose command choosing file based on DEV_MODE
-        file = "docker-compose.yml" if _dev_mode_enabled() else "docker-compose.prod.yml"
-        return ["docker", "compose", "-f", file, *args]
+        # 1. container status
+        _run(compose("ps", "--all"), cwd=root)
 
-    # 1. container status
-    _run(compose("ps", "--all"), cwd=root)
+        # 2. wait 5s
+        time.sleep(5)
 
-    # 2. wait 5s
-    time.sleep(5)
+        # 3. storage stats
+        _run(["docker", "system", "df"])
 
-    # 3. storage stats
-    _run(["docker", "system", "df"])
+        # 4. git pull
+        _run(["git", "pull"], cwd=root)
 
-    # 4. git pull
-    _run(["git", "pull"], cwd=root)
+        # 5. prepare venv commands
+        pip_cmd = _build_venv_command(root, "pip", "pip.exe")
+        pytest_cmd = _build_venv_command(root, "pytest", "pytest.exe")
 
-    # 5. prepare venv commands
-    pip_cmd = _build_venv_command(root, "pip", "pip.exe")
-    pytest_cmd = _build_venv_command(root, "pytest", "pytest.exe")
+        # 6. install requirements
+        reqs = _find_requirements(root)
+        if not reqs:
+            print("No requirements files found.")
+        else:
+            for r in reqs:
+                print(f"Installing {r.relative_to(root)}")
+                _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
 
-    # 6. install requirements
-    reqs = _find_requirements(root)
-    if not reqs:
-        print("No requirements files found.")
-    else:
-        for r in reqs:
-            print(f"Installing {r.relative_to(root)}")
-            _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
+        # 7. run pytest
+        _run([*pytest_cmd], cwd=root)
 
-    # 7. run pytest
-    _run([*pytest_cmd], cwd=root)
+        # 8. stop containers
+        _run(compose("stop"), cwd=root)
 
-    # 8. stop containers
-    _run(compose("stop"), cwd=root)
+        # 8.5 pull images
+        _run(compose("pull"), cwd=root)
 
-    # 8.5 pull images
-    _run(compose("pull"), cwd=root)
+        # 9. rebuild & up without cache
+        _run(compose("build", "--no-cache"), cwd=root)
+        _run(compose("up", "-d"), cwd=root)
 
-    # 9. rebuild & up without cache
-    _run(compose("build", "--no-cache"), cwd=root)
-    _run(compose("up", "-d"), cwd=root)
+        # 10. show stats for 10 seconds
+        proc = Popen(["docker", "stats", "--all"], cwd=root)
+        try:
+            time.sleep(10)
+        finally:
+            proc.terminate()
+            proc.wait()
+
+        # 11. prune docker data
+        _run(["docker", "image", "prune", "-a", "-f"])
+        _run(["docker", "builder", "prune", "-f"])
+        _run(["docker", "system", "prune", "-a", "-f"])
+    finally:
+        temp_proc.terminate()
+        temp_proc.wait()
 
     # 10. show stats for 10 seconds
-    proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
+    proc = Popen(["docker", "stats", "--all"], cwd=root)
     try:
         time.sleep(10)
     finally:
