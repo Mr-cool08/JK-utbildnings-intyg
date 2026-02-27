@@ -175,6 +175,13 @@ def send_email_message(
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
 
 
+def should_disable_email_sending() -> bool:
+    """Return True when outbound emails should be disabled."""
+
+    disable_emails = os.getenv("DISABLE_EMAILS", "").strip().lower()
+    return disable_emails in {"1", "true", "yes", "on"}
+
+
 def send_email(
     recipient_email: str,
     subject: str,
@@ -191,6 +198,11 @@ def send_email(
         recipient_mask,
         len(attachments) if attachments else 0,
     )
+
+    if should_disable_email_sending():
+        logger.info("E-postutskick är avstängt i aktuell miljö; hoppar över sändning")
+        return
+
     settings = load_smtp_settings()
     logger.debug(
         "SMTP-inställningar laddade: server=%s port=%s användare=%s avsändare=%s",

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from html import escape
@@ -22,6 +23,8 @@ logger.setLevel(logging.INFO)
 load_environment()
 
 _EMAIL_HANDLER_STATE = local()
+_ERROR_EMAIL_LAST_SENT: dict[str, float] = {}
+_ERROR_EMAIL_DEFAULT_COOLDOWN_SECONDS = 900
 _EMAIL_FAILURE_LOGGER = logging.getLogger("notifications.email_failures")
 if not _EMAIL_FAILURE_LOGGER.handlers:
     _email_failure_handler = logging.StreamHandler()
@@ -47,6 +50,8 @@ class EmailErrorHandler(logging.Handler):
         try:
             # Only handle ERROR level logs (not CRITICAL - those are handled separately)
             if record.levelno != logging.ERROR:
+                return
+            if not _should_send_error_email(record):
                 return
             if getattr(record, "_email_error_handler_sent", False):
                 return
@@ -81,6 +86,37 @@ class EmailErrorHandler(logging.Handler):
                 str(error),
                 exc_info=True
             )
+
+
+def _get_error_email_cooldown_seconds() -> int:
+    """Get cooldown for repetitive ERROR email notifications."""
+    value = os.getenv("ERROR_EMAIL_COOLDOWN_SECONDS", str(_ERROR_EMAIL_DEFAULT_COOLDOWN_SECONDS))
+    try:
+        cooldown = int(value)
+    except (TypeError, ValueError):
+        return _ERROR_EMAIL_DEFAULT_COOLDOWN_SECONDS
+    return max(0, cooldown)
+
+
+def _error_email_signature(record: logging.LogRecord) -> str:
+    """Build a stable signature used for repetitive ERROR email suppression."""
+    return f"{record.name}|{record.pathname}|{record.lineno}|{record.getMessage()}"
+
+
+def _should_send_error_email(record: logging.LogRecord) -> bool:
+    """Return True when an ERROR email should be sent for this log record."""
+    cooldown = _get_error_email_cooldown_seconds()
+    if cooldown == 0:
+        return True
+
+    signature = _error_email_signature(record)
+    now = time.monotonic()
+    last_sent = _ERROR_EMAIL_LAST_SENT.get(signature)
+    if last_sent is not None and now - last_sent < cooldown:
+        return False
+
+    _ERROR_EMAIL_LAST_SENT[signature] = now
+    return True
 
 
 def _get_admin_emails() -> list[str]:

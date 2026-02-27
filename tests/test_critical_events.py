@@ -245,3 +245,44 @@ def test_send_email_async_logs_email_failure_via_failure_logger(monkeypatch):
 
     assert len(logged_messages) == 1
     assert "Misslyckades att skicka e-post" in logged_messages[0]
+
+
+def test_error_email_is_rate_limited(monkeypatch):
+    monkeypatch.setenv("ERROR_EMAIL_COOLDOWN_SECONDS", "60")
+    critical_events._ERROR_EMAIL_LAST_SENT.clear()
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=123,
+        msg="Samma fel",  # noqa: RUF001
+        args=(),
+        exc_info=None,
+    )
+
+    monkeypatch.setattr(critical_events.time, "monotonic", lambda: 1000.0)
+    assert critical_events._should_send_error_email(record) is True
+    assert critical_events._should_send_error_email(record) is False
+
+
+def test_error_email_rate_limit_expires(monkeypatch):
+    monkeypatch.setenv("ERROR_EMAIL_COOLDOWN_SECONDS", "10")
+    critical_events._ERROR_EMAIL_LAST_SENT.clear()
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=124,
+        msg="Intermittent fel",  # noqa: RUF001
+        args=(),
+        exc_info=None,
+    )
+
+    moments = iter([100.0, 105.0, 111.0])
+    monkeypatch.setattr(critical_events.time, "monotonic", lambda: next(moments))
+
+    assert critical_events._should_send_error_email(record) is True
+    assert critical_events._should_send_error_email(record) is False
+    assert critical_events._should_send_error_email(record) is True
