@@ -75,6 +75,31 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
     subprocess.run(list(cmd), check=True, **kwargs)
 
 
+def _get_valid_postgres_public_port(default: str = "15432") -> str:
+    """Return a valid host port for the postgres compose mapping."""
+
+    raw = os.getenv("POSTGRES_PUBLIC_PORT")
+    if not raw:
+        return default
+
+    try:
+        port = int(raw)
+    except ValueError:
+        print(
+            f"Ogiltigt värde i POSTGRES_PUBLIC_PORT, använder standardport {default}."
+        )
+        return default
+
+    if 1 <= port <= 65535:
+        return str(port)
+
+    print(
+        f"POSTGRES_PUBLIC_PORT måste vara mellan 1 och 65535, använder standardport {default}."
+    )
+    return default
+
+
+# --- workflow ---------------------------------------------------------------
 def _command_exists(command: str) -> bool:
     return shutil.which(command) is not None
 
@@ -138,6 +163,8 @@ def _dev_mode_enabled() -> bool:
 
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
+    compose_env = os.environ.copy()
+    compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 
     def compose(*args: str) -> list[str]:
         file = "docker-compose.prod.yml"
@@ -145,7 +172,7 @@ def main() -> None:
 
 
     # 1. container status
-    _run(compose("ps", "--all"), cwd=root)
+    _run(compose("ps", "--all"), cwd=root, env=compose_env)
 
 
     # 3. wait and optionally update OS packages
@@ -174,15 +201,15 @@ def main() -> None:
     # 8. run pytest
     _run([*pytest_cmd], cwd=root)
 
-    # 9. stop only main containers
-    _run(compose("stop"), cwd=root)
+    # 8. stop containers
+    _run(compose("stop"), cwd=root, env=compose_env)
 
-    # 10. pull images
-    _run(compose("pull"), cwd=root)
+    # 8.5 pull images
+    _run(compose("pull"), cwd=root, env=compose_env)
 
-    # 11. rebuild & up without cache
-    _run(compose("build", "--no-cache"), cwd=root)
-    _run(compose("up", "-d"), cwd=root)
+    # 9. rebuild & up without cache
+    _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
+    _run(compose("up", "-d"), cwd=root, env=compose_env)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
