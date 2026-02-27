@@ -119,7 +119,7 @@ def main() -> None:
 
         # 5. prepare venv commands
         pip_cmd = _build_venv_command(root, "pip", "pip.exe")
-        pytest_cmd = _build_venv_command(root, "pytest", "pytest.exe", "-n", "auto")
+        pytest_cmd = [*_build_venv_command(root, "pytest", "pytest.exe"), "-n", "auto"]
 
         # 6. install requirements
         reqs = _find_requirements(root)
@@ -158,19 +158,6 @@ def main() -> None:
     finally:
         temp_proc.terminate()
         temp_proc.wait()
-
-    # 10. show stats for 10 seconds
-    proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
-    try:
-        time.sleep(10)
-    finally:
-        proc.terminate()
-        proc.wait()
-
-    # 11. prune docker data
-    _run(["docker", "image", "prune", "-a", "-f"])
-    _run(["docker", "builder", "prune", "-f"])
-    _run(["docker", "system", "prune", "-a", "-f"])
 
 
 if __name__ == "__main__":
