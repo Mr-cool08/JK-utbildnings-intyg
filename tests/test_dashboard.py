@@ -43,3 +43,27 @@ def test_dashboard_shows_only_user_pdfs(user_db):
         assert b"own.pdf" in response.data
         assert b"other.pdf" not in response.data
         assert COURSE_CATEGORIES[0][1].encode() in response.data
+
+
+def test_dashboard_capitalizes_first_letter_of_forename_and_surname(user_db):
+    engine = user_db
+    with engine.begin() as conn:
+        conn.execute(
+            functions.users_table.update()
+            .where(functions.users_table.c.personnummer == functions.hash_value("9001011234"))
+            .values(username="anna andersson")
+        )
+
+    with app.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        client.post(
+            "/login",
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
+        )
+        response = client.get("/dashboard")
+        assert b"Hej Anna Andersson!" in response.data
