@@ -164,6 +164,14 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     return fallback
 
 
+def _format_display_name(name: str | None) -> str:
+    # Säkerställ stor begynnelsebokstav för varje namnsegment.
+    cleaned_name = (name or "").strip()
+    if not cleaned_name:
+        return ""
+    return " ".join(part[:1].upper() + part[1:] for part in cleaned_name.split())
+
+
 def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any]:
     # Samla korrelationsdata för enhetlig felloggning.
     session_personnummer = session.get("personnummer")
@@ -1518,7 +1526,7 @@ def dashboard():
     pending_link_requests = functions.list_user_link_requests(pnr_hash)
     supervisor_connections = functions.list_user_supervisor_connections(pnr_hash)
     logger.debug("Dashboard för %s visar %d pdfer", pnr_hash, len(pdfs))
-    user_name = (user_name or "").capitalize()
+    user_name = _format_display_name(user_name)
     csrf_token = sec.ensure_csrf_token()
     return render_template(
         "dashboard.html",
