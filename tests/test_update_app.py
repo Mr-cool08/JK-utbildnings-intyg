@@ -57,7 +57,7 @@ def test_main_sequence(monkeypatch, tmp_path):
 
 
 def test_main_sequence_dev_mode(monkeypatch, tmp_path):
-    # same sequence but dev mode should switch compose file
+    # same sequence but compose file remains production even in dev mode
     calls = []
 
     def fake_run(cmd, check=True, **kwargs):
@@ -73,6 +73,6 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
 
     ua.main()
 
-    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
+    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "Y" for c in calls)
