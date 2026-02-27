@@ -14,6 +14,7 @@ os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
 os.environ.setdefault("secret_key", "test-secret-key")
 os.environ.setdefault("DEV_MODE", "true")
+os.environ.setdefault("DISABLE_EMAILS", "true")
 # Ensure tests use a temp directory for logs to avoid permission issues
 _test_log_file = os.path.join(tempfile.gettempdir(), "pytest.log")
 os.environ.setdefault("LOG_FILE", _test_log_file)

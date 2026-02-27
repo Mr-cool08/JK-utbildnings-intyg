@@ -7,6 +7,11 @@ from course_categories import COURSE_CATEGORIES
 from functions.emails import service as email_service
 
 
+@pytest.fixture(autouse=True)
+def _enable_email_sending(monkeypatch):
+    monkeypatch.setenv("DISABLE_EMAILS", "false")
+
+
 def _login_default_user(client):
     with client.session_transaction() as sess:
         sess["csrf_token"] = "test-token"
