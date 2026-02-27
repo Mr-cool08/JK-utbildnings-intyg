@@ -26,8 +26,6 @@ services:
       - --log.filepath=/var/log/traefik/traefik.log
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
-      - --api.insecure=true
-      - --metrics.otlp=true
       
     networks:
       - public_net
