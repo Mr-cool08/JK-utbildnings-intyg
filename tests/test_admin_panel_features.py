@@ -347,6 +347,28 @@ def test_admin_list_accounts_returns_active_and_pending(empty_db):
     assert hashes[pnr_pending_hash] == "pending"
 
 
+def test_admin_update_account_returns_error_when_summary_missing(monkeypatch):
+    def _fake_admin_update_user_account(_personnummer, _email, _username):
+        return True, None, None
+
+    monkeypatch.setattr(app.functions, "admin_update_user_account", _fake_admin_update_user_account)
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/konton/uppdatera",
+            json={
+                "personnummer": "19900303-3456",
+                "email": "ny@example.com",
+                "username": "Nytt Namn",
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Kunde inte uppdatera kontot."
+
+
 def test_admin_update_account_updates_record(empty_db):
     personnummer = "19900303-3456"
     email = "uppdatera@example.com"
