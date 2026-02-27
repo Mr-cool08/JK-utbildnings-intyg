@@ -519,8 +519,6 @@ def create_app() -> Flask:
     # Email handlers for ERROR and CRITICAL logs are now automatically attached
     # via configure_root_logging() in functions.logging module.
 
-    # Startup email is sent from the first request handler to avoid duplicate
-    # notifications from multiple app creation points (reloader or multiple workers).
     logger.debug("Applikationen är konfigurerad och redo")
     return app
 
@@ -533,21 +531,6 @@ app = create_app()
 
 @app.before_request
 def _before_first_request():
-    # Send startup notification once when the app starts
-    if not hasattr(app, "_startup_notification_sent"):
-        try:
-            import socket
-
-            hostname = socket.gethostname()
-        except Exception:
-            hostname = "Unknown"
-
-        try:
-            critical_events.send_startup_notification(hostname=hostname)
-            setattr(app, "_startup_notification_sent", True)
-            logger.info("Startupp-notifikation skickad")
-        except Exception as e:
-            logger.warning("Kunde inte skicka startupp-notifikation: %s", str(e))
     session.permanent = True
     app.permanent_session_lifetime = timedelta(days=178)
 
