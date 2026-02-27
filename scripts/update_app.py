@@ -108,11 +108,12 @@ def _run_os_upgrade_if_enabled() -> None:
             [
                 "bash",
                 "-lc",
-                "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update && "
-                "DEBIAN_FRONTEND=noninteractive sudo -n apt-get upgrade -y "
+                "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update && "
+                "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y "
                 "-o Dpkg::Options::=--force-confdef "
                 "-o Dpkg::Options::=--force-confold",
             ]
+        )
         )
         return
 
