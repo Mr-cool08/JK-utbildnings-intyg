@@ -11,14 +11,12 @@ def test_server_monitor_service_exists_in_compose_files():
     assert "CRITICAL_ALERTS_EMAIL" in prod_compose
 
 
-def test_prod_compose_has_mta_sts_service_with_expected_policy():
+def test_prod_compose_routes_mta_sts_via_app_service():
     prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
 
-    assert "mta_sts:" in prod_compose
+    assert "mta_sts:" not in prod_compose
     assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
-    assert "./deploy/mta-sts/.well-known:/usr/share/nginx/html/.well-known:ro" in prod_compose
-    assert "image: nginx:1.28.2-alpine" in prod_compose
-    assert "traefik.http.routers.mta_sts.middlewares=security-headers@file" in prod_compose
+    assert "traefik.http.routers.app-mta-sts.middlewares=security-headers@file" in prod_compose
 
 
 def test_mta_sts_policy_file_has_expected_content():
