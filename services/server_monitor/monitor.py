@@ -20,11 +20,17 @@ except Exception:
     logger = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SECONDS = int(os.getenv("MONITOR_CHECK_INTERVAL_SECONDS", "60"))
-SMTP_SERVER = os.getenv("smtp_server", "")
-SMTP_PORT = int(os.getenv("smtp_port", "587"))
-SMTP_USER = os.getenv("smtp_user", "")
-SMTP_PASSWORD = os.getenv("smtp_password", "")
-SMTP_TIMEOUT = int(os.getenv("smtp_timeout", "30"))
+
+
+def env_with_legacy_fallback(primary_key: str, legacy_key: str, default: str) -> str:
+    return os.getenv(primary_key, os.getenv(legacy_key, default))
+
+
+SMTP_SERVER = env_with_legacy_fallback("SMTP_SERVER", "smtp_server", "")
+SMTP_PORT = int(env_with_legacy_fallback("SMTP_PORT", "smtp_port", "587"))
+SMTP_USER = env_with_legacy_fallback("SMTP_USER", "smtp_user", "")
+SMTP_PASSWORD = env_with_legacy_fallback("SMTP_PASSWORD", "smtp_password", "")
+SMTP_TIMEOUT = int(env_with_legacy_fallback("SMTP_TIMEOUT", "smtp_timeout", "30"))
 CRITICAL_ALERTS_EMAIL = os.getenv("CRITICAL_ALERTS_EMAIL", "")
 EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM", SMTP_USER)
 HOST_ROOT = os.getenv("HOST_ROOT", "/host")

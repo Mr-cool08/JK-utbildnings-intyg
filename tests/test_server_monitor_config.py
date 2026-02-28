@@ -75,4 +75,17 @@ def test_dockerfile_copies_mta_sts_policy_into_image():
     assert "COPY . ." in dockerfile
     assert "deploy/mta-sts" not in dockerignore
 
+def test_server_monitor_uses_uppercase_smtp_env_with_legacy_fallback():
+    dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+    monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
+
+    assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in dev_compose
+    assert "SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}" in dev_compose
+    assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in prod_compose
+    assert "SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}" in prod_compose
+    assert 'env_with_legacy_fallback("SMTP_SERVER", "smtp_server", "")' in monitor_script
+    assert 'env_with_legacy_fallback("SMTP_TIMEOUT", "smtp_timeout", "30")' in monitor_script
+
+
 # Copyright (c) Liam Suorsa and Mika Suorsa
