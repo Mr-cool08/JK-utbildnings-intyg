@@ -56,11 +56,11 @@ services:
     env_file:
       - .env
     environment:
-      smtp_server: ${smtp_server:-}
-      smtp_port: ${smtp_port:-587}
-      smtp_user: ${smtp_user:-}
-      smtp_password: ${smtp_password:-}
-      smtp_timeout: ${smtp_timeout:-30}
+      SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}
+      SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}
+      SMTP_USER: ${SMTP_USER:-${smtp_user:-}}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-${smtp_password:-}}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-${smtp_timeout:-30}}
       CRITICAL_ALERTS_EMAIL: ${CRITICAL_ALERTS_EMAIL:-}
       HOST_ROOT: /host
       MONITOR_CHECK_INTERVAL_SECONDS: ${MONITOR_CHECK_INTERVAL_SECONDS:-60}

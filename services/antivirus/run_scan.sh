@@ -13,6 +13,7 @@ SMTP_PASSWORD=${SMTP_PASSWORD:-}
 SMTP_TIMEOUT=${SMTP_TIMEOUT:-30}
 CRITICAL_ALERTS_EMAIL=${CRITICAL_ALERTS_EMAIL:-}
 ALERT_EMAIL_SUBJECT=${ALERT_EMAIL_SUBJECT:-"Varning: antivirus hittade infekterade filer"}
+EXTRA_EXCLUDE_DIRS=${EXTRA_EXCLUDE_DIRS:-}
 
 send_alert_email() {
   local infected_report="$1"
@@ -72,6 +73,19 @@ EXCLUDE_DIRS=(
   "/home/client_52_3/.cache/pip"
   "/host/home/client_52_3/JK-utbildnings-intyg/venv"
 )
+
+
+if [ -n "${EXTRA_EXCLUDE_DIRS}" ]; then
+  # EXTRA_EXCLUDE_DIRS stöder kommaseparerad eller kolonseparerad lista.
+  EXTRA_EXCLUDE_DIRS_NORMALIZED=${EXTRA_EXCLUDE_DIRS//:/,}
+  IFS=',' read -r -a EXTRA_EXCLUDE_ARRAY <<< "${EXTRA_EXCLUDE_DIRS_NORMALIZED}"
+  for RAW_EXCLUDE in "${EXTRA_EXCLUDE_ARRAY[@]}"; do
+    EXCLUDE_TRIMMED=$(echo "${RAW_EXCLUDE}" | xargs)
+    if [ -n "${EXCLUDE_TRIMMED}" ]; then
+      EXCLUDE_DIRS+=("${EXCLUDE_TRIMMED}")
+    fi
+  done
+fi
 
 for EXCLUDE_DIR in "${EXCLUDE_DIRS[@]}"; do
   SCAN_CMD+=("--exclude-dir=${EXCLUDE_DIR}")
