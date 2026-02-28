@@ -96,8 +96,8 @@ def test_entrypoint_runs_gunicorn_only():
     entrypoint = _read(ROOT / "entrypoint.sh")
     # Backend kan vara Gunicorn (prod) eller python wsgi.py (dev)
     assert ("gunicorn" in entrypoint) or ("python wsgi.py" in entrypoint)
-    # Nginx ska inte startas längre
-    assert "nginx -g 'daemon off;'" not in entrypoint
+    # Ingen extern proxyprocess ska startas i app-containern
+    assert "daemon off" not in entrypoint
 
 
 def test_dockerfile_installs_openssl():

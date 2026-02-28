@@ -38,13 +38,10 @@ def test_build_status_uses_dependency_overrides(monkeypatch):
     assert status["checks"]["ssl"]["status"] == "OK"
     assert status["checks"]["database"]["status"] == "Inte konfigurerad"
     assert status["checks"]["traefik"]["status"] == "Fel"
-    assert status["checks"]["nginx"]["status"] == "Fel"
     assert "sekunder" in status["uptime"]
 
 
 def test_resolve_proxy_target_prefers_traefik_and_handles_invalid_port(monkeypatch, caplog):
-    monkeypatch.setenv("STATUS_NGINX_HOST", "nginx-service")
-    monkeypatch.setenv("STATUS_NGINX_PORT", "8081")
     monkeypatch.setenv("STATUS_TRAEFIK_HOST", "traefik-service")
     monkeypatch.setenv("STATUS_TRAEFIK_PORT", "notint")
 
