@@ -18,7 +18,6 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
-    case,
     create_engine as sqlalchemy_create_engine,
     event,
     func,
@@ -117,6 +116,34 @@ supervisors_table = Table(
         server_default=func.now(),
         nullable=False,
     ),
+)
+
+accounts_table = Table(
+    "accounts",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("account_type", String, nullable=False, index=True),
+    Column("status", String, nullable=False, index=True),
+    Column("name", String, nullable=False),
+    Column("email", String, nullable=False, index=True),
+    Column("password", String, nullable=True),
+    Column("personnummer", String, nullable=True, index=True),
+    Column("source_table", String, nullable=True, index=True),
+    Column("source_id", Integer, nullable=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    UniqueConstraint("source_table", "source_id", name="uq_accounts_source_row"),
 )
 
 supervisor_connections_table = Table(
@@ -306,6 +333,7 @@ TABLE_REGISTRY: dict[str, Table] = {
         user_pdfs_table,
         pending_supervisors_table,
         supervisors_table,
+        accounts_table,
         supervisor_connections_table,
         supervisor_link_requests_table,
         password_resets_table,
@@ -318,6 +346,147 @@ TABLE_REGISTRY: dict[str, Table] = {
 }
 
 MigrationFn = Callable[[Connection], None]
+
+
+ACCOUNT_TYPE_STANDARD = "standard"
+ACCOUNT_TYPE_FORETAGSKONTO = "foretagskonto"
+
+ACCOUNT_STATUS_PENDING = "pending"
+ACCOUNT_STATUS_ACTIVE = "active"
+ACCOUNT_STATUS_DISABLED = "disabled"
+
+
+def _backfill_accounts_table(conn: Connection) -> dict[str, int]:
+    counts = {
+        "users": 0,
+        "pending_users": 0,
+        "supervisors": 0,
+        "pending_supervisors": 0,
+        "collisions": 0,
+    }
+
+    mappings = [
+        (
+            users_table,
+            ACCOUNT_TYPE_STANDARD,
+            ACCOUNT_STATUS_ACTIVE,
+            users_table.c.username,
+            users_table.c.email,
+            users_table.c.password,
+            users_table.c.personnummer,
+        ),
+        (
+            pending_users_table,
+            ACCOUNT_TYPE_STANDARD,
+            ACCOUNT_STATUS_PENDING,
+            pending_users_table.c.username,
+            pending_users_table.c.email,
+            text("NULL"),
+            pending_users_table.c.personnummer,
+        ),
+        (
+            supervisors_table,
+            ACCOUNT_TYPE_FORETAGSKONTO,
+            ACCOUNT_STATUS_ACTIVE,
+            supervisors_table.c.name,
+            supervisors_table.c.email,
+            supervisors_table.c.password,
+            text("NULL"),
+        ),
+        (
+            pending_supervisors_table,
+            ACCOUNT_TYPE_FORETAGSKONTO,
+            ACCOUNT_STATUS_PENDING,
+            pending_supervisors_table.c.name,
+            pending_supervisors_table.c.email,
+            text("NULL"),
+            text("NULL"),
+        ),
+    ]
+
+    for (
+        source_table,
+        account_type,
+        status,
+        name_column,
+        email_column,
+        password_column,
+        personnummer_column,
+    ) in mappings:
+        source_name = source_table.name
+
+        created_at_column = source_table.c.get("created_at")
+        created_at_value = created_at_column if created_at_column is not None else func.now()
+
+        insert_stmt = insert(accounts_table).from_select(
+            [
+                accounts_table.c.account_type,
+                accounts_table.c.status,
+                accounts_table.c.name,
+                accounts_table.c.email,
+                accounts_table.c.password,
+                accounts_table.c.personnummer,
+                accounts_table.c.source_table,
+                accounts_table.c.source_id,
+                accounts_table.c.created_at,
+                accounts_table.c.updated_at,
+            ],
+            select(
+                text(f"'{account_type}'"),
+                text(f"'{status}'"),
+                name_column,
+                email_column,
+                password_column,
+                personnummer_column,
+                text(f"'{source_name}'"),
+                source_table.c.id,
+                created_at_value,
+                func.now(),
+            ).where(
+                ~select(accounts_table.c.id)
+                .where(
+                    accounts_table.c.source_table == source_name,
+                    accounts_table.c.source_id == source_table.c.id,
+                )
+                .exists()
+            ),
+        )
+
+        result = conn.execute(insert_stmt)
+        counts[source_name] += int(result.rowcount or 0)
+
+    collisions_query = select(func.count()).select_from(
+        select(accounts_table.c.email)
+        .where(accounts_table.c.email.is_not(None))
+        .group_by(accounts_table.c.email)
+        .having(func.count() > 1)
+        .subquery()
+    )
+    counts["collisions"] = int(conn.execute(collisions_query).scalar() or 0)
+    return counts
+
+
+def _migration_0010_add_accounts_table(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if accounts_table.name not in existing_tables:
+        accounts_table.create(bind=conn)
+
+    counts = _backfill_accounts_table(conn)
+    if counts["collisions"] > 0:
+        logger.warning(
+            "Backfill av accounts hittade %s e-postkollisioner.",
+            counts["collisions"],
+        )
+    logger.info(
+        "Backfill av accounts klar: users=%s, pending_users=%s, "
+        "supervisors=%s, pending_supervisors=%s, collisions=%s",
+        counts["users"],
+        counts["pending_users"],
+        counts["supervisors"],
+        counts["pending_supervisors"],
+        counts["collisions"],
+    )
 
 
 def _migration_0001_companies(conn: Connection) -> None:
@@ -576,6 +745,7 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
     ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
     ("0009_add_user_pdf_note", _migration_0009_add_user_pdf_note),
+    ("0010_add_accounts_table", _migration_0010_add_accounts_table),
 ]
 
 
