@@ -17,6 +17,9 @@ from functions.database import (
     supervisors_table,
     users_table,
     get_engine,
+    reconcile_accounts_integrity,
+    sync_supervisor_account_by_email,
+    use_accounts_dual_write,
 )
 from functions.hashing import (
     _hash_personnummer,
@@ -57,12 +60,19 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 logger.warning("Pending supervisor already exists for %s", mask_hash(email_hash))
                 return False
 
-            conn.execute(
+            insert_result = conn.execute(
                 insert(pending_supervisors_table).values(
                     email=email_hash,
                     name=name,
                 )
             )
+            if use_accounts_dual_write():
+                pending_id = int(insert_result.inserted_primary_key[0])
+                sync_supervisor_account_by_email(conn, email_hash)
+                logger.info(
+                    "Dual-write företagskonto pending synkat (id=%s)",
+                    pending_id,
+                )
     except IntegrityError:
         logger.warning(
             "Pending supervisor already exists or was created concurrently for %s",
@@ -127,6 +137,9 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
                     password=hash_password(password),
                 )
             )
+            if use_accounts_dual_write():
+                sync_supervisor_account_by_email(conn, row.email)
+                reconcile_accounts_integrity(conn)
     except IntegrityError:
         logger.warning(
             "Supervisor activation for %s skipped because record already exists",

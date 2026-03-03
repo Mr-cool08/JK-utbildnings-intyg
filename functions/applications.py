@@ -17,6 +17,10 @@ from functions.database import (
     pending_supervisors_table,
     supervisors_table,
     get_engine,
+    reconcile_accounts_integrity,
+    sync_standard_account_by_personnummer,
+    sync_supervisor_account_by_email,
+    use_accounts_dual_write,
 )
 from functions.hashing import (
     hash_value,
@@ -425,13 +429,20 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     user_activation_required = True
                 else:
                     try:
-                        conn.execute(
+                        insert_result = conn.execute(
                             insert(pending_users_table).values(
                                 username=application.name,
                                 email=email_hash,
                                 personnummer=stored_personnummer_hash,
                             )
                         )
+                        if use_accounts_dual_write():
+                            pending_id = int(insert_result.inserted_primary_key[0])
+                            sync_standard_account_by_personnummer(conn, stored_personnummer_hash)
+                            logger.info(
+                                "Dual-write ansökan standardkonto synkad (id=%s)",
+                                pending_id,
+                            )
                     except IntegrityError:
                         logger.info(
                             "Pending standardkonto finns redan för %s",
@@ -465,13 +476,22 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                         .where(pending_supervisors_table.c.id == pending_row.id)
                         .values(name=cleaned_name)
                     )
+                    if use_accounts_dual_write():
+                        sync_supervisor_account_by_email(conn, supervisor_email_hash)
             else:
-                conn.execute(
+                insert_result = conn.execute(
                     insert(pending_supervisors_table).values(
                         email=supervisor_email_hash,
                         name=cleaned_name,
                     )
                 )
+                if use_accounts_dual_write():
+                    pending_id = int(insert_result.inserted_primary_key[0])
+                    sync_supervisor_account_by_email(conn, supervisor_email_hash)
+                    logger.info(
+                        "Dual-write ansökan företagskonto synkad (id=%s)",
+                        pending_id,
+                    )
                 pending_supervisor_created = True
                 supervisor_activation_required = True
 
@@ -485,6 +505,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                 decision_reason=None,
             )
         )
+        if use_accounts_dual_write():
+            reconcile_accounts_integrity(conn)
 
     email_hash = hash_value(normalized_email)
     logger.info(

@@ -18,6 +18,10 @@ from functions.database import (
     user_pdfs_table,
     users_table,
     get_engine,
+    list_standard_accounts_dual_read,
+    reconcile_accounts_integrity,
+    sync_standard_account_by_personnummer,
+    use_accounts_dual_write,
 )
 from functions.hashing import (
     _hash_personnummer,
@@ -133,13 +137,20 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
             if existing_pending:
                 logger.warning("Pending user already exists for hash %s", mask_hash(pnr_hash))
                 return False
-            conn.execute(
+            insert_result = conn.execute(
                 insert(pending_users_table).values(
                     email=hashed_email,
                     username=username,
                     personnummer=pnr_hash,
                 )
             )
+            if use_accounts_dual_write():
+                pending_id = int(insert_result.inserted_primary_key[0])
+                sync_standard_account_by_personnummer(conn, pnr_hash)
+                logger.info(
+                    "Dual-write standardkonto pending synkat (id=%s)",
+                    pending_id,
+                )
     except IntegrityError:
         logger.warning(
             "Pending user already exists or was created concurrently for hash %s",
@@ -162,6 +173,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
                 return False
             row = conn.execute(
                 select(
+                    pending_users_table.c.id,
                     pending_users_table.c.email,
                     pending_users_table.c.username,
                     pending_users_table.c.personnummer,
@@ -183,6 +195,12 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
                     personnummer=row.personnummer,
                 )
             )
+            if use_accounts_dual_write():
+                sync_standard_account_by_personnummer(conn, row.personnummer)
+                logger.info(
+                    "Dual-write standardkonto aktiverat för %s",
+                    mask_hash(row.personnummer),
+                )
     except IntegrityError:
         logger.warning(
             "User creation for %s skipped because record already exists",
@@ -342,6 +360,10 @@ def list_admin_accounts() -> list[dict[str, str]]:
     # Return a list of active and pending accounts for admin selection.
     results: list[dict[str, str]] = []
     with get_engine().connect() as conn:
+        dual_rows = list_standard_accounts_dual_read(conn)
+        if dual_rows:
+            return dual_rows
+
         user_rows = conn.execute(
             select(users_table.c.username, users_table.c.personnummer).order_by(
                 users_table.c.username.asc()
@@ -489,6 +511,11 @@ def admin_update_user_account(
             ).rowcount
             or 0
         )
+
+        if use_accounts_dual_write():
+            sync_standard_account_by_personnummer(conn, pnr_hash)
+            summary["accounts_reconciled"] = 1
+            reconcile_accounts_integrity(conn)
 
     logger.info(
         "Admin uppdaterade konto för %s",

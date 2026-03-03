@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    delete,
     create_engine as sqlalchemy_create_engine,
     event,
     func,
@@ -354,6 +355,252 @@ ACCOUNT_TYPE_FORETAGSKONTO = "foretagskonto"
 ACCOUNT_STATUS_PENDING = "pending"
 ACCOUNT_STATUS_ACTIVE = "active"
 ACCOUNT_STATUS_DISABLED = "disabled"
+
+
+def use_accounts_dual_write() -> bool:
+    # Return True when dual-write/dual-read compatibility for accounts is enabled.
+    return _is_truthy(os.getenv("USE_ACCOUNTS_DUAL_WRITE", "false"))
+
+
+def _upsert_account(
+    conn: Connection,
+    *,
+    account_type: str,
+    status: str,
+    name: str,
+    email: str,
+    password: str | None,
+    personnummer: str | None,
+    source_table: str,
+    source_id: int,
+) -> None:
+    existing = conn.execute(
+        select(accounts_table.c.id).where(
+            accounts_table.c.source_table == source_table,
+            accounts_table.c.source_id == source_id,
+        )
+    ).first()
+
+    values = {
+        "account_type": account_type,
+        "status": status,
+        "name": name,
+        "email": email,
+        "password": password,
+        "personnummer": personnummer,
+        "source_table": source_table,
+        "source_id": source_id,
+        "updated_at": func.now(),
+    }
+
+    if existing:
+        conn.execute(
+            update(accounts_table)
+            .where(accounts_table.c.id == existing.id)
+            .values(**values)
+        )
+        return
+
+    conn.execute(insert(accounts_table).values(**values))
+
+
+def sync_standard_account_by_personnummer(conn: Connection, personnummer_hash: str) -> None:
+    # Mirror standard account state from legacy tables into accounts.
+    active_row = conn.execute(
+        select(
+            users_table.c.id,
+            users_table.c.username,
+            users_table.c.email,
+            users_table.c.password,
+            users_table.c.personnummer,
+        ).where(users_table.c.personnummer == personnummer_hash)
+    ).first()
+
+    pending_row = conn.execute(
+        select(
+            pending_users_table.c.id,
+            pending_users_table.c.username,
+            pending_users_table.c.email,
+            pending_users_table.c.personnummer,
+        ).where(pending_users_table.c.personnummer == personnummer_hash)
+    ).first()
+
+    if active_row:
+        _upsert_account(
+            conn,
+            account_type=ACCOUNT_TYPE_STANDARD,
+            status=ACCOUNT_STATUS_ACTIVE,
+            name=active_row.username,
+            email=active_row.email,
+            password=active_row.password,
+            personnummer=active_row.personnummer,
+            source_table=users_table.name,
+            source_id=int(active_row.id),
+        )
+
+    if pending_row:
+        _upsert_account(
+            conn,
+            account_type=ACCOUNT_TYPE_STANDARD,
+            status=ACCOUNT_STATUS_PENDING,
+            name=pending_row.username,
+            email=pending_row.email,
+            password=None,
+            personnummer=pending_row.personnummer,
+            source_table=pending_users_table.name,
+            source_id=int(pending_row.id),
+        )
+    else:
+        conn.execute(
+            delete(accounts_table).where(
+                accounts_table.c.source_table == pending_users_table.name,
+                accounts_table.c.personnummer == personnummer_hash,
+            )
+        )
+
+
+def sync_supervisor_account_by_email(conn: Connection, email_hash: str) -> None:
+    # Mirror supervisor account state from legacy tables into accounts.
+    active_row = conn.execute(
+        select(
+            supervisors_table.c.id,
+            supervisors_table.c.name,
+            supervisors_table.c.email,
+            supervisors_table.c.password,
+        ).where(supervisors_table.c.email == email_hash)
+    ).first()
+
+    pending_row = conn.execute(
+        select(
+            pending_supervisors_table.c.id,
+            pending_supervisors_table.c.name,
+            pending_supervisors_table.c.email,
+        ).where(pending_supervisors_table.c.email == email_hash)
+    ).first()
+
+    if active_row:
+        _upsert_account(
+            conn,
+            account_type=ACCOUNT_TYPE_FORETAGSKONTO,
+            status=ACCOUNT_STATUS_ACTIVE,
+            name=active_row.name,
+            email=active_row.email,
+            password=active_row.password,
+            personnummer=None,
+            source_table=supervisors_table.name,
+            source_id=int(active_row.id),
+        )
+
+    if pending_row:
+        _upsert_account(
+            conn,
+            account_type=ACCOUNT_TYPE_FORETAGSKONTO,
+            status=ACCOUNT_STATUS_PENDING,
+            name=pending_row.name,
+            email=pending_row.email,
+            password=None,
+            personnummer=None,
+            source_table=pending_supervisors_table.name,
+            source_id=int(pending_row.id),
+        )
+    else:
+        conn.execute(
+            delete(accounts_table).where(
+                accounts_table.c.source_table == pending_supervisors_table.name,
+                accounts_table.c.email == email_hash,
+            )
+        )
+
+
+def list_standard_accounts_dual_read(conn: Connection) -> list[dict[str, str]]:
+    # Read standard accounts from accounts table when dual mode is enabled.
+    if not use_accounts_dual_write():
+        return []
+
+    rows = conn.execute(
+        select(
+            accounts_table.c.personnummer,
+            accounts_table.c.name,
+            accounts_table.c.status,
+        ).where(accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD)
+    ).fetchall()
+
+    if not rows:
+        return []
+
+    return [
+        {
+            "personnummer_hash": row.personnummer,
+            "username": row.name,
+            "status": row.status,
+        }
+        for row in rows
+        if row.personnummer
+    ]
+
+
+def reconcile_accounts_integrity(conn: Connection) -> dict[str, int]:
+    # Compare legacy and accounts row counts for diagnostics.
+    legacy_standard_active = conn.execute(select(func.count()).select_from(users_table)).scalar() or 0
+    legacy_standard_pending = (
+        conn.execute(select(func.count()).select_from(pending_users_table)).scalar() or 0
+    )
+    legacy_supervisor_active = (
+        conn.execute(select(func.count()).select_from(supervisors_table)).scalar() or 0
+    )
+    legacy_supervisor_pending = (
+        conn.execute(select(func.count()).select_from(pending_supervisors_table)).scalar() or 0
+    )
+
+    accounts_standard_active = (
+        conn.execute(
+            select(func.count()).select_from(accounts_table).where(
+                accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD,
+                accounts_table.c.status == ACCOUNT_STATUS_ACTIVE,
+            )
+        ).scalar()
+        or 0
+    )
+    accounts_standard_pending = (
+        conn.execute(
+            select(func.count()).select_from(accounts_table).where(
+                accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD,
+                accounts_table.c.status == ACCOUNT_STATUS_PENDING,
+            )
+        ).scalar()
+        or 0
+    )
+    accounts_supervisor_active = (
+        conn.execute(
+            select(func.count()).select_from(accounts_table).where(
+                accounts_table.c.account_type == ACCOUNT_TYPE_FORETAGSKONTO,
+                accounts_table.c.status == ACCOUNT_STATUS_ACTIVE,
+            )
+        ).scalar()
+        or 0
+    )
+    accounts_supervisor_pending = (
+        conn.execute(
+            select(func.count()).select_from(accounts_table).where(
+                accounts_table.c.account_type == ACCOUNT_TYPE_FORETAGSKONTO,
+                accounts_table.c.status == ACCOUNT_STATUS_PENDING,
+            )
+        ).scalar()
+        or 0
+    )
+
+    summary = {
+        "legacy_standard_active": int(legacy_standard_active),
+        "legacy_standard_pending": int(legacy_standard_pending),
+        "legacy_supervisor_active": int(legacy_supervisor_active),
+        "legacy_supervisor_pending": int(legacy_supervisor_pending),
+        "accounts_standard_active": int(accounts_standard_active),
+        "accounts_standard_pending": int(accounts_standard_pending),
+        "accounts_supervisor_active": int(accounts_supervisor_active),
+        "accounts_supervisor_pending": int(accounts_supervisor_pending),
+    }
+    logger.info("Rekonciliering accounts/legacy: %s", summary)
+    return summary
 
 
 def _backfill_accounts_table(conn: Connection) -> dict[str, int]:
