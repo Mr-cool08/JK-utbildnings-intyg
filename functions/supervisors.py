@@ -21,8 +21,10 @@ from functions.database import (
     supervisor_password_resets_table,
     supervisors_table,
     sync_supervisor_account_by_email,
+    use_accounts_cutover_reads,
     use_accounts_dual_write,
     use_accounts_first_reads,
+    use_emergency_legacy_read_fallback,
     users_table,
 )
 from functions.hashing import (
@@ -94,6 +96,26 @@ def check_pending_supervisor_hash(email_hash: str) -> bool:
         logger.warning("Avvisade ogiltig hash för e-post")
         return False
     with get_engine().connect() as conn:
+        if use_accounts_cutover_reads():
+            account_row = read_supervisor_account(conn, status="pending", email=email_hash)
+            if account_row is not None:
+                return True
+            if use_emergency_legacy_read_fallback():
+                legacy_row = conn.execute(
+                    select(pending_supervisors_table.c.id).where(
+                        pending_supervisors_table.c.email == email_hash
+                    )
+                ).first()
+                if legacy_row is not None:
+                    _log_accounts_read_mismatch(
+                        "check_pending_supervisor_hash",
+                        email_hash,
+                        "missing_in_accounts",
+                        "present_in_legacy",
+                    )
+                    return True
+            return False
+
         legacy_row = conn.execute(
             select(pending_supervisors_table.c.id).where(
                 pending_supervisors_table.c.email == email_hash
@@ -173,6 +195,24 @@ def supervisor_exists(email: str) -> bool:
     normalized = normalize_email(email)
     email_hash = hash_value(normalized)
     with get_engine().connect() as conn:
+        if use_accounts_cutover_reads():
+            account_row = read_supervisor_account(conn, status="active", email=email_hash)
+            if account_row is not None:
+                return True
+            if use_emergency_legacy_read_fallback():
+                legacy_row = conn.execute(
+                    select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
+                ).first()
+                if legacy_row is not None:
+                    _log_accounts_read_mismatch(
+                        "supervisor_exists",
+                        email_hash,
+                        "missing_in_accounts",
+                        "present_in_legacy",
+                    )
+                    return True
+            return False
+
         legacy_row = conn.execute(
             select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
         ).first()
@@ -279,6 +319,24 @@ def get_supervisor_login_details_for_orgnr(
 def get_supervisor_name_by_hash(email_hash: str) -> Optional[str]:
     # Return the name of the supervisor identified by ``email_hash``.
     with get_engine().connect() as conn:
+        if use_accounts_cutover_reads():
+            account_row = read_supervisor_account(conn, status="active", email=email_hash)
+            if account_row is not None:
+                return account_row.name
+            if use_emergency_legacy_read_fallback():
+                legacy_row = conn.execute(
+                    select(supervisors_table.c.name).where(supervisors_table.c.email == email_hash)
+                ).first()
+                if legacy_row is not None:
+                    _log_accounts_read_mismatch(
+                        "get_supervisor_name_by_hash",
+                        email_hash,
+                        "missing_in_accounts",
+                        legacy_row.name,
+                    )
+                    return legacy_row.name
+            return None
+
         legacy_row = conn.execute(
             select(supervisors_table.c.name).where(supervisors_table.c.email == email_hash)
         ).first()

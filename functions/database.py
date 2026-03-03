@@ -39,6 +39,8 @@ from functions.logging import configure_module_logger, mask_sensitive_data
 logger = configure_module_logger(__name__)
 logger.setLevel(logging.DEBUG)
 
+_ACCOUNTS_MISMATCH_METRICS: dict[str, int] = {}
+
 if importlib.util.find_spec("pysqlite3") is not None:
     import sys
 
@@ -370,23 +372,58 @@ def get_accounts_read_mode() -> str:
     return mode
 
 
+def get_accounts_cutover_mode() -> str:
+    # Return explicit Phase 4 cutover mode.
+    mode = (os.getenv("ACCOUNTS_CUTOVER_MODE", "legacy_safe") or "legacy_safe").strip().lower()
+    if mode not in {"legacy_safe", "accounts_cutover"}:
+        return "legacy_safe"
+    return mode
+
+
+def use_accounts_cutover_reads() -> bool:
+    # Cutover reads are enabled only when explicitly configured.
+    if not _is_truthy(os.getenv("DEV_MODE", "false")):
+        return False
+    return get_accounts_cutover_mode() == "accounts_cutover"
+
+
+def use_emergency_legacy_read_fallback() -> bool:
+    # Emergency fallback can rapidly restore legacy reads during cutover incidents.
+    return _is_truthy(os.getenv("USE_LEGACY_READ_FALLBACK", "false"))
+
+
 def use_accounts_first_reads() -> bool:
     # Accounts-first reads are only allowed in explicit development mode.
+    if use_accounts_cutover_reads():
+        return True
     if not _is_truthy(os.getenv("DEV_MODE", "false")):
         return False
     return get_accounts_read_mode() in {"hybrid", "accounts_first"}
 
 
 def _is_accounts_first_strict() -> bool:
-    # Strict accounts-first mode returns account data even when legacy differs.
+    # Strict mode includes explicit cutover mode.
+    if use_accounts_cutover_reads():
+        return True
     if not _is_truthy(os.getenv("DEV_MODE", "false")):
         return False
     return get_accounts_read_mode() == "accounts_first"
 
 
+def _increment_accounts_mismatch_metric(context: str) -> None:
+    # Increment in-process mismatch counter for reconciliation observability.
+    _ACCOUNTS_MISMATCH_METRICS[context] = _ACCOUNTS_MISMATCH_METRICS.get(context, 0) + 1
+
+
+def get_accounts_mismatch_metrics() -> dict[str, int]:
+    # Return a copy of mismatch counters for diagnostics/tests.
+    return dict(_ACCOUNTS_MISMATCH_METRICS)
+
+
 def _log_accounts_read_mismatch(context: str, key: str, accounts_value: object, legacy_value: object) -> None:
-    # Emit structured warning when account and legacy reads disagree.
-    logger.warning(
+    # Emit structured error when account and legacy reads disagree.
+    _increment_accounts_mismatch_metric(context)
+    logger.error(
         "Accounts mismatch i %s: key=%s accounts=%s legacy=%s",
         context,
         key,
