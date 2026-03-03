@@ -362,6 +362,76 @@ def use_accounts_dual_write() -> bool:
     return _is_truthy(os.getenv("USE_ACCOUNTS_DUAL_WRITE", "false"))
 
 
+def get_accounts_read_mode() -> str:
+    # Return read mode for account migration reads.
+    mode = (os.getenv("ACCOUNTS_READ_MODE", "legacy") or "legacy").strip().lower()
+    if mode not in {"legacy", "hybrid", "accounts_first"}:
+        return "legacy"
+    return mode
+
+
+def use_accounts_first_reads() -> bool:
+    # Accounts-first reads are only allowed in explicit development mode.
+    if not _is_truthy(os.getenv("DEV_MODE", "false")):
+        return False
+    return get_accounts_read_mode() in {"hybrid", "accounts_first"}
+
+
+def _is_accounts_first_strict() -> bool:
+    # Strict accounts-first mode returns account data even when legacy differs.
+    if not _is_truthy(os.getenv("DEV_MODE", "false")):
+        return False
+    return get_accounts_read_mode() == "accounts_first"
+
+
+def _log_accounts_read_mismatch(context: str, key: str, accounts_value: object, legacy_value: object) -> None:
+    # Emit structured warning when account and legacy reads disagree.
+    logger.warning(
+        "Accounts mismatch i %s: key=%s accounts=%s legacy=%s",
+        context,
+        key,
+        mask_sensitive_data(accounts_value),
+        mask_sensitive_data(legacy_value),
+    )
+
+
+def read_standard_account(conn: Connection, *, status: str, email: str | None = None, personnummer: str | None = None):
+    # Read a standard account row from accounts table.
+    conditions = [
+        accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD,
+        accounts_table.c.status == status,
+    ]
+    if email is not None:
+        conditions.append(accounts_table.c.email == email)
+    if personnummer is not None:
+        conditions.append(accounts_table.c.personnummer == personnummer)
+    return conn.execute(
+        select(
+            accounts_table.c.id,
+            accounts_table.c.name,
+            accounts_table.c.email,
+            accounts_table.c.personnummer,
+            accounts_table.c.status,
+        ).where(*conditions)
+    ).first()
+
+
+def read_supervisor_account(conn: Connection, *, status: str, email: str):
+    # Read a supervisor account row from accounts table.
+    return conn.execute(
+        select(
+            accounts_table.c.id,
+            accounts_table.c.name,
+            accounts_table.c.email,
+            accounts_table.c.status,
+        ).where(
+            accounts_table.c.account_type == ACCOUNT_TYPE_FORETAGSKONTO,
+            accounts_table.c.status == status,
+            accounts_table.c.email == email,
+        )
+    ).first()
+
+
 def _upsert_account(
     conn: Connection,
     *,
@@ -513,8 +583,8 @@ def sync_supervisor_account_by_email(conn: Connection, email_hash: str) -> None:
 
 
 def list_standard_accounts_dual_read(conn: Connection) -> list[dict[str, str]]:
-    # Read standard accounts from accounts table when dual mode is enabled.
-    if not use_accounts_dual_write():
+    # Read standard accounts from accounts table when accounts-first read mode is enabled.
+    if not use_accounts_first_reads():
         return []
 
     rows = conn.execute(

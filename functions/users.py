@@ -9,19 +9,23 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
+    _is_accounts_first_strict,
+    _log_accounts_read_mismatch,
     application_requests_table,
     company_users_table,
-    password_resets_table,
-    pending_users_table,
-    supervisor_connections_table,
-    supervisor_link_requests_table,
-    user_pdfs_table,
-    users_table,
     get_engine,
     list_standard_accounts_dual_read,
+    password_resets_table,
+    pending_users_table,
+    read_standard_account,
     reconcile_accounts_integrity,
+    supervisor_connections_table,
+    supervisor_link_requests_table,
     sync_standard_account_by_personnummer,
     use_accounts_dual_write,
+    use_accounts_first_reads,
+    user_pdfs_table,
+    users_table,
 )
 from functions.hashing import (
     _hash_personnummer,
@@ -64,10 +68,26 @@ def check_user_exists(email: str) -> bool:
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(users_table.c.id).where(users_table.c.email == hashed_email)
         ).first()
-    return row is not None
+
+        if not use_accounts_first_reads():
+            return legacy_row is not None
+
+        account_row = read_standard_account(
+            conn,
+            status="active",
+            email=hashed_email,
+        )
+
+        if account_row and legacy_row is None:
+            return True
+
+        if account_row is None:
+            return legacy_row is not None
+
+        return True
 
 
 def get_username(email: str) -> Optional[str]:
@@ -75,10 +95,33 @@ def get_username(email: str) -> Optional[str]:
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(users_table.c.username).where(users_table.c.email == hashed_email)
         ).first()
-    return row.username if row else None
+
+        if not use_accounts_first_reads():
+            return legacy_row.username if legacy_row else None
+
+        account_row = read_standard_account(
+            conn,
+            status="active",
+            email=hashed_email,
+        )
+        if account_row is None:
+            return legacy_row.username if legacy_row else None
+
+        legacy_name = legacy_row.username if legacy_row else None
+        if legacy_name is not None and legacy_name != account_row.name:
+            _log_accounts_read_mismatch(
+                "get_username",
+                hashed_email,
+                account_row.name,
+                legacy_name,
+            )
+            if not _is_accounts_first_strict():
+                return legacy_name
+
+        return account_row.name
 
 
 def check_pending_user(personnummer: str) -> bool:
@@ -97,12 +140,25 @@ def check_pending_user_hash(personnummer_hash: str) -> bool:
         logger.warning("Avvisade ogiltig hash för personnummer")
         return False
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(pending_users_table.c.id).where(
                 pending_users_table.c.personnummer == personnummer_hash
             )
         ).first()
-    return row is not None
+
+        if not use_accounts_first_reads():
+            return legacy_row is not None
+
+        account_row = read_standard_account(
+            conn,
+            status="pending",
+            personnummer=personnummer_hash,
+        )
+        if account_row and legacy_row is None:
+            return True
+        if account_row is None:
+            return legacy_row is not None
+        return True
 
 
 @lru_cache(maxsize=256)
@@ -234,10 +290,33 @@ def get_username_by_personnummer_hash(personnummer_hash: str) -> Optional[str]:
         logger.warning("Avvisade ogiltig hash för personnummer")
         return None
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(users_table.c.username).where(users_table.c.personnummer == personnummer_hash)
         ).first()
-    return row.username if row else None
+
+        if not use_accounts_first_reads():
+            return legacy_row.username if legacy_row else None
+
+        account_row = read_standard_account(
+            conn,
+            status="active",
+            personnummer=personnummer_hash,
+        )
+        if account_row is None:
+            return legacy_row.username if legacy_row else None
+
+        legacy_name = legacy_row.username if legacy_row else None
+        if legacy_name is not None and legacy_name != account_row.name:
+            _log_accounts_read_mismatch(
+                "get_username_by_personnummer_hash",
+                personnummer_hash,
+                account_row.name,
+                legacy_name,
+            )
+            if not _is_accounts_first_strict():
+                return legacy_name
+
+        return account_row.name
 
 
 def admin_delete_user_account(personnummer: str) -> tuple[bool, dict[str, int]]:
@@ -412,12 +491,6 @@ def get_admin_password_status(
         active_user = conn.execute(
             select(users_table.c.personnummer).where(*active_conditions)
         ).first()
-        if active_user:
-            return {
-                "account_exists": True,
-                "password_created": True,
-                "status": "active",
-            }
 
         pending_conditions = [
             pending_users_table.c.personnummer == pnr_hash,
@@ -427,6 +500,69 @@ def get_admin_password_status(
         pending_user = conn.execute(
             select(pending_users_table.c.personnummer).where(*pending_conditions)
         ).first()
+
+        if not use_accounts_first_reads():
+            if active_user:
+                return {
+                    "account_exists": True,
+                    "password_created": True,
+                    "status": "active",
+                }
+            if pending_user:
+                return {
+                    "account_exists": True,
+                    "password_created": False,
+                    "status": "pending",
+                }
+            return None
+
+        account_active = read_standard_account(
+            conn,
+            status="active",
+            personnummer=pnr_hash,
+            email=email_hash,
+        )
+        account_pending = read_standard_account(
+            conn,
+            status="pending",
+            personnummer=pnr_hash,
+            email=email_hash,
+        )
+
+        if account_active:
+            if not active_user:
+                _log_accounts_read_mismatch(
+                    "get_admin_password_status",
+                    pnr_hash,
+                    "active",
+                    "missing_legacy_active",
+                )
+            return {
+                "account_exists": True,
+                "password_created": True,
+                "status": "active",
+            }
+
+        if account_pending:
+            if not pending_user:
+                _log_accounts_read_mismatch(
+                    "get_admin_password_status",
+                    pnr_hash,
+                    "pending",
+                    "missing_legacy_pending",
+                )
+            return {
+                "account_exists": True,
+                "password_created": False,
+                "status": "pending",
+            }
+
+        if active_user:
+            return {
+                "account_exists": True,
+                "password_created": True,
+                "status": "active",
+            }
         if pending_user:
             return {
                 "account_exists": True,

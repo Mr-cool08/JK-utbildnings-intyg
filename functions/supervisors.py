@@ -8,18 +8,22 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
+    _is_accounts_first_strict,
+    _log_accounts_read_mismatch,
     companies_table,
     company_users_table,
+    get_engine,
     pending_supervisors_table,
+    read_supervisor_account,
+    reconcile_accounts_integrity,
     supervisor_connections_table,
     supervisor_link_requests_table,
     supervisor_password_resets_table,
     supervisors_table,
-    users_table,
-    get_engine,
-    reconcile_accounts_integrity,
     sync_supervisor_account_by_email,
     use_accounts_dual_write,
+    use_accounts_first_reads,
+    users_table,
 )
 from functions.hashing import (
     _hash_personnummer,
@@ -90,12 +94,25 @@ def check_pending_supervisor_hash(email_hash: str) -> bool:
         logger.warning("Avvisade ogiltig hash för e-post")
         return False
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(pending_supervisors_table.c.id).where(
                 pending_supervisors_table.c.email == email_hash
             )
         ).first()
-    return row is not None
+
+        if not use_accounts_first_reads():
+            return legacy_row is not None
+
+        account_row = read_supervisor_account(
+            conn,
+            status="pending",
+            email=email_hash,
+        )
+        if account_row and legacy_row is None:
+            return True
+        if account_row is None:
+            return legacy_row is not None
+        return True
 
 
 def supervisor_activate_account(email_hash: str, password: str) -> bool:
@@ -156,10 +173,23 @@ def supervisor_exists(email: str) -> bool:
     normalized = normalize_email(email)
     email_hash = hash_value(normalized)
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
         ).first()
-    return row is not None
+
+        if not use_accounts_first_reads():
+            return legacy_row is not None
+
+        account_row = read_supervisor_account(
+            conn,
+            status="active",
+            email=email_hash,
+        )
+        if account_row and legacy_row is None:
+            return True
+        if account_row is None:
+            return legacy_row is not None
+        return True
 
 
 def verify_supervisor_credentials(email: str, password: str) -> bool:
@@ -249,12 +279,33 @@ def get_supervisor_login_details_for_orgnr(
 def get_supervisor_name_by_hash(email_hash: str) -> Optional[str]:
     # Return the name of the supervisor identified by ``email_hash``.
     with get_engine().connect() as conn:
-        row = conn.execute(
+        legacy_row = conn.execute(
             select(supervisors_table.c.name).where(supervisors_table.c.email == email_hash)
         ).first()
-    if not row:
-        return None
-    return row.name
+
+        if not use_accounts_first_reads():
+            return legacy_row.name if legacy_row else None
+
+        account_row = read_supervisor_account(
+            conn,
+            status="active",
+            email=email_hash,
+        )
+        if account_row is None:
+            return legacy_row.name if legacy_row else None
+
+        legacy_name = legacy_row.name if legacy_row else None
+        if legacy_name is not None and legacy_name != account_row.name:
+            _log_accounts_read_mismatch(
+                "get_supervisor_name_by_hash",
+                email_hash,
+                account_row.name,
+                legacy_name,
+            )
+            if not _is_accounts_first_strict():
+                return legacy_name
+
+        return account_row.name
 
 
 def get_supervisor_email_hash(email: str) -> str:
