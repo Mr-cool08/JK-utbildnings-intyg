@@ -15,6 +15,7 @@ from functions.database import (
     get_engine,
     pending_supervisors_table,
     read_supervisor_account,
+    upsert_supervisor_account,
     reconcile_accounts_integrity,
     supervisor_connections_table,
     supervisor_link_requests_table,
@@ -22,8 +23,10 @@ from functions.database import (
     supervisors_table,
     sync_supervisor_account_by_email,
     use_accounts_cutover_reads,
+    use_accounts_only_writes,
     use_accounts_dual_write,
     use_accounts_first_reads,
+    log_blocked_legacy_write,
     use_emergency_legacy_read_fallback,
     users_table,
 )
@@ -50,35 +53,45 @@ def admin_create_supervisor(email: str, name: str) -> bool:
     email_hash = hash_value(normalized_email)
     try:
         with get_engine().begin() as conn:
-            existing_supervisor = conn.execute(
-                select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
-            ).first()
-            if existing_supervisor:
-                logger.warning("Supervisor %s already exists", mask_hash(email_hash))
-                return False
-
-            existing_pending = conn.execute(
-                select(pending_supervisors_table.c.id).where(
-                    pending_supervisors_table.c.email == email_hash
-                )
-            ).first()
-            if existing_pending:
-                logger.warning("Pending supervisor already exists for %s", mask_hash(email_hash))
-                return False
-
-            insert_result = conn.execute(
-                insert(pending_supervisors_table).values(
-                    email=email_hash,
+            if use_accounts_only_writes():
+                upsert_supervisor_account(
+                    conn,
+                    status="pending",
                     name=name,
+                    email=email_hash,
+                    password=None,
                 )
-            )
-            if use_accounts_dual_write():
-                pending_id = int(insert_result.inserted_primary_key[0])
-                sync_supervisor_account_by_email(conn, email_hash)
-                logger.info(
-                    "Dual-write företagskonto pending synkat (id=%s)",
-                    pending_id,
+                log_blocked_legacy_write("admin_create_supervisor", "accounts_only_mode")
+            else:
+                existing_supervisor = conn.execute(
+                    select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
+                ).first()
+                if existing_supervisor:
+                    logger.warning("Supervisor %s already exists", mask_hash(email_hash))
+                    return False
+
+                existing_pending = conn.execute(
+                    select(pending_supervisors_table.c.id).where(
+                        pending_supervisors_table.c.email == email_hash
+                    )
+                ).first()
+                if existing_pending:
+                    logger.warning("Pending supervisor already exists for %s", mask_hash(email_hash))
+                    return False
+
+                insert_result = conn.execute(
+                    insert(pending_supervisors_table).values(
+                        email=email_hash,
+                        name=name,
+                    )
                 )
+                if use_accounts_dual_write():
+                    pending_id = int(insert_result.inserted_primary_key[0])
+                    sync_supervisor_account_by_email(conn, email_hash)
+                    logger.info(
+                        "Dual-write företagskonto pending synkat (id=%s)",
+                        pending_id,
+                    )
     except IntegrityError:
         logger.warning(
             "Pending supervisor already exists or was created concurrently for %s",
@@ -144,41 +157,59 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
 
     try:
         with get_engine().begin() as conn:
-            existing = conn.execute(
-                select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
-            ).first()
-            if existing:
-                logger.warning("Supervisor %s already activated", mask_hash(email_hash))
-                return False
+            hashed_password = hash_password(password)
+            if use_accounts_only_writes():
+                account_row = read_supervisor_account(conn, status="pending", email=email_hash)
+                if not account_row:
+                    logger.warning(
+                        "Pending supervisor %s not found during activation",
+                        mask_hash(email_hash),
+                    )
+                    return False
+                upsert_supervisor_account(
+                    conn,
+                    status="active",
+                    name=account_row.name,
+                    email=email_hash,
+                    password=hashed_password,
+                )
+                log_blocked_legacy_write("supervisor_activate_account", "accounts_only_mode")
+            else:
+                existing = conn.execute(
+                    select(supervisors_table.c.id).where(supervisors_table.c.email == email_hash)
+                ).first()
+                if existing:
+                    logger.warning("Supervisor %s already activated", mask_hash(email_hash))
+                    return False
 
-            row = conn.execute(
-                select(
-                    pending_supervisors_table.c.email,
-                    pending_supervisors_table.c.name,
-                ).where(pending_supervisors_table.c.email == email_hash)
-            ).first()
-            if not row:
-                logger.warning(
-                    "Pending supervisor %s not found during activation",
-                    mask_hash(email_hash),
-                )
-                return False
+                row = conn.execute(
+                    select(
+                        pending_supervisors_table.c.email,
+                        pending_supervisors_table.c.name,
+                    ).where(pending_supervisors_table.c.email == email_hash)
+                ).first()
+                if not row:
+                    logger.warning(
+                        "Pending supervisor %s not found during activation",
+                        mask_hash(email_hash),
+                    )
+                    return False
 
-            conn.execute(
-                delete(pending_supervisors_table).where(
-                    pending_supervisors_table.c.email == email_hash
+                conn.execute(
+                    delete(pending_supervisors_table).where(
+                        pending_supervisors_table.c.email == email_hash
+                    )
                 )
-            )
-            conn.execute(
-                insert(supervisors_table).values(
-                    email=row.email,
-                    name=row.name,
-                    password=hash_password(password),
+                conn.execute(
+                    insert(supervisors_table).values(
+                        email=row.email,
+                        name=row.name,
+                        password=hashed_password,
+                    )
                 )
-            )
-            if use_accounts_dual_write():
-                sync_supervisor_account_by_email(conn, row.email)
-                reconcile_accounts_integrity(conn)
+                if use_accounts_dual_write():
+                    sync_supervisor_account_by_email(conn, row.email)
+                    reconcile_accounts_integrity(conn)
     except IntegrityError:
         logger.warning(
             "Supervisor activation for %s skipped because record already exists",
@@ -237,6 +268,10 @@ def verify_supervisor_credentials(email: str, password: str) -> bool:
     normalized = normalize_email(email)
     email_hash = hash_value(normalized)
     with get_engine().connect() as conn:
+        account_row = read_supervisor_account(conn, status="active", email=email_hash)
+        if account_row and account_row.password:
+            return verify_password(account_row.password, password)
+
         row = conn.execute(
             select(supervisors_table.c.password).where(supervisors_table.c.email == email_hash)
         ).first()

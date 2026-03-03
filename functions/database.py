@@ -26,6 +26,7 @@ from sqlalchemy import (
     inspect,
     select,
     text,
+    update,
 )
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
@@ -392,6 +393,96 @@ def use_emergency_legacy_read_fallback() -> bool:
     return _is_truthy(os.getenv("USE_LEGACY_READ_FALLBACK", "false"))
 
 
+def get_accounts_write_mode() -> str:
+    # Return write mode for Phase 5 migration.
+    mode = (os.getenv("ACCOUNTS_WRITE_MODE", "legacy_safe") or "legacy_safe").strip().lower()
+    if mode not in {"legacy_safe", "accounts_only"}:
+        return "legacy_safe"
+    return mode
+
+
+def use_accounts_only_writes() -> bool:
+    # Accounts-only writes are enabled only when explicitly configured in dev mode.
+    if not _is_truthy(os.getenv("DEV_MODE", "false")):
+        return False
+    return get_accounts_write_mode() == "accounts_only"
+
+
+_LEGACY_WRITE_BLOCK_METRICS: dict[str, int] = {}
+
+
+def log_blocked_legacy_write(path: str, reason: str) -> None:
+    # Log and count blocked legacy write attempts during cutover.
+    _LEGACY_WRITE_BLOCK_METRICS[path] = _LEGACY_WRITE_BLOCK_METRICS.get(path, 0) + 1
+    logger.warning("Blockerad legacy-write i %s: %s", path, reason)
+
+
+def get_legacy_write_block_metrics() -> dict[str, int]:
+    # Return legacy write block counters.
+    return dict(_LEGACY_WRITE_BLOCK_METRICS)
+
+
+def upsert_standard_account(
+    conn: Connection,
+    *,
+    status: str,
+    name: str,
+    email: str,
+    personnummer: str,
+    password: str | None,
+) -> None:
+    # Upsert standard account by personnummer.
+    existing = conn.execute(
+        select(accounts_table.c.id).where(
+            accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD,
+            accounts_table.c.personnummer == personnummer,
+        )
+    ).first()
+    values = {
+        "account_type": ACCOUNT_TYPE_STANDARD,
+        "status": status,
+        "name": name,
+        "email": email,
+        "personnummer": personnummer,
+        "password": password,
+        "updated_at": func.now(),
+    }
+    if existing:
+        conn.execute(update(accounts_table).where(accounts_table.c.id == existing.id).values(**values))
+        return
+    conn.execute(insert(accounts_table).values(**values))
+
+
+def upsert_supervisor_account(
+    conn: Connection,
+    *,
+    status: str,
+    name: str,
+    email: str,
+    password: str | None,
+) -> None:
+    # Upsert supervisor account by email.
+    existing = conn.execute(
+        select(accounts_table.c.id).where(
+            accounts_table.c.account_type == ACCOUNT_TYPE_FORETAGSKONTO,
+            accounts_table.c.email == email,
+        )
+    ).first()
+    values = {
+        "account_type": ACCOUNT_TYPE_FORETAGSKONTO,
+        "status": status,
+        "name": name,
+        "email": email,
+        "personnummer": None,
+        "password": password,
+        "updated_at": func.now(),
+    }
+    if existing:
+        conn.execute(update(accounts_table).where(accounts_table.c.id == existing.id).values(**values))
+        return
+    conn.execute(insert(accounts_table).values(**values))
+
+
 def use_accounts_first_reads() -> bool:
     # Accounts-first reads are only allowed in explicit development mode.
     if use_accounts_cutover_reads():
@@ -449,6 +540,7 @@ def read_standard_account(conn: Connection, *, status: str, email: str | None = 
             accounts_table.c.email,
             accounts_table.c.personnummer,
             accounts_table.c.status,
+            accounts_table.c.password,
         ).where(*conditions)
     ).first()
 
@@ -461,6 +553,7 @@ def read_supervisor_account(conn: Connection, *, status: str, email: str):
             accounts_table.c.name,
             accounts_table.c.email,
             accounts_table.c.status,
+            accounts_table.c.password,
         ).where(
             accounts_table.c.account_type == ACCOUNT_TYPE_FORETAGSKONTO,
             accounts_table.c.status == status,
@@ -629,6 +722,7 @@ def list_standard_accounts_dual_read(conn: Connection) -> list[dict[str, str]]:
             accounts_table.c.personnummer,
             accounts_table.c.name,
             accounts_table.c.status,
+            accounts_table.c.password,
         ).where(accounts_table.c.account_type == ACCOUNT_TYPE_STANDARD)
     ).fetchall()
 

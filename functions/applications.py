@@ -17,10 +17,16 @@ from functions.database import (
     pending_supervisors_table,
     supervisors_table,
     get_engine,
+    log_blocked_legacy_write,
+    read_standard_account,
+    read_supervisor_account,
     reconcile_accounts_integrity,
+    upsert_standard_account,
+    upsert_supervisor_account,
     sync_standard_account_by_personnummer,
     sync_supervisor_account_by_email,
     use_accounts_dual_write,
+    use_accounts_only_writes,
 )
 from functions.hashing import (
     hash_value,
@@ -405,95 +411,146 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             stored_personnummer_hash = (application.personnummer_hash or "").strip()
             user_personnummer_hash = stored_personnummer_hash
             email_hash = hash_value(normalized_email)
-            existing_user = conn.execute(
-                select(users_table.c.id).where(
-                    users_table.c.personnummer == stored_personnummer_hash
-                )
-            ).first()
-            pending_user = conn.execute(
-                select(pending_users_table.c.id).where(
-                    pending_users_table.c.personnummer == stored_personnummer_hash
-                )
-            ).first()
-            if existing_user or pending_user:
-                raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
-            existing_email_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email == email_hash)
-            ).first()
-            pending_email = conn.execute(
-                select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
-            ).first()
 
-            if not existing_user and not existing_email_user:
-                if pending_user or pending_email:
-                    user_activation_required = True
-                else:
-                    try:
-                        insert_result = conn.execute(
-                            insert(pending_users_table).values(
-                                username=application.name,
-                                email=email_hash,
-                                personnummer=stored_personnummer_hash,
+            if use_accounts_only_writes():
+                existing_active = read_standard_account(
+                    conn,
+                    status="active",
+                    personnummer=stored_personnummer_hash,
+                )
+                existing_pending = read_standard_account(
+                    conn,
+                    status="pending",
+                    personnummer=stored_personnummer_hash,
+                )
+                if existing_active or existing_pending:
+                    raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
+
+                upsert_standard_account(
+                    conn,
+                    status="pending",
+                    name=application.name,
+                    email=email_hash,
+                    personnummer=stored_personnummer_hash,
+                    password=None,
+                )
+                log_blocked_legacy_write("approve_application_request_standard", "accounts_only_mode")
+                user_activation_required = True
+            else:
+                existing_user = conn.execute(
+                    select(users_table.c.id).where(
+                        users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                pending_user = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                if existing_user or pending_user:
+                    raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
+                existing_email_user = conn.execute(
+                    select(users_table.c.id).where(users_table.c.email == email_hash)
+                ).first()
+                pending_email = conn.execute(
+                    select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
+                ).first()
+
+                if not existing_user and not existing_email_user:
+                    if pending_user or pending_email:
+                        user_activation_required = True
+                    else:
+                        try:
+                            insert_result = conn.execute(
+                                insert(pending_users_table).values(
+                                    username=application.name,
+                                    email=email_hash,
+                                    personnummer=stored_personnummer_hash,
+                                )
                             )
-                        )
-                        if use_accounts_dual_write():
-                            pending_id = int(insert_result.inserted_primary_key[0])
-                            sync_standard_account_by_personnummer(conn, stored_personnummer_hash)
+                            if use_accounts_dual_write():
+                                pending_id = int(insert_result.inserted_primary_key[0])
+                                sync_standard_account_by_personnummer(conn, stored_personnummer_hash)
+                                logger.info(
+                                    "Dual-write ansökan standardkonto synkad (id=%s)",
+                                    pending_id,
+                                )
+                        except IntegrityError:
                             logger.info(
-                                "Dual-write ansökan standardkonto synkad (id=%s)",
-                                pending_id,
+                                "Pending standardkonto finns redan för %s",
+                                mask_hash(stored_personnummer_hash),
                             )
-                    except IntegrityError:
-                        logger.info(
-                            "Pending standardkonto finns redan för %s",
-                            mask_hash(stored_personnummer_hash),
-                        )
-                    user_activation_required = True
+                        user_activation_required = True
 
         if application.account_type == "foretagskonto":
             supervisor_email_hash = hash_value(normalized_email)
-            existing_supervisor = conn.execute(
-                select(supervisors_table.c.id).where(
-                    supervisors_table.c.email == supervisor_email_hash
-                )
-            ).first()
-            pending_row = conn.execute(
-                select(
-                    pending_supervisors_table.c.id,
-                    pending_supervisors_table.c.name,
-                ).where(pending_supervisors_table.c.email == supervisor_email_hash)
-            ).first()
-
             cleaned_name = (application.name or "").strip()
 
-            if existing_supervisor:
-                supervisor_activation_required = False
-            elif pending_row:
-                supervisor_activation_required = True
-                if cleaned_name and pending_row.name != cleaned_name:
-                    conn.execute(
-                        update(pending_supervisors_table)
-                        .where(pending_supervisors_table.c.id == pending_row.id)
-                        .values(name=cleaned_name)
+            if use_accounts_only_writes():
+                active_supervisor = read_supervisor_account(
+                    conn,
+                    status="active",
+                    email=supervisor_email_hash,
+                )
+                pending_supervisor = read_supervisor_account(
+                    conn,
+                    status="pending",
+                    email=supervisor_email_hash,
+                )
+                if active_supervisor:
+                    supervisor_activation_required = False
+                else:
+                    upsert_supervisor_account(
+                        conn,
+                        status="pending",
+                        name=cleaned_name,
+                        email=supervisor_email_hash,
+                        password=None,
+                    )
+                    pending_supervisor_created = pending_supervisor is None
+                    supervisor_activation_required = True
+                log_blocked_legacy_write("approve_application_request_supervisor", "accounts_only_mode")
+            else:
+                existing_supervisor = conn.execute(
+                    select(supervisors_table.c.id).where(
+                        supervisors_table.c.email == supervisor_email_hash
+                    )
+                ).first()
+                pending_row = conn.execute(
+                    select(
+                        pending_supervisors_table.c.id,
+                        pending_supervisors_table.c.name,
+                    ).where(pending_supervisors_table.c.email == supervisor_email_hash)
+                ).first()
+
+                if existing_supervisor:
+                    supervisor_activation_required = False
+                elif pending_row:
+                    supervisor_activation_required = True
+                    if cleaned_name and pending_row.name != cleaned_name:
+                        conn.execute(
+                            update(pending_supervisors_table)
+                            .where(pending_supervisors_table.c.id == pending_row.id)
+                            .values(name=cleaned_name)
+                        )
+                        if use_accounts_dual_write():
+                            sync_supervisor_account_by_email(conn, supervisor_email_hash)
+                else:
+                    insert_result = conn.execute(
+                        insert(pending_supervisors_table).values(
+                            email=supervisor_email_hash,
+                            name=cleaned_name,
+                        )
                     )
                     if use_accounts_dual_write():
+                        pending_id = int(insert_result.inserted_primary_key[0])
                         sync_supervisor_account_by_email(conn, supervisor_email_hash)
-            else:
-                insert_result = conn.execute(
-                    insert(pending_supervisors_table).values(
-                        email=supervisor_email_hash,
-                        name=cleaned_name,
-                    )
-                )
-                if use_accounts_dual_write():
-                    pending_id = int(insert_result.inserted_primary_key[0])
-                    sync_supervisor_account_by_email(conn, supervisor_email_hash)
-                    logger.info(
-                        "Dual-write ansökan företagskonto synkad (id=%s)",
-                        pending_id,
-                    )
-                pending_supervisor_created = True
-                supervisor_activation_required = True
+                        logger.info(
+                            "Dual-write ansökan företagskonto synkad (id=%s)",
+                            pending_id,
+                        )
+                    pending_supervisor_created = True
+                    supervisor_activation_required = True
 
         conn.execute(
             update(application_requests_table)

@@ -18,13 +18,16 @@ from functions.database import (
     password_resets_table,
     pending_users_table,
     read_standard_account,
+    upsert_standard_account,
     reconcile_accounts_integrity,
     supervisor_connections_table,
     supervisor_link_requests_table,
     sync_standard_account_by_personnummer,
     use_accounts_cutover_reads,
+    use_accounts_only_writes,
     use_accounts_dual_write,
     use_accounts_first_reads,
+    log_blocked_legacy_write,
     use_emergency_legacy_read_fallback,
     user_pdfs_table,
     users_table,
@@ -49,6 +52,10 @@ def check_password_user(email: str, password: str) -> bool:
     normalized = normalize_email(email)
     hashed_email = hash_value(normalized)
     with get_engine().connect() as conn:
+        account_row = read_standard_account(conn, status="active", email=hashed_email)
+        if account_row and account_row.password:
+            return verify_password(account_row.password, password)
+
         row = conn.execute(
             select(users_table.c.password).where(users_table.c.email == hashed_email)
         ).first()
@@ -59,6 +66,14 @@ def check_personnummer_password(personnummer: str, password: str) -> bool:
     # Return True if the hashed personnummer and password match a user.
     personnummer_hash = _hash_personnummer(personnummer)
     with get_engine().connect() as conn:
+        account_row = read_standard_account(
+            conn,
+            status="active",
+            personnummer=personnummer_hash,
+        )
+        if account_row and account_row.password:
+            return verify_password(account_row.password, password)
+
         row = conn.execute(
             select(users_table.c.password).where(users_table.c.personnummer == personnummer_hash)
         ).first()
@@ -230,34 +245,51 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
     hashed_email = hash_value(normalized_email)
     try:
         with get_engine().begin() as conn:
-            existing_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email == hashed_email)
-            ).first()
-            if existing_user:
-                logger.warning("Attempt to recreate existing user hash %s", mask_hash(hashed_email))
-                return False
-            existing_pending = conn.execute(
-                select(pending_users_table.c.id).where(
-                    pending_users_table.c.personnummer == pnr_hash
-                )
-            ).first()
-            if existing_pending:
-                logger.warning("Pending user already exists for hash %s", mask_hash(pnr_hash))
-                return False
-            insert_result = conn.execute(
-                insert(pending_users_table).values(
+            if use_accounts_only_writes():
+                existing_account = conn.execute(
+                    select(users_table.c.id).where(users_table.c.email == hashed_email)
+                ).first()
+                if existing_account:
+                    logger.warning("Attempt to recreate existing user hash %s", mask_hash(hashed_email))
+                    return False
+                upsert_standard_account(
+                    conn,
+                    status="pending",
+                    name=username,
                     email=hashed_email,
-                    username=username,
                     personnummer=pnr_hash,
+                    password=None,
                 )
-            )
-            if use_accounts_dual_write():
-                pending_id = int(insert_result.inserted_primary_key[0])
-                sync_standard_account_by_personnummer(conn, pnr_hash)
-                logger.info(
-                    "Dual-write standardkonto pending synkat (id=%s)",
-                    pending_id,
+                log_blocked_legacy_write("admin_create_user", "accounts_only_mode")
+            else:
+                existing_user = conn.execute(
+                    select(users_table.c.id).where(users_table.c.email == hashed_email)
+                ).first()
+                if existing_user:
+                    logger.warning("Attempt to recreate existing user hash %s", mask_hash(hashed_email))
+                    return False
+                existing_pending = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.personnummer == pnr_hash
+                    )
+                ).first()
+                if existing_pending:
+                    logger.warning("Pending user already exists for hash %s", mask_hash(pnr_hash))
+                    return False
+                insert_result = conn.execute(
+                    insert(pending_users_table).values(
+                        email=hashed_email,
+                        username=username,
+                        personnummer=pnr_hash,
+                    )
                 )
+                if use_accounts_dual_write():
+                    pending_id = int(insert_result.inserted_primary_key[0])
+                    sync_standard_account_by_personnummer(conn, pnr_hash)
+                    logger.info(
+                        "Dual-write standardkonto pending synkat (id=%s)",
+                        pending_id,
+                    )
     except IntegrityError:
         logger.warning(
             "Pending user already exists or was created concurrently for hash %s",
@@ -270,44 +302,67 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
 
 def user_create_user(password: str, personnummer_hash: str) -> bool:
     # Move a pending user identified by ``personnummer_hash`` into users.
+    created_name = "okänd"
     try:
         with get_engine().begin() as conn:
-            existing = conn.execute(
-                select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
-            ).first()
-            if existing:
-                logger.warning("User %s already exists", mask_hash(personnummer_hash))
-                return False
-            row = conn.execute(
-                select(
-                    pending_users_table.c.id,
-                    pending_users_table.c.email,
-                    pending_users_table.c.username,
-                    pending_users_table.c.personnummer,
-                ).where(pending_users_table.c.personnummer == personnummer_hash)
-            ).first()
-            if not row:
-                logger.warning("Pending user %s not found", mask_hash(personnummer_hash))
-                return False
-            conn.execute(
-                delete(pending_users_table).where(
-                    pending_users_table.c.personnummer == personnummer_hash
+            hashed_password = hash_password(password)
+            if use_accounts_only_writes():
+                account_row = read_standard_account(
+                    conn,
+                    status="pending",
+                    personnummer=personnummer_hash,
                 )
-            )
-            conn.execute(
-                insert(users_table).values(
-                    email=row.email,
-                    password=hash_password(password),
-                    username=row.username,
-                    personnummer=row.personnummer,
+                if not account_row:
+                    logger.warning("Pending user %s not found", mask_hash(personnummer_hash))
+                    return False
+                upsert_standard_account(
+                    conn,
+                    status="active",
+                    name=account_row.name,
+                    email=account_row.email,
+                    personnummer=personnummer_hash,
+                    password=hashed_password,
                 )
-            )
-            if use_accounts_dual_write():
-                sync_standard_account_by_personnummer(conn, row.personnummer)
-                logger.info(
-                    "Dual-write standardkonto aktiverat för %s",
-                    mask_hash(row.personnummer),
+                created_name = account_row.name
+                log_blocked_legacy_write("user_create_user", "accounts_only_mode")
+            else:
+                existing = conn.execute(
+                    select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
+                ).first()
+                if existing:
+                    logger.warning("User %s already exists", mask_hash(personnummer_hash))
+                    return False
+                row = conn.execute(
+                    select(
+                        pending_users_table.c.id,
+                        pending_users_table.c.email,
+                        pending_users_table.c.username,
+                        pending_users_table.c.personnummer,
+                    ).where(pending_users_table.c.personnummer == personnummer_hash)
+                ).first()
+                if not row:
+                    logger.warning("Pending user %s not found", mask_hash(personnummer_hash))
+                    return False
+                conn.execute(
+                    delete(pending_users_table).where(
+                        pending_users_table.c.personnummer == personnummer_hash
+                    )
                 )
+                conn.execute(
+                    insert(users_table).values(
+                        email=row.email,
+                        password=hashed_password,
+                        username=row.username,
+                        personnummer=row.personnummer,
+                    )
+                )
+                created_name = row.username
+                if use_accounts_dual_write():
+                    sync_standard_account_by_personnummer(conn, row.personnummer)
+                    logger.info(
+                        "Dual-write standardkonto aktiverat för %s",
+                        mask_hash(row.personnummer),
+                    )
     except IntegrityError:
         logger.warning(
             "User creation for %s skipped because record already exists",
@@ -315,7 +370,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
         )
         return False
     verify_certificate.cache_clear()
-    logger.info("User %s created", row.username)
+    logger.info("User %s created", created_name)
     return True
 
 
@@ -771,27 +826,44 @@ def admin_update_user_account(
             return False, None, "email_in_use"
 
         summary: dict[str, int] = {}
-        summary["users"] = (
-            conn.execute(
-                update(users_table)
-                .where(users_table.c.personnummer == pnr_hash)
-                .values(username=username, email=email_hash)
-            ).rowcount
-            or 0
-        )
-        summary["pending_users"] = (
-            conn.execute(
-                update(pending_users_table)
-                .where(pending_users_table.c.personnummer == pnr_hash)
-                .values(username=username, email=email_hash)
-            ).rowcount
-            or 0
-        )
+        if use_accounts_only_writes():
+            account_row = read_standard_account(conn, status="active", personnummer=pnr_hash)
+            pending_row_account = read_standard_account(conn, status="pending", personnummer=pnr_hash)
+            target = account_row or pending_row_account
+            if not target:
+                return False, None, "missing_account"
+            upsert_standard_account(
+                conn,
+                status=target.status,
+                name=username,
+                email=email_hash,
+                personnummer=pnr_hash,
+                password=target.password,
+            )
+            summary["accounts"] = 1
+            log_blocked_legacy_write("admin_update_user_account", "accounts_only_mode")
+        else:
+            summary["users"] = (
+                conn.execute(
+                    update(users_table)
+                    .where(users_table.c.personnummer == pnr_hash)
+                    .values(username=username, email=email_hash)
+                ).rowcount
+                or 0
+            )
+            summary["pending_users"] = (
+                conn.execute(
+                    update(pending_users_table)
+                    .where(pending_users_table.c.personnummer == pnr_hash)
+                    .values(username=username, email=email_hash)
+                ).rowcount
+                or 0
+            )
 
-        if use_accounts_dual_write():
-            sync_standard_account_by_personnummer(conn, pnr_hash)
-            summary["accounts_reconciled"] = 1
-            reconcile_accounts_integrity(conn)
+            if use_accounts_dual_write():
+                sync_standard_account_by_personnummer(conn, pnr_hash)
+                summary["accounts_reconciled"] = 1
+                reconcile_accounts_integrity(conn)
 
     logger.info(
         "Admin uppdaterade konto för %s",
