@@ -141,3 +141,4 @@ deploy/certs/server.key
 .github/instructions/snyk_rules.instructions.md
 /.github/instructions/snyk_rules.instructions.md
 Inloggningsuppgifter.md
+environment.toml
