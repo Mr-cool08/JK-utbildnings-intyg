@@ -84,6 +84,10 @@ Starta den så här:
 docker compose --profile security up --build antivirus
 ```
 
+Du kan lägga till egna undantag för skanning med `ANTIVIRUS_EXTRA_EXCLUDE_DIRS` i `.env`.
+Format: kommaseparerad eller kolonseparerad lista.
+Exempel: `ANTIVIRUS_EXTRA_EXCLUDE_DIRS=/host/tmp,/host/var/cache:/host/home/app/.cache`
+
 ## Viktiga dokument
 
 - Dokumentationsindex: [docs/INDEX.md](docs/INDEX.md)

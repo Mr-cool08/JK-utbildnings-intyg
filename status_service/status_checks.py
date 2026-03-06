@@ -172,7 +172,7 @@ def check_ssl_status():
 
 def _resolve_proxy_target():
     host = "traefik"
-    for env_var in ("STATUS_TRAEFIK_HOST", "STATUS_NGINX_HOST", "STATUS_PROXY_HOST"):
+    for env_var in ("STATUS_TRAEFIK_HOST", "STATUS_PROXY_HOST"):
         value = os.getenv(env_var)
         if value:
             host = value
@@ -180,7 +180,7 @@ def _resolve_proxy_target():
 
     port_env_var = None
     raw_port = None
-    for env_var in ("STATUS_TRAEFIK_PORT", "STATUS_NGINX_PORT", "STATUS_PROXY_PORT"):
+    for env_var in ("STATUS_TRAEFIK_PORT", "STATUS_PROXY_PORT"):
         value = os.getenv(env_var)
         if value:
             raw_port = value
@@ -426,7 +426,6 @@ def build_status(now=None):
             "ssl": check_ssl_status(),
             "database": check_database_status(),
             "traefik": proxy_status,
-            "nginx": proxy_status,
         },
         "http_checks": http_checks,
         "countries": get_country_availability(),
