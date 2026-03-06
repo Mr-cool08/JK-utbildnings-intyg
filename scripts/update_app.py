@@ -167,7 +167,7 @@ def main() -> None:
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 
     def compose(*args: str) -> list[str]:
-        file = "docker-compose.prod.yml"
+        file = "docker-compose.yml"
         return ["docker", "compose", "-f", file, *args]
 
 

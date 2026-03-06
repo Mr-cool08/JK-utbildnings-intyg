@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_server_monitor_service_exists_in_compose_files():
     dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
 
     assert "server_monitor:" in dev_compose
     assert "server_monitor:" in prod_compose
@@ -12,7 +12,7 @@ def test_server_monitor_service_exists_in_compose_files():
 
 
 def test_prod_compose_routes_mta_sts_via_app_service():
-    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
 
     assert "mta_sts:" not in prod_compose
     assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
@@ -60,7 +60,7 @@ def test_send_email_handles_smtp_timeouts_gracefully():
 
 
 def test_prod_compose_exposes_postgres_on_random_host_port():
-    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
 
     assert 'postgres:' in prod_compose
     assert 'ports:' in prod_compose
@@ -77,7 +77,7 @@ def test_dockerfile_copies_mta_sts_policy_into_image():
 
 def test_server_monitor_uses_uppercase_smtp_env_with_legacy_fallback():
     dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    prod_compose = Path("docker-compose.prod.yml").read_text(encoding="utf-8")
+    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
     monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
 
     assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in dev_compose

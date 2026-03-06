@@ -1,100 +1,60 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+  traefik:
+    image: traefik:2.11
     ports:
-      - "50825:5432"
+      - "80:80"
+      - "443:443"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 5s
-    networks:
-      - postgres_db
-    restart: always
-
-  app:
-    build: .
-    user: "0:0"
-    env_file:
-      - dev_stack.env
-    environment:
-      DEMO_SITE_URL: ${DEMO_SITE_URL}
-      LOG_DIR: /app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - postgres_db
-      - public_net
-    expose:
-      - "80"
-    ports:
-      - "8080:80"
-    volumes:
-      - app_logs:/app/logs
-    restart: unless-stopped
-
-  app_demo:
-    build: .
-    user: "0:0"
-    env_file:
-      - dev_stack.env
-    environment:
-      ENABLE_DEMO_MODE: "true"
-      LOG_DIR: /app/logs
-      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
-      SECRET_KEY: ${DEMO_SECRET_KEY}
-      HASH_SALT: ${DEMO_HASH_SALT}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
-      DEMO_USER_NAME: ${DEMO_USER_NAME}
-      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
-      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
-      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
-      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
+      - ./deploy/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ${ORIGIN_CERT_PATH}:/etc/traefik/certs/origin.crt:ro
+      - ${ORIGIN_KEY_PATH}:/etc/traefik/certs/origin.key:ro
+      - traefik_logs:/var/log/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --log.level=INFO
+      - --log.filepath=/var/log/traefik/traefik.log
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      
     networks:
       - public_net
-    expose:
-      - "80"
-    ports:
-      - "8081:80"
-    volumes:
-      - demo_logs:/app/logs
     restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.25"
+    pids_limit: 100
 
-  antivirus:
-    build: ./services/antivirus
-    profiles: [security]
-    environment:
-      SCAN_PATHS: ${ANTIVIRUS_SCAN_PATHS:-/host}
-      SCAN_SCHEDULE: ${ANTIVIRUS_SCAN_SCHEDULE:-0 */6 * * *}
-      QUARANTINE_PATH: ${ANTIVIRUS_QUARANTINE_PATH:-}
-      EXTRA_CLAMSCAN_ARGS: ${ANTIVIRUS_EXTRA_ARGS:-}
-      EXTRA_EXCLUDE_DIRS: ${ANTIVIRUS_EXTRA_EXCLUDE_DIRS:-}
-      SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}
-      SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}
-      SMTP_USER: ${SMTP_USER:-${smtp_user:-}}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-${smtp_password:-}}
-      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-${smtp_timeout:-10}}
-      CRITICAL_ALERTS_EMAIL: ${CRITICAL_ALERTS_EMAIL:-}
+  fail2ban:
+    image: crazymax/fail2ban:1.1.0
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
     volumes:
-      - /:/host:ro
-      - antivirus_logs:/var/log/clamav
-      - antivirus_quarantine:/quarantine
+      - ./deploy/fail2ban/jail.local:/data/jail.local:ro
+      - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
+      - traefik_logs:/var/log/traefik:ro
+      - fail2ban_data:/data/db
     restart: unless-stopped
-
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.20"
+    pids_limit: 100
 
   server_monitor:
     build: ./services/server_monitor
-    profiles: [security]
+    env_file:
+      - .env
     environment:
       SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}
       SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}
@@ -110,20 +70,85 @@ services:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.30"
+    pids_limit: 120
 
-  fail2ban:
-    image: crazymax/fail2ban:1.1.0
-    profiles: [security]
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    network_mode: host
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      LOG_DIR: /app/logs
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    expose:
+      - "80"
     volumes:
-      - ./deploy/fail2ban/jail.local:/data/jail.local:ro
-      - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
-      - /var/log:/var/log:ro
-      - fail2ban_data:/data/db
+      - env_data:/config
+      - app_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - public_net
+      - db_net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.app.rule=Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)
+      - traefik.http.routers.app-mta-sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
+      - traefik.http.routers.app.entrypoints=websecure
+      - traefik.http.routers.app-mta-sts.entrypoints=websecure
+      - traefik.http.routers.app.tls=true
+      - traefik.http.routers.app-mta-sts.tls=true
+      - traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file
+      - traefik.http.routers.app-mta-sts.middlewares=security-headers@file
+      - traefik.http.services.app.loadbalancer.server.port=80
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "0.60"
+    pids_limit: 200
+
+  app_demo:
+    build: .
+    env_file:
+      - .env
+    environment:
+      LOG_DIR: /app/logs
+      ENABLE_DEMO_MODE: "true"
+      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
+      SECRET_KEY: ${DEMO_SECRET_KEY}
+      HASH_SALT: ${DEMO_HASH_SALT}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
+      DEMO_USER_NAME: ${DEMO_USER_NAME}
+      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
+      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
+      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
+      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
+      DEMO_SUPERVISOR_ORGNR: ${DEMO_SUPERVISOR_ORGNR}
+    expose:
+      - "80"
+    volumes:
+      - env_data:/config
+      - demo_logs:/app/logs
+    networks:
+      - public_net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.app_demo.rule=Host(`demo.utbildningsintyg.se`)
+      - traefik.http.routers.app_demo.entrypoints=websecure
+      - traefik.http.routers.app_demo.tls=true
+      - traefik.http.routers.app_demo.middlewares=security-headers@file,upload-buffer@file
+      - traefik.http.services.app_demo.loadbalancer.server.port=80
+    restart: unless-stopped
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: "0.40"
+    pids_limit: 150
 
   status_page:
     build:
@@ -135,31 +160,123 @@ services:
         "-c",
         "mkdir -p /app/logs && gunicorn -w 2 -b 0.0.0.0:80 --access-logfile /app/logs/gunicorn-access.log --error-logfile /app/logs/gunicorn-error.log status_service.app:app"
       ]
-    networks:
-      - public_net
+    env_file:
+      - .env
+    environment:
+      STATUS_DB_HOST: postgres
+      STATUS_DB_NAME: ${POSTGRES_DB}
+      STATUS_DB_USER: ${POSTGRES_USER}
+      STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      STATUS_TRAEFIK_HOST: traefik
+      STATUS_TRAEFIK_PORT: "80"
     expose:
       - "80"
-    ports:
-      - "8082:80"
+    networks:
+      - public_net
+      - db_net
     volumes:
       - status_logs:/app/logs
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      traefik:
+        condition: service_started
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.30"
+    pids_limit: 120
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
+      - traefik.http.routers.status.rule=Host(`status.utbildningsintyg.se`)
+      - traefik.http.routers.status.entrypoints=websecure
+      - traefik.http.routers.status.tls=true
+      - traefik.http.services.status.loadbalancer.server.port=80
+
+
+  postgres:
+    image: postgres:16
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - max_connections=50
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Publik exponering kräver POSTGRES_BIND_IP=0.0.0.0 (default är endast lokal åtkomst).
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks:
+      - pg_pub_net
+      - db_net
+    restart: unless-stopped
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: "0.90"
+    pids_limit: 200
+
+  postgres_backup:
+    image: postgres:16
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - pgdata_backups:/backups
+      - ./scripts/backup:/scripts:ro
+    command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]
+    networks:
+      - db_net
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.10"
+    pids_limit: 50
 
 volumes:
-  pgdata:
-    name: jk-utbildnings-intyg_pgdata
+  env_data:
   app_logs:
     name: jk-utbildnings-intyg_app_logs
   demo_logs:
     name: jk-utbildnings-intyg_demo_logs
   status_logs:
     name: jk-utbildnings-intyg_status_logs
-  antivirus_logs:
-  antivirus_quarantine:
+  traefik_logs:
   fail2ban_data:
+  pgdata:
+    name: jk-utbildnings-intyg_pgdata
+  pgdata_backups:
+    name: jk-utbildnings-intyg_pgdata_backups
 
 networks:
-  postgres_db:
-    driver: bridge
   public_net:
-    driver: bridge
+    name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
+  pg_pub_net: {}
+  db_net:
+    internal: true

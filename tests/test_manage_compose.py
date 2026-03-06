@@ -20,11 +20,11 @@ def _load_module():
 
 def test_build_compose_args_includes_expected_flags():
     module = _load_module()
-    args = module.build_compose_args("docker-compose.prod.yml", "./.env", "demo")
+    args = module.build_compose_args("docker-compose.yml", "./.env", "demo")
 
     assert args == [
         "-f",
-        "docker-compose.prod.yml",
+        "docker-compose.yml",
         "--env-file",
         "./.env",
         "--project-name",
@@ -35,8 +35,8 @@ def test_build_compose_args_includes_expected_flags():
 def test_default_compose_file_uses_repo_root():
     module = _load_module()
     root = Path(module.__file__).resolve().parents[1]
-    prod_file = root / "docker-compose.prod.yml"
-    expected = prod_file if prod_file.is_file() else root / "docker-compose.prod.yml"
+    prod_file = root / "docker-compose.yml"
+    expected = prod_file if prod_file.is_file() else root / "docker-compose.yml"
 
     assert module.default_compose_file() == str(expected)
 

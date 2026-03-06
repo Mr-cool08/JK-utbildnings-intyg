@@ -68,7 +68,7 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     ua.main()
 
     prod_ps_idx = _index_of_command(
-        calls, ["docker", "compose", "-f", "docker-compose.prod.yml", "ps", "--all"]
+        calls, ["docker", "compose", "-f", "docker-compose.yml", "ps", "--all"]
     )
 
     assert prod_ps_idx == 0
@@ -80,6 +80,6 @@ def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
 
     ua.main()
 
-    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.prod.yml", "ps"]
+    assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "Y" for c in calls)

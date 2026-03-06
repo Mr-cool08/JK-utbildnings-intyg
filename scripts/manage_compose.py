@@ -41,7 +41,7 @@ def default_compose_file() -> str:
     root = repo_root()
 
     # Prefer production compose if it exists, otherwise fall back to standard compose.
-    prod_file = root / "docker-compose.prod.yml"
+    prod_file = root / "docker-compose.yml"
     if prod_file.is_file():
         return str(prod_file)
 

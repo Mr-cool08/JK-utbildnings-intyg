@@ -36,11 +36,11 @@ def test_antivirus_does_not_copy_or_move_infected_files():
 
 
 def test_antivirus_extra_excludes_are_configurable():
-    compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+    example_env = Path(".example.env").read_text(encoding="utf-8")
     entrypoint = Path("services/antivirus/entrypoint.sh").read_text(encoding="utf-8")
     run_scan = Path("services/antivirus/run_scan.sh").read_text(encoding="utf-8")
 
-    assert "EXTRA_EXCLUDE_DIRS: ${ANTIVIRUS_EXTRA_EXCLUDE_DIRS:-}" in compose
+    assert "ANTIVIRUS_EXTRA_EXCLUDE_DIRS=" in example_env
     assert "EXTRA_EXCLUDE_DIRS" in entrypoint
     assert "EXTRA_EXCLUDE_DIRS=${EXTRA_EXCLUDE_DIRS:-}" in run_scan
     assert "EXTRA_EXCLUDE_DIRS_NORMALIZED=${EXTRA_EXCLUDE_DIRS//:/,}" in run_scan

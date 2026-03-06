@@ -5,7 +5,11 @@ import shutil
 import subprocess
 
 import pytest
-from pytest_docker.plugin import get_docker_services
+
+try:
+    from pytest_docker.plugin import get_docker_services
+except ModuleNotFoundError:  # pragma: no cover - beror på testmiljön
+    get_docker_services = None
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -48,6 +52,9 @@ def _create_temp_compose_for_build(
 
 
 def _build_image_with_pytest_docker(compose_file: Path, setup_command: str) -> None:
+    if get_docker_services is None:
+        pytest.skip("pytest-docker är inte installerat i testmiljön.")
+
     project_name = f"jk_utbildnings_intyg_{setup_command.replace(' ', '_')}"
     with get_docker_services(
         docker_compose_command="docker compose",
@@ -86,7 +93,14 @@ def test_dockerfile_exposes_port_and_runs_entrypoint():
 
 def test_compose_avoids_host_volumes():
     compose = _read(ROOT / "docker-compose.yml")
-    assert "volumes:" not in compose or "- env_data:/config" not in compose
+    app_service_match = re.search(
+        r"(?ms)^  app:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+        compose,
+    )
+    assert app_service_match, "Expected app service in docker-compose.yml"
+    app_service = app_service_match.group(1)
+    assert "- env_data:/config" in app_service
+    assert re.search(r"-\s+\./[^:\n]*:/config", app_service) is None
 
 
 
