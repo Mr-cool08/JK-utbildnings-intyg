@@ -8,14 +8,11 @@ def _patch_main_runtime(
     monkeypatch,
     calls,
     venv_bin="X",
-    dev_mode=False,
-    busy_ports=None,
 ):
     def fake_run(cmd, check=True, **kwargs):
         calls.append((list(cmd), kwargs.get("cwd")))
         return subprocess.CompletedProcess(cmd, 0)
 
-    busy = set(busy_ports or [])
     monkeypatch.setattr(ua, "_run", fake_run)
     monkeypatch.setattr(ua, "_build_venv_command", lambda root, a, b: [venv_bin])
     monkeypatch.setattr(ua, "_find_requirements", lambda root: [])
@@ -28,8 +25,6 @@ def _patch_main_runtime(
         )(),
     )
     monkeypatch.setattr(ua.time, "sleep", lambda *_: None)
-    monkeypatch.setattr(ua, "_dev_mode_enabled", lambda root: dev_mode)
-    monkeypatch.setattr(ua, "_port_in_use", lambda port: port in busy)
 
 
 def _index_of_command(calls, expected_command):
@@ -73,10 +68,9 @@ def test_build_venv_command_prefers_unix_layout_on_posix(tmp_path):
     assert Path(pip_cmd[0]).name == "pip" or Path(pip_cmd[0]).name == "pip.exe"
 
 
-def test_main_sequence_dev_mode(monkeypatch, tmp_path):
-    # same sequence but compose file remains production even in dev mode
+def test_main_sequence_uses_production_compose(monkeypatch):
     calls = []
-    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", dev_mode=True, busy_ports=[])
+    _patch_main_runtime(monkeypatch, calls, venv_bin="Y")
 
     ua.main()
 
@@ -87,9 +81,9 @@ def test_main_sequence_dev_mode(monkeypatch, tmp_path):
     assert prod_ps_idx == 0
 
 
-def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
+def test_main_sequence_runs_expected_commands(monkeypatch):
     calls = []
-    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", dev_mode=True, busy_ports=[])
+    _patch_main_runtime(monkeypatch, calls, venv_bin="Y")
 
     ua.main()
 
@@ -98,61 +92,13 @@ def test_main_sequence_dev_mode_uses_dev_compose(monkeypatch):
     assert any(c[0] and c[0][0] == "Y" for c in calls)
 
 
-def test_dev_mode_enabled_reads_dotenv_when_env_missing(monkeypatch, tmp_path):
-    monkeypatch.delenv("DEV_MODE", raising=False)
-    (tmp_path / ".env").write_text("DEV_MODE=true\n")
-
-    assert ua._dev_mode_enabled(tmp_path) is True
-
-
-def test_dev_port_scales_when_dev_mode_off():
-    scales = ua._dev_port_scales(False)
-    assert scales == [
-        "--scale",
-        "dev_main_port=0",
-        "--scale",
-        "dev_demo_port=0",
-        "--scale",
-        "dev_status_port=0",
-    ]
-
-
-def test_dev_port_scales_only_for_busy_ports(monkeypatch):
-    monkeypatch.setattr(ua, "_port_in_use", lambda port: port in {80, 8000})
-
-    scales = ua._dev_port_scales(True)
-    assert scales == [
-        "--scale",
-        "dev_main_port=0",
-        "--scale",
-        "dev_status_port=0",
-    ]
-
-
-def test_main_scales_busy_dev_ports_on_up(monkeypatch):
+def test_main_runs_compose_up_without_scale_flags(monkeypatch):
     calls = []
-    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", dev_mode=True, busy_ports={80})
+    _patch_main_runtime(monkeypatch, calls, venv_bin="Y")
 
     ua.main()
 
     up_command = _find_command_prefix(
         calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
     )
-    assert "--scale" in up_command
-    assert "dev_main_port=0" in up_command
-    assert "dev_demo_port=0" not in up_command
-    assert "dev_status_port=0" not in up_command
-
-
-def test_main_scales_all_dev_ports_when_dev_mode_off(monkeypatch):
-    calls = []
-    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", dev_mode=False)
-
-    ua.main()
-
-    up_command = _find_command_prefix(
-        calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
-    )
-    assert "dev_main_port=0" in up_command
-    assert "dev_demo_port=0" in up_command
-    assert "dev_status_port=0" in up_command
+    assert "--scale" not in up_command

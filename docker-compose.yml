@@ -83,6 +83,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     expose:
       - "80"
+    ports:
+      - "80:80"
     volumes:
       - env_data:/config
       - app_logs:/app/logs
@@ -130,6 +132,8 @@ services:
       DEMO_SUPERVISOR_ORGNR: ${DEMO_SUPERVISOR_ORGNR}
     expose:
       - "80"
+    ports:
+      - "8000:80"
     volumes:
       - env_data:/config
       - demo_logs:/app/logs
@@ -170,6 +174,8 @@ services:
       STATUS_TRAEFIK_PORT: "80"
     expose:
       - "80"
+    ports:
+      - "8080:80"
     networks:
       - public_net
       - db_net
@@ -192,70 +198,6 @@ services:
       - traefik.http.routers.status.entrypoints=websecure
       - traefik.http.routers.status.tls=true
       - traefik.http.services.status.loadbalancer.server.port=80
-
-  dev_main_port:
-    image: alpine/socat:1.8.0.0
-    environment:
-      DEV_MODE: ${DEV_MODE:-false}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        mode="$(printf '%s' "${DEV_MODE:-false}" | tr '[:upper:]' '[:lower:]')"
-        if [ "${mode}" != "true" ]; then
-          echo "DEV_MODE är avstängt, dev-port 80 startas inte."
-          exit 0
-        fi
-        exec socat TCP-LISTEN:80,fork,reuseaddr TCP:app:80
-    depends_on:
-      app:
-        condition: service_started
-    networks:
-      - public_net
-    ports:
-      - "127.0.0.1:80:80"
-
-  dev_demo_port:
-    image: alpine/socat:1.8.0.0
-    environment:
-      DEV_MODE: ${DEV_MODE:-false}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        mode="$(printf '%s' "${DEV_MODE:-false}" | tr '[:upper:]' '[:lower:]')"
-        if [ "${mode}" != "true" ]; then
-          echo "DEV_MODE är avstängt, dev-port 8080 startas inte."
-          exit 0
-        fi
-        exec socat TCP-LISTEN:80,fork,reuseaddr TCP:app_demo:80
-    depends_on:
-      app_demo:
-        condition: service_started
-    networks:
-      - public_net
-    ports:
-      - "127.0.0.1:8080:80"
-
-  dev_status_port:
-    image: alpine/socat:1.8.0.0
-    environment:
-      DEV_MODE: ${DEV_MODE:-false}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        mode="$(printf '%s' "${DEV_MODE:-false}" | tr '[:upper:]' '[:lower:]')"
-        if [ "${mode}" != "true" ]; then
-          echo "DEV_MODE är avstängt, dev-port 8000 startas inte."
-          exit 0
-        fi
-        exec socat TCP-LISTEN:80,fork,reuseaddr TCP:status_page:80
-    depends_on:
-      status_page:
-        condition: service_started
-    networks:
-      - public_net
-    ports:
-      - "127.0.0.1:8000:80"
-
 
   postgres:
     image: postgres:16
