@@ -65,10 +65,17 @@ PORT=8080
 docker compose up --build
 ```
 
+När `DEV_MODE=true` kan du nå tjänster utan domän direkt via portar:
+- Huvudapp: `http://localhost:80`
+- Demo: `http://localhost:8080`
+- Status: `http://localhost:8000`
+
 Vanliga adresser:
-- App: `http://localhost:8080`
-- Demo: `http://localhost:8081`
-- Status: `http://localhost:8082`
+- Huvudapp (dev): `http://localhost:80`
+- Demo (dev): `http://localhost:8080`
+- Status (dev): `http://localhost:8000`
+
+När `DEV_MODE=false` startas inte dessa dev-portar, och trafik går i stället via Traefik (domän/HTTPS).
 
 ### Produktion
 

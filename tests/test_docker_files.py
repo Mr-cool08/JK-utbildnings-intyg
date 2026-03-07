@@ -103,7 +103,17 @@ def test_compose_avoids_host_volumes():
     assert re.search(r"-\s+\./[^:\n]*:/config", app_service) is None
 
 
+def test_compose_exposes_expected_local_ports_only_in_dev_mode():
+    compose = _read(ROOT / "docker-compose.yml")
 
+    assert "dev_main_port:" in compose
+    assert "dev_demo_port:" in compose
+    assert "dev_status_port:" in compose
+    assert "127.0.0.1:80:80" in compose
+    assert "127.0.0.1:8080:80" in compose
+    assert "127.0.0.1:8000:80" in compose
+    assert "${DEV_MODE:-false}" in compose
+    assert 'if [ "${mode}" != "true" ]; then' in compose
 
 
 def test_entrypoint_runs_gunicorn_only():
