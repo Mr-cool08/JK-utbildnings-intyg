@@ -35,7 +35,7 @@ jobs:
           DEMO_SUPERVISOR_NAME: ci
           DEMO_HASH_SALT: ci
           DEMO_USER_PERSONNUMMER: 199001011234
-        run: docker compose -f docker-compose.prod.yml build
+        run: docker compose -f docker-compose.yml build
 
       - name: Build development compose
         run: docker compose -f docker-compose.yml build
