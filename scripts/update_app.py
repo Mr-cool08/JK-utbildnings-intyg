@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -73,6 +74,31 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
 
     print("$", " ".join(cmd))
     subprocess.run(list(cmd), check=True, **kwargs)
+
+
+def _read_dotenv_value(dotenv_path: Path, key: str) -> str | None:
+    """Read a key from .env if present."""
+
+    if not dotenv_path.is_file():
+        return None
+
+    for line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        name, value = stripped.split("=", 1)
+        if name.strip() != key:
+            continue
+        return value.strip().strip("'\"")
+    return None
+
+
+def _port_in_use(port: int) -> bool:
+    """Return True when localhost:port already has a listener."""
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
 def _get_valid_postgres_public_port(default: str = "15432") -> str:
@@ -154,17 +180,43 @@ def _run_os_upgrade_if_enabled() -> None:
 # --- workflow ---------------------------------------------------------------
 
 
-def _dev_mode_enabled() -> bool:
+def _dev_mode_enabled(root: Path) -> bool:
     raw = os.getenv("DEV_MODE")
+    if raw is None:
+        raw = _read_dotenv_value(root / ".env", "DEV_MODE")
     if not raw:
         return False
     return raw.strip().lower() in {"1", "true", "on", "ja", "yes"}
+
+
+def _dev_port_scales(dev_mode: bool) -> list[str]:
+    services = {
+        "dev_main_port": 80,
+        "dev_demo_port": 8080,
+        "dev_status_port": 8000,
+    }
+    scales: list[str] = []
+
+    if not dev_mode:
+        print("DEV_MODE är avstängt, dev-porttjänster skalas till 0.")
+        for service in services:
+            scales.extend(["--scale", f"{service}=0"])
+        return scales
+
+    for service, port in services.items():
+        if _port_in_use(port):
+            print(
+                f"Port {port} används redan, startar {service} med skala 0 för att undvika krock."
+            )
+            scales.extend(["--scale", f"{service}=0"])
+    return scales
 
 
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
     compose_env = os.environ.copy()
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
+    dev_mode = _dev_mode_enabled(root)
 
     def compose(*args: str) -> list[str]:
         file = "docker-compose.yml"
@@ -209,7 +261,7 @@ def main() -> None:
 
     # 9. rebuild & up without cache
     _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
-    _run(compose("up", "-d"), cwd=root, env=compose_env)
+    _run(compose("up", "-d", *_dev_port_scales(dev_mode)), cwd=root, env=compose_env)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
