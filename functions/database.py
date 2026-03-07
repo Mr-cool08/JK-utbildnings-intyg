@@ -358,6 +358,23 @@ def _add_column_if_missing(
     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {column_type}"))
 
 
+def _postgres_constraint_exists(
+    conn: Connection, table_name: str, constraint_name: str
+) -> bool:
+    row = conn.execute(
+        text(
+            """
+            SELECT 1
+            FROM pg_constraint
+            WHERE conname = :constraint_name
+              AND conrelid = to_regclass(:table_name)
+            """
+        ),
+        {"constraint_name": constraint_name, "table_name": table_name},
+    ).scalar_one_or_none()
+    return row is not None
+
+
 def _migration_0003_add_invoice_fields(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
@@ -545,15 +562,18 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
         conn.execute(
             text("ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_email_key")
         )
-        conn.execute(
-            text(
-                "ALTER TABLE company_users ADD CONSTRAINT uq_company_users_email_role UNIQUE (email, role)"
+        if not _postgres_constraint_exists(
+            conn, company_users_table.name, "uq_company_users_email_role"
+        ):
+            conn.execute(
+                text(
+                    "ALTER TABLE company_users ADD CONSTRAINT uq_company_users_email_role UNIQUE (email, role)"
+                )
             )
-        )
         return
 
     raise RuntimeError(
-        f"Migration 0007 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+        f"Migration 0008 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
     )
 
 

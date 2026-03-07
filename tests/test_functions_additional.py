@@ -237,3 +237,53 @@ def test_switch_postgres_host_after_dns_error(monkeypatch):
 
     assert switched is True
     assert os.environ["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/testdb"
+
+
+@pytest.mark.parametrize(
+    "constraint_exists, should_add_constraint",
+    [
+        (True, False),
+        (False, True),
+    ],
+)
+def test_migration_0008_postgres_is_idempotent(monkeypatch, constraint_exists, should_add_constraint):
+    class _FakeResult:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar_one_or_none(self):
+            return self._value
+
+    class _FakeConn:
+        dialect = SimpleNamespace(name="postgresql")
+
+        def __init__(self, existing_constraint):
+            self._existing_constraint = existing_constraint
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            sql = str(statement)
+            self.executed_sql.append((sql, parameters))
+            if "FROM pg_constraint" in sql:
+                if self._existing_constraint:
+                    return _FakeResult(1)
+                return _FakeResult(None)
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(get_table_names=lambda: [functions.company_users_table.name]),
+    )
+
+    conn = _FakeConn(existing_constraint=constraint_exists)
+    database_module._migration_0008_company_users_email_role_unique(conn)
+
+    drop_statement = "ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_email_key"
+    add_statement = (
+        "ALTER TABLE company_users ADD CONSTRAINT uq_company_users_email_role UNIQUE (email, role)"
+    )
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+
+    assert drop_statement in executed_sql_texts
+    assert (add_statement in executed_sql_texts) is should_add_constraint
