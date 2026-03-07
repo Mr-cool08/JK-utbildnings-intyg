@@ -19,7 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # Skapa och äg kataloger
-RUN mkdir -p /app/uploads /app/logs /config \
+RUN sed -i 's/\r$//' /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh \
+    && mkdir -p /app/uploads /app/logs /config \
     && cp .env /config/.env || true \
     && chown -R app:app /app /config /app/uploads /app/logs
 
