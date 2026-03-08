@@ -7,8 +7,8 @@ services:
       - "443:443"
     volumes:
       - ./deploy/traefik/dynamic:/etc/traefik/dynamic:ro
-      - ${ORIGIN_CERT_PATH}:/etc/traefik/certs/origin.crt:ro
-      - ${ORIGIN_KEY_PATH}:/etc/traefik/certs/origin.key:ro
+      - ${ORIGIN_CERT_PATH:-/etc/ssl/cloudflare/origin.crt}:/etc/traefik/certs/origin.crt:ro
+      - ${ORIGIN_KEY_PATH:-/etc/ssl/cloudflare/origin.key}:/etc/traefik/certs/origin.key:ro
       - traefik_logs:/var/log/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
@@ -80,7 +80,7 @@ services:
       - .env
     environment:
       LOG_DIR: /app/logs
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-}
     expose:
       - "80"
     ports:
@@ -120,16 +120,16 @@ services:
       LOG_DIR: /app/logs
       ENABLE_DEMO_MODE: "true"
       LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
-      SECRET_KEY: ${DEMO_SECRET_KEY}
-      HASH_SALT: ${DEMO_HASH_SALT}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL}
-      DEMO_USER_NAME: ${DEMO_USER_NAME}
-      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD}
-      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL}
-      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME}
-      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD}
-      DEMO_SUPERVISOR_ORGNR: ${DEMO_SUPERVISOR_ORGNR}
+      SECRET_KEY: ${DEMO_SECRET_KEY:-}
+      HASH_SALT: ${DEMO_HASH_SALT:-}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-}
+      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER:-}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
+      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL:-}
+      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME:-}
+      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD:-}
+      DEMO_SUPERVISOR_ORGNR: ${DEMO_SUPERVISOR_ORGNR:-}
     expose:
       - "80"
     ports:
@@ -167,9 +167,9 @@ services:
       - .env
     environment:
       STATUS_DB_HOST: postgres
-      STATUS_DB_NAME: ${POSTGRES_DB}
-      STATUS_DB_USER: ${POSTGRES_USER}
-      STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      STATUS_DB_NAME: ${POSTGRES_DB:-}
+      STATUS_DB_USER: ${POSTGRES_USER:-}
+      STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD:-}
       STATUS_TRAEFIK_HOST: traefik
       STATUS_TRAEFIK_PORT: "80"
     expose:
@@ -214,9 +214,9 @@ services:
       - -c
       - max_connections=50
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-}
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -224,7 +224,7 @@ services:
       # Publik exponering kräver POSTGRES_BIND_IP=0.0.0.0 (default är endast lokal åtkomst).
       - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-} -d ${POSTGRES_DB:-} -h 127.0.0.1 -p 5432"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -244,10 +244,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST:-}
+      POSTGRES_DB: ${POSTGRES_DB:-}
+      POSTGRES_USER: ${POSTGRES_USER:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       BACKUP_DIR: /backups
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}

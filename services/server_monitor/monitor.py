@@ -9,6 +9,7 @@ import tempfile
 import time
 from email.message import EmailMessage
 from pathlib import Path
+from typing import TypedDict
 from urllib import error as url_error
 from urllib import request as url_request
 
@@ -96,7 +97,26 @@ ALERT_STATE = {
 LAST_CLAMAV_RUN_DATE = None
 LAST_SMOKE_RUN_AT = None
 LAST_SMOKE_WEEKLY_REPORT_ID = None
-DAILY_SMOKE_RESULTS: dict[dt.date, list[dict[str, object]]] = {}
+
+
+class SmokeCheckResult(TypedDict):
+    name: str
+    url: str
+    ok: bool
+    details: str
+    duration_seconds: float
+
+
+class SmokeRunSummary(TypedDict):
+    timestamp: str
+    total_checks: int
+    passed_checks: int
+    failed_checks: int
+    all_ok: bool
+    checks: list[SmokeCheckResult]
+
+
+DAILY_SMOKE_RESULTS: dict[dt.date, list[SmokeRunSummary]] = {}
 
 
 def _read_host_file(path: str) -> str:
@@ -276,7 +296,7 @@ def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):
         send_email(alert_title, alert_body, attachments)
 
 
-def run_smoke_check(name: str, url: str) -> dict[str, object]:
+def run_smoke_check(name: str, url: str) -> SmokeCheckResult:
     started_at = time.perf_counter()
     try:
         with url_request.urlopen(url, timeout=SMOKE_TESTS_TIMEOUT_SECONDS) as response:
@@ -308,7 +328,7 @@ def _prune_smoke_history(today: dt.date) -> None:
         DAILY_SMOKE_RESULTS.pop(day, None)
 
 
-def run_smoke_tests(now: dt.datetime | None = None) -> dict[str, object]:
+def run_smoke_tests(now: dt.datetime | None = None) -> SmokeRunSummary:
     current_time = now or dt.datetime.now()
     checks = [run_smoke_check(name, url) for name, url in SMOKE_TEST_TARGETS]
     total_checks = len(checks)
