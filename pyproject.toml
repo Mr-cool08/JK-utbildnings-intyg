@@ -50,6 +50,7 @@ no_implicit_optional = false
 [tool.pytest.ini_options]
 markers = [
   "docker: marker for tests that require a working Docker environment",
+  "slow: marker for slower tests that may be skipped in fast test runs",
 ]
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

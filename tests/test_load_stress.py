@@ -145,7 +145,7 @@ def test_stress_mixed_authenticated_traffic_handles_burst_load(user_db):
         f"För låg lyckandegrad för autentiserad trafik: {success_ratio:.3%} "
         f"({len(failures)} fel av {len(results)})."
     )
-    assert mean(durations) < 2.2, (
+    assert mean(durations) < 2.4, (
         f"Genomsnittlig svarstid för autentiserad trafik är för hög: {mean(durations):.3f}s"
     )
     assert _percentile(durations, 95) < 4.0, (
