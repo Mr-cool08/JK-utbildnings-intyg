@@ -50,6 +50,7 @@ def test_load_public_routes_high_traffic_stays_available(empty_db):
 
     def _request(request_id: int) -> dict[str, object]:
         path = paths[request_id % len(paths)]
+        started = perf_counter()
         try:
             with app.app.test_client() as client:
                 started = perf_counter()
