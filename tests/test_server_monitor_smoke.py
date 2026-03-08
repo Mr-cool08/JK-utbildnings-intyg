@@ -1,0 +1,144 @@
+import datetime as dt
+import importlib.util
+import sys
+import types
+from pathlib import Path
+
+
+def _load_monitor_module(monkeypatch, **env):
+    for key, value in env.items():
+        monkeypatch.setenv(key, str(value))
+
+    fake_docker = types.ModuleType("docker")
+    fake_docker.DockerClient = object
+    fake_docker.from_env = lambda: None
+    monkeypatch.setitem(sys.modules, "docker", fake_docker)
+
+    module_path = Path("services/server_monitor/monitor.py")
+    spec = importlib.util.spec_from_file_location("server_monitor_for_tests", module_path)
+    module = importlib.util.module_from_spec(spec)
+    if spec.loader is None:
+        raise AssertionError("Kunde inte ladda monitor-modulen.")
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_parse_smoke_targets_supports_named_and_unnamed_entries(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+
+    targets = module.parse_smoke_targets(
+        "Hälsa=https://utbildningsintyg.se/health,https://status.utbildningsintyg.se"
+    )
+
+    assert targets == [
+        ("Hälsa", "https://utbildningsintyg.se/health"),
+        ("https://status.utbildningsintyg.se", "https://status.utbildningsintyg.se"),
+    ]
+
+
+def test_run_smoke_tests_records_daily_results(monkeypatch):
+    module = _load_monitor_module(
+        monkeypatch,
+        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test,Status=https://b.test",
+    )
+    module.DAILY_SMOKE_RESULTS.clear()
+
+    responses = [
+        {"name": "Hälsa", "url": "https://a.test", "ok": True, "details": "HTTP 200", "duration_seconds": 0.01},
+        {"name": "Status", "url": "https://b.test", "ok": False, "details": "HTTP 503", "duration_seconds": 0.02},
+    ]
+
+    def _fake_run(name, url):
+        for item in responses:
+            if item["name"] == name:
+                return item
+        raise AssertionError("Okänt smoke-mål.")
+
+    monkeypatch.setattr(module, "run_smoke_check", _fake_run)
+    now = dt.datetime(2026, 3, 8, 10, 30, 0)
+
+    summary = module.run_smoke_tests(now=now)
+
+    assert summary["total_checks"] == 2
+    assert summary["passed_checks"] == 1
+    assert summary["failed_checks"] == 1
+    assert summary["all_ok"] is False
+
+    day_entries = module.DAILY_SMOKE_RESULTS[now.date()]
+    assert len(day_entries) == 1
+    assert day_entries[0]["failed_checks"] == 1
+
+
+def test_maybe_run_smoke_tests_respects_interval(monkeypatch):
+    module = _load_monitor_module(
+        monkeypatch,
+        MONITOR_SMOKE_TESTS_INTERVAL_SECONDS="300",
+        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test",
+    )
+
+    calls = []
+
+    def _fake_run(now=None):
+        calls.append(now)
+        return {
+            "passed_checks": 1,
+            "total_checks": 1,
+            "failed_checks": 0,
+            "all_ok": True,
+            "checks": [],
+        }
+
+    monkeypatch.setattr(module, "run_smoke_tests", _fake_run)
+    module.LAST_SMOKE_RUN_AT = dt.datetime(2026, 3, 8, 10, 0, 0)
+
+    module.maybe_run_smoke_tests(now=dt.datetime(2026, 3, 8, 10, 3, 0))
+    module.maybe_run_smoke_tests(now=dt.datetime(2026, 3, 8, 10, 6, 0))
+
+    assert len(calls) == 1
+    assert calls[0] == dt.datetime(2026, 3, 8, 10, 6, 0)
+
+
+def test_weekly_smoke_report_is_sent_once_and_contains_daily_rows(monkeypatch):
+    module = _load_monitor_module(
+        monkeypatch,
+        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test",
+        MONITOR_SMOKE_WEEKLY_REPORT_WEEKDAY="6",
+        MONITOR_SMOKE_WEEKLY_REPORT_HOUR="9",
+        MONITOR_SMOKE_WEEKLY_REPORT_MINUTE="0",
+    )
+    module.DAILY_SMOKE_RESULTS.clear()
+    module.LAST_SMOKE_WEEKLY_REPORT_ID = None
+
+    report_now = dt.datetime(2026, 3, 8, 9, 0, 0)
+    for days_back in range(7):
+        day = report_now.date() - dt.timedelta(days=days_back)
+        module.DAILY_SMOKE_RESULTS[day] = [
+            {
+                "timestamp": f"{day.isoformat()}T08:00:00",
+                "checks": [{"name": "Hälsa", "ok": True}],
+                "total_checks": 1,
+                "passed_checks": 1,
+                "failed_checks": 0,
+                "all_ok": True,
+            }
+        ]
+
+    sent_messages = []
+
+    def _fake_send_email(subject, body, attachments):
+        sent_messages.append({"subject": subject, "body": body, "attachments": attachments})
+
+    monkeypatch.setattr(module, "send_email", _fake_send_email)
+
+    module.maybe_send_weekly_smoke_report(now=report_now)
+    module.maybe_send_weekly_smoke_report(now=report_now)
+
+    assert len(sent_messages) == 1
+    first_message = sent_messages[0]
+    assert "Veckorapport: smoke-tester vecka" in first_message["subject"]
+    assert "- 2026-03-08:" in first_message["body"]
+    assert "- 2026-03-02:" in first_message["body"]
+    assert first_message["attachments"] == []
+
+
+# Copyright (c) Liam Suorsa and Mika Suorsa

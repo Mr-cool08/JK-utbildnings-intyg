@@ -9,6 +9,8 @@ import tempfile
 import time
 from email.message import EmailMessage
 from pathlib import Path
+from urllib import error as url_error
+from urllib import request as url_request
 
 import docker
 
@@ -37,6 +39,51 @@ HOST_ROOT = os.getenv("HOST_ROOT", "/host")
 CLAMAV_SCAN_IMAGE = os.getenv("CLAMAV_SCAN_IMAGE", "clamav/clamav:stable")
 CLAMAV_SCAN_TIMEOUT_SECONDS = int(os.getenv("CLAMAV_SCAN_TIMEOUT_SECONDS", str(6 * 3600)))
 
+
+def _is_truthy(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on", "ja"}
+
+
+def _safe_int(value: str, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_smoke_targets(raw_value: str) -> list[tuple[str, str]]:
+    targets: list[tuple[str, str]] = []
+    for part in raw_value.split(","):
+        item = part.strip()
+        if not item:
+            continue
+        if "=" in item:
+            name, url = item.split("=", 1)
+            name = name.strip()
+            url = url.strip()
+        else:
+            url = item
+            name = item
+        if not name or not url:
+            continue
+        targets.append((name, url))
+    return targets
+
+
+SMOKE_TESTS_ENABLED = _is_truthy(os.getenv("MONITOR_SMOKE_TESTS_ENABLED", "true"))
+SMOKE_TESTS_TIMEOUT_SECONDS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_TIMEOUT_SECONDS", "8"), 8)
+SMOKE_TESTS_INTERVAL_SECONDS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_INTERVAL_SECONDS", "1800"), 1800)
+SMOKE_TESTS_HISTORY_DAYS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_HISTORY_DAYS", "35"), 35)
+SMOKE_WEEKLY_REPORT_WEEKDAY = _safe_int(os.getenv("MONITOR_SMOKE_WEEKLY_REPORT_WEEKDAY", "0"), 0)
+SMOKE_WEEKLY_REPORT_HOUR = _safe_int(os.getenv("MONITOR_SMOKE_WEEKLY_REPORT_HOUR", "8"), 8)
+SMOKE_WEEKLY_REPORT_MINUTE = _safe_int(os.getenv("MONITOR_SMOKE_WEEKLY_REPORT_MINUTE", "0"), 0)
+SMOKE_TEST_TARGETS = parse_smoke_targets(
+    os.getenv(
+        "MONITOR_SMOKE_TEST_TARGETS",
+        "Huvudsidan=https://utbildningsintyg.se/health",
+    )
+)
+
 DISK_THRESHOLDS = [50, 60, 75, 95, 100]
 RAM_THRESHOLD = 80
 CPU_THRESHOLD = 90
@@ -47,6 +94,9 @@ ALERT_STATE = {
     "cpu": False,
 }
 LAST_CLAMAV_RUN_DATE = None
+LAST_SMOKE_RUN_AT = None
+LAST_SMOKE_WEEKLY_REPORT_ID = None
+DAILY_SMOKE_RESULTS: dict[dt.date, list[dict[str, object]]] = {}
 
 
 def _read_host_file(path: str) -> str:
@@ -226,6 +276,173 @@ def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):
         send_email(alert_title, alert_body, attachments)
 
 
+def run_smoke_check(name: str, url: str) -> dict[str, object]:
+    started_at = time.perf_counter()
+    try:
+        with url_request.urlopen(url, timeout=SMOKE_TESTS_TIMEOUT_SECONDS) as response:
+            status_code = int(getattr(response, "status", 200))
+            ok = 200 <= status_code < 400
+            details = f"HTTP {status_code}"
+    except url_error.HTTPError as exc:
+        ok = False
+        details = f"HTTP {exc.code}"
+    except Exception as exc:  # pragma: no cover - defensiv fallback
+        ok = False
+        details = f"Fel: {str(exc)}"
+
+    return {
+        "name": name,
+        "url": url,
+        "ok": ok,
+        "details": details,
+        "duration_seconds": round(time.perf_counter() - started_at, 3),
+    }
+
+
+def _prune_smoke_history(today: dt.date) -> None:
+    stale_days: list[dt.date] = []
+    for day in DAILY_SMOKE_RESULTS:
+        if (today - day).days > SMOKE_TESTS_HISTORY_DAYS:
+            stale_days.append(day)
+    for day in stale_days:
+        DAILY_SMOKE_RESULTS.pop(day, None)
+
+
+def run_smoke_tests(now: dt.datetime | None = None) -> dict[str, object]:
+    current_time = now or dt.datetime.now()
+    checks = [run_smoke_check(name, url) for name, url in SMOKE_TEST_TARGETS]
+    total_checks = len(checks)
+    passed_checks = sum(1 for check in checks if check["ok"])
+    failed_checks = total_checks - passed_checks
+    all_ok = failed_checks == 0
+
+    day = current_time.date()
+    day_bucket = DAILY_SMOKE_RESULTS.setdefault(day, [])
+    day_bucket.append(
+        {
+            "timestamp": current_time.isoformat(timespec="seconds"),
+            "checks": checks,
+            "total_checks": total_checks,
+            "passed_checks": passed_checks,
+            "failed_checks": failed_checks,
+            "all_ok": all_ok,
+        }
+    )
+    _prune_smoke_history(day)
+
+    return {
+        "timestamp": current_time.isoformat(timespec="seconds"),
+        "total_checks": total_checks,
+        "passed_checks": passed_checks,
+        "failed_checks": failed_checks,
+        "all_ok": all_ok,
+        "checks": checks,
+    }
+
+
+def maybe_run_smoke_tests(now: dt.datetime | None = None) -> None:
+    global LAST_SMOKE_RUN_AT
+    if not SMOKE_TESTS_ENABLED or not SMOKE_TEST_TARGETS:
+        return
+
+    current_time = now or dt.datetime.now()
+    if LAST_SMOKE_RUN_AT is not None:
+        elapsed_seconds = (current_time - LAST_SMOKE_RUN_AT).total_seconds()
+        if elapsed_seconds < max(1, SMOKE_TESTS_INTERVAL_SECONDS):
+            return
+
+    summary = run_smoke_tests(current_time)
+    LAST_SMOKE_RUN_AT = current_time
+
+    if summary["all_ok"]:
+        logger.info(
+            "Smoke-tester lyckades: %s/%s",
+            summary["passed_checks"],
+            summary["total_checks"],
+        )
+        return
+
+    failed_check_names = ", ".join(
+        check["name"] for check in summary["checks"] if not check["ok"]
+    )
+    logger.warning(
+        "Smoke-tester misslyckades: %s/%s (fel i: %s)",
+        summary["passed_checks"],
+        summary["total_checks"],
+        failed_check_names or "okänt mål",
+    )
+
+
+def build_weekly_smoke_report(now: dt.datetime | None = None) -> str:
+    current_time = now or dt.datetime.now()
+    lines = [
+        "Veckorapport för smoke-tester (daglig sammanställning):",
+        "",
+    ]
+    for days_back in range(6, -1, -1):
+        day = current_time.date() - dt.timedelta(days=days_back)
+        entries = DAILY_SMOKE_RESULTS.get(day, [])
+        if not entries:
+            lines.append(f"- {day.isoformat()}: Inga körningar registrerade.")
+            continue
+
+        run_count = len(entries)
+        total_checks = sum(int(entry["total_checks"]) for entry in entries)
+        passed_checks = sum(int(entry["passed_checks"]) for entry in entries)
+        failed_checks = total_checks - passed_checks
+        success_rate = (passed_checks / total_checks * 100) if total_checks else 0.0
+        lines.append(
+            f"- {day.isoformat()}: {run_count} körningar, "
+            f"{passed_checks}/{total_checks} godkända ({success_rate:.1f}%), "
+            f"fel: {failed_checks}."
+        )
+
+        latest_failed_names = []
+        for entry in reversed(entries):
+            failed_checks_for_entry = [
+                check["name"] for check in entry["checks"] if not check["ok"]
+            ]
+            if failed_checks_for_entry:
+                latest_failed_names = failed_checks_for_entry
+                break
+        if latest_failed_names:
+            lines.append(
+                f"  Senast felande mål: {', '.join(latest_failed_names[:3])}"
+            )
+
+    lines.extend(
+        [
+            "",
+            "Rapporten skickas automatiskt varje vecka från serverövervakningen.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def maybe_send_weekly_smoke_report(now: dt.datetime | None = None) -> None:
+    global LAST_SMOKE_WEEKLY_REPORT_ID
+    if not SMOKE_TESTS_ENABLED or not SMOKE_TEST_TARGETS:
+        return
+
+    current_time = now or dt.datetime.now()
+    if current_time.weekday() != max(0, min(6, SMOKE_WEEKLY_REPORT_WEEKDAY)):
+        return
+    if current_time.hour != max(0, min(23, SMOKE_WEEKLY_REPORT_HOUR)):
+        return
+    if current_time.minute != max(0, min(59, SMOKE_WEEKLY_REPORT_MINUTE)):
+        return
+
+    iso_year, iso_week, _iso_weekday = current_time.isocalendar()
+    weekly_report_id = f"{iso_year}-W{iso_week:02d}"
+    if LAST_SMOKE_WEEKLY_REPORT_ID == weekly_report_id:
+        return
+
+    report_subject = f"Veckorapport: smoke-tester vecka {iso_week:02d}"
+    report_body = build_weekly_smoke_report(current_time)
+    send_email(report_subject, report_body, [])
+    LAST_SMOKE_WEEKLY_REPORT_ID = weekly_report_id
+
+
 def run_clamav_scan(client: docker.DockerClient):
     command = (
         "sh -lc 'clamscan -r -i /host "
@@ -259,12 +476,16 @@ def run_clamav_scan(client: docker.DockerClient):
         )
 
 
-def maybe_run_clamav(client: docker.DockerClient):
+def maybe_run_clamav(client: docker.DockerClient, now: dt.datetime | None = None):
     global LAST_CLAMAV_RUN_DATE
-    now = dt.datetime.now()
-    if now.hour == 0 and now.minute == 0 and LAST_CLAMAV_RUN_DATE != now.date():
+    current_time = now or dt.datetime.now()
+    if (
+        current_time.hour == 0
+        and current_time.minute == 0
+        and LAST_CLAMAV_RUN_DATE != current_time.date()
+    ):
         run_clamav_scan(client)
-        LAST_CLAMAV_RUN_DATE = now.date()
+        LAST_CLAMAV_RUN_DATE = current_time.date()
 
 
 def main():
@@ -273,6 +494,7 @@ def main():
 
     while True:
         try:
+            now = dt.datetime.now()
             disk_percent = get_disk_percent()
             ram_percent = get_ram_percent()
             cpu_percent, previous_total, previous_idle = get_cpu_percent(
@@ -310,7 +532,9 @@ def main():
             if cpu_percent < 85:
                 ALERT_STATE["cpu"] = False
 
-            maybe_run_clamav(client)
+            maybe_run_clamav(client, now=now)
+            maybe_run_smoke_tests(now=now)
+            maybe_send_weekly_smoke_report(now=now)
         except Exception as exc:
             with tempfile.TemporaryDirectory() as tempdir:
                 error_file = Path(tempdir) / "monitor_error.txt"

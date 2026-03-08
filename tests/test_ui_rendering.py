@@ -1,0 +1,129 @@
+import re
+
+import app
+import functions
+from course_categories import COURSE_CATEGORIES
+
+
+def _client():
+    return app.app.test_client()
+
+
+def _extract_nav_links(body: str) -> str:
+    match = re.search(r'<div class="nav-links">(.*?)</div>', body, flags=re.DOTALL)
+    assert match is not None
+    return match.group(1)
+
+
+def _login_user(client):
+    with client.session_transaction() as session:
+        session["csrf_token"] = "test-token"
+    response = client.post(
+        "/login",
+        data={
+            "personnummer": "9001011234",
+            "password": "secret",
+            "csrf_token": "test-token",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+
+def test_public_nav_shows_public_links_and_swedish_lang(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    nav_links = _extract_nav_links(body)
+
+    assert '<html lang="sv">' in body
+    assert ">Hem<" in nav_links
+    assert 'href="/ansok"' in nav_links
+    assert 'href="/foretagskonto/login"' in nav_links
+    assert 'href="/login"' in nav_links
+
+
+def test_logged_in_user_nav_shows_user_actions_only(user_db):
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    nav_links = _extract_nav_links(body)
+
+    assert ">Intyg<" in nav_links
+    assert 'href="/logout"' in nav_links
+    assert "Privatinloggning" not in nav_links
+    assert "/foretagskonto/login" not in nav_links
+
+
+def test_standardkonto_form_contains_expected_ui_fields(empty_db):
+    with _client() as client:
+        response = client.get("/ansok/standardkonto")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Ansök om användarkonto" in body
+    assert 'id="name"' in body
+    assert 'id="email"' in body
+    assert 'type="email"' in body
+    assert 'id="personnummer"' in body
+    assert 'inputmode="numeric"' in body
+    assert 'placeholder="ÅÅMMDDXXXX"' in body
+    assert 'id="terms_confirmed"' in body
+    assert 'href="/villkor"' in body
+    assert 'href="/gdpr"' in body
+    assert "form_error_highlight.js" in body
+    assert "Skickar ansökan" in body
+
+
+def test_foretagskonto_form_contains_invoice_section_and_required_fields(empty_db):
+    with _client() as client:
+        response = client.get("/ansok/foretagskonto")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Ansök om företagskonto" in body
+    assert 'id="company_name"' in body
+    assert 'id="orgnr"' in body
+    assert 'inputmode="numeric"' in body
+    assert "556966-8337" in body
+    assert 'id="invoiceSection"' in body
+    assert 'id="invoice_address"' in body
+    assert 'id="invoice_contact"' in body
+    assert 'id="invoice_reference"' in body
+    assert 'id="terms_confirmed"' in body
+    assert 'href="/villkor"' in body
+    assert 'href="/gdpr"' in body
+    assert "form_error_highlight.js" in body
+
+
+def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+    functions.store_pdf_blob(
+        personnummer_hash,
+        "ui-intyg.pdf",
+        b"%PDF-1.4 ui-test",
+        [category_slug],
+    )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Dela markerade intyg" in body
+    assert 'id="shareModal"' in body
+    assert 'id="shareRecipientEmail"' in body
+    assert "data-share-select" in body
+    assert 'id="certificate"' in body
+    assert 'id="category"' in body
+    assert "dashboard.js" in body
+
+
+# Copyright (c) Liam Suorsa and Mika Suorsa

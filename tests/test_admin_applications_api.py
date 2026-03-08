@@ -33,6 +33,33 @@ def test_admin_list_applications(empty_db):
     assert any(entry['id'] == first for entry in payload['data'])
 
 
+def test_admin_get_application_by_id(empty_db):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    application_id = functions.create_application_request(
+        'foretagskonto',
+        'Hämtning Test',
+        'get@example.com',
+        '5569668337',
+        'Hämtning AB',
+        'Kommentar',
+        'Adress 1',
+        'Kontaktperson',
+        'Ref-GET',
+    )
+
+    response = client.get(f'/admin/api/ansokningar/{application_id}')
+    assert response.status_code == 200
+
+    payload = response.get_json()
+    assert payload['status'] == 'success'
+    assert payload['data']['id'] == application_id
+    assert payload['data']['email'] == 'get@example.com'
+    assert payload['data']['account_type'] == 'foretagskonto'
+    assert payload['data']['company_name'] == 'Hämtning AB'
+
+
 def test_admin_approve_application_api(empty_db, monkeypatch):
     client = app.app.test_client()
     _admin_session(client)

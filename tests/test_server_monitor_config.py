@@ -43,6 +43,7 @@ def test_monitor_thresholds_are_configured():
     assert "RAM_THRESHOLD = 80" in monitor_script
     assert "CPU_THRESHOLD = 90" in monitor_script
     assert "Nattlig ClamAV-rapport" in monitor_script
+    assert "Veckorapport: smoke-tester vecka" in monitor_script
 
 
 def test_collect_container_resource_usage_guards_none_stats():
