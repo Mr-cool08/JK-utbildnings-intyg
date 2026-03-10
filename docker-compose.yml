@@ -73,6 +73,8 @@ services:
     memswap_limit: 256m
     cpus: "0.30"
     pids_limit: 120
+    networks:
+      - public_net
 
   app:
     build: .
