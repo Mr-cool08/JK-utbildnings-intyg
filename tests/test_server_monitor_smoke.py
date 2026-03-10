@@ -141,4 +141,55 @@ def test_weekly_smoke_report_is_sent_once_and_contains_daily_rows(monkeypatch):
     assert first_message["attachments"] == []
 
 
+def test_run_smoke_check_includes_exception_type_in_details(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+
+    def _fake_urlopen(*_args, **_kwargs):
+        raise TimeoutError("begäran tog för lång tid")
+
+    monkeypatch.setattr(module.url_request, "urlopen", _fake_urlopen)
+
+    result = module.run_smoke_check("Huvudsidan", "https://utbildningsintyg.se/health")
+
+    assert result["ok"] is False
+    assert "TimeoutError" in result["details"]
+    assert "begäran tog för lång tid" in result["details"]
+
+
+def test_maybe_run_smoke_tests_logs_failure_details(monkeypatch):
+    module = _load_monitor_module(monkeypatch, MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test")
+    module.LAST_SMOKE_RUN_AT = None
+    captured = {}
+
+    def _fake_run_smoke_tests(now=None):
+        return {
+            "passed_checks": 0,
+            "total_checks": 1,
+            "failed_checks": 1,
+            "all_ok": False,
+            "checks": [
+                {
+                    "name": "Hälsa",
+                    "url": "https://a.test",
+                    "ok": False,
+                    "details": "HTTP 503",
+                    "duration_seconds": 0.123,
+                }
+            ],
+        }
+
+    def _fake_warning(message, *args):
+        captured["message"] = message
+        captured["args"] = args
+
+    monkeypatch.setattr(module, "run_smoke_tests", _fake_run_smoke_tests)
+    monkeypatch.setattr(module.logger, "warning", _fake_warning)
+
+    module.maybe_run_smoke_tests(now=dt.datetime(2026, 3, 8, 10, 0, 0))
+
+    rendered_log = captured["message"] % captured["args"]
+    assert "Hälsa (https://a.test): HTTP 503 efter 0.123s" in rendered_log
+    assert "detaljer:" in rendered_log
+
+
 # Copyright (c) Liam Suorsa and Mika Suorsa

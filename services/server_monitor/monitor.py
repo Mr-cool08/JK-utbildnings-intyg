@@ -305,10 +305,12 @@ def run_smoke_check(name: str, url: str) -> SmokeCheckResult:
             details = f"HTTP {status_code}"
     except url_error.HTTPError as exc:
         ok = False
-        details = f"HTTP {exc.code}"
+        reason = str(getattr(exc, "reason", "")).strip()
+        details = f"HTTP {exc.code} ({reason})" if reason else f"HTTP {exc.code}"
     except Exception as exc:  # pragma: no cover - defensiv fallback
         ok = False
-        details = f"Fel: {str(exc)}"
+        message = str(exc).strip() or "okänt fel"
+        details = f"Fel ({exc.__class__.__name__}): {message}"
 
     return {
         "name": name,
@@ -360,6 +362,17 @@ def run_smoke_tests(now: dt.datetime | None = None) -> SmokeRunSummary:
     }
 
 
+def format_failed_smoke_checks(checks: list[SmokeCheckResult]) -> str:
+    failed_entries = []
+    for check in checks:
+        if check["ok"]:
+            continue
+        failed_entries.append(
+            f'{check["name"]} ({check["url"]}): {check["details"]} efter {check["duration_seconds"]:.3f}s'
+        )
+    return "; ".join(failed_entries) if failed_entries else "Inga detaljer tillgängliga."
+
+
 def maybe_run_smoke_tests(now: dt.datetime | None = None) -> None:
     global LAST_SMOKE_RUN_AT
     if not SMOKE_TESTS_ENABLED or not SMOKE_TEST_TARGETS:
@@ -382,14 +395,17 @@ def maybe_run_smoke_tests(now: dt.datetime | None = None) -> None:
         )
         return
 
+    failed_checks = [check for check in summary["checks"] if not check["ok"]]
     failed_check_names = ", ".join(
-        check["name"] for check in summary["checks"] if not check["ok"]
+        check["name"] for check in failed_checks
     )
+    failed_check_details = format_failed_smoke_checks(failed_checks)
     logger.warning(
-        "Smoke-tester misslyckades: %s/%s (fel i: %s)",
+        "Smoke-tester misslyckades: %s/%s (fel i: %s) | detaljer: %s",
         summary["passed_checks"],
         summary["total_checks"],
         failed_check_names or "okänt mål",
+        failed_check_details,
     )
 
 
