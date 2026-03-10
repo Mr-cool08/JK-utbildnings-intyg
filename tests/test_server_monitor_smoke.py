@@ -192,4 +192,25 @@ def test_maybe_run_smoke_tests_logs_failure_details(monkeypatch):
     assert "detaljer:" in rendered_log
 
 
+def test_build_heartbeat_log_message_includes_metrics_and_schedule(monkeypatch):
+    module = _load_monitor_module(
+        monkeypatch,
+        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test",
+    )
+    module.LAST_SMOKE_RUN_AT = dt.datetime(2026, 3, 8, 10, 0, 0)
+
+    message = module.build_heartbeat_log_message(
+        now=dt.datetime(2026, 3, 8, 10, 5, 0),
+        disk_percent=12.3,
+        ram_percent=45.6,
+        cpu_percent=78.9,
+    )
+
+    assert "Heartbeat: övervakning aktiv 2026-03-08T10:05:00" in message
+    assert "disk 12.30%" in message
+    assert "RAM 45.60%" in message
+    assert "CPU 78.90%" in message
+    assert "smoke: 1 mål, nästa tidigast 2026-03-08T10:30:00" in message
+
+
 # Copyright (c) Liam Suorsa and Mika Suorsa

@@ -373,6 +373,32 @@ def format_failed_smoke_checks(checks: list[SmokeCheckResult]) -> str:
     return "; ".join(failed_entries) if failed_entries else "Inga detaljer tillgängliga."
 
 
+def build_heartbeat_log_message(
+    now: dt.datetime,
+    disk_percent: float,
+    ram_percent: float,
+    cpu_percent: float,
+) -> str:
+    smoke_targets_count = len(SMOKE_TEST_TARGETS)
+    if not SMOKE_TESTS_ENABLED or smoke_targets_count == 0:
+        smoke_schedule = "avstängd"
+    elif LAST_SMOKE_RUN_AT is None:
+        smoke_schedule = "första körning väntar"
+    else:
+        next_smoke_run_at = LAST_SMOKE_RUN_AT + dt.timedelta(
+            seconds=max(1, SMOKE_TESTS_INTERVAL_SECONDS)
+        )
+        smoke_schedule = (
+            f"nästa tidigast {next_smoke_run_at.isoformat(timespec='seconds')}"
+        )
+
+    return (
+        f"Heartbeat: övervakning aktiv {now.isoformat(timespec='seconds')} | "
+        f"disk {disk_percent:.2f}% | RAM {ram_percent:.2f}% | CPU {cpu_percent:.2f}% | "
+        f"smoke: {smoke_targets_count} mål, {smoke_schedule}"
+    )
+
+
 def maybe_run_smoke_tests(now: dt.datetime | None = None) -> None:
     global LAST_SMOKE_RUN_AT
     if not SMOKE_TESTS_ENABLED or not SMOKE_TEST_TARGETS:
@@ -535,6 +561,14 @@ def main():
             ram_percent = get_ram_percent()
             cpu_percent, previous_total, previous_idle = get_cpu_percent(
                 previous_total, previous_idle
+            )
+            logger.debug(
+                build_heartbeat_log_message(
+                    now=now,
+                    disk_percent=disk_percent,
+                    ram_percent=ram_percent,
+                    cpu_percent=cpu_percent,
+                )
             )
 
             for threshold in DISK_THRESHOLDS:
