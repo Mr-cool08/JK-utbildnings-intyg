@@ -15,12 +15,38 @@ from urllib import request as url_request
 
 import docker
 
+
+def _resolve_fallback_log_level(raw_level: str | None) -> int:
+    level_name = (raw_level or "").strip().upper()
+    if not level_name:
+        return logging.INFO
+
+    resolved_level = getattr(logging, level_name, None)
+    if isinstance(resolved_level, int):
+        return resolved_level
+    return logging.INFO
+
+
+def configure_fallback_logging(module_name: str) -> logging.Logger:
+    # Enkel fallback för image-varianter där functions.logging inte finns.
+    log_level = _resolve_fallback_log_level(os.getenv("LOG_LEVEL", "INFO"))
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        force=True,
+    )
+    return logging.getLogger(module_name)
+
+
 try:
     from functions.logging import bootstrap_logging
 
     logger = bootstrap_logging(__name__)
 except Exception:
-    logger = logging.getLogger(__name__)
+    logger = configure_fallback_logging(__name__)
+    logger.warning(
+        "Kunde inte initiera functions.logging; använder fallback-loggning för server_monitor."
+    )
 
 CHECK_INTERVAL_SECONDS = int(os.getenv("MONITOR_CHECK_INTERVAL_SECONDS", "60"))
 

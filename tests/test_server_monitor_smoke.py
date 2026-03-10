@@ -1,5 +1,6 @@
 import datetime as dt
 import importlib.util
+import logging
 import sys
 import types
 from pathlib import Path
@@ -211,6 +212,44 @@ def test_build_heartbeat_log_message_includes_metrics_and_schedule(monkeypatch):
     assert "RAM 45.60%" in message
     assert "CPU 78.90%" in message
     assert "smoke: 1 mål, nästa tidigast 2026-03-08T10:30:00" in message
+
+
+def test_resolve_fallback_log_level_handles_invalid_values(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+
+    assert module._resolve_fallback_log_level("DEBUG") == logging.DEBUG
+    assert module._resolve_fallback_log_level("warning") == logging.WARNING
+    assert module._resolve_fallback_log_level("inte_en_niva") == logging.INFO
+    assert module._resolve_fallback_log_level("") == logging.INFO
+    assert module._resolve_fallback_log_level(None) == logging.INFO
+
+
+def test_configure_fallback_logging_sets_console_handler_and_level(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    try:
+        root_logger.handlers = []
+        root_logger.setLevel(logging.NOTSET)
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+
+        configured_logger = module.configure_fallback_logging("jk.test.monitor")
+
+        assert configured_logger.name == "jk.test.monitor"
+        assert root_logger.level == logging.DEBUG
+        assert any(
+            isinstance(handler, logging.StreamHandler)
+            for handler in root_logger.handlers
+        )
+    finally:
+        for handler in list(root_logger.handlers):
+            try:
+                handler.close()
+            except Exception:
+                pass
+        root_logger.handlers = original_handlers
+        root_logger.setLevel(original_level)
 
 
 # Copyright (c) Liam Suorsa and Mika Suorsa
