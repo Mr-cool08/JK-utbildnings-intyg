@@ -199,8 +199,10 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
     root = logging.getLogger()
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
     formatter = AppTimezoneFormatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
-    has_stream_handler = any(
-        isinstance(handler, logging.StreamHandler) for handler in root.handlers
+    has_console_handler = any(
+        isinstance(handler, logging.StreamHandler)
+        and not isinstance(handler, logging.FileHandler)
+        for handler in root.handlers
     )
     has_file_handler = any(
         isinstance(handler, RotatingFileHandler)
@@ -208,7 +210,7 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
         for handler in root.handlers
     )
 
-    if not has_stream_handler:
+    if not has_console_handler:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         root.addHandler(console_handler)

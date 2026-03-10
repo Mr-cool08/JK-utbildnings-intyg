@@ -149,6 +149,40 @@ def test_configure_root_logging_handles_directory_log_file(monkeypatch, tmp_path
         root_logger.setLevel(original_level)
 
 
+def test_configure_root_logging_adds_console_when_only_file_handler_exists(monkeypatch, tmp_path):
+    log_file = tmp_path / "existing.log"
+    configured_log_file = tmp_path / "configured.log"
+    monkeypatch.setenv("LOG_FILE", str(configured_log_file))
+
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    try:
+        root_logger.handlers = []
+        root_logger.setLevel(logging.NOTSET)
+
+        existing_file_handler = logging.FileHandler(log_file)
+        root_logger.addHandler(existing_file_handler)
+
+        logging_utils.configure_root_logging()
+
+        console_handlers = [
+            handler
+            for handler in root_logger.handlers
+            if isinstance(handler, logging.StreamHandler)
+            and not isinstance(handler, logging.FileHandler)
+        ]
+        assert len(console_handlers) >= 1
+    finally:
+        for handler in list(root_logger.handlers):
+            try:
+                handler.close()
+            except Exception:
+                pass
+        root_logger.handlers = original_handlers
+        root_logger.setLevel(original_level)
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
 
