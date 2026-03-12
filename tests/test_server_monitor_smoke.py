@@ -252,4 +252,48 @@ def test_configure_fallback_logging_sets_console_handler_and_level(monkeypatch):
         root_logger.setLevel(original_level)
 
 
+def test_initialize_logger_skips_warning_when_functions_package_is_missing(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+    warning_calls = []
+
+    class _FakeLogger:
+        def warning(self, message, *args):
+            warning_calls.append((message, args))
+
+    def _fake_get_bootstrap_logging():
+        raise ModuleNotFoundError("No module named 'functions'", name="functions")
+
+    fake_logger = _FakeLogger()
+    monkeypatch.setattr(module, "_get_bootstrap_logging", _fake_get_bootstrap_logging)
+    monkeypatch.setattr(module, "configure_fallback_logging", lambda _module_name: fake_logger)
+
+    configured_logger = module.initialize_logger("jk.test.monitor")
+
+    assert configured_logger is fake_logger
+    assert warning_calls == []
+
+
+def test_initialize_logger_warns_for_unexpected_missing_dependency(monkeypatch):
+    module = _load_monitor_module(monkeypatch)
+    warning_calls = []
+
+    class _FakeLogger:
+        def warning(self, message, *args):
+            warning_calls.append((message, args))
+
+    def _fake_get_bootstrap_logging():
+        raise ModuleNotFoundError("No module named 'sqlalchemy'", name="sqlalchemy")
+
+    fake_logger = _FakeLogger()
+    monkeypatch.setattr(module, "_get_bootstrap_logging", _fake_get_bootstrap_logging)
+    monkeypatch.setattr(module, "configure_fallback_logging", lambda _module_name: fake_logger)
+
+    configured_logger = module.initialize_logger("jk.test.monitor")
+
+    assert configured_logger is fake_logger
+    assert len(warning_calls) == 1
+    assert "Kunde inte initiera functions.logging" in warning_calls[0][0]
+    assert warning_calls[0][1] == ("sqlalchemy",)
+
+
 # Copyright (c) Liam Suorsa and Mika Suorsa

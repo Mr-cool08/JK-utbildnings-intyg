@@ -38,15 +38,40 @@ def configure_fallback_logging(module_name: str) -> logging.Logger:
     return logging.getLogger(module_name)
 
 
-try:
+def _get_bootstrap_logging():
     from functions.logging import bootstrap_logging
 
-    logger = bootstrap_logging(__name__)
-except Exception:
-    logger = configure_fallback_logging(__name__)
-    logger.warning(
-        "Kunde inte initiera functions.logging; använder fallback-loggning för server_monitor."
-    )
+    return bootstrap_logging
+
+
+def _is_expected_missing_functions_logging(exc: ModuleNotFoundError) -> bool:
+    missing_module_name = (getattr(exc, "name", "") or "").strip()
+    return missing_module_name in {"functions", "functions.logging"}
+
+
+def initialize_logger(module_name: str) -> logging.Logger:
+    try:
+        bootstrap_logging = _get_bootstrap_logging()
+        return bootstrap_logging(module_name)
+    except ModuleNotFoundError as exc:
+        fallback_logger = configure_fallback_logging(module_name)
+        if not _is_expected_missing_functions_logging(exc):
+            fallback_logger.warning(
+                "Kunde inte initiera functions.logging; använder fallback-loggning för server_monitor. "
+                "Saknad modul: %s",
+                getattr(exc, "name", "okänd"),
+            )
+        return fallback_logger
+    except Exception as exc:
+        fallback_logger = configure_fallback_logging(module_name)
+        fallback_logger.warning(
+            "Kunde inte initiera functions.logging; använder fallback-loggning för server_monitor. Fel: %s",
+            str(exc),
+        )
+        return fallback_logger
+
+
+logger = initialize_logger(__name__)
 
 CHECK_INTERVAL_SECONDS = int(os.getenv("MONITOR_CHECK_INTERVAL_SECONDS", "60"))
 
