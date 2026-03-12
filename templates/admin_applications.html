@@ -242,7 +242,11 @@
                 : null;
             setMessage('Ansökan godkänd.', 'success', creationText);
         } catch (error) {
-            console.error(error);
+            sendClientLog({
+                message: error?.message || 'Fel vid godkännande av ansökan.',
+                context: 'Godkände ansökan',
+                details: { name: error?.name }
+            });
             setMessage(error.message || 'Ett fel uppstod vid godkännande.', 'error');
         } finally {
             setButtonsDisabled(card, false);
@@ -274,7 +278,11 @@
             setMessage('Ansökan avslogs.', 'success');
             card.querySelector('.reject-panel').hidden = true;
         } catch (error) {
-            console.error(error);
+            sendClientLog({
+                message: error?.message || 'Fel vid avslag av ansökan.',
+                context: 'Avslog ansökan',
+                details: { name: error?.name }
+            });
             setMessage(error.message || 'Ett fel uppstod vid avslag.', 'error');
         } finally {
             setButtonsDisabled(card, false);
@@ -331,7 +339,11 @@
             }
             renderApplications(data.data || []);
         } catch (error) {
-            console.error(error);
+            sendClientLog({
+                message: error?.message || 'Fel vid inläsning av ansökningar.',
+                context: 'Läste ansökningar',
+                details: { name: error?.name }
+            });
             setMessage(error.message || 'Ett fel uppstod när ansökningarna skulle hämtas.', 'error');
         } finally {
             toggleLoading(false);

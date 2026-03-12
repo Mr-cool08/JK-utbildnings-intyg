@@ -23,7 +23,7 @@
     <meta charset="UTF-8">
     <title>{% block title %}Utbildningsintyg{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#E93B56">
+    <meta name="theme-color" content="#D2354D">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <script type="text/javascript" data-cmp-ab="1" src="https://cdn.consentmanager.net/delivery/autoblocking/79b762eac2d3b.js" data-cmp-host="a.delivery.consentmanager.net" data-cmp-cdn="cdn.consentmanager.net" data-cmp-codesrc="16"></script>
@@ -139,52 +139,6 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/nav.js') }}" defer></script>
-    <style>
-    /* Minimal toast styles kept local so template works without touching global CSS */
-    .toast-container {
-        position: fixed;
-        right: 1rem;
-        bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        z-index: 1000;
-        pointer-events: none;
-    }
-    .toast {
-        pointer-events: auto;
-        min-width: 220px;
-        max-width: 360px;
-        background: #222;
-        color: white;
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        opacity: 0;
-        transform: translateY(8px);
-        transition: opacity 220ms ease, transform 220ms ease;
-    }
-    .toast.show {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    .toast.success { background: #1b8f4a; }
-    .toast.error { background: #d64545; }
-    .toast .toast-message { margin-right: 0.5rem; flex: 1 1 auto; }
-    .toast .toast-close {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.9);
-        font-size: 1.1rem;
-        line-height: 1;
-        cursor: pointer;
-        padding: 0 0.25rem;
-    }
-    </style>
-
     <script>
     // Small script to show toasts and auto-hide them. Runs immediately — degrades gracefully if JS disabled.
     (function(){
