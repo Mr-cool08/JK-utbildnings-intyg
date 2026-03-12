@@ -1,6 +1,7 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
 {% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
+{% block main_class %}main-home{% endblock %}
 {% block head %}
     <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Kom åt dina intyg när du behöver dem.">
     <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering">
@@ -38,7 +39,7 @@
                 <li data-motion-child>Se vad som är uppladdat, delat och klart</li>
                 <li data-motion-child>Hantera personuppgifter med GDPR-anpassad struktur</li>
             </ul>
-            <div class="hero-actions" aria-label="Snabbknappar" data-motion-group="hero-actions">
+            <div class="hero-actions" aria-label="Primära handlingar" data-motion-group="hero-actions">
                 <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
                 <p class="hero-action-note" data-motion-child>
                     <a class="hero-inline-link" href="/pris">Se priser</a>
@@ -46,7 +47,7 @@
                     {% if DEMO_SITE_URL %}
                         <a class="hero-inline-link" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
                     {% elif IS_DEMO %}
-                        <a class="hero-inline-link" href="/foretagskonto/login">Prova demo</a>
+                        <a class="hero-inline-link" href="/login">Prova demo</a>
                     {% else %}
                         <a class="hero-inline-link" href="mailto:support@utbildningsintyg.se?subject=Boka%20demo">Boka demo</a>
                     {% endif %}
@@ -57,7 +58,7 @@
                 </div>
             </div>
         </div>
-        <aside class="hero-rail" aria-label="Snabb onboarding" data-motion-group="hero-rail">
+        <aside class="hero-rail" aria-label="Kontoval" data-motion-group="hero-rail">
             <p class="hero-rail-label" data-motion-child>Välj konto</p>
             <h2 class="hero-rail-title" data-motion-child>Två spår beroende på hur du arbetar</h2>
             <ol class="hero-rail-steps" data-motion-group="hero-rail-steps">

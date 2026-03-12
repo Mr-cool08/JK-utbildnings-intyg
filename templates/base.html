@@ -54,7 +54,7 @@
                     <a href="/logout">Logga ut</a>
                 {% else %}
                     <a class="nav-link {% if request.path == '/' %}is-active{% endif %}" href="/">Hem</a>
-                    <a class="nav-link {% if request.path.startswith('/ansok') %}is-active{% endif %}" href="{{ url_for('apply_account') }}">Ansök om konto</a>
+                    <a class="nav-link nav-link-cta {% if request.path.startswith('/ansok') %}is-active{% endif %}" href="{{ url_for('apply_account') }}">Ansök om konto</a>
                     <a class="nav-link {% if request.path.startswith('/foretagskonto') %}is-active{% endif %}" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
                     <a class="nav-link {% if request.path.startswith('/login') %}is-active{% endif %}" href="/login">Privatinloggning</a>
                     {% if IS_DEMO %}
@@ -82,7 +82,7 @@
             </div>
         {% endif %}
     {% endwith %}
-    <main id="main-content">
+    <main id="main-content" class="{% block main_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
     <footer class="site-footer">
