@@ -121,62 +121,67 @@
         </ol>
     </section>
 
-    <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
-        <p class="section-kicker" data-motion-child>Funktioner</p>
-        <h2 id="feature-title" data-motion-child>Verktyg för den löpande hanteringen</h2>
-        <div class="feature-listing" data-motion-group="features">
-            <article class="feature-row" data-motion-child>
-                <p class="feature-tag">Arkiv</p>
-                <h3>Filtrera och hitta snabbt</h3>
-                <p>Sök på kategori, person och innehåll när du behöver rätt dokument.</p>
-                <p class="feature-highlight">Mindre tid går åt till att leta i mappar och mejltrådar.</p>
-            </article>
-            <article class="feature-row" data-motion-child>
-                <p class="feature-tag">Delning</p>
-                <h3>Skicka med kontroll</h3>
-                <p>Välj ett eller flera intyg och dela till en tydligt vald mottagare.</p>
-                <p class="feature-highlight">Du styr vad som delas, när och till vem.</p>
-            </article>
-            <article class="feature-row" data-motion-child>
-                <p class="feature-tag">Behörighet</p>
-                <h3>Separata flöden för privat och företag</h3>
-                <p>Anpassade vyer beroende på om du arbetar själv eller i organisation.</p>
-                <p class="feature-highlight">Rätt person ser rätt information vid rätt tillfälle.</p>
-            </article>
-            <article class="feature-row" data-motion-child>
-                <p class="feature-tag">Uppladdning</p>
-                <h3>Stöd för vanliga filformat</h3>
-                <p>Ladda upp PDF, JPG eller PNG direkt i samma arbetsflöde.</p>
-                <p class="feature-highlight">Inga specialverktyg krävs för att komma igång.</p>
-            </article>
-            <article class="feature-row" data-motion-child>
-                <p class="feature-tag">Överblick</p>
-                <h3>Dokumentera beslut nära intyget</h3>
-                <p>Lägg till noteringar så att nästa person snabbt förstår sammanhanget.</p>
-                <p class="feature-highlight">Mindre muntlig överlämning och färre missförstånd.</p>
-            </article>
-        </div>
-    </section>
+    <details class="home-more-details" data-motion="section">
+        <summary data-motion-child>Visa fler funktioner och fördelar</summary>
+        <div class="home-more-content">
+            <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
+                <p class="section-kicker" data-motion-child>Funktioner</p>
+                <h2 id="feature-title" data-motion-child>Verktyg för den löpande hanteringen</h2>
+                <div class="feature-listing" data-motion-group="features">
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Arkiv</p>
+                        <h3>Filtrera och hitta snabbt</h3>
+                        <p>Sök på kategori, person och innehåll när du behöver rätt dokument.</p>
+                        <p class="feature-highlight">Mindre tid går åt till att leta i mappar och mejltrådar.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Delning</p>
+                        <h3>Skicka med kontroll</h3>
+                        <p>Välj ett eller flera intyg och dela till en tydligt vald mottagare.</p>
+                        <p class="feature-highlight">Du styr vad som delas, när och till vem.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Behörighet</p>
+                        <h3>Separata flöden för privat och företag</h3>
+                        <p>Anpassade vyer beroende på om du arbetar själv eller i organisation.</p>
+                        <p class="feature-highlight">Rätt person ser rätt information vid rätt tillfälle.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Uppladdning</p>
+                        <h3>Stöd för vanliga filformat</h3>
+                        <p>Ladda upp PDF, JPG eller PNG direkt i samma arbetsflöde.</p>
+                        <p class="feature-highlight">Inga specialverktyg krävs för att komma igång.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Överblick</p>
+                        <h3>Dokumentera beslut nära intyget</h3>
+                        <p>Lägg till noteringar så att nästa person snabbt förstår sammanhanget.</p>
+                        <p class="feature-highlight">Mindre muntlig överlämning och färre missförstånd.</p>
+                    </article>
+                </div>
+            </section>
 
-    <section class="benefits" aria-labelledby="benefits-title" data-motion="section">
-        <p class="section-kicker" data-motion-child>Fördelar</p>
-        <h2 id="benefits-title" data-motion-child>Vad ni vinner i praktiken</h2>
-        <ul class="benefit-list" data-motion-group="benefits">
-            <li class="benefit-item" data-motion-child>
-                <h3>Mindre administration</h3>
-                <p>Färre manuella steg i den dagliga hanteringen av intyg.</p>
-            </li>
-            <li class="benefit-item" data-motion-child>
-                <h3>Snabbare svar till mottagare</h3>
-                <p>När underlag efterfrågas kan ni dela direkt utan extra handpåläggning.</p>
-            </li>
-            <li class="benefit-item" data-motion-child>
-                <h3>Tydligare intern överlämning</h3>
-                <p>Anteckningar och struktur gör att fler kan arbeta i samma process.</p>
-            </li>
-        </ul>
-        <a class="feature-link" href="{{ url_for('gdpr_info') }}" data-motion-child>Läs mer om integritetspolicyn</a>
-    </section>
+            <section class="benefits" aria-labelledby="benefits-title" data-motion="section">
+                <p class="section-kicker" data-motion-child>Fördelar</p>
+                <h2 id="benefits-title" data-motion-child>Vad ni vinner i praktiken</h2>
+                <ul class="benefit-list" data-motion-group="benefits">
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Mindre administration</h3>
+                        <p>Färre manuella steg i den dagliga hanteringen av intyg.</p>
+                    </li>
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Snabbare svar till mottagare</h3>
+                        <p>När underlag efterfrågas kan ni dela direkt utan extra handpåläggning.</p>
+                    </li>
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Tydligare intern överlämning</h3>
+                        <p>Anteckningar och struktur gör att fler kan arbeta i samma process.</p>
+                    </li>
+                </ul>
+                <a class="feature-link" href="{{ url_for('gdpr_info') }}" data-motion-child>Läs mer om integritetspolicyn</a>
+            </section>
+        </div>
+    </details>
 
     <section class="cta-panel" aria-labelledby="cta-title" data-motion="section">
         <div class="cta-copy">
