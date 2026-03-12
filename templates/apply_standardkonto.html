@@ -5,16 +5,16 @@
     <meta name="description" content="Ansök om användarkonto och få tillgång till Utbildningsintygets portal.">
 {% endblock %}
 {% block content %}
-<section class="apply-hero" aria-labelledby="apply-title">
-    <div class="apply-hero-content">
+<section class="apply-hero" aria-labelledby="apply-title" data-motion="hero">
+    <div class="apply-hero-content" data-motion-group="apply-user-hero">
 
-        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet">&#x2190; Tillbaka</a>
+        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet" data-motion-child>&#x2190; Tillbaka</a>
 
-        <div class="apply-intro">
+        <div class="apply-intro" data-motion-child>
             <h1 id="apply-title">Ansök om användarkonto</h1>
             <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart.</p>
         </div>
-        <form method="post" class="apply-form" novalidate>
+        <form method="post" class="apply-form" novalidate data-motion-child>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             {% if form_errors %}
                 <div class="message error" role="alert">
@@ -103,31 +103,31 @@
             <button type="submit" class="btn">Skicka ansökan</button>
         </form>
         {% if success_message %}
-            <div class="message success" role="status" aria-live="polite">
+            <div class="message success" role="status" aria-live="polite" data-motion-child>
                 {{ success_message }}
             </div>
         {% endif %}
     </div>
 </section>
 
-<section class="apply-info" aria-labelledby="info-title">
+<section class="apply-info" aria-labelledby="info-title" data-motion="section">
     <h2 id="info-title">Om användarkonton</h2>
     <p class="apply-price">Användarkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
     <p>Företagskonton hanterar kopplingen mellan användare och företag vid behov.</p>
 </section>
 
-<section class="apply-steps" aria-labelledby="steps-title">
+<section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
     <h2 id="steps-title">Så går ansökan till</h2>
-    <ol class="apply-step-list">
-        <li>
+    <ol class="apply-step-list" data-motion-group="apply-steps">
+        <li data-motion-child>
             <h3>Skicka in uppgifter</h3>
             <p>Berätta vem du är och hur vi kan nå dig.</p>
         </li>
-        <li>
+        <li data-motion-child>
             <h3>Verifiering</h3>
             <p>Vi granskar uppgifterna och kontaktar dig om vi behöver kompletteringar.</p>
         </li>
-        <li>
+        <li data-motion-child>
             <h3>Starta upp</h3>
             <p>Vid godkänd ansökan skickar vi inloggningsinstruktioner via e-post.</p>
         </li>

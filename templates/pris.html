@@ -3,32 +3,40 @@
 {% block title %}Prislista{% endblock %}
 {% block content %}
 <section class="pricing-page" aria-labelledby="pricing-page-title">
-    <div class="pricing-page-header">
-        <h1 id="pricing-page-title">Prislista</h1>
-    </div>
-    <div class="pricing-tables-container">
-        <div class="pricing-section">
+    <header class="pricing-hero" data-motion="hero">
+        <p class="pricing-eyebrow">Prislista</p>
+        <h1 id="pricing-page-title">Välj konto som passar verksamheten</h1>
+        <p class="pricing-lead">
+            Samla intyg på ett ställe och välj nivå utifrån hur många användare ni behöver hantera.
+        </p>
+        <div class="pricing-hero-actions" data-motion-group="pricing-hero-actions">
+            <a class="btn" href="/ansok" data-motion-child>Ansök om konto</a>
+            <a class="pricing-inline-link" href="mailto:support@utbildningsintyg.se" data-motion-child>
+                Frågor om pris? Kontakta support
+            </a>
+        </div>
+    </header>
+
+    <div class="pricing-layout" data-motion-group="pricing-sections">
+        <section class="pricing-section pricing-section-company" data-motion-child>
             <h2 class="pricing-page-subtitle">Företagskonto</h2>
-            <p>Företagskonto är utformat för organisationer som behöver hantera flera användare och intyg.</p>
+            <p>För organisationer som behöver hantera flera användare och intyg i samma portal.</p>
             <div class="pricing-table-wrapper">
                 <table class="pricing-table">
                     <thead>
                         <tr>
                             <th scope="col">Antal användare</th>
                             <th scope="col">Pris per månad</th>
-                            
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td data-label="Antal användare">1–10</td>
                             <td data-label="Pris per månad">190 kr</td>
-                            
                         </tr>
                         <tr>
                             <td data-label="Antal användare">11–20</td>
                             <td data-label="Pris per månad">390 kr</td>
-                            
                         </tr>
                         <tr>
                             <td data-label="Antal användare">21–50</td>
@@ -37,35 +45,29 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-        
-        <div class="pricing-section">
-            <h2 class="pricing-page-subtitle">Privatkonto</h2>
-            <div class="private-account-note">
-                <p>Privatkonto är gratis och tillgängligt för alla användare.</p>
-            </div>
-            <div class="pricing-table-wrapper">
-                <table class="pricing-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Privatkonto</th>
-                            <th scope="col">Pris per månad</th>
-                            
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td data-label="Privatkonto"></td>
-                            <td data-label="Pris per månad">0 kr</td>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+            <p class="pricing-tier-note">Behöver ni fler än 50 användare? Kontakta oss för en skräddarsydd offert.</p>
+        </section>
+
+        <aside class="pricing-section pricing-section-private" aria-labelledby="private-plan-title" data-motion-child>
+            <h2 id="private-plan-title" class="pricing-page-subtitle">Privatkonto</h2>
+            <p>Privatkonto passar dig som hanterar egna intyg och vill komma igång direkt.</p>
+            <p class="pricing-private-price">0 kr/månad</p>
+            <ul class="pricing-private-list">
+                <li>Lagra och hämta egna intyg</li>
+                <li>Dela intyg säkert vid behov</li>
+                <li>Logga in från mobil, surfplatta eller dator</li>
+            </ul>
+            <p class="pricing-vat-note">Samtliga priser anges exklusive moms om inget annat anges.</p>
+        </aside>
     </div>
-    <div class="pricing-note">
-        <p>Samtliga priser anges exklusive moms om inget annat anges.</p>
-        <p>Behöver ni fler än 50 användare? Kontakta oss för en skräddarsydd offert.</p>
-        <a class="btn" href="/ansok">Ansök om konto</a>
-    </div>
+
+    <section class="pricing-summary" aria-labelledby="pricing-summary-title" data-motion="section">
+        <h2 id="pricing-summary-title">Så väljer ni rätt nivå</h2>
+        <ol class="pricing-summary-list">
+            <li>Räkna antal användare som behöver tillgång till intyg.</li>
+            <li>Välj nivå i tabellen och ansök om konto.</li>
+            <li>Vi hjälper er vidare med uppstart och fakturering.</li>
+        </ol>
+    </section>
 </section>
 {% endblock %}

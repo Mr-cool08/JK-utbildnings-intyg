@@ -1,12 +1,12 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Utbildningsintyg – Hantera utbildningsintyg enkelt{% endblock %}
+{% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
 {% block head %}
-    <meta name="description" content="Utbildningsintyg hjälper dig att lagra, verifiera och komma åt utbildningsintyg var du än är.">
-    <meta name="keywords" content="utbildningsintyg, lagring, verifiering, åtkomst, Utbildningsintyg">
+    <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Kom åt dina intyg när du behöver dem.">
+    <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering">
     <meta name="robots" content="index, follow">
-    <meta property="og:title" content="Utbildningsintyg – Hantera utbildningsintyg enkelt">
-    <meta property="og:description" content="Utbildningsintyg hjälper dig att lagra och komma åt intyg var du än är.">
+    <meta property="og:title" content="Utbildningsintyg – Samla, spara och dela intyg enkelt">
+    <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -28,25 +28,25 @@
 </section>
 {% endif %}
 <div class="landing-content">
-    <section class="home-hero" aria-labelledby="home-hero-title">
-        <div class="hero-text">
-            <p class="hero-eyebrow">Alla dina utbildningsintyg på en plats</p>
-            <h1 id="home-hero-title">Digitalt arkiv för utbildningsintyg</h1>
-            <ul class="hero-list">
-                <li>Digital lagring av utbildningsintyg</li>
-                <li>Enkel delning med arbetsgivare och kunder</li>
-                <li>Säker och GDPR-anpassad hantering</li>
-                <li>Tillgängligt var som helst, när som helst</li>
-                <li>Privatkonto är gratis för privatpersoner.</li>
+    <section class="home-hero" aria-labelledby="home-hero-title" data-motion="hero">
+        <div class="hero-text" data-motion-group="hero-text">
+            <p class="hero-eyebrow" data-motion-child>Alla dina utbildningsintyg på ett ställe</p>
+            <h1 id="home-hero-title" data-motion-child>Håll ordning på dina utbildningsintyg</h1>
+            <ul class="hero-list" data-motion-group="hero-list">
+                <li data-motion-child>Spara intyg digitalt och hitta dem snabbt</li>
+                <li data-motion-child>Dela intyg säkert med arbetsgivare eller kunder</li>
+                <li data-motion-child>Skydda personuppgifter med GDPR-anpassad hantering</li>
+                <li data-motion-child>Logga in från mobil, surfplatta eller dator</li>
+                <li data-motion-child>Privatkonto är gratis för privatpersoner.</li>
             </ul>
         </div>
-        <div class="hero-actions" aria-label="Snabbknappar">
-            <a class="btn hero-btn" href="{{ url_for('apply_account') }}">Ansök om konto</a>
-            <a class="btn hero-btn" href="/pris">Prislista</a>
+        <div class="hero-actions" aria-label="Snabbknappar" data-motion-group="hero-actions">
+            <a class="btn hero-btn" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
+            <a class="btn hero-btn" href="/pris" data-motion-child>Se priser</a>
             {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener" data-motion-child>Prova demo</a>
             {% else %}
-                <a class="btn hero-btn btn-ghost" href="/foretagskonto/login">Prova demo</a>
+                <a class="btn hero-btn btn-ghost" href="/foretagskonto/login" data-motion-child>Prova demo</a>
             {% endif %}
         </div>
     </section>
@@ -54,91 +54,91 @@
 
 
 
-    <section class="workflow" id="sa-fungerar" aria-labelledby="workflow-title">
-        <h2 id="workflow-title">Så fungerar det</h2>
-        <div class="workflow-steps">
-            <article class="workflow-card">
+    <section class="workflow" id="sa-fungerar" aria-labelledby="workflow-title" data-motion="section">
+        <h2 id="workflow-title" data-motion-child>Så fungerar det</h2>
+        <div class="workflow-steps" data-motion-group="workflow">
+            <article class="workflow-card" data-motion-child>
                 <span class="step-number">1</span>
                 <h3>Ansök om konto</h3>
-                <p>Ansök om konto och administratören godkänner dig</p>
+                <p>Skicka in din ansökan. Vi granskar den och återkommer.</p>
             </article>
-            <article class="workflow-card">
+            <article class="workflow-card" data-motion-child>
                 <span class="step-number">2</span>
                 <h3>Ladda upp dina intyg</h3>
-                <p>Enkelt ladda upp dina intyg till vårt digitala arkiv.</p>
+                <p>Ladda upp intyg i PDF, JPG eller PNG. Vi samlar allt i ditt arkiv.</p>
             </article>
-            <article class="workflow-card">
+            <article class="workflow-card" data-motion-child>
                 <span class="step-number">3</span>
                 <h3>Hämta och dela</h3>
-                <p>Intygen kan skrivas ut, laddas ned eller delas digitalt med ett enda klick.</p>
+                <p>Ladda ner, skriv ut eller dela intyg när du behöver.</p>
             </article>
         </div>
     </section>
 
-    <section class="feature-section" id="funktioner" aria-labelledby="feature-title">
-        <h2 id="feature-title">Smarta funktioner som sparar tid</h2>
-        <div class="feature-grid">
-            <article class="feature-card">
-                <h3>Organisera smartare</h3>
-                <p>Samla alla utbildningsintyg i ett strukturerat arkiv och sätt egna etiketter.</p>
-                <p class="feature-highlight">Förbättra din organisation med etiketter och kategorier.</p>
+    <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
+        <h2 id="feature-title" data-motion-child>Funktioner som förenklar vardagen</h2>
+        <div class="feature-grid" data-motion-group="features">
+            <article class="feature-card" data-motion-child>
+                <h3>Sortera dina intyg</h3>
+                <p>Samla intyg i ett tydligt arkiv och märk dem med kategorier.</p>
+                <p class="feature-highlight">Du ser direkt vilket intyg som gäller för vilken utbildning.</p>
             </article>
-            <article class="feature-card">
-                <h3>Dela intyg enkelt</h3>
-                <p>Skicka valda intyg till kunder eller beställare med en säker delningslänk.</p>
-                <p class="feature-highlight">Delning via vår e-post ger hög pålitlighet.</p>
+            <article class="feature-card" data-motion-child>
+                <h3>Dela intyg säkert</h3>
+                <p>Skicka valda intyg till rätt mottagare via e-post.</p>
+                <p class="feature-highlight">Välj ett eller flera intyg och dela på några sekunder.</p>
             </article>
-            <article class="feature-card">
+            <article class="feature-card" data-motion-child>
                 <h3>Åtkomst överallt</h3>
-                <p>Logga in från dator, surfplatta eller mobil och hitta rätt intyg på sekunder.</p>
-                <p class="feature-highlight">Molnbaserad drift inom EU garanterar hög tillgänglighet.</p>
+                <p>Logga in från dator, surfplatta eller mobil och hitta rätt intyg snabbt.</p>
+                <p class="feature-highlight">Dina intyg är tillgängliga när du behöver dem.</p>
             </article>
-            <article class="feature-card">
-                <h3>Ansök om ett konto</h3>
+            <article class="feature-card" data-motion-child>
+                <h3>Välj rätt konto</h3>
                 <ul class="feature-list">
-                    <li>Privatkonto för kursdeltagare</li>
-                    <li>Företagskonto för hantering av flera användare</li>
+                    <li>Privatkonto för dig som hanterar egna intyg</li>
+                    <li>Företagskonto för företag som hanterar flera användare</li>
                 </ul>
-                <a class="feature-link" href="{{ url_for('apply_account') }}">Ansök direkt via portalen</a>
+                <a class="feature-link" href="{{ url_for('apply_account') }}">Ansök om konto</a>
             </article>
-            <article class="feature-card">
+            <article class="feature-card" data-motion-child>
                 <h3>Ladda upp dina intyg</h3>
-                <p>Dra och släpp filer i PDF, JPG eller PNG och koppla dem till rätt kurs.</p>
-                <p class="feature-highlight">Automatisk omvandling till PDF-format.</p>
+                <p>Dra in filer i PDF, JPG eller PNG och koppla dem till rätt kategori.</p>
+                <p class="feature-highlight">Filerna sparas som PDF för enkel hantering.</p>
             </article>
-            <article class="feature-card">
-                <h3>Skapa egna anteckningar</h3>
-                <p>Skriv och spara personliga noteringar direkt på dina uppladdade intyg.</p>
-                <p class="feature-highlight">Få en tydlig överblick över vad som gäller för varje enskilt intyg.</p>
+            <article class="feature-card" data-motion-child>
+                <h3>Lägg till anteckningar</h3>
+                <p>Skriv korta noteringar på varje intyg för bättre överblick.</p>
+                <p class="feature-highlight">Samla viktig information direkt vid intyget.</p>
             </article>
         </div>
     </section>
 
-    <section class="benefits" aria-labelledby="benefits-title">
-        <h2 id="benefits-title">Varför använda Utbildningsintyg?</h2>
-        <div class="benefit-grid">
-            <article class="benefit-card">
+    <section class="benefits" aria-labelledby="benefits-title" data-motion="section">
+        <h2 id="benefits-title" data-motion-child>Varför använda Utbildningsintyg?</h2>
+        <div class="benefit-grid" data-motion-group="benefits">
+            <article class="benefit-card" data-motion-child>
                 <h3>Säkerhet först (GDPR)</h3>
-                <p>Krypterad inloggning, loggning av alla åtgärder och datalagring inom EU.</p>
+                <p>Krypterad inloggning, spårbar aktivitet och datalagring inom EU.</p>
                 <a class="feature-link" href="{{ url_for('gdpr_info') }}">Läs mer om integritetspolicyn</a>
             </article>
-            <article class="benefit-card">
+            <article class="benefit-card" data-motion-child>
                 <h3>Enkel administration</h3>
-                <p>Kraftfulla filter, sökning och tydliga listor ger full kontroll över samtliga intyg.</p>
+                <p>Sök, filtrera och hitta rätt intyg utan att leta i mappar.</p>
             </article>
-            <article class="benefit-card">
+            <article class="benefit-card" data-motion-child>
                 <h3>Enkelt att komma igång</h3>
-                <p>Vi guidar er hela vägen - från uppstart till löpande drift och uppföljning.</p>
+                <p>Du får tydliga steg från ansökan till första uppladdning.</p>
             </article>
         </div>
     </section>
 
-    <section class="cta-panel" aria-labelledby="cta-title">
-        <h2 id="cta-title">Redo att digitalisera era intyg?</h2>
-        <p>Ansök om konto så kommer vi igång så fort som möjligt!</p>    
-        <div class="cta-actions">
-            <a class="btn btn-ghost" href="{{ url_for('apply_account') }}">Ansök om konto</a>
-            <a class="btn btn-ghost" href="/login">Logga in</a>
+    <section class="cta-panel" aria-labelledby="cta-title" data-motion="section">
+        <h2 id="cta-title">Redo att samla intygen digitalt?</h2>
+        <p>Ansök om konto så hjälper vi dig att komma igång.</p>
+        <div class="cta-actions" data-motion-group="cta-actions">
+            <a class="btn btn-ghost" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
+            <a class="btn btn-ghost" href="/login" data-motion-child>Logga in</a>
         </div>
     </section>
 </div>

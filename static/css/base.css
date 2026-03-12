@@ -38,6 +38,12 @@
     --container-padding: clamp(1.25rem, 4vw, 2.5rem);
     --transition-base: 0.2s ease;
     --transition-fast: 0.12s ease; /* Added to support faster UI transitions */
+    --motion-duration-fast: 160ms;
+    --motion-duration-medium: 280ms;
+    --motion-duration-enter: 520ms;
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *,
@@ -59,6 +65,25 @@ body {
     background: var(--color-bg);
     color: var(--color-text);
     line-height: 1.6;
+}
+
+.has-motion .motion-ready {
+    opacity: 0;
+    transform: translate3d(0, 1rem, 0) scale(0.985);
+    transition:
+        transform var(--motion-duration-enter) var(--ease-out-expo),
+        opacity var(--motion-duration-enter) var(--ease-out-expo);
+    transition-delay: var(--motion-delay, 0ms);
+    will-change: transform, opacity;
+}
+
+.has-motion .motion-ready.motion-hero {
+    transform: translate3d(0, 1.35rem, 0) scale(0.975);
+}
+
+.has-motion .motion-ready.is-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
 }
 
 .skip-link {
@@ -471,7 +496,11 @@ li + li {
     padding: 0.65rem 1.25rem;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: background var(--transition-base), color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
+    transition:
+        background var(--motion-duration-fast) var(--ease-out-quart),
+        color var(--motion-duration-fast) var(--ease-out-quart),
+        transform var(--motion-duration-fast) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
     text-decoration: none;
     background: var(--color-primary);
     color: #fff;
@@ -481,8 +510,13 @@ li + li {
 .btn:hover,
 .btn:focus-visible {
     background: var(--color-primary-dark);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-sm);
+}
+
+.btn:active:not([disabled]):not([aria-disabled="true"]) {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 120ms;
 }
 
 .btn-link {
@@ -1223,6 +1257,9 @@ small.hint {
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
 }
 
 .feature-card h3 {
@@ -1288,6 +1325,9 @@ small.hint {
     box-shadow: var(--shadow-sm);
     display: grid;
     gap: 0.75rem;
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
 }
 
 .workflow-card h3 {
@@ -1330,6 +1370,19 @@ small.hint {
     padding: clamp(1.75rem, 4vw, 2.25rem);
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--color-border);
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
+}
+
+.feature-card:hover,
+.feature-card:focus-within,
+.workflow-card:hover,
+.workflow-card:focus-within,
+.benefit-card:hover,
+.benefit-card:focus-within {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
 }
 
 .cta-panel {
@@ -1414,6 +1467,9 @@ small.hint {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
 }
 
 .apply-choice-card ul {
@@ -1579,6 +1635,17 @@ small.hint {
     padding: 1.5rem;
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-xs);
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
+}
+
+.apply-choice-card:hover,
+.apply-choice-card:focus-within,
+.apply-step-list li:hover,
+.apply-step-list li:focus-within {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
 }
 
 .apply-step-list h3 {
@@ -1625,58 +1692,119 @@ small.hint {
 }
 
 .pricing-page {
-    max-width: 1100px;
+    width: min(100%, var(--container-max));
     margin: 0 auto;
-    padding: clamp(2.5rem, 6vw, 4rem) clamp(1.5rem, 6vw, 3rem);
+    padding: clamp(2.25rem, 6vw, 4rem) clamp(1rem, 5vw, 2.75rem);
     display: grid;
-    gap: clamp(2rem, 5vw, 3rem);
+    gap: clamp(1.5rem, 4vw, 2.5rem);
 }
 
-.pricing-page-header {
-    text-align: center;
+.pricing-hero {
+    display: grid;
+    gap: 0.9rem;
+    background: var(--color-surface);
+    border-radius: calc(var(--radius-lg) * 1.1);
+    border: 1px solid var(--color-border-strong);
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    box-shadow: var(--shadow-sm);
 }
 
-.pricing-page-header h1 {
-    margin-top: 0;
-    margin-bottom: 0.75rem;
+.pricing-eyebrow {
+    margin: 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--color-text-muted);
+    font-weight: 700;
 }
 
-.pricing-page-header p {
-    max-width: 42rem;
-    margin: 0 auto;
+.pricing-hero h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 5vw, 2.8rem);
+    line-height: 1.15;
 }
 
-.pricing-tables-container {
+.pricing-lead {
+    margin: 0;
+    max-width: 58ch;
+    color: var(--color-text);
+}
+
+.pricing-hero-actions {
     display: flex;
-    gap: 2rem;
-    justify-content: center;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem 1.1rem;
+}
+
+.pricing-inline-link {
+    font-weight: 700;
+    color: var(--color-primary-dark);
+    text-decoration: none;
+}
+
+.pricing-inline-link:hover,
+.pricing-inline-link:focus-visible {
+    text-decoration: underline;
+    color: var(--color-primary);
+}
+
+.pricing-layout {
+    display: grid;
+    gap: clamp(1rem, 3vw, 1.5rem);
+    align-items: start;
 }
 
 .pricing-section {
-    flex: 1;
-    min-width: 300px;
-    max-width: 500px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    box-shadow: var(--shadow-sm);
+    transition:
+        transform var(--motion-duration-medium) var(--ease-out-quart),
+        box-shadow var(--motion-duration-medium) var(--ease-out-quart);
+}
+
+.pricing-section:hover,
+.pricing-section:focus-within {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.pricing-section-private {
+    background: var(--color-surface-soft);
+}
+
+.pricing-page-subtitle {
+    margin: 0 0 0.6rem;
+    color: var(--color-text);
+}
+
+.pricing-section p {
+    margin: 0;
+    color: var(--color-text);
 }
 
 .pricing-table-wrapper {
+    margin-top: 1rem;
     overflow-x: auto;
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-xs);
     width: 100%;
 }
 
 .pricing-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 520px;
+    min-width: 360px;
 }
 
 .pricing-table th,
 .pricing-table td {
-    padding: 1rem 1.25rem;
+    padding: 0.95rem 1rem;
     text-align: left;
     word-break: break-word;
     width: 50%;
@@ -1690,32 +1818,80 @@ small.hint {
     border-top: 1px solid var(--color-border);
 }
 
-.pricing-note {
-    text-align: center;
+.pricing-tier-note {
+    margin-top: 1rem;
+    font-weight: 600;
+}
+
+.pricing-private-price {
+    margin: 1rem 0 0.85rem;
+    font-size: clamp(2rem, 5vw, 2.6rem);
+    line-height: 1;
+    font-weight: 800;
+    color: var(--color-primary-dark);
+}
+
+.pricing-private-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
     display: grid;
-    gap: 1rem;
-    justify-items: center;
+    gap: 0.65rem;
 }
-.pricing-page-subtitle
-{
-    margin: 0;
-    text-align: auto;
+
+.pricing-private-list li {
+    position: relative;
+    padding-left: 1.2rem;
+    color: var(--color-text);
+}
+
+.pricing-private-list li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-primary-dark);
+    font-weight: 700;
+}
+
+.pricing-vat-note {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
     color: var(--color-text-muted);
-
 }
-@media (max-width: 700px) {
-    .pricing-page {
-        padding: 2.25rem 1.25rem;
+
+.pricing-summary {
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+    display: grid;
+    gap: 0.75rem;
+}
+
+.pricing-summary h2 {
+    margin: 0;
+}
+
+.pricing-summary-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.pricing-summary-list li {
+    color: var(--color-text);
+}
+
+@media (max-width: 767px) {
+    .pricing-hero-actions {
+        align-items: stretch;
     }
 
-    .pricing-tables-container {
-        flex-direction: column;
-        gap: 1.5rem;
+    .pricing-hero-actions .btn {
+        width: 100%;
     }
 
-    .pricing-section {
-        min-width: 100%;
-        max-width: 100%;
+    .pricing-inline-link {
+        padding: 0.25rem 0;
     }
 
     .pricing-table {
@@ -1734,10 +1910,7 @@ small.hint {
     }
 
     .pricing-table tbody tr {
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        margin-bottom: 1rem;
-        overflow: hidden;
+        border-top: 1px solid var(--color-border);
     }
 
     .pricing-table td {
@@ -1750,18 +1923,49 @@ small.hint {
 
     .pricing-table td::before {
         content: attr(data-label);
-        font-weight: 600;
+        font-weight: 700;
         color: var(--color-text-muted);
     }
+}
 
-    .pricing-note {
-        text-align: left;
-        justify-items: start;
+@media (min-width: 768px) {
+    .pricing-layout {
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .pricing-layout {
+        grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
     }
 
-    .pricing-note .btn {
+    .pricing-section-private {
+        position: sticky;
+        top: 1.5rem;
+    }
+}
+
+@media print {
+    .site-nav,
+    .site-footer,
+    .pricing-hero-actions {
+        display: none !important;
+    }
+
+    .pricing-page {
         width: 100%;
-        max-width: 320px;
+        max-width: none;
+        padding: 0;
+        gap: 1rem;
+    }
+
+    .pricing-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .pricing-section {
+        box-shadow: none;
+        border-color: #777;
     }
 }
 
@@ -2194,10 +2398,14 @@ small.hint {
 .btn {
     border-radius: 0.5rem;
     padding: 0.5rem 1rem;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+        background-color var(--motion-duration-fast) var(--ease-out-quart),
+        box-shadow var(--motion-duration-fast) var(--ease-out-quart),
+        transform var(--motion-duration-fast) var(--ease-out-quart);
 }
 
 .btn:hover {
+    transform: translateY(-2px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
@@ -2356,4 +2564,37 @@ small.hint {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .has-motion .motion-ready,
+    .has-motion .motion-ready.motion-hero,
+    .has-motion .motion-ready.is-visible {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+
+    .btn,
+    .feature-card,
+    .workflow-card,
+    .benefit-card,
+    .apply-choice-card,
+    .apply-step-list li,
+    .pricing-section {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+
+    .btn:hover,
+    .btn:active,
+    .feature-card:hover,
+    .workflow-card:hover,
+    .benefit-card:hover,
+    .apply-choice-card:hover,
+    .apply-step-list li:hover,
+    .pricing-section:hover {
+        transform: none !important;
+    }
 }

@@ -800,14 +800,20 @@ def get_engine() -> Engine:
 def create_database() -> None:
     # Create required tables if they do not exist.
     attempts = int(os.getenv("DATABASE_INIT_MAX_ATTEMPTS", "5"))
-    for attempt in range(1, max(attempts, 1) + 1):
+    max_attempts = max(attempts, 1)
+    for attempt in range(1, max_attempts + 1):
         engine = get_engine()
         try:
             metadata.create_all(engine)
             break
         except OperationalError as exc:
             switched_host = _switch_postgres_host_after_dns_error(engine, exc)
-            if attempt == max(attempts, 1):
+            if attempt == max_attempts:
+                switched_to_dev_sqlite = _switch_to_dev_sqlite_after_failed_retries(engine)
+                if switched_to_dev_sqlite:
+                    engine = get_engine()
+                    metadata.create_all(engine)
+                    break
                 raise
             wait_seconds = min(2 * attempt, 10)
             if switched_host:
@@ -816,14 +822,14 @@ def create_database() -> None:
                     "med alternativ värd (försök %s/%s)",
                     wait_seconds,
                     attempt,
-                    max(attempts, 1),
+                    max_attempts,
                 )
             else:
                 logger.warning(
                     "Databasen svarar inte ännu, försöker igen om %s sekunder (försök %s/%s)",
                     wait_seconds,
                     attempt,
-                    max(attempts, 1),
+                    max_attempts,
                 )
             time.sleep(wait_seconds)
     run_migrations(engine)
@@ -845,6 +851,36 @@ def create_database() -> None:
             if table.name not in existing_tables:
                 table.create(bind=conn)
     logger.info("Databasen har initialiserats")
+
+
+def _switch_to_dev_sqlite_after_failed_retries(engine: Engine) -> bool:
+    # Växla till lokal SQLite i utvecklingsläge när PostgreSQL inte kan nås efter alla försök.
+    if not _is_truthy(os.getenv("DEV_MODE", "False")):
+        return False
+    if engine.url.get_backend_name() != "postgresql":
+        return False
+
+    test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db").strip() or "instance/test.db"
+    if test_db_path == ":memory:":
+        fallback_url = "sqlite:///:memory:"
+        destination = "minne"
+    else:
+        raw_path = Path(test_db_path).expanduser()
+        if not raw_path.is_absolute():
+            raw_path = Path(APP_ROOT) / raw_path
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        resolved = raw_path.resolve()
+        fallback_url = f"sqlite:///{resolved.as_posix()}"
+        destination = str(resolved)
+
+    os.environ["DATABASE_URL"] = fallback_url
+    reset_engine()
+    logger.warning(
+        "PostgreSQL kunde inte nås efter upprepade försök. "
+        "DEV_MODE är aktivt, växlar till lokal SQLite-testdatabas (%s).",
+        destination,
+    )
+    return True
 
 
 def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalError) -> bool:

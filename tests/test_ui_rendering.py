@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import app
 import functions
@@ -124,6 +125,45 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert 'id="certificate"' in body
     assert 'id="category"' in body
     assert "dashboard.js" in body
+
+
+def test_home_page_exposes_motion_markers(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert 'data-motion="hero"' in body
+    assert 'data-motion-group="workflow"' in body
+    assert 'data-motion-group="features"' in body
+    assert 'data-motion-group="benefits"' in body
+
+
+def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
+    with _client() as client:
+        apply_response = client.get("/ansok")
+        assert apply_response.status_code == 200
+        apply_body = apply_response.get_data(as_text=True)
+
+        pricing_response = client.get("/pris")
+        assert pricing_response.status_code == 200
+        pricing_body = pricing_response.get_data(as_text=True)
+
+    assert 'data-motion-group="apply-options"' in apply_body
+    assert 'data-motion-group="apply-steps"' in apply_body
+    assert 'data-motion-group="pricing-sections"' in pricing_body
+    assert 'data-motion="section"' in pricing_body
+
+
+def test_motion_assets_support_reduced_motion():
+    nav_script = Path("static/js/nav.js").read_text(encoding="utf-8")
+    base_css = Path("static/css/base.css").read_text(encoding="utf-8")
+
+    assert "prefers-reduced-motion: reduce" in nav_script
+    assert "IntersectionObserver" in nav_script
+    assert ".has-motion .motion-ready" in base_css
+    assert ".motion-ready.is-visible" in base_css
+    assert "@media (prefers-reduced-motion: reduce)" in base_css
 
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

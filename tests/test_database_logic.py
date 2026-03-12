@@ -157,6 +157,108 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     }
 
 
+def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATABASE_INIT_MAX_ATTEMPTS", "2")
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
+    monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(tmp_path / "dev-fallback.db"))
+    monkeypatch.setattr(database_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        database_module,
+        "_switch_postgres_host_after_dns_error",
+        lambda _engine, _exc: False,
+    )
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+
+    class _FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
+    class _FakeEngine:
+        def __init__(self, backend_name):
+            self.url = SimpleNamespace(get_backend_name=lambda: backend_name)
+
+        def begin(self):
+            return _FakeConn()
+
+    def _current_engine():
+        db_url = os.getenv("DATABASE_URL", "")
+        backend_name = "sqlite" if db_url.startswith("sqlite") else "postgresql"
+        return _FakeEngine(backend_name)
+
+    attempted_backends = []
+
+    def _fake_create_all(engine):
+        backend_name = engine.url.get_backend_name()
+        attempted_backends.append(backend_name)
+        if backend_name == "postgresql":
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+    reset_calls = []
+    monkeypatch.setattr(database_module, "get_engine", _current_engine)
+    monkeypatch.setattr(database_module.metadata, "create_all", _fake_create_all)
+    monkeypatch.setattr(database_module, "reset_engine", lambda: reset_calls.append(True))
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [{"name": "categories"}, {"name": "note"}],
+            get_table_names=lambda: [
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
+
+    database_module.create_database()
+
+    assert attempted_backends == ["postgresql", "postgresql", "sqlite"]
+    assert reset_calls == [True]
+    assert os.environ["DATABASE_URL"].startswith("sqlite:///")
+    assert "dev-fallback.db" in os.environ["DATABASE_URL"]
+
+
+def test_create_database_does_not_fallback_to_sqlite_without_dev_mode(monkeypatch):
+    monkeypatch.setenv("DATABASE_INIT_MAX_ATTEMPTS", "2")
+    monkeypatch.setenv("DEV_MODE", "false")
+    database_url = "postgresql://user:pass@postgres:5432/testdb"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setattr(database_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        database_module,
+        "_switch_postgres_host_after_dns_error",
+        lambda _engine, _exc: False,
+    )
+
+    class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "postgresql")
+
+    attempts = []
+
+    def _always_fail(_engine):
+        attempts.append(1)
+        raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+    reset_calls = []
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module.metadata, "create_all", _always_fail)
+    monkeypatch.setattr(database_module, "reset_engine", lambda: reset_calls.append(True))
+
+    with pytest.raises(OperationalError):
+        database_module.create_database()
+
+    assert len(attempts) == 2
+    assert reset_calls == []
+    assert os.environ["DATABASE_URL"] == database_url
+
+
 def test_switch_postgres_host_returns_false_without_fallback_hosts(monkeypatch):
     monkeypatch.delenv("POSTGRES_FALLBACK_HOSTS", raising=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")

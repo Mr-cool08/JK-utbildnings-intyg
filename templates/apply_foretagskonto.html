@@ -9,16 +9,16 @@
 <script src="{{ url_for('static', filename='js/form_error_highlight.js') }}" defer></script>
 {% endblock %}
 {% block content %}
-<section class="apply-hero" aria-labelledby="apply-title">
-    <div class="apply-hero-content">
+<section class="apply-hero" aria-labelledby="apply-title" data-motion="hero">
+    <div class="apply-hero-content" data-motion-group="apply-company-hero">
 
-        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet">&#x2190; Tillbaka</a>
+        <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet" data-motion-child>&#x2190; Tillbaka</a>
         <p></p>
-        <div class="apply-intro">
+        <div class="apply-intro" data-motion-child>
             <h1 id="apply-title">Ansök om företagskonto</h1>
             <p>Som företagskonto får du administrera användarkonton, följa upp intyg och hantera fakturering.</p>
         </div>
-        <form method="post" class="apply-form" novalidate>
+        <form method="post" class="apply-form" novalidate data-motion-child>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             {% if form_errors %}
                 <div class="message error" role="alert">
@@ -161,7 +161,7 @@
     </div>
 </section>
 
-<section class="apply-info" aria-labelledby="info-title">
+<section class="apply-info" aria-labelledby="info-title" data-motion="section">
     <h2 id="info-title">Om företagskonton</h2>
     <p class="apply-price">Pris per månad baserat på antal anslutna användare:</p>
     <ul class="apply-price-list">
@@ -173,18 +173,18 @@
     <p>Vid godkänd ansökan skapar vi företaget och kopplar nya användarkonton efter dina instruktioner.</p>
 </section>
 
-<section class="apply-steps" aria-labelledby="steps-title">
+<section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
     <h2 id="steps-title">Så går ansökan till</h2>
-    <ol class="apply-step-list">
-        <li>
+    <ol class="apply-step-list" data-motion-group="apply-steps">
+        <li data-motion-child>
             <h3>Skicka in uppgifter</h3>
             <p>Beskriv företaget, faktureringsuppgifter och vem som ska vara huvudkontakt.</p>
         </li>
-        <li>
+        <li data-motion-child>
             <h3>Verifiering</h3>
             <p>Vi kontrollerar organisationsnumret och förbereder företagsportalen.</p>
         </li>
-        <li>
+        <li data-motion-child>
             <h3>Starta upp</h3>
             <p>När ansökan godkänns skickar vi bekräftelse, avtal och inloggningsinstruktioner.</p>
         </li>
