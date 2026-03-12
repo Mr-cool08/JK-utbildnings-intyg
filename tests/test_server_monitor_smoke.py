@@ -1,12 +1,17 @@
 import datetime as dt
 import importlib.util
 import logging
+import os
 import sys
 import types
 from pathlib import Path
 
 
 def _load_monitor_module(monkeypatch, **env):
+    for key in tuple(os.environ):
+        if key.startswith("MONITOR_"):
+            monkeypatch.delenv(key, raising=False)
+
     for key, value in env.items():
         monkeypatch.setenv(key, str(value))
 
