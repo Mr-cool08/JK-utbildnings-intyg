@@ -32,7 +32,7 @@ ENV HTTP_PORT=80 \
 
 # Hälsokontroll (antag /health i din app – annars ändra)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=5 \
-  CMD curl -fsS http://127.0.0.1:${HTTP_PORT}/health || exit 1
+  CMD curl --max-time 2 -fsS http://127.0.0.1:${HTTP_PORT}/health || exit 1
 
 # Exponera höga portar (mappa 80:8080, 443:8443 vid körning)
 EXPOSE 80 443
