@@ -202,7 +202,7 @@ services:
       - traefik.http.services.status.loadbalancer.server.port=80
 
   postgres:
-    image: postgres
+    image: postgres:16
     command:
       - postgres
       - -c
@@ -241,7 +241,7 @@ services:
     pids_limit: 200
 
   postgres_backup:
-    image: postgres
+    image: postgres:16
     depends_on:
       postgres:
         condition: service_healthy
