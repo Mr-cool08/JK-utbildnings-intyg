@@ -265,6 +265,44 @@ services:
     cpus: "0.10"
     pids_limit: 50
 
+  backup_cloud_sync:
+    image: rclone/rclone:1.69
+    profiles:
+      - backup-cloud
+    depends_on:
+      postgres_backup:
+        condition: service_started
+    environment:
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      RCLONE_BACKUP_PATH: ${RCLONE_BACKUP_PATH:-jk-utbildnings-intyg/postgres}
+      RCLONE_SYNC_INTERVAL_SECONDS: ${RCLONE_SYNC_INTERVAL_SECONDS:-3600}
+      RCLONE_PRUNE_REMOTE: ${RCLONE_PRUNE_REMOTE:-false}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      RCLONE_CONFIG_FILE: /tmp/rclone/rclone.conf
+      BACKUP_SOURCE_DIR: /backups
+      RCLONE_ONEDRIVE_CLIENT_ID: ${RCLONE_ONEDRIVE_CLIENT_ID:-}
+      RCLONE_ONEDRIVE_CLIENT_SECRET: ${RCLONE_ONEDRIVE_CLIENT_SECRET:-}
+      RCLONE_ONEDRIVE_TOKEN: ${RCLONE_ONEDRIVE_TOKEN:-}
+      RCLONE_ONEDRIVE_DRIVE_ID: ${RCLONE_ONEDRIVE_DRIVE_ID:-}
+      RCLONE_ONEDRIVE_DRIVE_TYPE: ${RCLONE_ONEDRIVE_DRIVE_TYPE:-}
+      RCLONE_ONEDRIVE_REGION: ${RCLONE_ONEDRIVE_REGION:-global}
+      RCLONE_DROPBOX_CLIENT_ID: ${RCLONE_DROPBOX_CLIENT_ID:-}
+      RCLONE_DROPBOX_CLIENT_SECRET: ${RCLONE_DROPBOX_CLIENT_SECRET:-}
+      RCLONE_DROPBOX_TOKEN: ${RCLONE_DROPBOX_TOKEN:-}
+      RCLONE_DROPBOX_AUTH_URL: ${RCLONE_DROPBOX_AUTH_URL:-}
+      RCLONE_DROPBOX_TOKEN_URL: ${RCLONE_DROPBOX_TOKEN_URL:-}
+    volumes:
+      - pgdata_backups:/backups:ro
+      - ./scripts/backup:/scripts:ro
+    command: ["sh", "/scripts/rclone_sync.sh", "--loop"]
+    networks:
+      - public_net
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.10"
+    pids_limit: 50
+
 volumes:
   env_data:
   app_logs:
@@ -279,7 +317,6 @@ volumes:
     name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
-
 networks:
   public_net:
     name: ${PUBLIC_NETWORK_NAME:-jk_public_net}

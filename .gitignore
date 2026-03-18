@@ -136,6 +136,7 @@ test_mail.py
 /.vs
 deploy/certs/server.crt
 deploy/certs/server.key
+deploy/rclone/rclone.conf
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md

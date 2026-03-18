@@ -117,6 +117,42 @@ def test_compose_uses_direct_host_port_bindings_for_main_services():
     assert "127.0.0.1:8000:80" not in compose
 
 
+def test_compose_has_optional_rclone_cloud_backup_service():
+    compose = _read(ROOT / "docker-compose.yml")
+
+    assert "backup_cloud_sync:" in compose
+    assert "image: rclone/rclone:1.69" in compose
+    assert "backup-cloud" in compose
+    assert 'command: ["sh", "/scripts/rclone_sync.sh", "--loop"]' in compose
+    assert "RCLONE_ONEDRIVE_TOKEN" in compose
+    assert "RCLONE_DROPBOX_TOKEN" in compose
+    assert "RCLONE_CONFIG_FILE: /tmp/rclone/rclone.conf" in compose
+
+
+def test_example_env_documents_rclone_backup_settings():
+    example_env = _read(ROOT / ".example.env")
+
+    assert 'Docker Compose-profilen "backup-cloud"' in example_env
+    assert "RCLONE_REMOTE=" in example_env
+    assert "RCLONE_BACKUP_PATH=jk-utbildnings-intyg/postgres" in example_env
+    assert "RCLONE_SYNC_INTERVAL_SECONDS=3600" in example_env
+    assert "RCLONE_PRUNE_REMOTE=false" in example_env
+    assert "RCLONE_ONEDRIVE_TOKEN=" in example_env
+    assert "RCLONE_ONEDRIVE_DRIVE_ID=" in example_env
+    assert "RCLONE_DROPBOX_TOKEN=" in example_env
+
+
+def test_rclone_sync_script_generates_both_remotes_from_env():
+    script = _read(ROOT / "scripts" / "backup" / "rclone_sync.sh")
+
+    assert "[onedrive]" in script
+    assert "[dropbox]" in script
+    assert "RCLONE_REMOTE maste vara 'onedrive' eller 'dropbox'." in script
+    assert "generate_rclone_config" in script
+    assert "RCLONE_ONEDRIVE_TOKEN maste vara satt for OneDrive." in script
+    assert "RCLONE_DROPBOX_TOKEN maste vara satt for Dropbox." in script
+
+
 def test_entrypoint_runs_gunicorn_only():
     entrypoint = _read(ROOT / "entrypoint.sh")
     # Backend kan vara Gunicorn (prod) eller python wsgi.py (dev)

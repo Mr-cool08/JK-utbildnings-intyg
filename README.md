@@ -76,6 +76,31 @@ Traefik fungerar parallellt som tidigare för domän/HTTPS-routing.
 
 För produktion, se: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+### Automatisk molnbackup av databasen
+
+Det går att skicka de befintliga PostgreSQL-backuperna vidare till OneDrive eller Dropbox via `rclone`. OneDrive- eller Dropbox-programmet behöver inte vara installerat på servern.
+
+1. Lägg in OAuth-uppgifterna i `.env`. För `RCLONE_REMOTE=onedrive` används OneDrive-värdena, och för `RCLONE_REMOTE=dropbox` används Dropbox-värdena.
+2. Sätt i `.env`:
+
+```env
+RCLONE_REMOTE=onedrive
+RCLONE_BACKUP_PATH=jk-utbildnings-intyg/postgres
+RCLONE_SYNC_INTERVAL_SECONDS=3600
+RCLONE_PRUNE_REMOTE=false
+RCLONE_ONEDRIVE_TOKEN='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"2026-01-01T00:00:00Z"}'
+RCLONE_ONEDRIVE_DRIVE_ID=din-drive-id
+RCLONE_ONEDRIVE_DRIVE_TYPE=personal
+```
+
+3. Starta backup-synken:
+
+```bash
+docker compose --profile backup-cloud up -d backup_cloud_sync
+```
+
+Tjänsten genererar själv en `rclone.conf` i containern från `.env`, så du behöver ingen separat konfigurationsfil på servern. Den vanliga databackupen fortsätter att skriva `.sql.gz`-filer till den lokala backupvolymen, och `backup_cloud_sync` kopierar dem sedan vidare till vald molnlagring.
+
 ## Antivirus (valfritt)
 
 Det finns en separat antivirus-tjänst i Docker-profiler.
