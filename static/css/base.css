@@ -1458,11 +1458,6 @@ small.hint {
     display: grid;
     gap: 0.65rem;
     align-content: start;
-    padding: 1.2rem 1.25rem 1.35rem;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(156, 30, 10, 0.18);
-    border-radius: 0.7rem;
-    box-shadow: 0 18px 35px rgba(55, 55, 55, 0.08);
 }
 
 .hero-btn {
@@ -3032,9 +3027,6 @@ small.hint {
         gap: 0.45rem;
     }
 
-    .hero-actions {
-        padding: 1rem;
-    }
 
     .benefit-list {
         grid-template-columns: 1fr;
