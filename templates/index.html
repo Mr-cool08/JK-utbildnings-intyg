@@ -37,26 +37,6 @@
                 <li data-motion-child>Se vad som är uppladdat, delat och klart</li>
                 <li data-motion-child>Hantera personuppgifter med GDPR-anpassad struktur</li>
             </ul>
-
-            <div class="hero-actions" aria-label="Primära handlingar" data-motion-group="hero-actions">
-                <u class="home-more-details" style="color:#9C1E0A; font-weight: 700; text-decoration: underline; text-decoration-thickness: 0.08em; text-underline-offset: 0.2em;">Ansök här</u>
-                <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
-                    <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatperson</a>
-                    <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företag</a>
-                </div>
-                <p class="hero-action-note" data-motion-child>
-                    <a class="hero-inline-link" href="/pris">Se priser</a>
-                    <span aria-hidden="true">•</span>
-                    {% if DEMO_SITE_URL %}
-                        <a class="hero-inline-link" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
-                    {% elif IS_DEMO %}
-                        <a class="hero-inline-link" href="/login">Prova demo</a>
-                    {% else %}
-                        <a class="hero-inline-link" href="mailto:support@utbildningsintyg.se?subject=Boka%20demo">Boka demo</a>
-                    {% endif %}
-                </p>
-                
-            </div>
         </div>
         <aside class="hero-rail" aria-label="Kontoval" data-motion-group="hero-rail">
             <p class="hero-rail-label" data-motion-child>Välj konto</p>
@@ -73,6 +53,24 @@
             </ol>
             <p class="hero-rail-foot" data-motion-child>Privatkonto är kostnadsfritt för privatpersoner.</p>
         </aside>
+        <div class="hero-actions" aria-label="Primära handlingar" data-motion-group="hero-actions">
+            <u class="home-more-details" style="color:#9C1E0A; font-weight: 700; text-decoration: underline; text-decoration-thickness: 0.08em; text-underline-offset: 0.2em;">Ansök här</u>
+            <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatperson</a>
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företag</a>
+            </div>
+            <p class="hero-action-note" data-motion-child>
+                <a class="hero-inline-link" href="/pris">Se priser</a>
+                <span aria-hidden="true">•</span>
+                {% if DEMO_SITE_URL %}
+                    <a class="hero-inline-link" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
+                {% elif IS_DEMO %}
+                    <a class="hero-inline-link" href="/login">Prova demo</a>
+                {% else %}
+                    <a class="hero-inline-link" href="mailto:support@utbildningsintyg.se?subject=Boka%20demo">Boka demo</a>
+                {% endif %}
+            </p>
+        </div>
     </section>
 
     <section class="trust-band" aria-labelledby="trust-title" data-motion="section">

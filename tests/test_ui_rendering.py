@@ -139,6 +139,18 @@ def test_home_page_exposes_motion_markers(empty_db):
     assert 'data-motion-group="benefits"' in body
 
 
+
+def test_home_page_hero_places_account_rail_before_action_panel(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    rail_index = body.index('class="hero-rail"')
+    actions_index = body.index('class="hero-actions"')
+
+    assert rail_index < actions_index
+
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
     with _client() as client:
         apply_response = client.get("/ansok")

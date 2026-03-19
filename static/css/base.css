@@ -1367,6 +1367,9 @@ small.hint {
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    grid-template-areas:
+        "text actions"
+        "rail actions";
     gap: clamp(1.6rem, 4vw, 2.8rem);
     align-items: start;
     padding: clamp(2.25rem, 5vw, 3.4rem);
@@ -1392,6 +1395,7 @@ small.hint {
 }
 
 .hero-text {
+    grid-area: text;
     display: grid;
     gap: 1.15rem;
     align-content: start;
@@ -1450,10 +1454,15 @@ small.hint {
 }
 
 .hero-actions {
+    grid-area: actions;
     display: grid;
     gap: 0.65rem;
-    align-items: start;
-    margin-top: 0.25rem;
+    align-content: start;
+    padding: 1.2rem 1.25rem 1.35rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(156, 30, 10, 0.18);
+    border-radius: 0.7rem;
+    box-shadow: 0 18px 35px rgba(55, 55, 55, 0.08);
 }
 
 .hero-btn {
@@ -1514,7 +1523,7 @@ small.hint {
 
 .hero-tracks {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 0.55rem;
     margin-top: 0.25rem;
 }
@@ -1547,6 +1556,7 @@ small.hint {
 }
 
 .hero-rail {
+    grid-area: rail;
     display: grid;
     gap: 0.95rem;
     align-content: start;
@@ -2558,6 +2568,9 @@ small.hint {
 
     main.main-home .home-hero {
         grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+        grid-template-areas:
+            "text actions"
+            "rail actions";
         gap: clamp(2rem, 3vw, 3rem);
         padding: clamp(2.4rem, 4vw, 3.4rem);
     }
@@ -2883,6 +2896,10 @@ small.hint {
 
     .home-hero {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "text"
+            "rail"
+            "actions";
     }
 
     .trust-band {
@@ -3013,6 +3030,10 @@ small.hint {
 
     .hero-tracks {
         gap: 0.45rem;
+    }
+
+    .hero-actions {
+        padding: 1rem;
     }
 
     .benefit-list {
