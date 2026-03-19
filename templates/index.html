@@ -20,7 +20,7 @@
         <ul>
             <li><strong>Företagskonto:</strong> Org.nr {{ DEMO_CREDENTIALS.supervisor_orgnr }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
             <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
-            <li><strong>Användarkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
+            <li><strong>Privatkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
         </ul>
         <p class="demo-hint">Använd uppgifterna ovan för att logga in som företagskonto eller kursdeltagare.</p>
     </div>
@@ -30,8 +30,8 @@
     <section class="home-hero" aria-labelledby="home-hero-title" data-motion="hero">
         <div class="hero-text" data-motion-group="hero-text">
             <p class="hero-eyebrow" data-motion-child>För företag och privatpersoner</p>
-            <h1 id="home-hero-title" data-motion-child>Digital hantering av utbildningsintyg</h1>
-            <p class="hero-lead" data-motion-child>En gemensam plats för intyg, så du kan visa rätt underlag direkt när någon frågar.</p>
+            <h1 id="home-hero-title" data-motion-child>Samla dina intyg</h1>
+            <p class="hero-lead" data-motion-child>Välj kontotyp för att komma igång med rätt upplägg direkt.</p>
             <ul class="hero-list" data-motion-group="hero-list">
                 <li data-motion-child>Samla intyg och anteckningar i ett tydligt arkiv</li>
                 <li data-motion-child>Se vad som är uppladdat, delat och klart</li>
@@ -39,37 +39,29 @@
             </ul>
         </div>
         <div class="hero-actions" aria-label="Primära handlingar">
-            <u class="home-more-details" style="color:#9C1E0A; font-weight: 700; text-decoration: underline; text-decoration-thickness: 0.08em; text-underline-offset: 0.2em;">Ansök här</u>
+            <p class="hero-action-heading" data-motion-child>Välj kontotyp</p>
             <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
-                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatperson</a>
-                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företag</a>
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatkonto</a>
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företagskonto</a>
             </div>
-            <p class="hero-action-note" data-motion-child>
+            <dl class="hero-choice-list" aria-label="Skillnad mellan konton" data-motion-group="hero-choice-list">
+                <div class="hero-choice-item" data-motion-child>
+                    <dt>Privatkonto</dt>
+                    <dd>För dig som vill lagra och dela egna utbildningsintyg. Kostnadsfritt för privatpersoner.</dd>
+                </div>
+                <div class="hero-choice-item" data-motion-child>
+                    <dt>Företagskonto</dt>
+                    <dd>För organisationer som hanterar intyg för flera personer.</dd>
+                </div>
+            </dl>
+            <p class="hero-support-links" data-motion-child>
+                <span class="hero-support-label">Andra vägar</span>
                 <a class="hero-inline-link" href="/pris">Se priser</a>
                 <span aria-hidden="true">•</span>
-                {% if DEMO_SITE_URL %}
-                    <a class="hero-inline-link" href="{{ DEMO_SITE_URL }}" rel="noopener">Prova demo</a>
-                {% elif IS_DEMO %}
-                    <a class="hero-inline-link" href="/login">Prova demo</a>
-                {% else %}
-                    <a class="hero-inline-link" href="mailto:support@utbildningsintyg.se?subject=Boka%20demo">Boka demo</a>
-                {% endif %}
+                <a class="hero-inline-link" href="/login">Privatinloggning</a>
+                <span aria-hidden="true">•</span>
+                <a class="hero-inline-link" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
             </p>
-            <aside class="hero-rail" aria-label="Kontoval" data-motion-group="hero-rail">
-                <p class="hero-rail-label" data-motion-child>Välj konto</p>
-                <h2 class="hero-rail-title" data-motion-child>Två spår beroende på hur du arbetar</h2>
-                <ol class="hero-rail-steps" data-motion-group="hero-rail-steps">
-                    <li data-motion-child>
-                        <strong>Privatkonto</strong>
-                        <span>För dig som vill lagra och dela egna utbildningsintyg.</span>
-                    </li>
-                    <li data-motion-child>
-                        <strong>Företagskonto</strong>
-                        <span>För organisationer som hanterar intyg för flera personer.</span>
-                    </li>
-                </ol>
-                <p class="hero-rail-foot" data-motion-child>Privatkonto är kostnadsfritt för privatpersoner.</p>
-            </aside>
         </div>
     </section>
 
@@ -99,8 +91,8 @@
         <ol class="workflow-steps" data-motion-group="workflow">
             <li class="workflow-step" data-motion-child>
                 <span class="step-number">1</span>
-                <h3>Ansök om konto</h3>
-                <p>Välj privat- eller företagskonto och skicka in dina uppgifter.</p>
+                <h3>Välj kontotyp</h3>
+                <p>Välj privatkonto eller företagskonto och skicka sedan in dina uppgifter.</p>
             </li>
             <li class="workflow-step" data-motion-child>
                 <span class="step-number">2</span>
@@ -180,12 +172,15 @@
     <section class="cta-panel" aria-labelledby="cta-title" data-motion="section">
         <div class="cta-copy">
             <p class="section-kicker">Nästa steg</p>
-            <h2 id="cta-title">Redo att samla intygen digitalt?</h2>
-            <p>Ansök om konto så hjälper vi dig att komma igång.</p>
+            <h2 id="cta-title">Välj kontotyp för att fortsätta</h2>
+            <p>Börja i det flöde som passar dig eller din verksamhet.</p>
         </div>
         <div class="cta-actions" data-motion-group="cta-actions">
-            <a class="cta-link cta-link-primary" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
-            <a class="cta-link" href="/login" data-motion-child>Redan kund? Logga in</a>
+            <div class="cta-choice-links">
+                <a class="btn cta-choice-btn" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatkonto</a>
+                <a class="btn cta-choice-btn" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företagskonto</a>
+            </div>
+            <a class="cta-link cta-link-secondary" href="/login" data-motion-child>Redan kund? Logga in</a>
         </div>
     </section>
 </div>

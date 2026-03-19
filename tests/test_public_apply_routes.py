@@ -15,7 +15,8 @@ def test_apply_landing_has_links(empty_db):
         body = response.data.decode("utf-8")
         assert "/ansok/standardkonto" in body
         assert "/ansok/foretagskonto" in body
-        assert "Privatkonto är alltid gratis." in body
+        assert "Privatkonto kostar inget att ansöka om eller använda." in body
+        assert "Ansök om privatkonto" in body
 
 
 def test_user_application_submission(empty_db):
@@ -35,7 +36,10 @@ def test_user_application_submission(empty_db):
             follow_redirects=True,
         )
         assert response.status_code == 200
-        assert "Tack! Vi hör av oss så snart vi granskat ansökan." in response.data.decode("utf-8")
+        text = response.data.decode("utf-8")
+        assert "Vi har tagit emot din ansökan om privatkonto." in text
+        assert "Du får ett första svar via e-post inom 2 arbetsdagar." in text
+        assert "Håll utkik efter" in text
 
     with empty_db.connect() as conn:
         stored = conn.execute(functions.application_requests_table.select()).fetchall()
@@ -69,7 +73,9 @@ def test_foretagskonto_application_submission(empty_db):
         )
         assert response.status_code == 200
         text = response.data.decode("utf-8")
-        assert "Tack! Vi hör av oss så snart vi granskat ansökan." in text
+        assert "Vi har tagit emot din ansökan om företagskonto." in text
+        assert "Du får ett första svar via e-post inom 2 arbetsdagar." in text
+        assert "Håll utkik efter" in text
 
     with empty_db.connect() as conn:
         stored = conn.execute(functions.application_requests_table.select()).fetchall()

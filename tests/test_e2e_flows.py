@@ -71,8 +71,9 @@ def test_e2e_standardkonto_flow_application_to_upload_and_share(empty_db, monkey
     )
     assert apply_response.status_code == 200
     apply_body = apply_response.get_data(as_text=True)
-    assert "Tack! Vi hör av oss så snart vi granskat ansökan." in apply_body
-    assert "standardkonto" in apply_body
+    assert "Vi har tagit emot din ansökan om privatkonto." in apply_body
+    assert "Du får ett första svar via e-post inom 2 arbetsdagar." in apply_body
+    assert "privatkonto" in apply_body
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -199,7 +200,8 @@ def test_e2e_foretagskonto_flow_application_to_link_request_and_acceptance(empty
     )
     assert apply_response.status_code == 200
     apply_body = apply_response.get_data(as_text=True)
-    assert "Tack! Vi hör av oss så snart vi granskat ansökan." in apply_body
+    assert "Vi har tagit emot din ansökan om företagskonto." in apply_body
+    assert "Du får ett första svar via e-post inom 2 arbetsdagar." in apply_body
     assert "företagskonto" in apply_body
 
     with empty_db.connect() as conn:

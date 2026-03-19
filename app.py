@@ -1148,6 +1148,54 @@ def _flag_application_field_error(message: str, field_errors: dict[str, bool]) -
         field_errors["invoice_reference"] = True
 
 
+def _application_submission_content(raw_type: str) -> dict[str, str]:
+    # Returnera användarvänlig kvittenscopy för inskickad ansökan.
+    if raw_type == "foretagskonto":
+        return {
+            "account_label": "företagskonto",
+            "response_time": "inom 2 arbetsdagar",
+            "success_title": "Vi har tagit emot din ansökan om företagskonto.",
+            "success_body": (
+                "Du får ett första svar via e-post inom 2 arbetsdagar. "
+                "Om vi behöver kompletterande uppgifter hör vi av oss till adressen du angav."
+            ),
+            "watch_label": "Håll utkik efter",
+            "watch_text": "ett mejl från oss och kontrollera även skräpposten.",
+            "review_step": (
+                "Vi går igenom organisationsuppgifter, faktureringsuppgifter och kontaktvägar "
+                "så att företagskontot kan förberedas korrekt."
+            ),
+            "activation_step": (
+                "När ansökan är godkänd skickar vi bekräftelse, avtal vid behov och "
+                "inloggningsinstruktioner för företagsportalen."
+            ),
+            "prep_title": "Förberedelser medan vi behandlar ansökan",
+            "prep_access": "Planera vilka kollegor som ska ha tillgång till företagskontot.",
+        }
+
+    return {
+        "account_label": "privatkonto",
+        "response_time": "inom 2 arbetsdagar",
+        "success_title": "Vi har tagit emot din ansökan om privatkonto.",
+        "success_body": (
+            "Du får ett första svar via e-post inom 2 arbetsdagar. "
+            "Om vi behöver kompletterande uppgifter hör vi av oss till adressen du angav."
+        ),
+        "watch_label": "Håll utkik efter",
+        "watch_text": "ett mejl från oss och kontrollera även skräpposten.",
+        "review_step": (
+            "Vi går igenom dina kontaktuppgifter och verifierar att ansökan innehåller det "
+            "vi behöver för att aktivera kontot."
+        ),
+        "activation_step": (
+            "När ansökan är godkänd skickar vi inloggningsinstruktioner så att du kan logga in "
+            "och börja samla dina intyg."
+        ),
+        "prep_title": "Förberedelser medan vi behandlar ansökan",
+        "prep_access": "Fundera på vilka intyg du vill ladda upp först när kontot är aktivt.",
+    }
+
+
 @app.route("/ansok/standardkonto", methods=["GET", "POST"])
 def apply_standardkonto():
     """Visa och hantera ansökan för standardkonto."""
@@ -1230,12 +1278,12 @@ def apply_standardkonto():
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
                     else:
-                        # Make the client-facing confirmation explicit about which account type was submitted
-                        display_type = (
-                            "företagskonto" if account_type == "foretagskonto" else "standardkonto"
-                        )
+                        submission_copy = _application_submission_content(account_type)
                         flash(
-                            f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.",
+                            (
+                                f"{submission_copy['success_title']} "
+                                f"Du får ett första svar via e-post {submission_copy['response_time']}."
+                            ),
                             "success",
                         )
                         return redirect(url_for("application_submitted", account_type=account_type))
@@ -1338,12 +1386,12 @@ def apply_foretagskonto():
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
                     else:
-                        # Make the client-facing confirmation explicit about which account type was submitted
-                        display_type = (
-                            "företagskonto" if account_type == "foretagskonto" else "standardkonto"
-                        )
+                        submission_copy = _application_submission_content(account_type)
                         flash(
-                            f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.",
+                            (
+                                f"{submission_copy['success_title']} "
+                                f"Du får ett första svar via e-post {submission_copy['response_time']}."
+                            ),
                             "success",
                         )
                         return redirect(url_for("application_submitted", account_type=account_type))
@@ -1374,8 +1422,8 @@ def application_submitted():
     """Visa bekräftelse och nästa steg efter inskickad ansökan."""
 
     raw_type = request.args.get("account_type", "").strip().lower()
-    account_type = "företagskonto" if raw_type == "foretagskonto" else "standardkonto"
-    return render_template("application_submitted.html", account_type=account_type)
+    submission_copy = _application_submission_content(raw_type)
+    return render_template("application_submitted.html", **submission_copy)
 
 
 @app.route("/pris", methods=["GET"])

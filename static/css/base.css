@@ -1189,6 +1189,23 @@ textarea:focus {
     color: var(--color-text);
 }
 
+.submission-confirmation {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.submission-confirmation-eyebrow {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+.submission-confirmation-title {
+    margin: 0;
+}
+
 .success {
     background: var(--color-success-bg);
     border-color: var(--color-success-border);
@@ -1458,6 +1475,13 @@ small.hint {
     align-content: start;
 }
 
+.hero-action-heading {
+    margin: 0;
+    color: var(--color-secondary);
+    font-size: 0.98rem;
+    font-weight: 700;
+}
+
 .hero-btn {
     width: fit-content;
     font-size: 1rem;
@@ -1478,23 +1502,28 @@ small.hint {
     border-color: var(--color-primary-dark);
 }
 
-.hero-action-note {
+.hero-support-links {
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.4rem;
     margin: 0;
-    font-size: 0.94rem;
-    color: rgba(55, 55, 55, 0.76);
+    font-size: 0.9rem;
+    color: rgba(55, 55, 55, 0.7);
+}
+
+.hero-support-label {
+    font-weight: 600;
+    color: rgba(55, 55, 55, 0.78);
 }
 
 .hero-inline-link {
     display: inline-flex;
     align-items: center;
-    min-height: 2.25rem;
-    padding: 0 0.15rem;
+    min-height: 2rem;
+    padding: 0.05rem 0.15rem;
     color: var(--color-secondary);
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: underline;
     text-decoration-thickness: 0.08em;
     text-underline-offset: 0.2em;
@@ -1507,8 +1536,7 @@ small.hint {
 
 .hero-inline-link:focus-visible,
 .feature-link:focus-visible,
-.cta-link:focus-visible,
-.hero-track-link:focus-visible {
+.cta-link:focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
@@ -1522,94 +1550,30 @@ small.hint {
     margin-top: 0.25rem;
 }
 
-.hero-track-link {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.55rem 0.85rem;
-    min-height: 2.75rem;
-    border: 1px solid rgba(55, 55, 55, 0.24);
-    border-radius: 999px;
-    font-size: 0.89rem;
-    font-weight: 700;
-    color: rgba(55, 55, 55, 0.9);
-    text-decoration: none;
-    background: rgba(255, 255, 255, 0.72);
-    transition:
-        border-color var(--motion-duration-fast) var(--ease-out-quart),
-        background-color var(--motion-duration-fast) var(--ease-out-quart),
-        color var(--motion-duration-fast) var(--ease-out-quart),
-        transform var(--motion-duration-fast) var(--ease-out-quart);
-}
-
-.hero-track-link:hover,
-.hero-track-link:focus-visible {
-    color: var(--color-secondary);
-    border-color: rgba(156, 30, 10, 0.45);
-    background: rgba(210, 53, 77, 0.07);
-    transform: translateY(-1px);
-}
-
-.hero-rail {
+.hero-choice-list {
     display: grid;
-    gap: 0.95rem;
-    align-content: start;
-    padding: 1.2rem 1.25rem 1.35rem;
-    background: rgba(55, 55, 55, 0.05);
-    border: 1px solid rgba(55, 55, 55, 0.15);
-    border-radius: 0.7rem;
+    gap: 0.7rem;
+    margin: 0;
 }
 
-.hero-rail-label {
+.hero-choice-item {
+    display: grid;
+    gap: 0.15rem;
+    padding-left: 0.85rem;
+    border-left: 2px solid rgba(156, 30, 10, 0.18);
+}
+
+.hero-choice-item dt {
     margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.73rem;
+    font-size: 0.93rem;
     font-weight: 700;
-    color: rgba(55, 55, 55, 0.75);
-}
-
-.hero-rail-title {
-    margin: 0;
-    font-size: clamp(1.2rem, 2vw, 1.5rem);
     color: var(--color-text);
 }
 
-.hero-rail-steps {
+.hero-choice-item dd {
     margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 0.85rem;
-}
-
-.hero-rail-steps li {
-    display: grid;
-    gap: 0.2rem;
-    padding-bottom: 0.8rem;
-    border-bottom: 1px dashed rgba(55, 55, 55, 0.2);
-}
-
-.hero-rail-steps li:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-}
-
-.hero-rail-steps strong {
-    font-size: 0.95rem;
-    color: var(--color-text);
-}
-
-.hero-rail-steps span {
     font-size: 0.92rem;
     color: rgba(55, 55, 55, 0.82);
-}
-
-.hero-rail-foot {
-    margin: 0;
-    padding-top: 0.45rem;
-    border-top: 1px solid rgba(55, 55, 55, 0.15);
-    font-weight: 700;
-    color: rgba(55, 55, 55, 0.85);
 }
 
 .section-kicker {
@@ -1975,11 +1939,10 @@ small.hint {
 }
 
 .cta-actions {
-    display: flex;
-    gap: 0.65rem 1rem;
-    justify-content: flex-end;
-    align-items: center;
-    flex-wrap: wrap;
+    display: grid;
+    gap: 0.75rem;
+    justify-items: end;
+    align-items: start;
 }
 
 .cta-link {
@@ -1995,31 +1958,34 @@ small.hint {
     text-underline-offset: 0.2em;
 }
 
-.cta-link-primary {
+.cta-link:hover,
+.cta-link:focus-visible {
+    color: var(--color-primary-dark);
+}
+
+.cta-choice-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
+.cta-choice-btn {
     background: var(--color-secondary);
     color: #fff;
-    text-decoration: none;
-    border-radius: var(--radius-pill);
-    padding: 0.72rem 1.15rem;
-    box-shadow: var(--shadow-xs);
+    border-color: var(--color-secondary);
+    padding-inline: 1.1rem;
 }
 
-.cta-link-primary::after {
-    content: "→";
-    font-size: 0.95em;
-    margin-left: 0.2rem;
-}
-
-.cta-link-primary:hover,
-.cta-link-primary:focus-visible {
+.cta-choice-btn:hover,
+.cta-choice-btn:focus-visible {
     background: var(--color-primary-dark);
-    color: #fff;
-    box-shadow: var(--shadow-sm);
+    border-color: var(--color-primary-dark);
 }
 
-.cta-link:not(.cta-link-primary):hover,
-.cta-link:not(.cta-link-primary):focus-visible {
-    color: var(--color-primary-dark);
+.cta-link-secondary {
+    font-size: 0.95rem;
+    font-weight: 600;
 }
 
 .apply-hero {
@@ -2943,6 +2909,10 @@ small.hint {
     }
 
     .cta-actions {
+        justify-items: flex-start;
+    }
+
+    .cta-choice-links {
         justify-content: flex-start;
     }
 
@@ -2980,10 +2950,6 @@ small.hint {
         max-width: 22ch;
     }
 
-    .hero-rail {
-        padding: 1rem;
-    }
-
     .workflow-steps {
         grid-template-columns: 1fr;
     }
@@ -3014,12 +2980,12 @@ small.hint {
         width: 100%;
     }
 
-    .hero-action-note {
-        gap: 0.3rem 0.6rem;
-    }
-
     .hero-tracks {
         gap: 0.45rem;
+    }
+
+    .hero-support-links {
+        gap: 0.3rem 0.5rem;
     }
 
 

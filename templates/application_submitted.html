@@ -11,13 +11,15 @@
 
         <div class="apply-intro">
             <h1 id="submitted-title">Ansökan inskickad</h1>
-            <p>Vi har tagit emot din ansökan om {{ account_type }}. Här beskriver vi vad som händer nu och hur du kan förbereda dig.</p>
+            <p>Din ansökan om {{ account_label }} är inskickad. Här ser du vad som händer nu och vad du kan förbereda under tiden.</p>
         </div>
 
-        <div class="message success" role="status" aria-live="polite">
-            Tack för ditt intresse! Du får en bekräftelse via e-post så snart vi har påbörjat granskningen.
+        <div class="message success submission-confirmation" role="status" aria-live="polite">
+            <p class="submission-confirmation-eyebrow">Ansökan mottagen</p>
+            <h2 class="submission-confirmation-title">{{ success_title }}</h2>
+            <p>{{ success_body }}</p>
+            <p><strong>{{ watch_label }}</strong> {{ watch_text }}</p>
         </div>
-        <p></p>
 
         <section class="apply-steps" aria-labelledby="steps-title">
             <div class="apply-steps-header">
@@ -28,20 +30,20 @@
             </div>
             <ol class="apply-step-list">
                 <li>
-                    <h3>Bekräftelse och första kontroll</h3>
-                    <p>Vi verifierar att kontaktuppgifterna stämmer och skickar en kort bekräftelse till angiven e-postadress. Kontrollera även skräpposten.</p>
+                    <h3>Första svar</h3>
+                    <p>Du får ett första svar via e-post {{ response_time }}.</p>
                 </li>
                 <li>
                     <h3>Granskning och eventuell komplettering</h3>
-                    <p>Om något saknas, till exempel fakturauppgifter eller kontaktinformation, hör vi av oss med en förfrågan om komplettering.</p>
+                    <p>{{ review_step }}</p>
                 </li>
                 <li>
                     <h3>Aktivering av konto</h3>
-                    <p>När ansökan är godkänd skickar vi inloggningsinstruktioner. För företagskonton kan avtalsunderlag bifogas.</p>
+                    <p>{{ activation_step }}</p>
                 </li>
                 <li>
                     <h3>Kom igång</h3>
-                    <p>Efter aktivering kan du logga in, ladda upp intyg och koppla användare. Vi skickar samtidigt tips för att snabbt komma igång.</p>
+                    <p>Efter aktivering kan du logga in och börja arbeta vidare direkt. Vi skickar samtidigt korta tips för att hjälpa dig igång.</p>
                 </li>
             </ol>
         </section>
@@ -57,7 +59,7 @@
 </section>
 
 <section class="apply-info" aria-labelledby="prep-title">
-    <h2 id="prep-title">Förberedelser medan vi behandlar ansökan</h2>
+    <h2 id="prep-title">{{ prep_title }}</h2>
     <ul class="feature-list">
         <li>
             <h3>Samla intyg och kursmaterial</h3>
@@ -69,7 +71,7 @@
         </li>
         <li>
             <h3>Planera behörigheter</h3>
-            <p>Fundera på vilka kollegor som ska ha tillgång. När kontot är aktiverat kan du bjuda in fler användare direkt.</p>
+            <p>{{ prep_access }}</p>
         </li>
     </ul>
 </section>
