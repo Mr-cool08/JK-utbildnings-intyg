@@ -38,22 +38,7 @@
                 <li data-motion-child>Hantera personuppgifter med GDPR-anpassad struktur</li>
             </ul>
         </div>
-        <aside class="hero-rail" aria-label="Kontoval" data-motion-group="hero-rail">
-            <p class="hero-rail-label" data-motion-child>Välj konto</p>
-            <h2 class="hero-rail-title" data-motion-child>Två spår beroende på hur du arbetar</h2>
-            <ol class="hero-rail-steps" data-motion-group="hero-rail-steps">
-                <li data-motion-child>
-                    <strong>Privatkonto</strong>
-                    <span>För dig som vill lagra och dela egna utbildningsintyg.</span>
-                </li>
-                <li data-motion-child>
-                    <strong>Företagskonto</strong>
-                    <span>För organisationer som hanterar intyg för flera personer.</span>
-                </li>
-            </ol>
-            <p class="hero-rail-foot" data-motion-child>Privatkonto är kostnadsfritt för privatpersoner.</p>
-        </aside>
-        <div class="hero-actions" aria-label="Primära handlingar" data-motion-group="hero-actions">
+        <div class="hero-actions" aria-label="Primära handlingar">
             <u class="home-more-details" style="color:#9C1E0A; font-weight: 700; text-decoration: underline; text-decoration-thickness: 0.08em; text-underline-offset: 0.2em;">Ansök här</u>
             <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
                 <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatperson</a>
@@ -70,6 +55,21 @@
                     <a class="hero-inline-link" href="mailto:support@utbildningsintyg.se?subject=Boka%20demo">Boka demo</a>
                 {% endif %}
             </p>
+            <aside class="hero-rail" aria-label="Kontoval" data-motion-group="hero-rail">
+                <p class="hero-rail-label" data-motion-child>Välj konto</p>
+                <h2 class="hero-rail-title" data-motion-child>Två spår beroende på hur du arbetar</h2>
+                <ol class="hero-rail-steps" data-motion-group="hero-rail-steps">
+                    <li data-motion-child>
+                        <strong>Privatkonto</strong>
+                        <span>För dig som vill lagra och dela egna utbildningsintyg.</span>
+                    </li>
+                    <li data-motion-child>
+                        <strong>Företagskonto</strong>
+                        <span>För organisationer som hanterar intyg för flera personer.</span>
+                    </li>
+                </ol>
+                <p class="hero-rail-foot" data-motion-child>Privatkonto är kostnadsfritt för privatpersoner.</p>
+            </aside>
         </div>
     </section>
 

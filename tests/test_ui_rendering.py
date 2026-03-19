@@ -140,7 +140,7 @@ def test_home_page_exposes_motion_markers(empty_db):
 
 
 
-def test_home_page_hero_places_account_rail_before_action_panel(empty_db):
+def test_home_page_hero_places_account_rail_after_action_panel(empty_db):
     with _client() as client:
         response = client.get("/")
         assert response.status_code == 200
@@ -149,7 +149,7 @@ def test_home_page_hero_places_account_rail_before_action_panel(empty_db):
     rail_index = body.index('class="hero-rail"')
     actions_index = body.index('class="hero-actions"')
 
-    assert rail_index < actions_index
+    assert actions_index < rail_index
 
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
     with _client() as client:
