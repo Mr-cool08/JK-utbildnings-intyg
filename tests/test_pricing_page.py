@@ -18,13 +18,14 @@ def test_pricing_page_loads(empty_db):
         assert '690 kr' in body
 
 
+
 def test_home_page_links_pricing(empty_db):
     with _client() as client:
         response = client.get('/')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
         assert '/pris' in body
-        assert 'Privatkonto är gratis för privatpersoner.' in body
+        assert 'Se priser' in body
 
 
 def test_pricing_page_has_clear_primary_cta_and_adaptive_layout(empty_db):
