@@ -106,7 +106,9 @@ def configure_module_logger(name: str) -> logging.Logger:
         handlers = root_logger.handlers
     else:
         handler = logging.StreamHandler()
-        handler.setFormatter(AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        handler.setFormatter(
+            AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        )
         root_logger.addHandler(handler)
         handlers = (handler,)
 
@@ -198,10 +200,11 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
 
     root = logging.getLogger()
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
-    formatter = AppTimezoneFormatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
+    formatter = AppTimezoneFormatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s"
+    )
     has_console_handler = any(
-        isinstance(handler, logging.StreamHandler)
-        and not isinstance(handler, logging.FileHandler)
+        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
         for handler in root.handlers
     )
     has_file_handler = any(
@@ -229,9 +232,8 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
     # Attach email handler for ERROR and CRITICAL level logs
     try:
         from functions.notifications.critical_events import EmailErrorHandler
-        has_email_handler = any(
-            isinstance(handler, EmailErrorHandler) for handler in root.handlers
-        )
+
+        has_email_handler = any(isinstance(handler, EmailErrorHandler) for handler in root.handlers)
         if not has_email_handler:
             email_handler = EmailErrorHandler()
             email_handler.setFormatter(formatter)

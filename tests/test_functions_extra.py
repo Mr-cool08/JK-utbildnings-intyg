@@ -134,10 +134,7 @@ def test_get_username_by_personnummer_hash(empty_db):
             )
         )
 
-    assert (
-        functions.get_username_by_personnummer_hash(pnr_hash)
-        == "PersonnummerNamn"
-    )
+    assert functions.get_username_by_personnummer_hash(pnr_hash) == "PersonnummerNamn"
     assert functions.get_username_by_personnummer_hash("saknas") is None
 
 

@@ -11,9 +11,7 @@ from services import pdf_scanner
 
 def _fake_run(stdout_text: str, returncode: int = 0):
     def _runner(*_args, **_kwargs):
-        return SimpleNamespace(
-            returncode=returncode, stdout=stdout_text, stderr=""
-        )
+        return SimpleNamespace(returncode=returncode, stdout=stdout_text, stderr="")
 
     return _runner
 
@@ -43,9 +41,7 @@ def test_scan_pdf_allows_benign_openaction_only(monkeypatch):
 
 
 def test_scan_pdf_rejects_openaction_with_javascript(monkeypatch):
-    suspicious = json.dumps(
-        {"catalog": {"OpenAction": ["JavaScript", "app.alert('Hej')"]}}
-    )
+    suspicious = json.dumps({"catalog": {"OpenAction": ["JavaScript", "app.alert('Hej')"]}})
     monkeypatch.setattr(subprocess, "run", _fake_run(suspicious))
     verdict = pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 dangerous openaction")
     assert verdict.decision == "REJECT"

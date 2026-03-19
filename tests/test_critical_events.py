@@ -58,81 +58,84 @@ class TestCriticalEventsNotifications:
         name = critical_events._get_app_name()
         assert name == "utbildningsintyg.se"
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_startup_notification(self, mock_send_email):
         """Test startup notification is sent correctly."""
         critical_events.send_startup_notification(hostname="test-server")
-        
+
         # Give thread time to complete
         import time
+
         time.sleep(0.1)
-        
+
         # Verify email was sent
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
         assert "startad" in str(call_args).lower()
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_startup_notification_multiple_recipients(self, mock_send_email, monkeypatch):
         """Test startup notification is sent to multiple recipients."""
         monkeypatch.setenv("ADMIN_EMAIL", "admin1@example.com,admin2@example.com")
         critical_events.send_startup_notification(hostname="test-server")
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         # Verify email was sent to both recipients
         assert mock_send_email.call_count == 2
         calls = [str(call) for call in mock_send_email.call_args_list]
         assert any("admin1@example.com" in call for call in calls)
         assert any("admin2@example.com" in call for call in calls)
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_crash_notification(self, mock_send_email):
         """Test crash notification is sent correctly."""
         critical_events.send_crash_notification(
             error_message="Database connection failed",
-            traceback="Traceback (most recent call last)..."
+            traceback="Traceback (most recent call last)...",
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
         assert "kraschat" in str(call_args).lower()
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_critical_error_notification(self, mock_send_email):
         """Test critical error notification is sent correctly."""
         critical_events.send_critical_error_notification(
-            error_message="Internal server error",
-            endpoint="/api/test",
-            user_ip="192.168.1.1"
+            error_message="Internal server error", endpoint="/api/test", user_ip="192.168.1.1"
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
 
     def test_send_critical_event_email_with_error_message(self):
         """Test that critical event email includes error message."""
-        with patch('functions.notifications.critical_events.email_service.send_email') as mock_send:
+        with patch("functions.notifications.critical_events.email_service.send_email") as mock_send:
             critical_events.send_critical_event_email(
                 event_type="error",
                 title="Test Error",
                 description="Something went wrong",
-                error_message="Detailed error: Connection timeout"
+                error_message="Detailed error: Connection timeout",
             )
-            
+
             import time
+
             time.sleep(0.1)
-            
+
             # Verify email formatting
             if mock_send.called:
                 call_args = mock_send.call_args
@@ -143,35 +146,37 @@ class TestCriticalEventsNotifications:
 
     def test_html_escaping_in_error_message(self):
         """Test that HTML is properly escaped in error messages."""
-        with patch('functions.notifications.critical_events.email_service.send_email') as mock_send:
+        with patch("functions.notifications.critical_events.email_service.send_email") as mock_send:
             critical_events.send_critical_event_email(
                 event_type="error",
                 title="Test Error",
                 description="Normal description",
-                error_message="<script>alert('xss')</script>"
+                error_message="<script>alert('xss')</script>",
             )
-            
+
             import time
+
             time.sleep(0.1)
-            
+
             # Verify that dangerous HTML was escaped
             if mock_send.called:
                 call_args = str(mock_send.call_args)
                 # Should not contain unescaped script tags
                 assert "<script>" not in call_args or "&lt;script&gt;" in call_args
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_unhandled_exception_notification(self, mock_send_email):
         """Test unhandled exception notification."""
         critical_events.send_unhandled_exception_notification(
             error_message="AttributeError: 'NoneType' object has no attribute 'name'",
             traceback="Traceback...",
-            context="Processing user upload"
+            context="Processing user upload",
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
 
 
@@ -182,13 +187,14 @@ class TestCriticalEventIntegration:
     def client(self):
         """Create Flask app test client."""
         from app import app
-        app.config['TESTING'] = True
+
+        app.config["TESTING"] = True
         with app.test_client() as client:
             yield client
 
     def test_health_endpoint_works(self, client):
         """Test that health endpoint still works after critical events integration."""
-        response = client.get('/health')
+        response = client.get("/health")
         assert response.status_code == 200
         assert response.json == {"status": "ok"}
 

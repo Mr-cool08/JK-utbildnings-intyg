@@ -358,9 +358,7 @@ def _add_column_if_missing(
     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {column_type}"))
 
 
-def _postgres_constraint_exists(
-    conn: Connection, table_name: str, constraint_name: str
-) -> bool:
+def _postgres_constraint_exists(conn: Connection, table_name: str, constraint_name: str) -> bool:
     row = conn.execute(
         text(
             """

@@ -32,7 +32,11 @@ def test_get_username_nonexistent(empty_db):
 
 def test_create_database_creates_tables(empty_db):
     with empty_db.connect() as conn:
-        for table in [functions.pending_users_table, functions.users_table, functions.user_pdfs_table]:
+        for table in [
+            functions.pending_users_table,
+            functions.users_table,
+            functions.user_pdfs_table,
+        ]:
             result = conn.execute(table.select().limit(0))
             assert result is not None
 
@@ -45,4 +49,3 @@ def test_verify_certificate_not_found(empty_db):
 def test_user_create_user_no_pending(empty_db):
     pnr_hash = functions.hash_value("9001011234")
     assert not functions.user_create_user("pass", pnr_hash)
-

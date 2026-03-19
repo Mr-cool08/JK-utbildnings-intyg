@@ -5,9 +5,9 @@ import functions
 
 def _admin_session(client):
     with client.session_transaction() as sess:
-        sess['admin_logged_in'] = True
-        sess['admin_username'] = 'admin'
-        sess['csrf_token'] = 'test-csrf'
+        sess["admin_logged_in"] = True
+        sess["admin_username"] = "admin"
+        sess["csrf_token"] = "test-csrf"
 
 
 def test_admin_list_applications(empty_db):
@@ -15,22 +15,22 @@ def test_admin_list_applications(empty_db):
     _admin_session(client)
 
     first = functions.create_application_request(
-        'foretagskonto',
-        'Test',
-        'api@example.com',
-        '5569668337',
-        'API Bolaget',
-        'Hej',
-        'Adress 1',
-        'Kontakt 1',
-        'Ref 1',
+        "foretagskonto",
+        "Test",
+        "api@example.com",
+        "5569668337",
+        "API Bolaget",
+        "Hej",
+        "Adress 1",
+        "Kontakt 1",
+        "Ref 1",
     )
 
-    response = client.get('/admin/api/ansokningar')
+    response = client.get("/admin/api/ansokningar")
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload['status'] == 'success'
-    assert any(entry['id'] == first for entry in payload['data'])
+    assert payload["status"] == "success"
+    assert any(entry["id"] == first for entry in payload["data"])
 
 
 def test_admin_get_application_by_id(empty_db):
@@ -38,26 +38,26 @@ def test_admin_get_application_by_id(empty_db):
     _admin_session(client)
 
     application_id = functions.create_application_request(
-        'foretagskonto',
-        'Hämtning Test',
-        'get@example.com',
-        '5569668337',
-        'Hämtning AB',
-        'Kommentar',
-        'Adress 1',
-        'Kontaktperson',
-        'Ref-GET',
+        "foretagskonto",
+        "Hämtning Test",
+        "get@example.com",
+        "5569668337",
+        "Hämtning AB",
+        "Kommentar",
+        "Adress 1",
+        "Kontaktperson",
+        "Ref-GET",
     )
 
-    response = client.get(f'/admin/api/ansokningar/{application_id}')
+    response = client.get(f"/admin/api/ansokningar/{application_id}")
     assert response.status_code == 200
 
     payload = response.get_json()
-    assert payload['status'] == 'success'
-    assert payload['data']['id'] == application_id
-    assert payload['data']['email'] == 'get@example.com'
-    assert payload['data']['account_type'] == 'foretagskonto'
-    assert payload['data']['company_name'] == 'Hämtning AB'
+    assert payload["status"] == "success"
+    assert payload["data"]["id"] == application_id
+    assert payload["data"]["email"] == "get@example.com"
+    assert payload["data"]["account_type"] == "foretagskonto"
+    assert payload["data"]["company_name"] == "Hämtning AB"
 
 
 def test_admin_approve_application_api(empty_db, monkeypatch):
@@ -68,35 +68,35 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
 
     monkeypatch.setattr(
         app.email_service,
-        'send_creation_email',
-        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+        "send_creation_email",
+        lambda email, link: creation_sent.update({"email": email, "link": link}),
     )
 
     application_id = functions.create_application_request(
-        'foretagskonto',
-        'Företagskonto',
-        'foretagskonto@example.com',
-        '5569668337',
-        'Handledarbolaget',
-        'Test',
-        'Fakturavägen 1',
-        'Kontaktperson',
-        'Ref-ABC',
+        "foretagskonto",
+        "Företagskonto",
+        "foretagskonto@example.com",
+        "5569668337",
+        "Handledarbolaget",
+        "Test",
+        "Fakturavägen 1",
+        "Kontaktperson",
+        "Ref-ABC",
     )
 
     response = client.post(
-        f'/admin/api/ansokningar/{application_id}/godkann',
-        json={'csrf_token': 'test-csrf'},
-        headers={'X-CSRF-Token': 'test-csrf'},
+        f"/admin/api/ansokningar/{application_id}/godkann",
+        json={"csrf_token": "test-csrf"},
+        headers={"X-CSRF-Token": "test-csrf"},
     )
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload['status'] == 'success'
-    assert payload['data']['account_type'] == 'foretagskonto'
-    assert payload['data']['supervisor_email'] == 'foretagskonto@example.com'
-    assert creation_sent['email'] == 'foretagskonto@example.com'
-    assert 'creation_link' in payload
-    assert creation_sent['link'] == payload['creation_link']
+    assert payload["status"] == "success"
+    assert payload["data"]["account_type"] == "foretagskonto"
+    assert payload["data"]["supervisor_email"] == "foretagskonto@example.com"
+    assert creation_sent["email"] == "foretagskonto@example.com"
+    assert "creation_link" in payload
+    assert creation_sent["link"] == payload["creation_link"]
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -104,16 +104,12 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
                 functions.application_requests_table.c.id == application_id
             )
         ).first()
-        assert application.status == 'approved'
-        pending_supervisor = conn.execute(
-            functions.pending_supervisors_table.select()
-        ).first()
+        assert application.status == "approved"
+        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).first()
         assert pending_supervisor is not None
 
 
-def test_admin_approve_standard_application_creates_activation_link(
-    empty_db, monkeypatch
-):
+def test_admin_approve_standard_application_creates_activation_link(empty_db, monkeypatch):
     client = app.app.test_client()
     _admin_session(client)
 
@@ -121,32 +117,32 @@ def test_admin_approve_standard_application_creates_activation_link(
 
     monkeypatch.setattr(
         app.email_service,
-        'send_creation_email',
-        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+        "send_creation_email",
+        lambda email, link: creation_sent.update({"email": email, "link": link}),
     )
 
     application_id = functions.create_application_request(
-        'standard',
-        'Standard Användare',
-        'standard@example.com',
-        '',
-        '',
-        'Hej',
-        personnummer='9001011234',
+        "standard",
+        "Standard Användare",
+        "standard@example.com",
+        "",
+        "",
+        "Hej",
+        personnummer="9001011234",
     )
 
     response = client.post(
-        f'/admin/api/ansokningar/{application_id}/godkann',
-        json={'csrf_token': 'test-csrf'},
-        headers={'X-CSRF-Token': 'test-csrf'},
+        f"/admin/api/ansokningar/{application_id}/godkann",
+        json={"csrf_token": "test-csrf"},
+        headers={"X-CSRF-Token": "test-csrf"},
     )
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload['status'] == 'success'
-    assert payload['data']['account_type'] == 'standard'
-    assert creation_sent['email'] == 'standard@example.com'
-    assert 'creation_link' in payload
-    assert creation_sent['link'] == payload['creation_link']
+    assert payload["status"] == "success"
+    assert payload["data"]["account_type"] == "standard"
+    assert creation_sent["email"] == "standard@example.com"
+    assert "creation_link" in payload
+    assert creation_sent["link"] == payload["creation_link"]
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -154,20 +150,14 @@ def test_admin_approve_standard_application_creates_activation_link(
                 functions.application_requests_table.c.id == application_id
             )
         ).first()
-        assert application.status == 'approved'
-        pending_user = conn.execute(
-            functions.pending_users_table.select()
-        ).first()
+        assert application.status == "approved"
+        pending_user = conn.execute(functions.pending_users_table.select()).first()
         assert pending_user is not None
         assert pending_user.email == functions.hash_value(
-            functions.normalize_email('standard@example.com')
+            functions.normalize_email("standard@example.com")
         )
-        pending_supervisor = conn.execute(
-            functions.pending_supervisors_table.select()
-        ).fetchall()
+        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).fetchall()
         assert pending_supervisor == []
-
-
 
 
 def test_admin_approve_application_validation_error_returns_400(empty_db, monkeypatch):
@@ -176,18 +166,18 @@ def test_admin_approve_application_validation_error_returns_400(empty_db, monkey
 
     monkeypatch.setattr(
         functions,
-        'approve_application_request',
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError('invalid state')),
+        "approve_application_request",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("invalid state")),
     )
 
     response = client.post(
-        '/admin/api/ansokningar/1/godkann',
-        json={'csrf_token': 'test-csrf'},
-        headers={'X-CSRF-Token': 'test-csrf'},
+        "/admin/api/ansokningar/1/godkann",
+        json={"csrf_token": "test-csrf"},
+        headers={"X-CSRF-Token": "test-csrf"},
     )
     assert response.status_code == 400
     payload = response.get_json()
-    assert payload['status'] == 'error'
+    assert payload["status"] == "error"
 
 
 def test_admin_reject_application_system_error_returns_500(empty_db, monkeypatch):
@@ -195,23 +185,24 @@ def test_admin_reject_application_system_error_returns_500(empty_db, monkeypatch
     _admin_session(client)
 
     def _raise_runtime(*_args, **_kwargs):
-        raise RuntimeError('boom')
+        raise RuntimeError("boom")
 
-    monkeypatch.setattr(functions, 'reject_application_request', _raise_runtime)
+    monkeypatch.setattr(functions, "reject_application_request", _raise_runtime)
 
     response = client.post(
-        '/admin/api/ansokningar/1/avslag',
-        json={'csrf_token': 'test-csrf', 'reason': 'Test'},
-        headers={'X-CSRF-Token': 'test-csrf'},
+        "/admin/api/ansokningar/1/avslag",
+        json={"csrf_token": "test-csrf", "reason": "Test"},
+        headers={"X-CSRF-Token": "test-csrf"},
     )
     assert response.status_code == 500
     payload = response.get_json()
-    assert payload['status'] == 'error'
+    assert payload["status"] == "error"
+
 
 def test_admin_reject_application_api(empty_db, monkeypatch):
     """
     Verifies that the admin reject-application API records a rejection, sends a rejection email, and persists the decision reason.
-    
+
     Sends a POST to the admin rejection endpoint for a created application, asserts a 200 response with a success payload containing the supplied reason, checks that a rejection email was sent to the applicant, and verifies the application row in the database has status 'rejected' and the decision_reason set to the provided reason.
     """
     client = app.app.test_client()
@@ -220,35 +211,35 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
     sent = {}
 
     def fake_send(email, company_name, reason):
-        sent['email'] = email
-        sent['company'] = company_name
-        sent['reason'] = reason
+        sent["email"] = email
+        sent["company"] = company_name
+        sent["reason"] = reason
 
-    monkeypatch.setattr(app.email_service, 'send_application_rejection_email', fake_send)
+    monkeypatch.setattr(app.email_service, "send_application_rejection_email", fake_send)
 
     application_id = functions.create_application_request(
-        'foretagskonto',
-        'Avslag Test',
-        'reject@example.com',
-        '5569668337',
-        'Avslag AB',
+        "foretagskonto",
+        "Avslag Test",
+        "reject@example.com",
+        "5569668337",
+        "Avslag AB",
         None,
-        'Avslagsgatan 5',
-        'Avslag Kontakt',
-        'Avslag Ref',
+        "Avslagsgatan 5",
+        "Avslag Kontakt",
+        "Avslag Ref",
     )
 
     response = client.post(
-        f'/admin/api/ansokningar/{application_id}/avslag',
-        json={'csrf_token': 'test-csrf', 'reason': 'Ofullständig ansökan'},
-        headers={'X-CSRF-Token': 'test-csrf'},
+        f"/admin/api/ansokningar/{application_id}/avslag",
+        json={"csrf_token": "test-csrf", "reason": "Ofullständig ansökan"},
+        headers={"X-CSRF-Token": "test-csrf"},
     )
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload['status'] == 'success'
-    assert sent['email'] == 'reject@example.com'
-    assert sent['reason'] == 'Ofullständig ansökan'
-    assert payload['data']['decision_reason'] == 'Ofullständig ansökan'
+    assert payload["status"] == "success"
+    assert sent["email"] == "reject@example.com"
+    assert sent["reason"] == "Ofullständig ansökan"
+    assert payload["data"]["decision_reason"] == "Ofullständig ansökan"
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -256,5 +247,5 @@ def test_admin_reject_application_api(empty_db, monkeypatch):
                 functions.application_requests_table.c.id == application_id
             )
         ).first()
-        assert application.status == 'rejected'
-        assert application.decision_reason == 'Ofullständig ansökan'
+        assert application.status == "rejected"
+        assert application.decision_reason == "Ofullständig ansökan"

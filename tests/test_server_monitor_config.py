@@ -29,10 +29,7 @@ def test_mta_sts_policy_file_has_expected_content():
     policy_content = policy_path.read_text(encoding="utf-8")
 
     assert policy_content == (
-        "version: STSv1\n"
-        "mode: testing\n"
-        "mx: webmail.internetport.se\n"
-        "max_age: 86400\n"
+        "version: STSv1\nmode: testing\nmx: webmail.internetport.se\nmax_age: 86400\n"
     )
 
 
@@ -63,9 +60,9 @@ def test_send_email_handles_smtp_timeouts_gracefully():
 def test_prod_compose_exposes_postgres_on_random_host_port():
     prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
 
-    assert 'postgres:' in prod_compose
-    assert 'ports:' in prod_compose
-    assert 'POSTGRES_PUBLIC_PORT' in prod_compose
+    assert "postgres:" in prod_compose
+    assert "ports:" in prod_compose
+    assert "POSTGRES_PUBLIC_PORT" in prod_compose
     assert ':5432"' in prod_compose
 
 
@@ -75,6 +72,7 @@ def test_dockerfile_copies_mta_sts_policy_into_image():
 
     assert "COPY . ." in dockerfile
     assert "deploy/mta-sts" not in dockerignore
+
 
 def test_server_monitor_uses_uppercase_smtp_env_with_legacy_fallback():
     dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")

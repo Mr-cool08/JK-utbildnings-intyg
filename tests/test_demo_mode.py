@@ -28,9 +28,7 @@ def test_ensure_demo_data_creates_accounts(empty_db):
         DEMO_PARAMS["supervisor_email"], DEMO_PARAMS["supervisor_password"]
     )
 
-    details = functions.get_supervisor_login_details_for_orgnr(
-        DEMO_PARAMS["supervisor_orgnr"]
-    )
+    details = functions.get_supervisor_login_details_for_orgnr(DEMO_PARAMS["supervisor_orgnr"])
     assert details is not None
     assert details["email"] == functions.normalize_email(DEMO_PARAMS["supervisor_email"])
 
@@ -101,7 +99,7 @@ def test_demo_menu_link_points_to_main_domain(monkeypatch):
     response = client.get("/", base_url="https://demo.exempel.se")
 
     assert response.status_code == 200
-    assert b'L\xc3\xa4mna demomilj\xc3\xb6' in response.data
+    assert b"L\xc3\xa4mna demomilj\xc3\xb6" in response.data
     assert b'href="https://exempel.se"' in response.data
 
 

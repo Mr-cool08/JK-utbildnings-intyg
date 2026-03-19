@@ -18,7 +18,7 @@ def test_proxy_fix_applied_and_headers_respected(monkeypatch):
     def _probe() -> dict[str, str]:
         """
         Return probe information about the current request as HTML-escaped strings.
-        
+
         Returns:
             dict[str, str]: A mapping containing:
                 - "scheme": the request scheme (for example, "http" or "https").

@@ -48,7 +48,6 @@ def test_configure_proxy_fix_disabled_when_zero(monkeypatch):
     assert not isinstance(flask_app.wsgi_app, ProxyFix)
 
 
-
 def test_resolve_secret_key_generates_in_pytest(monkeypatch):
     monkeypatch.delenv("secret_key", raising=False)
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "true")
@@ -69,7 +68,9 @@ def test_enable_debug_mode_sets_handlers_and_creates_user(monkeypatch):
         root_logger.removeHandler(handler)
 
     created = {}
-    monkeypatch.setattr(app.functions, "create_test_user", lambda: created.setdefault("called", True))
+    monkeypatch.setattr(
+        app.functions, "create_test_user", lambda: created.setdefault("called", True)
+    )
 
     functions_logger = logging.getLogger("app_test_functions_logger")
     for handler in list(functions_logger.handlers):
@@ -111,13 +112,21 @@ def test_create_app_enables_demo_mode(monkeypatch):
     monkeypatch.setenv("DEMO_SUPERVISOR_ORGNR", "5560160000")
 
     calls = {"create_db": 0, "ensure": None, "scheduler": False}
-    monkeypatch.setattr(app.functions, "create_database", lambda: calls.__setitem__("create_db", calls["create_db"] + 1))
+    monkeypatch.setattr(
+        app.functions,
+        "create_database",
+        lambda: calls.__setitem__("create_db", calls["create_db"] + 1),
+    )
 
     def fake_ensure_demo_data(**kwargs):
         calls["ensure"] = kwargs
 
     monkeypatch.setattr(app.functions, "ensure_demo_data", fake_ensure_demo_data)
-    monkeypatch.setattr(app, "_start_demo_reset_scheduler", lambda app_obj, defaults: calls.__setitem__("scheduler", True))
+    monkeypatch.setattr(
+        app,
+        "_start_demo_reset_scheduler",
+        lambda app_obj, defaults: calls.__setitem__("scheduler", True),
+    )
 
     demo_app = app.create_app()
 

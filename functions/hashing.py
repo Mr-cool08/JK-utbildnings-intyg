@@ -18,7 +18,9 @@ load_environment()
 
 SALT = os.getenv("HASH_SALT", "static_salt")
 if SALT == "static_salt":
-    logger.warning("Standardvärdet för HASH_SALT används; ange HASH_SALT i miljön för starkare säkerhet")
+    logger.warning(
+        "Standardvärdet för HASH_SALT används; ange HASH_SALT i miljön för starkare säkerhet"
+    )
 
 DEFAULT_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS", "200000"))
 TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))

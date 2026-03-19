@@ -19,19 +19,15 @@ def _capture_send_email(monkeypatch):
     return captured
 
 
-
 def test_send_application_rejection_email_uses_branded_support_email(monkeypatch):
     captured = _capture_send_email(monkeypatch)
 
-    email_service.send_application_rejection_email(
-        "test@example.com", "ACME AB", "Saknar underlag"
-    )
+    email_service.send_application_rejection_email("test@example.com", "ACME AB", "Saknar underlag")
 
     normalized_body = " ".join(captured["body"].split())
 
     assert captured["subject"] == "Ansökan avslogs för ACME AB"
     assert "support@utbildningsintyg.se" in normalized_body
-
 
 
 def test_send_email_skips_when_disable_emails_enabled(monkeypatch):

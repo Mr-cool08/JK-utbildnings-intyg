@@ -5,6 +5,7 @@ from email.message import EmailMessage
 # --- Läs .env om möjligt (valfritt) ---
 try:
     from dotenv import load_dotenv  # pip install python-dotenv
+
     load_dotenv()
 except Exception:
     pass
@@ -16,7 +17,9 @@ user = os.getenv("smtp_user")
 password = os.getenv("smtp_password")
 
 if not server or not user or not password:
-    raise SystemExit("Saknar env: smtp_server, smtp_user eller smtp_password. Kontrollera din .env eller miljö.")
+    raise SystemExit(
+        "Saknar env: smtp_server, smtp_user eller smtp_password. Kontrollera din .env eller miljö."
+    )
 
 # --- Meddelande ---
 msg = EmailMessage()
@@ -29,12 +32,9 @@ msg.set_content("Hej! Detta är ett testmejl.")
 context = ssl.create_default_context()
 with smtplib.SMTP(server, port, timeout=30) as smtp:
     smtp.ehlo()
-    smtp.starttls(context=context)   # funkar nu utan server_hostname
+    smtp.starttls(context=context)  # funkar nu utan server_hostname
     smtp.ehlo()
     smtp.login(user, password)
     smtp.send_message(msg)
 
 print("Testmejl skickat!")
-
-
-

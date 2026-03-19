@@ -1,4 +1,3 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
 {% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
 {% block main_class %}main-home{% endblock %}
@@ -10,7 +9,6 @@
     <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 {% endblock %}
 {% block content %}
 {% if IS_DEMO %}
@@ -195,4 +193,5 @@
         </div>
     </section>
 </div>
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% endblock %}

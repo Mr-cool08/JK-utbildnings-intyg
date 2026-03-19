@@ -124,7 +124,9 @@ def parse_smoke_targets(raw_value: str) -> list[tuple[str, str]]:
 
 SMOKE_TESTS_ENABLED = _is_truthy(os.getenv("MONITOR_SMOKE_TESTS_ENABLED", "true"))
 SMOKE_TESTS_TIMEOUT_SECONDS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_TIMEOUT_SECONDS", "8"), 8)
-SMOKE_TESTS_INTERVAL_SECONDS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_INTERVAL_SECONDS", "1800"), 1800)
+SMOKE_TESTS_INTERVAL_SECONDS = _safe_int(
+    os.getenv("MONITOR_SMOKE_TESTS_INTERVAL_SECONDS", "1800"), 1800
+)
 SMOKE_TESTS_HISTORY_DAYS = _safe_int(os.getenv("MONITOR_SMOKE_TESTS_HISTORY_DAYS", "35"), 35)
 SMOKE_WEEKLY_REPORT_WEEKDAY = _safe_int(os.getenv("MONITOR_SMOKE_WEEKLY_REPORT_WEEKDAY", "0"), 0)
 SMOKE_WEEKLY_REPORT_HOUR = _safe_int(os.getenv("MONITOR_SMOKE_WEEKLY_REPORT_HOUR", "8"), 8)
@@ -332,6 +334,7 @@ def send_email(subject: str, body: str, attachments: list[Path]):
     except (smtplib.SMTPException, TimeoutError, OSError) as exc:
         logger.error("Kunde inte skicka e-postvarning: %s", str(exc))
 
+
 def send_alert(alert_title: str, alert_body: str, client: docker.DockerClient):
     with tempfile.TemporaryDirectory() as tempdir:
         output_dir = Path(tempdir)
@@ -419,7 +422,7 @@ def format_failed_smoke_checks(checks: list[SmokeCheckResult]) -> str:
         if check["ok"]:
             continue
         failed_entries.append(
-            f'{check["name"]} ({check["url"]}): {check["details"]} efter {check["duration_seconds"]:.3f}s'
+            f"{check['name']} ({check['url']}): {check['details']} efter {check['duration_seconds']:.3f}s"
         )
     return "; ".join(failed_entries) if failed_entries else "Inga detaljer tillgängliga."
 
@@ -439,9 +442,7 @@ def build_heartbeat_log_message(
         next_smoke_run_at = LAST_SMOKE_RUN_AT + dt.timedelta(
             seconds=max(1, SMOKE_TESTS_INTERVAL_SECONDS)
         )
-        smoke_schedule = (
-            f"nästa tidigast {next_smoke_run_at.isoformat(timespec='seconds')}"
-        )
+        smoke_schedule = f"nästa tidigast {next_smoke_run_at.isoformat(timespec='seconds')}"
 
     return (
         f"Heartbeat: övervakning aktiv {now.isoformat(timespec='seconds')} | "
@@ -473,9 +474,7 @@ def maybe_run_smoke_tests(now: dt.datetime | None = None) -> None:
         return
 
     failed_checks = [check for check in summary["checks"] if not check["ok"]]
-    failed_check_names = ", ".join(
-        check["name"] for check in failed_checks
-    )
+    failed_check_names = ", ".join(check["name"] for check in failed_checks)
     failed_check_details = format_failed_smoke_checks(failed_checks)
     logger.warning(
         "Smoke-tester misslyckades: %s/%s (fel i: %s) | detaljer: %s",
@@ -519,9 +518,7 @@ def build_weekly_smoke_report(now: dt.datetime | None = None) -> str:
                 latest_failed_names = failed_checks_for_entry
                 break
         if latest_failed_names:
-            lines.append(
-                f"  Senast felande mål: {', '.join(latest_failed_names[:3])}"
-            )
+            lines.append(f"  Senast felande mål: {', '.join(latest_failed_names[:3])}")
 
     lines.extend(
         [

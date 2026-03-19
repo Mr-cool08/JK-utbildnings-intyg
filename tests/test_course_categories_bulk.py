@@ -28,7 +28,10 @@ from course_categories import labels_for_slugs, normalize_category_slugs
         ),
         (["liftutbildning", "Liftutbildning", "liftutbildning "], ["liftutbildning"]),
         (["säkrA-lyft", "TRUCKUTBILDNING-A", "unknown"], ["säkra-lyft", "truckutbildning-a"]),
-        (["FALLSKYDD-GRUND", "liftutbildning", "Liftutbildning"], ["fallskydd-grund", "liftutbildning"]),
+        (
+            ["FALLSKYDD-GRUND", "liftutbildning", "Liftutbildning"],
+            ["fallskydd-grund", "liftutbildning"],
+        ),
         (["\tsäkra-lyft\n"], ["säkra-lyft"]),
         (["fallskydd-grund", "unknown", " liftutbildning "], ["fallskydd-grund", "liftutbildning"]),
         (
@@ -40,7 +43,10 @@ from course_categories import labels_for_slugs, normalize_category_slugs
             ["liftutbildning", "säkra-lyft", "fallskydd-grund"],
         ),
         (["truckutbildning-a", "   ", "heta-arbeten"], ["truckutbildning-a", "heta-arbeten"]),
-        (["liftutbildning", "Liftutbildning", "LIFTUTBILDNING", "liftutbildning"], ["liftutbildning"]),
+        (
+            ["liftutbildning", "Liftutbildning", "LIFTUTBILDNING", "liftutbildning"],
+            ["liftutbildning"],
+        ),
         (
             [" fallskydd-grund ", " säkra-lyft ", "unknown", "truckutbildning-a"],
             ["fallskydd-grund", "säkra-lyft", "truckutbildning-a"],
@@ -64,7 +70,10 @@ def test_normalize_category_slugs(input_values, expected):
         (["liftutbildning", "fallskydd-grund"], ["Liftutbildning", "Fallskydd – grund"]),
         (["säkra-lyft", "heta-arbeten"], ["Säkra lyft", "Heta Arbeten"]),
         (["fallskydd-grund", "fallskydd-grund"], ["Fallskydd – grund", "Fallskydd – grund"]),
-        (["liftutbildning", "liftutbildning", "liftutbildning"], ["Liftutbildning", "Liftutbildning", "Liftutbildning"]),
+        (
+            ["liftutbildning", "liftutbildning", "liftutbildning"],
+            ["Liftutbildning", "Liftutbildning", "Liftutbildning"],
+        ),
         (["unknown"], []),
         (["fallskydd-grund", "unknown", "liftutbildning"], ["Fallskydd – grund", "Liftutbildning"]),
         (["unknown", "fallskydd-grund", "unknown"], ["Fallskydd – grund"]),
@@ -86,16 +95,34 @@ def test_normalize_category_slugs(input_values, expected):
             ["fallskydd-grund", "säkra-lyft", "heta-arbeten", "truckutbildning-a"],
             ["Fallskydd – grund", "Säkra lyft", "Heta Arbeten", "Truckutbildning A"],
         ),
-        (["liftutbildning", "liftutbildning", "unknown", "truckutbildning-a"], ["Liftutbildning", "Liftutbildning", "Truckutbildning A"]),
+        (
+            ["liftutbildning", "liftutbildning", "unknown", "truckutbildning-a"],
+            ["Liftutbildning", "Liftutbildning", "Truckutbildning A"],
+        ),
         (["unknown", "unknown"], []),
         (
             ["säkra-lyft", "säkra-lyft", "säkra-lyft"],
             ["Säkra lyft", "Säkra lyft", "Säkra lyft"],
         ),
-        (["truckutbildning-a", "unknown", "unknown", "truckutbildning-a"], ["Truckutbildning A", "Truckutbildning A"]),
         (
-            ["heta-arbeten", "fallskydd-grund", "liftutbildning", "säkra-lyft", "truckutbildning-a"],
-            ["Heta Arbeten", "Fallskydd – grund", "Liftutbildning", "Säkra lyft", "Truckutbildning A"],
+            ["truckutbildning-a", "unknown", "unknown", "truckutbildning-a"],
+            ["Truckutbildning A", "Truckutbildning A"],
+        ),
+        (
+            [
+                "heta-arbeten",
+                "fallskydd-grund",
+                "liftutbildning",
+                "säkra-lyft",
+                "truckutbildning-a",
+            ],
+            [
+                "Heta Arbeten",
+                "Fallskydd – grund",
+                "Liftutbildning",
+                "Säkra lyft",
+                "Truckutbildning A",
+            ],
         ),
         (
             ["fallskydd-grund", "liftutbildning", "säkra-lyft", "unknown", "heta-arbeten"],

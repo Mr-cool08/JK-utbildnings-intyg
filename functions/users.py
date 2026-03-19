@@ -437,6 +437,7 @@ def get_pending_user_personnummer_hash(
 
     return str(pending_row.personnummer)
 
+
 def admin_update_user_account(
     personnummer: str, email: str, username: str
 ) -> tuple[bool, dict[str, int] | None, str | None]:

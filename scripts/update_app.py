@@ -85,17 +85,13 @@ def _get_valid_postgres_public_port(default: str = "15432") -> str:
     try:
         port = int(raw)
     except ValueError:
-        print(
-            f"Ogiltigt värde i POSTGRES_PUBLIC_PORT, använder standardport {default}."
-        )
+        print(f"Ogiltigt värde i POSTGRES_PUBLIC_PORT, använder standardport {default}.")
         return default
 
     if 1 <= port <= 65535:
         return str(port)
 
-    print(
-        f"POSTGRES_PUBLIC_PORT måste vara mellan 1 och 65535, använder standardport {default}."
-    )
+    print(f"POSTGRES_PUBLIC_PORT måste vara mellan 1 och 65535, använder standardport {default}.")
     return default
 
 
@@ -160,10 +156,8 @@ def main() -> None:
         file = "docker-compose.yml"
         return ["docker", "compose", "-f", file, *args]
 
-
     # 1. container status
     _run(compose("ps", "--all"), cwd=root, env=compose_env)
-
 
     # 3. wait and optionally update OS packages
     time.sleep(5)

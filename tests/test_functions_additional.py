@@ -40,9 +40,7 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
     with empty_db.connect() as conn:
         pending_after = conn.execute(functions.pending_users_table.select()).first()
         user_row = conn.execute(
-            functions.users_table.select().where(
-                functions.users_table.c.personnummer == pnr_hash
-            )
+            functions.users_table.select().where(functions.users_table.c.personnummer == pnr_hash)
         ).first()
 
     assert pending_after is None
@@ -118,9 +116,7 @@ def test_demo_mode_overrides_database_url(tmp_path, monkeypatch):
 
 def test_build_engine_enables_postgres_pool_safety(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
-    monkeypatch.setattr(
-        functions.importlib.util, "find_spec", lambda name: None
-    )
+    monkeypatch.setattr(functions.importlib.util, "find_spec", lambda name: None)
     monkeypatch.setenv("POSTGRES_POOL_RECYCLE_SECONDS", "900")
     captured = {}
 
@@ -140,9 +136,7 @@ def test_build_engine_enables_postgres_pool_safety(monkeypatch):
 
 def test_build_engine_skips_psycopg_when_import_fails(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
-    monkeypatch.setattr(
-        functions.importlib.util, "find_spec", lambda name: object()
-    )
+    monkeypatch.setattr(functions.importlib.util, "find_spec", lambda name: object())
     original_import_module = functions.importlib.import_module
 
     def fake_import_module(name):
@@ -195,14 +189,18 @@ def test_create_database_retries_on_operational_error(monkeypatch):
             return _FakeConn()
 
     monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
-    monkeypatch.setattr(database_module, "inspect", lambda _conn: SimpleNamespace(
-        get_columns=lambda _table: [{"name": "categories"}],
-        get_table_names=lambda: [
-            functions.password_resets_table.name,
-            functions.supervisor_password_resets_table.name,
-            functions.admin_audit_log_table.name,
-        ],
-    ))
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [{"name": "categories"}],
+            get_table_names=lambda: [
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
     monkeypatch.setattr(database_module.time, "sleep", lambda _seconds: None)
 
     database_module.create_database()
@@ -211,9 +209,7 @@ def test_create_database_retries_on_operational_error(monkeypatch):
 
 
 def test_switch_postgres_host_after_dns_error(monkeypatch):
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
     monkeypatch.setenv("POSTGRES_FALLBACK_HOSTS", "localhost,127.0.0.1")
 
     switched = database_module._switch_postgres_host_after_dns_error(
@@ -246,7 +242,9 @@ def test_switch_postgres_host_after_dns_error(monkeypatch):
         (False, True),
     ],
 )
-def test_migration_0008_postgres_is_idempotent(monkeypatch, constraint_exists, should_add_constraint):
+def test_migration_0008_postgres_is_idempotent(
+    monkeypatch, constraint_exists, should_add_constraint
+):
     class _FakeResult:
         def __init__(self, value):
             self._value = value

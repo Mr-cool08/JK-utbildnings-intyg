@@ -46,9 +46,7 @@ def test_run_migrations_skips_applied_versions(monkeypatch):
 
     with engine.begin() as conn:
         database_module.schema_migrations_table.create(bind=conn)
-        conn.execute(
-            insert(database_module.schema_migrations_table).values(version="0001_dummy")
-        )
+        conn.execute(insert(database_module.schema_migrations_table).values(version="0001_dummy"))
 
     applied = []
 
@@ -67,9 +65,9 @@ def test_run_migrations_skips_applied_versions(monkeypatch):
     database_module.run_migrations(engine)
 
     with engine.connect() as conn:
-        versions = conn.execute(
-            select(database_module.schema_migrations_table.c.version)
-        ).scalars().all()
+        versions = (
+            conn.execute(select(database_module.schema_migrations_table.c.version)).scalars().all()
+        )
 
     assert applied == ["0002_dummy"]
     assert set(versions) == {"0001_dummy", "0002_dummy"}

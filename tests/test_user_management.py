@@ -40,9 +40,7 @@ def test_user_create_user_success(empty_db):
             )
         ).first()
         user_row = conn.execute(
-            functions.users_table.select().where(
-                functions.users_table.c.personnummer == pnr_hash
-            )
+            functions.users_table.select().where(functions.users_table.c.personnummer == pnr_hash)
         ).first()
 
     assert pending is None

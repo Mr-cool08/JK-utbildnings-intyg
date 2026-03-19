@@ -105,4 +105,9 @@ def save_pdf_for_user(
         note=note.strip(),
     )
     logger.info("Sparade PDF för %s med id %s", mask_hash(pnr_hash), pdf_id)
-    return {"id": pdf_id, "filename": filename, "categories": selected_categories, "note": note.strip()}
+    return {
+        "id": pdf_id,
+        "filename": filename,
+        "categories": selected_categories,
+        "note": note.strip(),
+    }
