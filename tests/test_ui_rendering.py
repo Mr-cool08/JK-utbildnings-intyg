@@ -11,7 +11,7 @@ def _client():
 
 
 def _extract_nav_links(body: str) -> str:
-    match = re.search(r'<div class="nav-links">(.*?)</div>', body, flags=re.DOTALL)
+    match = re.search(r'<div class="nav-links"[^>]*>(.*?)</div>', body, flags=re.DOTALL)
     assert match is not None
     return match.group(1)
 
@@ -40,6 +40,8 @@ def test_public_nav_shows_public_links_and_swedish_lang(empty_db):
     nav_links = _extract_nav_links(body)
 
     assert '<html lang="sv">' in body
+    assert 'aria-controls="primary-navigation"' in body
+    assert 'id="primary-navigation"' in body
     assert ">Hem<" in nav_links
     assert 'href="/ansok"' in nav_links
     assert 'href="/foretagskonto/login"' in nav_links

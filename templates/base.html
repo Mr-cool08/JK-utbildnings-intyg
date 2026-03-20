@@ -37,12 +37,12 @@
                 <img class="brand-logo" src="{{ url_for('static', filename='pictures/favicon_smaller.png') }}" alt="JK Utbildnings logotyp">
                 <span class="brand-name">Utbildningsintyg</span>
             </a>
-            <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Växla navigering">
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Växla navigering">
                 <span class="nav-toggle-bar"></span>
                 <span class="nav-toggle-bar"></span>
                 <span class="nav-toggle-bar"></span>
             </button>
-            <div class="nav-links">
+            <div class="nav-links" id="primary-navigation">
                 {% if session.get('supervisor_logged_in') %}
                     <a href="{{ url_for('supervisor_dashboard') }}">Företagskontopanel</a>
                     <a href="/logout">Logga ut</a>

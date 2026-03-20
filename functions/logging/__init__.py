@@ -127,6 +127,7 @@ _SENSITIVE_KEYS = {
     "password",
     "pass",
     "passwd",
+    "key",
     "token",
     "secret",
     "authorization",
@@ -139,6 +140,8 @@ _SENSITIVE_KEYS = {
     "api_key",
     "apikey",
 }
+
+_ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
 
 def mask_sensitive_data(data: Any) -> Any:
@@ -173,7 +176,15 @@ def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
     for env_var in level_env_vars:
         value = os.getenv(env_var)
         if value:
-            return value.strip().upper()
+            resolved = value.strip().upper()
+            if resolved in _ALLOWED_LOG_LEVELS:
+                return resolved
+            _MODULE_LOGGER.warning(
+                "Ogiltig loggnivå i %s=%r; använder INFO.",
+                env_var,
+                value,
+            )
+            return "INFO"
     return "INFO"
 
 
@@ -182,7 +193,7 @@ def _resolve_log_file_path(log_file_value: str, fallback_file: str) -> str:
     candidate = (log_file_value or "").strip() or fallback_file
     path = Path(candidate)
 
-    if path.exists() and path.is_dir():
+    if candidate.endswith((os.path.sep, "/", "\\")) or (path.exists() and path.is_dir()):
         return str(path / Path(fallback_file).name)
 
     return str(path)

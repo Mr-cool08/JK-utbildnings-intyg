@@ -1,5 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import logging
+import os
 from pathlib import Path
 import re
 from datetime import datetime, timezone
@@ -183,7 +184,7 @@ def test_configure_root_logging_adds_console_when_only_file_handler_exists(monke
         root_logger.setLevel(original_level)
 
 
-def test_mask_sensitive_data_leaves_generic_key_names_visible():
+def test_mask_sensitive_data_masks_exact_key_name_but_not_key_suffixes():
     masked = logging_utils.mask_sensitive_data(
         {
             "primary_key": "user-1",
@@ -195,8 +196,50 @@ def test_mask_sensitive_data_leaves_generic_key_names_visible():
 
     assert masked["primary_key"] == "user-1"
     assert masked["foreign_key"] == "company-9"
-    assert masked["key"] == "visible"
+    assert masked["key"] == logging_utils.MASK_PLACEHOLDER
     assert masked["api_key"] == logging_utils.MASK_PLACEHOLDER
+
+
+def test_mask_headers_masks_exact_key_name():
+    masked = logging_utils.mask_headers(
+        {
+            "key": "hemligt",
+            "Authorization": "Bearer secret",
+            "x-api-key": "visible",
+        }
+    )
+
+    assert masked["key"] == logging_utils.MASK_PLACEHOLDER
+    assert masked["Authorization"] == logging_utils.MASK_PLACEHOLDER
+    assert masked["x-api-key"] == "visible"
+
+
+def test_resolve_log_level_falls_back_to_info_for_invalid_value(monkeypatch):
+    monkeypatch.setenv("LOG_LEVEL", "verbose")
+    warning_calls = []
+
+    def fake_warning(message, *args, **kwargs):
+        _ = kwargs
+        warning_calls.append(message % args)
+
+    monkeypatch.setattr(logging_utils._MODULE_LOGGER, "warning", fake_warning)
+
+    assert logging_utils._resolve_log_level(("LOG_LEVEL",)) == "INFO"
+    assert len(warning_calls) == 1
+    assert "LOG_LEVEL" in warning_calls[0]
+    assert "INFO" in warning_calls[0]
+
+
+def test_resolve_log_file_path_treats_directory_like_values_as_directories(tmp_path):
+    fallback_file = str(tmp_path / "fallback" / "app.log")
+    log_dir = tmp_path / "framtida-loggar"
+
+    resolved = logging_utils._resolve_log_file_path(
+        f"{log_dir}{os.path.sep}",
+        fallback_file,
+    )
+
+    assert Path(resolved) == log_dir / "app.log"
 
 
 def test_collect_log_attachments_logs_read_failures(monkeypatch):

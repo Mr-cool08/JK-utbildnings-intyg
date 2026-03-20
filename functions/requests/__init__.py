@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from collections import deque
 
@@ -10,6 +11,7 @@ from flask import request
 _PUBLIC_FORM_LIMIT = 5
 _PUBLIC_FORM_WINDOW = 60 * 60  # 1 timme
 _public_form_attempts: dict[str, deque[float]] = {}
+_public_form_attempts_lock = threading.RLock()
 _CLEANUP_INTERVAL = 10 * 60
 _last_cleanup: float = 0.0
 
@@ -45,43 +47,46 @@ def _cleanup_expired_attempts(now: float) -> None:
 
     global _last_cleanup
 
-    if now - _last_cleanup < _CLEANUP_INTERVAL and len(_public_form_attempts) < 1000:
-        return
+    with _public_form_attempts_lock:
+        if now - _last_cleanup < _CLEANUP_INTERVAL and len(_public_form_attempts) < 1000:
+            return
 
-    stale_ips: list[str] = []
+        stale_ips: list[str] = []
 
-    for ip, bucket in list(_public_form_attempts.items()):
-        while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
-            bucket.popleft()
-        if not bucket:
-            stale_ips.append(ip)
+        for ip, bucket in list(_public_form_attempts.items()):
+            while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
+                bucket.popleft()
+            if not bucket:
+                stale_ips.append(ip)
 
-    for ip in stale_ips:
-        del _public_form_attempts[ip]
+        for ip in stale_ips:
+            del _public_form_attempts[ip]
 
-    _last_cleanup = now
+        _last_cleanup = now
 
 
 def _trim_bucket(bucket: deque[float], now: float) -> None:
     """Avlägsna föråldrade försök från en specifik IP."""
 
-    while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
-        bucket.popleft()
+    with _public_form_attempts_lock:
+        while bucket and now - bucket[0] > _PUBLIC_FORM_WINDOW:
+            bucket.popleft()
 
 
 def register_public_submission(ip: str) -> bool:
     """Registrera formulärförsök och rate-limita per IP."""
     now = time.time()
 
-    _cleanup_expired_attempts(now)
+    with _public_form_attempts_lock:
+        _cleanup_expired_attempts(now)
 
-    bucket = _public_form_attempts.setdefault(ip, deque())
-    _trim_bucket(bucket, now)
+        bucket = _public_form_attempts.setdefault(ip, deque())
+        _trim_bucket(bucket, now)
 
-    if len(bucket) >= _PUBLIC_FORM_LIMIT:
-        return False
-    bucket.append(now)
-    return True
+        if len(bucket) >= _PUBLIC_FORM_LIMIT:
+            return False
+        bucket.append(now)
+        return True
 
 
 def as_bool(value: str | None) -> bool:

@@ -11,12 +11,14 @@ Rules:
 Run from repository root: `python scripts/add_copyright_claims.py`
 """
 
+import logging
 import os
 from pathlib import Path
 
 from scripts import is_dev_mode_enabled
 
 CLAIM = "Copyright (c) Liam Suorsa and Mika Suorsa"
+logger = logging.getLogger(__name__)
 
 COMMENTERS = {
     ".py": lambda s: f"# {s}",
@@ -105,7 +107,8 @@ def main():
             try:
                 if path.is_symlink():
                     continue
-            except Exception:
+            except OSError as exc:
+                logger.debug("Hoppar över sökvägen %s efter fel vid symlänkskontroll: %s", path, exc)
                 continue
             # skip hidden git or binary files
             if is_binary(path):
@@ -113,7 +116,8 @@ def main():
             scanned += 1
             try:
                 text = path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
+            except (OSError, UnicodeDecodeError) as exc:
+                logger.warning("Kunde inte läsa filen %s: %s", path, exc)
                 continue
             if CLAIM in text:
                 continue
