@@ -9,7 +9,7 @@ import functions
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     # Isolera databasen och ge en testklient.
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path/'app.db'}")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'app.db'}")
     functions.reset_engine()
     functions.create_database()
     app.app.config.update(TESTING=True, SECRET_KEY="test")
@@ -31,7 +31,9 @@ def test_start_demo_reset_scheduler(monkeypatch):
             self.started = True
 
     monkeypatch.setattr(app.threading, "Thread", FakeThread)
-    monkeypatch.setattr(app.functions, "reset_demo_database", lambda defaults: calls.append(defaults))
+    monkeypatch.setattr(
+        app.functions, "reset_demo_database", lambda defaults: calls.append(defaults)
+    )
 
     demo_defaults = {"user_email": "demo@example.com"}
     app._start_demo_reset_scheduler(app.app, demo_defaults)
@@ -44,7 +46,11 @@ def test_start_demo_reset_scheduler(monkeypatch):
     assert calls == [demo_defaults]
 
     # Hantera fel vid återställning.
-    monkeypatch.setattr(app.functions, "reset_demo_database", lambda _defaults: (_ for _ in ()).throw(RuntimeError("fail")))
+    monkeypatch.setattr(
+        app.functions,
+        "reset_demo_database",
+        lambda _defaults: (_ for _ in ()).throw(RuntimeError("fail")),
+    )
     with pytest.raises(SystemExit):
         captured_target["target"]()
 
@@ -69,7 +75,6 @@ def test_create_user_routes(monkeypatch, client):
     )
     assert resp_short.status_code == 200
     assert "minst 8 tecken" in resp_short.text
-
 
     monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: False)
     resp_create_failed = client.post(
@@ -105,7 +110,11 @@ def test_supervisor_create_branches(monkeypatch, client):
     assert "kunde inte aktiveras" in resp_failed.text
 
     # Felaktiga värden kastar undantag.
-    monkeypatch.setattr(app.functions, "supervisor_activate_account", lambda *_: (_ for _ in ()).throw(ValueError("fel")))
+    monkeypatch.setattr(
+        app.functions,
+        "supervisor_activate_account",
+        lambda *_: (_ for _ in ()).throw(ValueError("fel")),
+    )
     resp_error = client.post(
         "/foretagskonto/skapa/testhash",
         data={"password": "a", "confirm": "a"},
@@ -143,7 +152,9 @@ def test_supervisor_login_paths(monkeypatch, client):
     assert "ogiltiga" in resp_missing.text.lower()
 
     # Ogiltigt organisationsnummer.
-    monkeypatch.setattr(app.functions, "validate_orgnr", lambda _value: (_ for _ in ()).throw(ValueError("invalid")))
+    monkeypatch.setattr(
+        app.functions, "validate_orgnr", lambda _value: (_ for _ in ()).throw(ValueError("invalid"))
+    )
     resp_invalid_org = client.post(
         "/foretagskonto/login",
         data={"orgnr": "abc", "password": "pw", "csrf_token": "test-token"},
@@ -152,7 +163,9 @@ def test_supervisor_login_paths(monkeypatch, client):
 
     # Konto saknas.
     monkeypatch.setattr(app.functions, "validate_orgnr", lambda value: value)
-    monkeypatch.setattr(app.functions, "get_supervisor_login_details_for_orgnr", lambda _orgnr: None)
+    monkeypatch.setattr(
+        app.functions, "get_supervisor_login_details_for_orgnr", lambda _orgnr: None
+    )
     resp_missing_acc = client.post(
         "/foretagskonto/login",
         data={"orgnr": "123", "password": "pw", "csrf_token": "test-token"},

@@ -228,6 +228,7 @@ def test_check_ssl_status_uses_internal_fallback_url(monkeypatch):
     assert calls[1][0] == "http://app:80/health"
     assert calls[1][1] == "utbildningsintyg.se"
 
+
 def test_get_load_average_handles_missing_support(monkeypatch, caplog):
     def raise_os_error():
         raise OSError("unsupported")
@@ -265,8 +266,6 @@ def test_build_latency_series_skips_invalid_items():
     ]
 
 
-
-
 def test_check_http_status_handles_timeout_error(monkeypatch, caplog):
     def fake_urlopen(*_args, **_kwargs):
         raise TimeoutError("timed out")
@@ -291,6 +290,7 @@ def test_check_http_status_handles_timeout_inside_url_error(monkeypatch, caplog)
 
     assert result == {"name": "Test", "status": "Fel", "details": "Timeout"}
     assert "nådde timeout" in caplog.text
+
 
 def test_check_http_status_handles_http_error(monkeypatch, caplog):
     class FakeResponse:

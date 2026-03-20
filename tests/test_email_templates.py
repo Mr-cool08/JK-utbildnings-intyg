@@ -19,13 +19,10 @@ def _capture_send_email(monkeypatch):
     return captured
 
 
-
 def test_send_application_rejection_email_uses_branded_support_email(monkeypatch):
     captured = _capture_send_email(monkeypatch)
 
-    email_service.send_application_rejection_email(
-        "test@example.com", "ACME AB", "Saknar underlag"
-    )
+    email_service.send_application_rejection_email("test@example.com", "ACME AB", "Saknar underlag")
 
     normalized_body = " ".join(captured["body"].split())
 
@@ -33,9 +30,8 @@ def test_send_application_rejection_email_uses_branded_support_email(monkeypatch
     assert "support@utbildningsintyg.se" in normalized_body
 
 
-
-def test_send_email_skips_when_disable_emails_enabled(monkeypatch):
-    monkeypatch.setenv("DISABLE_EMAILS", "true")
+def test_send_email_skips_when_dev_mode_enabled(monkeypatch):
+    monkeypatch.setenv("DEV_MODE", "true")
 
     called = {"load_settings": False, "send_message": False}
 
@@ -57,6 +53,6 @@ def test_send_email_skips_when_disable_emails_enabled(monkeypatch):
 
 
 def test_should_disable_email_sending_is_false_without_flag(monkeypatch):
-    monkeypatch.delenv("DISABLE_EMAILS", raising=False)
+    monkeypatch.delenv("DEV_MODE", raising=False)
 
     assert email_service.should_disable_email_sending() is False

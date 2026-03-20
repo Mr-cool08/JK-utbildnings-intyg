@@ -59,7 +59,7 @@ def test_email_error_handler_sends_emails_with_attachments(monkeypatch, tmp_path
 
     # Ensure attachments were provided and contain our sample content
     for _, subject, body, attachments in calls:
-        assert subject and "Applikationsfel" in subject or "[FEL]" in subject
+        assert subject and ("Applikationsfel" in subject or "[FEL]" in subject)
         assert "test-host" in body
         assert "utbildningsintyg.se" in body
         assert attachments is not None

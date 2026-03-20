@@ -1,6 +1,6 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
 {% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
+{% block main_class %}main-home{% endblock %}
 {% block head %}
     <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Kom åt dina intyg när du behöver dem.">
     <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering">
@@ -9,7 +9,6 @@
     <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 {% endblock %}
 {% block content %}
 {% if IS_DEMO %}
@@ -21,7 +20,7 @@
         <ul>
             <li><strong>Företagskonto:</strong> Org.nr {{ DEMO_CREDENTIALS.supervisor_orgnr }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
             <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
-            <li><strong>Användarkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
+            <li><strong>Privatkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
         </ul>
         <p class="demo-hint">Använd uppgifterna ovan för att logga in som företagskonto eller kursdeltagare.</p>
     </div>
@@ -30,116 +29,160 @@
 <div class="landing-content">
     <section class="home-hero" aria-labelledby="home-hero-title" data-motion="hero">
         <div class="hero-text" data-motion-group="hero-text">
-            <p class="hero-eyebrow" data-motion-child>Alla dina utbildningsintyg på ett ställe</p>
-            <h1 id="home-hero-title" data-motion-child>Håll ordning på dina utbildningsintyg</h1>
+            <p class="hero-eyebrow" data-motion-child>För företag och privatpersoner</p>
+            <h1 id="home-hero-title" data-motion-child>Samla dina intyg</h1>
+            <p class="hero-lead" data-motion-child>Välj kontotyp för att komma igång med rätt upplägg direkt.</p>
             <ul class="hero-list" data-motion-group="hero-list">
-                <li data-motion-child>Spara intyg digitalt och hitta dem snabbt</li>
-                <li data-motion-child>Dela intyg säkert med arbetsgivare eller kunder</li>
-                <li data-motion-child>Skydda personuppgifter med GDPR-anpassad hantering</li>
-                <li data-motion-child>Logga in från mobil, surfplatta eller dator</li>
-                <li data-motion-child>Privatkonto är gratis för privatpersoner.</li>
+                <li data-motion-child>Samla intyg och anteckningar i ett tydligt arkiv</li>
+                <li data-motion-child>Se vad som är uppladdat, delat och klart</li>
+                <li data-motion-child>Hantera personuppgifter med GDPR-anpassad struktur</li>
             </ul>
         </div>
-        <div class="hero-actions" aria-label="Snabbknappar" data-motion-group="hero-actions">
-            <a class="btn hero-btn" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
-            <a class="btn hero-btn" href="/pris" data-motion-child>Se priser</a>
-            {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener" data-motion-child>Prova demo</a>
-            {% else %}
-                <a class="btn hero-btn btn-ghost" href="/foretagskonto/login" data-motion-child>Prova demo</a>
-            {% endif %}
+        <div class="hero-actions" aria-label="Primära handlingar">
+            <p class="hero-action-heading" data-motion-child>Välj kontotyp</p>
+            <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatkonto</a>
+                <a class="btn hero-btn hero-btn-primary" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företagskonto</a>
+            </div>
+            <dl class="hero-choice-list" aria-label="Skillnad mellan konton" data-motion-group="hero-choice-list">
+                <div class="hero-choice-item" data-motion-child>
+                    <dt>Privatkonto</dt>
+                    <dd>För dig som vill lagra och dela egna utbildningsintyg. Kostnadsfritt för privatpersoner.</dd>
+                </div>
+                <div class="hero-choice-item" data-motion-child>
+                    <dt>Företagskonto</dt>
+                    <dd>För organisationer som hanterar intyg för flera personer.</dd>
+                </div>
+            </dl>
+            <p class="hero-support-links" data-motion-child>
+                <span class="hero-support-label">Andra vägar</span>
+                <a class="hero-inline-link" href="/pris">Se priser</a>
+                <span aria-hidden="true">•</span>
+                <a class="hero-inline-link" href="/login">Privatinloggning</a>
+                <span aria-hidden="true">•</span>
+                <a class="hero-inline-link" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
+            </p>
         </div>
     </section>
 
-
-
+    <section class="trust-band" aria-labelledby="trust-title" data-motion="section">
+        <p class="section-kicker" data-motion-child>Trygg grund</p>
+        <h2 id="trust-title" data-motion-child>Byggd för verkliga krav i svenska verksamheter</h2>
+        <p class="trust-band-lead" data-motion-child>Här är tre saker nya kunder brukar kontrollera först innan de väljer plattform för intygshantering.</p>
+        <dl class="trust-points" data-motion-group="trust-points">
+            <div class="trust-point" data-motion-child>
+                <dt>GDPR-anpassad hantering</dt>
+                <dd>Datalagring inom EU och spårbar aktivitet.</dd>
+            </div>
+            <div class="trust-point" data-motion-child>
+                <dt>Format som fungerar direkt</dt>
+                <dd>Ladda upp intyg i PDF, JPG eller PNG.</dd>
+            </div>
+            <div class="trust-point" data-motion-child>
+                <dt>För privat och företag</dt>
+                <dd>Separata flöden för privatkonto och företagskonto.</dd>
+            </div>
+        </dl>
+    </section>
 
     <section class="workflow" id="sa-fungerar" aria-labelledby="workflow-title" data-motion="section">
-        <h2 id="workflow-title" data-motion-child>Så fungerar det</h2>
-        <div class="workflow-steps" data-motion-group="workflow">
-            <article class="workflow-card" data-motion-child>
+        <p class="section-kicker" data-motion-child>Process</p>
+        <h2 id="workflow-title" data-motion-child>Från ansökan till delning</h2>
+        <ol class="workflow-steps" data-motion-group="workflow">
+            <li class="workflow-step" data-motion-child>
                 <span class="step-number">1</span>
-                <h3>Ansök om konto</h3>
-                <p>Skicka in din ansökan. Vi granskar den och återkommer.</p>
-            </article>
-            <article class="workflow-card" data-motion-child>
+                <h3>Välj kontotyp</h3>
+                <p>Välj privatkonto eller företagskonto och skicka sedan in dina uppgifter.</p>
+            </li>
+            <li class="workflow-step" data-motion-child>
                 <span class="step-number">2</span>
-                <h3>Ladda upp dina intyg</h3>
-                <p>Ladda upp intyg i PDF, JPG eller PNG. Vi samlar allt i ditt arkiv.</p>
-            </article>
-            <article class="workflow-card" data-motion-child>
+                <h3>Bygg ditt arkiv</h3>
+                <p>Ladda upp intyg, välj kategori och komplettera med korta noteringar.</p>
+            </li>
+            <li class="workflow-step" data-motion-child>
                 <span class="step-number">3</span>
-                <h3>Hämta och dela</h3>
-                <p>Ladda ner, skriv ut eller dela intyg när du behöver.</p>
-            </article>
-        </div>
+                <h3>Dela med rätt mottagare</h3>
+                <p>Välj intyg och skicka säkert till arbetsgivare, kund eller kollega.</p>
+            </li>
+        </ol>
     </section>
 
-    <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
-        <h2 id="feature-title" data-motion-child>Funktioner som förenklar vardagen</h2>
-        <div class="feature-grid" data-motion-group="features">
-            <article class="feature-card" data-motion-child>
-                <h3>Sortera dina intyg</h3>
-                <p>Samla intyg i ett tydligt arkiv och märk dem med kategorier.</p>
-                <p class="feature-highlight">Du ser direkt vilket intyg som gäller för vilken utbildning.</p>
-            </article>
-            <article class="feature-card" data-motion-child>
-                <h3>Dela intyg säkert</h3>
-                <p>Skicka valda intyg till rätt mottagare via e-post.</p>
-                <p class="feature-highlight">Välj ett eller flera intyg och dela på några sekunder.</p>
-            </article>
-            <article class="feature-card" data-motion-child>
-                <h3>Åtkomst överallt</h3>
-                <p>Logga in från dator, surfplatta eller mobil och hitta rätt intyg snabbt.</p>
-                <p class="feature-highlight">Dina intyg är tillgängliga när du behöver dem.</p>
-            </article>
-            <article class="feature-card" data-motion-child>
-                <h3>Välj rätt konto</h3>
-                <ul class="feature-list">
-                    <li>Privatkonto för dig som hanterar egna intyg</li>
-                    <li>Företagskonto för företag som hanterar flera användare</li>
+    <details class="home-more-details" data-motion="section">
+        <summary data-motion-child>Visa fler funktioner och fördelar</summary>
+        <div class="home-more-content">
+            <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
+                <p class="section-kicker" data-motion-child>Funktioner</p>
+                <h2 id="feature-title" data-motion-child>Verktyg för den löpande hanteringen</h2>
+                <div class="feature-listing" data-motion-group="features">
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Arkiv</p>
+                        <h3>Filtrera och hitta snabbt</h3>
+                        <p>Sök på kategori, person och innehåll när du behöver rätt dokument.</p>
+                        <p class="feature-highlight">Mindre tid går åt till att leta i mappar och mejltrådar.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Delning</p>
+                        <h3>Skicka med kontroll</h3>
+                        <p>Välj ett eller flera intyg och dela till en tydligt vald mottagare.</p>
+                        <p class="feature-highlight">Du styr vad som delas, när och till vem.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Behörighet</p>
+                        <h3>Separata flöden för privat och företag</h3>
+                        <p>Anpassade vyer beroende på om du arbetar själv eller i organisation.</p>
+                        <p class="feature-highlight">Rätt person ser rätt information vid rätt tillfälle.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Uppladdning</p>
+                        <h3>Stöd för vanliga filformat</h3>
+                        <p>Ladda upp PDF, JPG eller PNG direkt i samma arbetsflöde.</p>
+                        <p class="feature-highlight">Inga specialverktyg krävs för att komma igång.</p>
+                    </article>
+                    <article class="feature-row" data-motion-child>
+                        <p class="feature-tag">Överblick</p>
+                        <h3>Dokumentera beslut nära intyget</h3>
+                        <p>Lägg till noteringar så att nästa person snabbt förstår sammanhanget.</p>
+                        <p class="feature-highlight">Mindre muntlig överlämning och färre missförstånd.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="benefits" aria-labelledby="benefits-title" data-motion="section">
+                <p class="section-kicker" data-motion-child>Fördelar</p>
+                <h2 id="benefits-title" data-motion-child>Vad ni vinner i praktiken</h2>
+                <ul class="benefit-list" data-motion-group="benefits">
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Mindre administration</h3>
+                        <p>Färre manuella steg i den dagliga hanteringen av intyg.</p>
+                    </li>
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Snabbare svar till mottagare</h3>
+                        <p>När underlag efterfrågas kan ni dela direkt utan extra handpåläggning.</p>
+                    </li>
+                    <li class="benefit-item" data-motion-child>
+                        <h3>Tydligare intern överlämning</h3>
+                        <p>Anteckningar och struktur gör att fler kan arbeta i samma process.</p>
+                    </li>
                 </ul>
-                <a class="feature-link" href="{{ url_for('apply_account') }}">Ansök om konto</a>
-            </article>
-            <article class="feature-card" data-motion-child>
-                <h3>Ladda upp dina intyg</h3>
-                <p>Dra in filer i PDF, JPG eller PNG och koppla dem till rätt kategori.</p>
-                <p class="feature-highlight">Filerna sparas som PDF för enkel hantering.</p>
-            </article>
-            <article class="feature-card" data-motion-child>
-                <h3>Lägg till anteckningar</h3>
-                <p>Skriv korta noteringar på varje intyg för bättre överblick.</p>
-                <p class="feature-highlight">Samla viktig information direkt vid intyget.</p>
-            </article>
+                <a class="feature-link" href="{{ url_for('gdpr_info') }}" data-motion-child>Läs mer om integritetspolicyn</a>
+            </section>
         </div>
-    </section>
-
-    <section class="benefits" aria-labelledby="benefits-title" data-motion="section">
-        <h2 id="benefits-title" data-motion-child>Varför använda Utbildningsintyg?</h2>
-        <div class="benefit-grid" data-motion-group="benefits">
-            <article class="benefit-card" data-motion-child>
-                <h3>Säkerhet först (GDPR)</h3>
-                <p>Krypterad inloggning, spårbar aktivitet och datalagring inom EU.</p>
-                <a class="feature-link" href="{{ url_for('gdpr_info') }}">Läs mer om integritetspolicyn</a>
-            </article>
-            <article class="benefit-card" data-motion-child>
-                <h3>Enkel administration</h3>
-                <p>Sök, filtrera och hitta rätt intyg utan att leta i mappar.</p>
-            </article>
-            <article class="benefit-card" data-motion-child>
-                <h3>Enkelt att komma igång</h3>
-                <p>Du får tydliga steg från ansökan till första uppladdning.</p>
-            </article>
-        </div>
-    </section>
+    </details>
 
     <section class="cta-panel" aria-labelledby="cta-title" data-motion="section">
-        <h2 id="cta-title">Redo att samla intygen digitalt?</h2>
-        <p>Ansök om konto så hjälper vi dig att komma igång.</p>
+        <div class="cta-copy">
+            <p class="section-kicker">Nästa steg</p>
+            <h2 id="cta-title">Välj kontotyp för att fortsätta</h2>
+            <p>Börja i det flöde som passar dig eller din verksamhet.</p>
+        </div>
         <div class="cta-actions" data-motion-group="cta-actions">
-            <a class="btn btn-ghost" href="{{ url_for('apply_account') }}" data-motion-child>Ansök om konto</a>
-            <a class="btn btn-ghost" href="/login" data-motion-child>Logga in</a>
+            <div class="cta-choice-links">
+                <a class="btn cta-choice-btn" href="{{ url_for('apply_standardkonto') }}" data-motion-child>Privatkonto</a>
+                <a class="btn cta-choice-btn" href="{{ url_for('apply_foretagskonto') }}" data-motion-child>Företagskonto</a>
+            </div>
+            <a class="cta-link cta-link-secondary" href="/login" data-motion-child>Redan kund? Logga in</a>
         </div>
     </section>
 </div>
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% endblock %}

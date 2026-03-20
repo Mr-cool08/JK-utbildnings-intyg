@@ -7,7 +7,10 @@ import sys
 import pytest
 import werkzeug
 
-if not hasattr(werkzeug, "__version__"):
+if (
+    os.getenv("DEV_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+    and not hasattr(werkzeug, "__version__")
+):
     werkzeug.__version__ = "3.0.0"
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

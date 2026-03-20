@@ -50,8 +50,20 @@ def test_run_smoke_tests_records_daily_results(monkeypatch):
     module.DAILY_SMOKE_RESULTS.clear()
 
     responses = [
-        {"name": "Hälsa", "url": "https://a.test", "ok": True, "details": "HTTP 200", "duration_seconds": 0.01},
-        {"name": "Status", "url": "https://b.test", "ok": False, "details": "HTTP 503", "duration_seconds": 0.02},
+        {
+            "name": "Hälsa",
+            "url": "https://a.test",
+            "ok": True,
+            "details": "HTTP 200",
+            "duration_seconds": 0.01,
+        },
+        {
+            "name": "Status",
+            "url": "https://b.test",
+            "ok": False,
+            "details": "HTTP 503",
+            "duration_seconds": 0.02,
+        },
     ]
 
     def _fake_run(name, url):
@@ -243,10 +255,7 @@ def test_configure_fallback_logging_sets_console_handler_and_level(monkeypatch):
 
         assert configured_logger.name == "jk.test.monitor"
         assert root_logger.level == logging.DEBUG
-        assert any(
-            isinstance(handler, logging.StreamHandler)
-            for handler in root_logger.handlers
-        )
+        assert any(isinstance(handler, logging.StreamHandler) for handler in root_logger.handlers)
     finally:
         for handler in list(root_logger.handlers):
             try:

@@ -24,7 +24,7 @@ def test_antivirus_send_alert_email_command_present():
     assert '[ -z "${SMTP_SERVER}" ]' in run_scan
     assert '[ -z "${SMTP_USER}" ]' in run_scan
     assert '[ -z "${SMTP_PASSWORD}" ]' in run_scan
-    assert 'awk \'/ FOUND$/ {print "- " $0}\'' in run_scan
+    assert "awk '/ FOUND$/ {print \"- \" $0}'" in run_scan
 
 
 def test_antivirus_does_not_copy_or_move_infected_files():

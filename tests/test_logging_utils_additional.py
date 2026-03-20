@@ -1,5 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import logging
+import os
 from pathlib import Path
 import re
 from datetime import datetime, timezone
@@ -181,6 +182,100 @@ def test_configure_root_logging_adds_console_when_only_file_handler_exists(monke
                 pass
         root_logger.handlers = original_handlers
         root_logger.setLevel(original_level)
+
+
+def test_mask_sensitive_data_masks_exact_key_name_but_not_key_suffixes():
+    masked = logging_utils.mask_sensitive_data(
+        {
+            "primary_key": "user-1",
+            "foreign_key": "company-9",
+            "key": "visible",
+            "api_key": "secret-value",
+        }
+    )
+
+    assert masked["primary_key"] == "user-1"
+    assert masked["foreign_key"] == "company-9"
+    assert masked["key"] == logging_utils.MASK_PLACEHOLDER
+    assert masked["api_key"] == logging_utils.MASK_PLACEHOLDER
+
+
+def test_mask_headers_masks_exact_key_name():
+    masked = logging_utils.mask_headers(
+        {
+            "key": "hemligt",
+            "Authorization": "Bearer secret",
+            "x-api-key": "visible",
+        }
+    )
+
+    assert masked["key"] == logging_utils.MASK_PLACEHOLDER
+    assert masked["Authorization"] == logging_utils.MASK_PLACEHOLDER
+    assert masked["x-api-key"] == "visible"
+
+
+def test_resolve_log_level_falls_back_to_info_for_invalid_value(monkeypatch):
+    monkeypatch.setenv("LOG_LEVEL", "verbose")
+    warning_calls = []
+
+    def fake_warning(message, *args, **kwargs):
+        _ = kwargs
+        warning_calls.append(message % args)
+
+    monkeypatch.setattr(logging_utils._MODULE_LOGGER, "warning", fake_warning)
+
+    assert logging_utils._resolve_log_level(("LOG_LEVEL",)) == "INFO"
+    assert len(warning_calls) == 1
+    assert "LOG_LEVEL" in warning_calls[0]
+    assert "INFO" in warning_calls[0]
+
+
+def test_resolve_log_file_path_treats_directory_like_values_as_directories(tmp_path):
+    fallback_file = str(tmp_path / "fallback" / "app.log")
+    log_dir = tmp_path / "framtida-loggar"
+
+    resolved = logging_utils._resolve_log_file_path(
+        f"{log_dir}{os.path.sep}",
+        fallback_file,
+    )
+
+    assert Path(resolved) == log_dir / "app.log"
+
+
+def test_collect_log_attachments_logs_read_failures(monkeypatch):
+    logger = logging.getLogger("jk.attachments")
+    original_handlers = list(logger.handlers)
+    debug_calls = []
+
+    class DummyHandler(logging.Handler):
+        def __init__(self, base_filename: str):
+            super().__init__()
+            self.baseFilename = base_filename
+
+        def emit(self, record: logging.LogRecord) -> None:
+            return None
+
+    missing_path = Path(__file__).with_name("missing.log")
+    logger.handlers = [DummyHandler(str(missing_path))]
+
+    class DummyModuleLogger:
+        def debug(self, message, *args, **kwargs):
+            _ = kwargs
+            debug_calls.append(message % args)
+
+    try:
+        original_iter = logging_utils._iter_configured_loggers
+        logging_utils._iter_configured_loggers = lambda: iter([logger])
+        monkeypatch.setattr(logging_utils._MODULE_LOGGER, "debug", DummyModuleLogger().debug)
+        attachments = logging_utils.collect_log_attachments()
+
+        assert attachments == []
+        assert len(debug_calls) == 1
+        assert str(missing_path) in debug_calls[0]
+        assert "Kunde inte läsa loggfilen" in debug_calls[0]
+    finally:
+        logging_utils._iter_configured_loggers = original_iter
+        logger.handlers = original_handlers
 
 
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):

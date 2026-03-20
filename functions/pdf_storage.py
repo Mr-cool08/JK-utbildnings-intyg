@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+import time
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import OperationalError
@@ -13,6 +14,9 @@ from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
+
+_PDF_QUERY_MAX_ATTEMPTS = 2
+_PDF_QUERY_RETRY_DELAY_SECONDS = 0.1
 
 
 def _serialize_categories(categories: Sequence[str] | None) -> str:
@@ -32,6 +36,30 @@ def _deserialize_categories(raw: Optional[str]) -> List[str]:
     if not raw:
         return []
     return [part for part in raw.split(",") if part]
+
+
+def _run_pdf_query_with_retry(
+    personnummer_hash: str,
+    action: str,
+    operation: Callable[[Any], Any],
+) -> Any:
+    engine = get_engine()
+    for attempt in range(1, _PDF_QUERY_MAX_ATTEMPTS + 1):
+        try:
+            with engine.connect() as conn:
+                return operation(conn)
+        except OperationalError:
+            if attempt == _PDF_QUERY_MAX_ATTEMPTS:
+                raise
+            logger.warning(
+                "Databasanslutningen tappades vid %s för %s. Försöker igen.",
+                action,
+                mask_hash(personnummer_hash),
+            )
+            engine.dispose()
+            time.sleep(_PDF_QUERY_RETRY_DELAY_SECONDS * attempt)
+
+    return None
 
 
 def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:
@@ -131,30 +159,21 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
         )
     )
 
-    for attempt in (1, 2):
-        try:
-            with get_engine().connect() as conn:
-                rows = conn.execute(query)
-                return [
-                    {
-                        "id": row.id,
-                        "filename": row.filename,
-                        "categories": _deserialize_categories(row.categories),
-                        "uploaded_at": row.uploaded_at,
-                        "note": getattr(row, "note", "") or "",
-                    }
-                    for row in rows
-                ]
-        except OperationalError:
-            if attempt == 2:
-                raise
-            logger.warning(
-                "Databasanslutningen tappades vid hämtning av PDF-lista för %s. Försöker igen.",
-                mask_hash(personnummer_hash),
-            )
-            get_engine().dispose()
-
-    return []
+    rows = _run_pdf_query_with_retry(
+        personnummer_hash,
+        "hämtning av PDF-lista",
+        lambda conn: conn.execute(query).fetchall(),
+    )
+    return [
+        {
+            "id": row.id,
+            "filename": row.filename,
+            "categories": _deserialize_categories(row.categories),
+            "uploaded_at": row.uploaded_at,
+            "note": getattr(row, "note", "") or "",
+        }
+        for row in rows
+    ]
 
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:
@@ -162,19 +181,21 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
     if not _is_valid_hash(personnummer_hash):
         logger.warning("Avvisade ogiltig hash för personnummer")
         return None
-    with get_engine().connect() as conn:
-        row = conn.execute(
-            select(
-                user_pdfs_table.c.id,
-                user_pdfs_table.c.filename,
-                user_pdfs_table.c.categories,
-                user_pdfs_table.c.uploaded_at,
-                user_pdfs_table.c.note,
-            ).where(
-                user_pdfs_table.c.personnummer == personnummer_hash,
-                user_pdfs_table.c.id == pdf_id,
-            )
-        ).first()
+    query = select(
+        user_pdfs_table.c.id,
+        user_pdfs_table.c.filename,
+        user_pdfs_table.c.categories,
+        user_pdfs_table.c.uploaded_at,
+        user_pdfs_table.c.note,
+    ).where(
+        user_pdfs_table.c.personnummer == personnummer_hash,
+        user_pdfs_table.c.id == pdf_id,
+    )
+    row = _run_pdf_query_with_retry(
+        personnummer_hash,
+        "hämtning av PDF-metadata",
+        lambda conn: conn.execute(query).first(),
+    )
     if not row:
         return None
     return {
@@ -191,16 +212,18 @@ def get_pdf_content(personnummer_hash: str, pdf_id: int) -> Optional[Tuple[str, 
     if not _is_valid_hash(personnummer_hash):
         logger.warning("Avvisade ogiltig hash för personnummer")
         return None
-    with get_engine().connect() as conn:
-        row = conn.execute(
-            select(
-                user_pdfs_table.c.filename,
-                user_pdfs_table.c.content,
-            ).where(
-                user_pdfs_table.c.personnummer == personnummer_hash,
-                user_pdfs_table.c.id == pdf_id,
-            )
-        ).first()
+    query = select(
+        user_pdfs_table.c.filename,
+        user_pdfs_table.c.content,
+    ).where(
+        user_pdfs_table.c.personnummer == personnummer_hash,
+        user_pdfs_table.c.id == pdf_id,
+    )
+    row = _run_pdf_query_with_retry(
+        personnummer_hash,
+        "hämtning av PDF-innehåll",
+        lambda conn: conn.execute(query).first(),
+    )
     if not row:
         return None
     return row.filename, row.content

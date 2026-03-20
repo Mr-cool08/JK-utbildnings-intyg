@@ -358,9 +358,7 @@ def _add_column_if_missing(
     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {column_type}"))
 
 
-def _postgres_constraint_exists(
-    conn: Connection, table_name: str, constraint_name: str
-) -> bool:
+def _postgres_constraint_exists(conn: Connection, table_name: str, constraint_name: str) -> bool:
     row = conn.execute(
         text(
             """
@@ -580,6 +578,9 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
 def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
     # Lägg till anteckningsfält för användarens uppladdade intyg.
     inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if "user_pdfs" not in existing_tables:
+        return
     columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
     if "note" in columns:
         return
@@ -632,14 +633,6 @@ def _is_truthy(value: Optional[str]) -> bool:
         "t",
         "yes",
         "y",
-        "True",
-        "TRUE",
-        "Ja",
-        "JA",
-        "On",
-        "ON",
-        "Sant",
-        "SANT",
     }
 
 

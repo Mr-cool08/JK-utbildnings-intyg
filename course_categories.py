@@ -89,8 +89,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
                 "Operatör TSA och/eller TA – grund",
             ),
             (
-                "repetition-sos-ledare-sos-planerare-tillsyningsman-e2-"
-                "operator-tsa-ta-tsm",
+                "repetition-sos-ledare-sos-planerare-tillsyningsman-e2-operator-tsa-ta-tsm",
                 "Repetition - SoS-ledare, SoS-planerare, Tillsyningsman, E2, "
                 "Operatör TSA och Operatör TA, TSM spärrfärd och växling",
             ),
@@ -257,9 +256,7 @@ def _flatten_category_groups(
 
 
 # Lista över tillgängliga kurskategorier (slug, etikett)
-COURSE_CATEGORIES: List[Tuple[str, str]] = _flatten_category_groups(
-    COURSE_CATEGORY_GROUPS
-)
+COURSE_CATEGORIES: List[Tuple[str, str]] = _flatten_category_groups(COURSE_CATEGORY_GROUPS)
 
 _CATEGORY_LOOKUP = {slug: label for slug, label in COURSE_CATEGORIES}
 

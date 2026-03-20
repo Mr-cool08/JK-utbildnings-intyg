@@ -175,7 +175,7 @@ def test_entrypoint_runs_gunicorn_only():
     assert nginx_start_pattern.search(entrypoint) is None
 
 
-def test_dockerfile_installs_openssl():
+def test_dockerfile_installs_tini_and_curl():
     dockerfile = _read(ROOT / "Dockerfile")
     # Någon apk-add rad måste innehålla tini och curl
     apk_lines = [line for line in dockerfile.splitlines() if "apk add" in line]

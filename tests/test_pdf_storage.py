@@ -111,6 +111,10 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
 
     state = {"calls": 0}
 
+    class _Result:
+        def fetchall(self):
+            return [row]
+
     class _FailingConnection:
         def __enter__(self):
             return self
@@ -122,7 +126,7 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             state["calls"] += 1
             if state["calls"] == 1:
                 raise OperationalError("SELECT 1", {}, Exception("connection lost"))
-            return [row]
+            return _Result()
 
     class _FakeEngine:
         def __init__(self):
@@ -150,3 +154,102 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             "note": "",
         }
     ]
+
+
+def test_get_pdf_metadata_retries_once_after_operational_error(monkeypatch):
+    pnr_hash = _personnummer_hash("9001011234")
+    expected_uploaded_at = datetime(2026, 1, 2, 8, 15, 0)
+    row = SimpleNamespace(
+        id=9,
+        filename="metadata-retry.pdf",
+        categories="truck",
+        uploaded_at=expected_uploaded_at,
+        note=None,
+    )
+    state = {"calls": 0}
+
+    class _Result:
+        def first(self):
+            return row
+
+    class _FailingConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, _query):
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise OperationalError("SELECT 1", {}, Exception("connection lost"))
+            return _Result()
+
+    class _FakeEngine:
+        def __init__(self):
+            self.dispose_calls = 0
+
+        def connect(self):
+            return _FailingConnection()
+
+        def dispose(self):
+            self.dispose_calls += 1
+
+    engine = _FakeEngine()
+    monkeypatch.setattr(functions.pdf_storage, "get_engine", lambda: engine)
+    monkeypatch.setattr(functions.pdf_storage.time, "sleep", lambda _delay: None)
+
+    metadata = functions.get_pdf_metadata(pnr_hash, 9)
+
+    assert state["calls"] == 2
+    assert engine.dispose_calls == 1
+    assert metadata == {
+        "id": 9,
+        "filename": "metadata-retry.pdf",
+        "categories": ["truck"],
+        "uploaded_at": expected_uploaded_at,
+        "note": "",
+    }
+
+
+def test_get_pdf_content_retries_once_after_operational_error(monkeypatch):
+    pnr_hash = _personnummer_hash("9001011234")
+    row = SimpleNamespace(filename="content-retry.pdf", content=b"%PDF-1.4 retry")
+    state = {"calls": 0}
+
+    class _Result:
+        def first(self):
+            return row
+
+    class _FailingConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, _query):
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise OperationalError("SELECT 1", {}, Exception("connection lost"))
+            return _Result()
+
+    class _FakeEngine:
+        def __init__(self):
+            self.dispose_calls = 0
+
+        def connect(self):
+            return _FailingConnection()
+
+        def dispose(self):
+            self.dispose_calls += 1
+
+    engine = _FakeEngine()
+    monkeypatch.setattr(functions.pdf_storage, "get_engine", lambda: engine)
+    monkeypatch.setattr(functions.pdf_storage.time, "sleep", lambda _delay: None)
+
+    pdf_content = functions.get_pdf_content(pnr_hash, 10)
+
+    assert state["calls"] == 2
+    assert engine.dispose_calls == 1
+    assert pdf_content == ("content-retry.pdf", b"%PDF-1.4 retry")

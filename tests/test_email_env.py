@@ -6,7 +6,7 @@ from functions.emails import service as email_service
 
 @pytest.fixture(autouse=True)
 def _enable_email_sending(monkeypatch):
-    monkeypatch.setenv("DISABLE_EMAILS", "false")
+    monkeypatch.setenv("DEV_MODE", "false")
 
 
 def test_send_creation_email_uses_env_credentials(monkeypatch):
@@ -178,9 +178,7 @@ def test_send_creation_email_uses_configured_from_address(monkeypatch):
 
     monkeypatch.setattr(email_service, "SMTP", DummySMTP)
 
-    email_service.send_creation_email(
-        "liamsuorsa08@gmail.com", "https://example.com/create"
-    )
+    email_service.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
 
     msg = sent["message"]
     assert msg["From"] == "no-reply@example.com"
@@ -222,8 +220,6 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
     monkeypatch.setattr(email_service, "SMTP", RefusingSMTP)
 
     with pytest.raises(RuntimeError) as exc:
-        email_service.send_creation_email(
-            "liamsuorsa08@gmail.com", "https://example.com/create"
-        )
+        email_service.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
 
     assert "accepterade inte mottagaren" in str(exc.value)

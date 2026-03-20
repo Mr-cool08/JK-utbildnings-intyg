@@ -28,6 +28,22 @@ def _get_table(table_name: str):
     return table
 
 
+def _get_id_column(table) -> Column | None:
+    if "id" not in table.c:
+        return None
+    return table.c["id"]
+
+
+def _get_default_sort_column(table) -> Column | None:
+    id_column = _get_id_column(table)
+    if id_column is not None:
+        return id_column
+    primary_keys = list(table.primary_key.columns)
+    if primary_keys:
+        return primary_keys[0]
+    return None
+
+
 def get_table_schema(table_name: str) -> List[Dict[str, Any]]:
     table = _get_table(table_name)
     schema: List[Dict[str, Any]] = []
@@ -83,7 +99,10 @@ def fetch_table_rows(
                 conditions.append(func.lower(column).like(parameter, escape="\\"))
         if conditions:
             stmt = stmt.where(or_(*conditions))
-    stmt = stmt.order_by(table.c.id.asc()).limit(limit)
+    sort_column = _get_default_sort_column(table)
+    if sort_column is not None:
+        stmt = stmt.order_by(sort_column.asc())
+    stmt = stmt.limit(limit)
     with get_engine().connect() as conn:
         rows = conn.execute(stmt).mappings().all()
     return [{key: _encode_value(value) for key, value in row.items()} for row in rows]
@@ -110,6 +129,9 @@ def create_table_row(table_name: str, values: Dict[str, Any]) -> Dict[str, Any]:
 
 def update_table_row(table_name: str, row_id: int, values: Dict[str, Any]) -> bool:
     table = _get_table(table_name)
+    id_column = _get_id_column(table)
+    if id_column is None:
+        raise ValueError("Tabellen saknar en 'id'-kolumn och kan inte uppdateras via detta gränssnitt")
     assignments: Dict[str, Any] = {}
     for column in table.c:
         if column.primary_key:
@@ -119,12 +141,15 @@ def update_table_row(table_name: str, row_id: int, values: Dict[str, Any]) -> bo
     if not assignments:
         raise ValueError("Inga fält att uppdatera")
     with get_engine().begin() as conn:
-        result = conn.execute(update(table).where(table.c.id == row_id).values(**assignments))
+        result = conn.execute(update(table).where(id_column == row_id).values(**assignments))
     return result.rowcount > 0
 
 
 def delete_table_row(table_name: str, row_id: int) -> bool:
     table = _get_table(table_name)
+    id_column = _get_id_column(table)
+    if id_column is None:
+        raise ValueError("Tabellen saknar en 'id'-kolumn och kan inte raderas via detta gränssnitt")
     with get_engine().begin() as conn:
-        result = conn.execute(delete(table).where(table.c.id == row_id))
+        result = conn.execute(delete(table).where(id_column == row_id))
     return result.rowcount > 0
