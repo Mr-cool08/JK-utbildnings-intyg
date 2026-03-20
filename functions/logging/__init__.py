@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 MASK_PLACEHOLDER = "***"
 
 _TZ_WARNING_STATE = threading.local()
+_MODULE_LOGGER = logging.getLogger(__name__)
 
 
 class AppTimezoneFormatter(logging.Formatter):
@@ -38,11 +39,10 @@ def _resolve_timezone(timezone_name: str) -> tzinfo:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError:
         if timezone_name != "Europe/Stockholm":
-            logger = logging.getLogger(__name__)
             if not getattr(_TZ_WARNING_STATE, "active", False):
                 _TZ_WARNING_STATE.active = True
                 try:
-                    logger.warning(
+                    _MODULE_LOGGER.warning(
                         "Tidszonen %s kunde inte laddas eftersom tzdata saknas; använder Europe/Stockholm som fallback.",
                         timezone_name,
                     )
@@ -138,7 +138,6 @@ _SENSITIVE_KEYS = {
     "smtp_password",
     "api_key",
     "apikey",
-    "key",
 }
 
 
@@ -239,8 +238,10 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
             email_handler.setFormatter(formatter)
             root.addHandler(email_handler)
     except Exception:
-        # Silently fail if email handler can't be attached (e.g., during early initialization)
-        pass
+        _MODULE_LOGGER.debug(
+            "Kunde inte koppla e-postlogghanteraren under initiering.",
+            exc_info=True,
+        )
 
 
 def bootstrap_logging(
@@ -278,7 +279,12 @@ def collect_log_attachments() -> list[tuple[str, bytes]]:
             with open(path, "rb") as fh:
                 content = fh.read()
             attachments.append((Path(path).name, content))
-        except Exception:
+        except OSError:
+            _MODULE_LOGGER.debug(
+                "Kunde inte läsa loggfilen %s för att bifoga den till felrapporten.",
+                path,
+                exc_info=True,
+            )
             continue
     return attachments
 

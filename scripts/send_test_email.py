@@ -1,44 +1,59 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
-import os, smtplib, ssl
+import os
+import smtplib
+import ssl
 from email.message import EmailMessage
 
-# --- Läs .env om möjligt (valfritt) ---
-try:
-    from dotenv import load_dotenv  # pip install python-dotenv
+from scripts import is_dev_mode_enabled
+
+
+def _load_dotenv_if_available() -> None:
+    try:
+        from dotenv import load_dotenv  # pip install python-dotenv
+    except ImportError:
+        return
 
     load_dotenv()
-except Exception:
-    pass
 
-# --- Hämta env-variabler ---
-server = os.getenv("smtp_server")
-port = int(os.getenv("smtp_port", "587"))
-user = os.getenv("smtp_user")
-password = os.getenv("smtp_password")
-dev_mode = os.getenv("DEV_MODE", "false").lower()
 
-if dev_mode not in {"true", "1", "yes"}:
-    raise SystemExit("DEV_MODE måste vara aktiverat för att skicka testmejl.")
+def main() -> None:
+    _load_dotenv_if_available()
 
-if not server or not user or not password:
-    raise SystemExit(
-        "Saknar env: smtp_server, smtp_user eller smtp_password. Kontrollera din .env eller miljö."
-    )
+    # --- Hämta env-variabler ---
+    server = os.getenv("smtp_server")
+    port = int(os.getenv("smtp_port", "587"))
+    user = os.getenv("smtp_user")
+    password = os.getenv("smtp_password")
 
-# --- Meddelande ---
-msg = EmailMessage()
-msg["Subject"] = "Testmejl"
-msg["From"] = user
-msg["To"] = "liamsuorsa08@gmail.com"  # <-- byt till din adress
-msg.set_content("Hej! Detta är ett testmejl.")
+    if not is_dev_mode_enabled(os.getenv("DEV_MODE", "false")):
+        raise SystemExit("DEV_MODE måste vara aktiverat för att skicka testmejl.")
 
-# --- Skicka via STARTTLS på port 587 ---
-context = ssl.create_default_context()
-with smtplib.SMTP(server, port, timeout=30) as smtp:
-    smtp.ehlo()
-    smtp.starttls(context=context)  # funkar nu utan server_hostname
-    smtp.ehlo()
-    smtp.login(user, password)
-    smtp.send_message(msg)
+    if not server or not user or not password:
+        raise SystemExit(
+            "Saknar env: smtp_server, smtp_user eller smtp_password. Kontrollera din .env eller miljö."
+        )
 
-print("Testmejl skickat!")
+    # --- Meddelande ---
+    msg = EmailMessage()
+    msg["Subject"] = "Testmejl"
+    msg["From"] = user
+    msg["To"] = "liamsuorsa08@gmail.com"  # <-- byt till din adress
+    msg.set_content("Hej! Detta är ett testmejl.")
+
+    # --- Skicka via STARTTLS på port 587 ---
+    context = ssl.create_default_context()
+    with smtplib.SMTP(server, port, timeout=30) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=context)  # funkar nu utan server_hostname
+        smtp.ehlo()
+        smtp.login(user, password)
+        smtp.send_message(msg)
+
+    print("Testmejl skickat!")
+
+
+if __name__ == "__main__":
+    main()
+
+
+# Copyright (c) Liam Suorsa and Mika Suorsa

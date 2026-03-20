@@ -183,6 +183,58 @@ def test_configure_root_logging_adds_console_when_only_file_handler_exists(monke
         root_logger.setLevel(original_level)
 
 
+def test_mask_sensitive_data_leaves_generic_key_names_visible():
+    masked = logging_utils.mask_sensitive_data(
+        {
+            "primary_key": "user-1",
+            "foreign_key": "company-9",
+            "key": "visible",
+            "api_key": "secret-value",
+        }
+    )
+
+    assert masked["primary_key"] == "user-1"
+    assert masked["foreign_key"] == "company-9"
+    assert masked["key"] == "visible"
+    assert masked["api_key"] == logging_utils.MASK_PLACEHOLDER
+
+
+def test_collect_log_attachments_logs_read_failures(monkeypatch):
+    logger = logging.getLogger("jk.attachments")
+    original_handlers = list(logger.handlers)
+    debug_calls = []
+
+    class DummyHandler(logging.Handler):
+        def __init__(self, base_filename: str):
+            super().__init__()
+            self.baseFilename = base_filename
+
+        def emit(self, record: logging.LogRecord) -> None:
+            return None
+
+    missing_path = Path(__file__).with_name("missing.log")
+    logger.handlers = [DummyHandler(str(missing_path))]
+
+    class DummyModuleLogger:
+        def debug(self, message, *args, **kwargs):
+            _ = kwargs
+            debug_calls.append(message % args)
+
+    try:
+        original_iter = logging_utils._iter_configured_loggers
+        logging_utils._iter_configured_loggers = lambda: iter([logger])
+        monkeypatch.setattr(logging_utils._MODULE_LOGGER, "debug", DummyModuleLogger().debug)
+        attachments = logging_utils.collect_log_attachments()
+
+        assert attachments == []
+        assert len(debug_calls) == 1
+        assert str(missing_path) in debug_calls[0]
+        assert "Kunde inte läsa loggfilen" in debug_calls[0]
+    finally:
+        logging_utils._iter_configured_loggers = original_iter
+        logger.handlers = original_handlers
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
 

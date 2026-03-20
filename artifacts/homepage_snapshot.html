@@ -35,6 +35,10 @@
     <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://utbildningsintyg.se/">
+    <meta property="og:image" content="https://utbildningsintyg.se/static/pictures/favicon_full_size.png">
+    <meta property="og:image:width" content="4000">
+    <meta property="og:image:height" content="4000">
+    <meta property="og:image:alt" content="Utbildningsintygs logotyp">
 
 </head>
 <body>
@@ -82,7 +86,7 @@
             </ul>
         </div>
         <div class="hero-actions" aria-label="Primära handlingar">
-            <u class="home-more-details" style="color:#9C1E0A; font-weight: 700; text-decoration: underline; text-decoration-thickness: 0.08em; text-underline-offset: 0.2em;">Ansök här</u>
+            <span class="hero-apply-label">Ansök här</span>
             <div class="hero-tracks" aria-label="Välj användarspår" data-motion-group="hero-tracks">
                 <a class="btn hero-btn hero-btn-primary" href="/ansok/standardkonto" data-motion-child>Privatperson</a>
                 <a class="btn hero-btn hero-btn-primary" href="/ansok/foretagskonto" data-motion-child>Företag</a>
@@ -154,7 +158,7 @@
         </ol>
     </section>
 
-    <details class="home-more-details" data-motion="section">
+    <details class="home-more-toggle" data-motion="section">
         <summary data-motion-child>Visa fler funktioner och fördelar</summary>
         <div class="home-more-content">
             <section class="feature-section" id="funktioner" aria-labelledby="feature-title" data-motion="section">
@@ -264,7 +268,7 @@
                         <ul>
                             <li><a href="/dashboard">Mina intyg</a></li>
                             <li><a href="/foretagskonto">Företagskonto</a></li>
-                            <li><a href="https://status.utbildningsintyg.se">Driftstatus</a></li>
+                            <li><a href="https://status.utbildningsintyg.se" rel="noopener">Driftstatus</a></li>
                         </ul>
                     </div>
                     <div class="footer-links">
@@ -306,8 +310,15 @@
         }
         function hideToast(t){
             t.classList.remove('show');
-            // remove from DOM after transition
-            t.addEventListener('transitionend', function(){ if(t.parentNode) t.parentNode.removeChild(t); });
+            // remove from DOM after transition, with a timeout fallback when no transition fires
+            var removeToast = function(){
+                if(t.parentNode) t.parentNode.removeChild(t);
+            };
+            var fallbackTimer = setTimeout(removeToast, 450);
+            t.addEventListener('transitionend', function(){
+                clearTimeout(fallbackTimer);
+                removeToast();
+            }, { once: true });
         }
         if(document.readyState === 'loading'){
             document.addEventListener('DOMContentLoaded', initToasts);

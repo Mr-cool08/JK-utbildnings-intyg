@@ -44,16 +44,16 @@ def test_get_request_ip_prefers_forwarded_header(monkeypatch):
     dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.5"})
     monkeypatch.setattr(ru, "request", dummy_request)
 
-    assert ru.get_request_ip() == "198.51.100.4"
+    assert ru.get_request_ip() == "198.51.100.5"
 
 
-def test_get_request_ip_falls_back_to_leftmost_forwarded_ip(monkeypatch):
+def test_get_request_ip_ignores_forwarded_header_without_trusted_proxies(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
     headers = {"X-Forwarded-For": "203.0.113.9"}
     dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.9"})
     monkeypatch.setattr(ru, "request", dummy_request)
 
-    assert ru.get_request_ip() == "203.0.113.9"
+    assert ru.get_request_ip() == "198.51.100.9"
 
 
 def test_get_request_ip_uses_trusted_proxy_count(monkeypatch):
@@ -63,6 +63,15 @@ def test_get_request_ip_uses_trusted_proxy_count(monkeypatch):
     monkeypatch.setattr(ru, "request", dummy_request)
 
     assert ru.get_request_ip() == "203.0.113.10"
+
+
+def test_get_request_ip_falls_back_when_forwarded_chain_is_too_short(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "2")
+    headers = {"X-Forwarded-For": "203.0.113.10, 198.51.100.10"}
+    dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.12"})
+    monkeypatch.setattr(ru, "request", dummy_request)
+
+    assert ru.get_request_ip() == "198.51.100.12"
 
 
 def test_as_bool_interpretations():

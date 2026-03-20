@@ -34,11 +34,9 @@ from functions.logging import configure_module_logger, mask_hash
 
 logger = configure_module_logger(__name__)
 
-_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
-
 
 def _dev_mode_enabled() -> bool:
-    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
+    return os.getenv("DEV_MODE", "").strip().lower() == "true"
 
 
 logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)

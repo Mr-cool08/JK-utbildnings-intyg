@@ -18,6 +18,19 @@ class TestCriticalEventsNotifications:
         monkeypatch.setenv("APP_NAME", "utbildningsintyg.se")
         monkeypatch.setenv("HOSTNAME", "test-host")
         monkeypatch.setenv("DEV_MODE", "false")
+        critical_events._ERROR_EMAIL_LAST_SENT.clear()
+
+        class SyncThread:
+            def __init__(self, target=None, args=(), daemon=None):
+                self._target = target
+                self._args = args
+
+            def start(self):
+                if self._target:
+                    self._target(*self._args)
+
+        monkeypatch.setattr(critical_events, "Thread", SyncThread)
+        monkeypatch.setattr(critical_events, "collect_log_attachments", lambda: [])
 
     def test_get_admin_email(self):
         """Test that admin email is retrieved correctly."""

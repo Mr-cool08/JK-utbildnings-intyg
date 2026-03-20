@@ -11,8 +11,10 @@ Rules:
 Run from repository root: `python scripts/add_copyright_claims.py`
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
+
+from scripts import is_dev_mode_enabled
 
 CLAIM = "Copyright (c) Liam Suorsa and Mika Suorsa"
 
@@ -40,8 +42,6 @@ COMMENTERS = {
 }
 
 SKIP_DIRS = {".git", ".venv", "__pycache__", "node_modules", "instance", "logs", "deploy"}
-
-ROOT = Path(".").resolve()
 
 
 def is_binary(path: Path) -> bool:
@@ -87,8 +87,7 @@ def add_sidecar(path: Path):
 
 
 def main():
-    dev_mode = os.getenv("DEV_MODE", "").strip().lower()
-    if dev_mode not in {"1", "true", "yes", "on", "ja", "y", "t", "sant"}:
+    if not is_dev_mode_enabled(os.getenv("DEV_MODE")):
         print("DEV_MODE är inte aktiverat; avbryter utan att modifiera filer.")
         return
 
