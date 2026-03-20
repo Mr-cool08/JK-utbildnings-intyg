@@ -17,6 +17,7 @@ class TestCriticalEventsNotifications:
         monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
         monkeypatch.setenv("APP_NAME", "utbildningsintyg.se")
         monkeypatch.setenv("HOSTNAME", "test-host")
+        monkeypatch.setenv("DEV_MODE", "false")
 
     def test_get_admin_email(self):
         """Test that admin email is retrieved correctly."""
@@ -228,7 +229,7 @@ def test_email_error_handler_logs_failure_without_recursive_notification(monkeyp
     handler.emit(record)
 
     assert len(logged_messages) == 1
-    assert "Emailnotifiering misslyckades" in logged_messages[0]
+    assert "E-postnotifiering misslyckades" in logged_messages[0]
 
 
 def test_send_email_async_logs_email_failure_via_failure_logger(monkeypatch):

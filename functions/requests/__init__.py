@@ -30,10 +30,17 @@ def _trusted_proxy_count() -> int:
 def get_request_ip() -> str:
     """Hämta klientens IP-adress med hänsyn till X-Forwarded-For."""
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded and _trusted_proxy_count() > 0:
-        candidate = forwarded.split(",")[0].strip()
-        if candidate:
-            return candidate
+    if forwarded:
+        count = _trusted_proxy_count()
+        parts = [part.strip() for part in forwarded.split(",") if part.strip()]
+        if count > 0 and len(parts) > count:
+            candidate = parts[-count - 1]
+            if candidate:
+                return candidate
+        if parts:
+            candidate = parts[0]
+            if candidate:
+                return candidate
     return request.remote_addr or "0.0.0.0"
 
 

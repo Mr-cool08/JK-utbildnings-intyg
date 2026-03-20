@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Connection, case, func, insert, select, update
@@ -28,7 +29,15 @@ from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
+
+
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Optional[str]:
@@ -297,36 +306,13 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
     supervisor_email_hash: Optional[str] = None
     user_activation_required = False
     user_personnummer_hash: Optional[str] = None
-
-    with get_engine().connect() as conn:
-        application = conn.execute(
-            select(application_requests_table).where(
-                application_requests_table.c.id == application_id
-            )
-        ).first()
-    if not application:
-        raise ValueError("Ansökan hittades inte.")
-    if application.status != "pending":
-        raise ValueError("Ansökan är redan hanterad.")
-    if application.account_type == "standard":
-        stored_personnummer_hash = (application.personnummer_hash or "").strip()
-        if not stored_personnummer_hash:
-            logger.warning(
-                "Standardansökan %s saknar personnummer och kan inte aktiveras",
-                application_id,
-            )
-            with get_engine().begin() as conn:
-                conn.execute(
-                    update(application_requests_table)
-                    .where(application_requests_table.c.id == application.id)
-                    .values(
-                        decision_reason=(
-                            "Personnummer saknas för standardkontot. "
-                            "Komplettera ansökan innan den godkänns."
-                        )
-                    )
-                )
-            raise ValueError("Ansökan saknar personnummer och kan inte godkännas.")
+    missing_personnummer_error: Optional[str] = None
+    company_id: Optional[int] = None
+    created = False
+    validated_orgnr = ""
+    company_display = ""
+    normalized_email = ""
+    user_id = 0
 
     with get_engine().begin() as conn:
         application = conn.execute(
@@ -339,152 +325,177 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         if application.status != "pending":
             raise ValueError("Ansökan är redan hanterad.")
 
-        stored_orgnr = (application.orgnr_normalized or "").strip()
-        company_id: Optional[int]
-        created: bool = False
-        if stored_orgnr:
-            validated_orgnr = validate_orgnr(stored_orgnr)
-            company_id, created, company_display = _ensure_company(
-                conn,
-                validated_orgnr,
-                application.company_name,
-                application.invoice_address,
-                application.invoice_contact,
-                application.invoice_reference,
-            )
-        else:
-            validated_orgnr = ""
-            company_id = None
-            company_display = (application.company_name or "").strip()
-
-        if application.account_type == "foretagskonto" and company_id is not None:
-            existing_foretagskonto = conn.execute(
-                select(company_users_table.c.id).where(
-                    company_users_table.c.company_id == company_id,
-                    company_users_table.c.role == "foretagskonto",
-                )
-            ).first()
-            if existing_foretagskonto:
-                raise ValueError("Det finns redan ett företagskonto för detta organisationsnummer.")
-
-        normalized_email = normalize_email(application.email)
-        existing_user = conn.execute(
-            select(company_users_table.c.id).where(
-                company_users_table.c.email == normalized_email,
-                company_users_table.c.role == application.account_type,
-            )
-        ).first()
-        if existing_user:
-            raise ValueError("E-postadressen är redan registrerad.")
-
-        try:
-            result = conn.execute(
-                insert(company_users_table).values(
-                    company_id=company_id,
-                    role=application.account_type,
-                    name=application.name,
-                    email=normalized_email,
-                    created_via_application_id=application.id,
-                )
-            )
-        except IntegrityError as exc:
-            raise ValueError("E-postadressen är redan registrerad.") from exc
-        if (
-            result is None
-            or not hasattr(result, "inserted_primary_key")
-            or not result.inserted_primary_key
-        ):
-            raise ValueError("Misslyckades att skapa företagskonto i databasen.")
-        user_id = result.inserted_primary_key[0]
-
         if application.account_type == "standard":
             stored_personnummer_hash = (application.personnummer_hash or "").strip()
-            user_personnummer_hash = stored_personnummer_hash
-            email_hash = hash_value(normalized_email)
-            existing_user = conn.execute(
-                select(users_table.c.id).where(
-                    users_table.c.personnummer == stored_personnummer_hash
+            if not stored_personnummer_hash:
+                logger.warning(
+                    "Standardansökan %s saknar personnummer och kan inte aktiveras",
+                    application_id,
                 )
-            ).first()
-            pending_user = conn.execute(
-                select(pending_users_table.c.id).where(
-                    pending_users_table.c.personnummer == stored_personnummer_hash
-                )
-            ).first()
-            if existing_user or pending_user:
-                raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
-            existing_email_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email == email_hash)
-            ).first()
-            pending_email = conn.execute(
-                select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
-            ).first()
-
-            if not existing_user and not existing_email_user:
-                if pending_user or pending_email:
-                    user_activation_required = True
-                else:
-                    try:
-                        conn.execute(
-                            insert(pending_users_table).values(
-                                username=application.name,
-                                email=email_hash,
-                                personnummer=stored_personnummer_hash,
-                            )
-                        )
-                    except IntegrityError:
-                        logger.info(
-                            "Pending standardkonto finns redan för %s",
-                            mask_hash(stored_personnummer_hash),
-                        )
-                    user_activation_required = True
-
-        if application.account_type == "foretagskonto":
-            supervisor_email_hash = hash_value(normalized_email)
-            existing_supervisor = conn.execute(
-                select(supervisors_table.c.id).where(
-                    supervisors_table.c.email == supervisor_email_hash
-                )
-            ).first()
-            pending_row = conn.execute(
-                select(
-                    pending_supervisors_table.c.id,
-                    pending_supervisors_table.c.name,
-                ).where(pending_supervisors_table.c.email == supervisor_email_hash)
-            ).first()
-
-            cleaned_name = (application.name or "").strip()
-
-            if existing_supervisor:
-                supervisor_activation_required = False
-            elif pending_row:
-                supervisor_activation_required = True
-                if cleaned_name and pending_row.name != cleaned_name:
-                    conn.execute(
-                        update(pending_supervisors_table)
-                        .where(pending_supervisors_table.c.id == pending_row.id)
-                        .values(name=cleaned_name)
-                    )
-            else:
                 conn.execute(
-                    insert(pending_supervisors_table).values(
-                        email=supervisor_email_hash,
-                        name=cleaned_name,
+                    update(application_requests_table)
+                    .where(application_requests_table.c.id == application.id)
+                    .values(
+                        decision_reason=(
+                            "Personnummer saknas för standardkontot. "
+                            "Komplettera ansökan innan den godkänns."
+                        )
                     )
                 )
-                pending_supervisor_created = True
-                supervisor_activation_required = True
+                missing_personnummer_error = (
+                    "Ansökan saknar personnummer och kan inte godkännas."
+                )
 
-        conn.execute(
-            update(application_requests_table)
-            .where(application_requests_table.c.id == application.id)
-            .values(
-                status="approved",
-                reviewed_by=normalized_reviewer,
-                reviewed_at=func.now(),
-                decision_reason=None,
+        if not missing_personnummer_error:
+            stored_orgnr = (application.orgnr_normalized or "").strip()
+            if stored_orgnr:
+                validated_orgnr = validate_orgnr(stored_orgnr)
+                company_id, created, company_display = _ensure_company(
+                    conn,
+                    validated_orgnr,
+                    application.company_name,
+                    application.invoice_address,
+                    application.invoice_contact,
+                    application.invoice_reference,
+                )
+            else:
+                company_display = (application.company_name or "").strip()
+
+            if application.account_type == "foretagskonto" and company_id is not None:
+                existing_foretagskonto = conn.execute(
+                    select(company_users_table.c.id).where(
+                        company_users_table.c.company_id == company_id,
+                        company_users_table.c.role == "foretagskonto",
+                    )
+                ).first()
+                if existing_foretagskonto:
+                    raise ValueError(
+                        "Det finns redan ett företagskonto för detta organisationsnummer."
+                    )
+
+            normalized_email = normalize_email(application.email)
+            existing_user = conn.execute(
+                select(company_users_table.c.id).where(
+                    company_users_table.c.email == normalized_email,
+                    company_users_table.c.role == application.account_type,
+                )
+            ).first()
+            if existing_user:
+                raise ValueError("E-postadressen är redan registrerad.")
+
+            try:
+                result = conn.execute(
+                    insert(company_users_table).values(
+                        company_id=company_id,
+                        role=application.account_type,
+                        name=application.name,
+                        email=normalized_email,
+                        created_via_application_id=application.id,
+                    )
+                )
+            except IntegrityError as exc:
+                raise ValueError("E-postadressen är redan registrerad.") from exc
+            if (
+                result is None
+                or not hasattr(result, "inserted_primary_key")
+                or not result.inserted_primary_key
+            ):
+                raise ValueError("Misslyckades att skapa företagskonto i databasen.")
+            user_id = result.inserted_primary_key[0]
+
+            if application.account_type == "standard":
+                stored_personnummer_hash = (application.personnummer_hash or "").strip()
+                user_personnummer_hash = stored_personnummer_hash
+                email_hash = hash_value(normalized_email)
+                existing_user = conn.execute(
+                    select(users_table.c.id).where(
+                        users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                pending_user = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.personnummer == stored_personnummer_hash
+                    )
+                ).first()
+                if existing_user or pending_user:
+                    raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
+                existing_email_user = conn.execute(
+                    select(users_table.c.id).where(users_table.c.email == email_hash)
+                ).first()
+                pending_email = conn.execute(
+                    select(pending_users_table.c.id).where(
+                        pending_users_table.c.email == email_hash
+                    )
+                ).first()
+
+                if not existing_user and not existing_email_user:
+                    if pending_user or pending_email:
+                        user_activation_required = True
+                    else:
+                        try:
+                            conn.execute(
+                                insert(pending_users_table).values(
+                                    username=application.name,
+                                    email=email_hash,
+                                    personnummer=stored_personnummer_hash,
+                                )
+                            )
+                        except IntegrityError:
+                            logger.info(
+                                "Pending standardkonto finns redan för %s",
+                                mask_hash(stored_personnummer_hash),
+                            )
+                        user_activation_required = True
+
+            if application.account_type == "foretagskonto":
+                supervisor_email_hash = hash_value(normalized_email)
+                existing_supervisor = conn.execute(
+                    select(supervisors_table.c.id).where(
+                        supervisors_table.c.email == supervisor_email_hash
+                    )
+                ).first()
+                pending_row = conn.execute(
+                    select(
+                        pending_supervisors_table.c.id,
+                        pending_supervisors_table.c.name,
+                    ).where(pending_supervisors_table.c.email == supervisor_email_hash)
+                ).first()
+
+                cleaned_name = (application.name or "").strip()
+
+                if existing_supervisor:
+                    supervisor_activation_required = False
+                elif pending_row:
+                    supervisor_activation_required = True
+                    if cleaned_name and pending_row.name != cleaned_name:
+                        conn.execute(
+                            update(pending_supervisors_table)
+                            .where(pending_supervisors_table.c.id == pending_row.id)
+                            .values(name=cleaned_name)
+                        )
+                else:
+                    conn.execute(
+                        insert(pending_supervisors_table).values(
+                            email=supervisor_email_hash,
+                            name=cleaned_name,
+                        )
+                    )
+                    pending_supervisor_created = True
+                    supervisor_activation_required = True
+
+            conn.execute(
+                update(application_requests_table)
+                .where(application_requests_table.c.id == application.id)
+                .values(
+                    status="approved",
+                    reviewed_by=normalized_reviewer,
+                    reviewed_at=func.now(),
+                    decision_reason=None,
+                )
             )
-        )
+
+    if missing_personnummer_error:
+        raise ValueError(missing_personnummer_error)
 
     email_hash = hash_value(normalized_email)
     logger.info(

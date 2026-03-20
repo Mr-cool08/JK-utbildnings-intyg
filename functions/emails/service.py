@@ -178,8 +178,8 @@ def send_email_message(
 def should_disable_email_sending() -> bool:
     """Return True when outbound emails should be disabled."""
 
-    disable_emails = os.getenv("DISABLE_EMAILS", "").strip().lower()
-    return disable_emails in {"1", "true", "yes", "on"}
+    dev_mode = os.getenv("DEV_MODE", "").strip().lower()
+    return dev_mode in {"1", "true", "yes", "on"}
 
 
 def send_email(

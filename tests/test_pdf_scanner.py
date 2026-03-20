@@ -24,7 +24,13 @@ def test_scan_pdf_allows_clean_pdf(monkeypatch):
 
 
 def test_scan_pdf_rejects_suspicious_features(monkeypatch):
-    suspicious = json.dumps({"objects": [{"has": "JavaScript"}, {"type": "OpenAction"}]})
+    suspicious_payload = {
+        "objects": [
+            {"has": "JavaScript"},
+            {"type": "OpenAction"},
+        ]
+    }
+    suspicious = json.dumps(suspicious_payload)
     monkeypatch.setattr(subprocess, "run", _fake_run(suspicious))
     verdict = pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 suspicious")
     assert verdict.decision == "REJECT"
@@ -41,7 +47,12 @@ def test_scan_pdf_allows_benign_openaction_only(monkeypatch):
 
 
 def test_scan_pdf_rejects_openaction_with_javascript(monkeypatch):
-    suspicious = json.dumps({"catalog": {"OpenAction": ["JavaScript", "app.alert('Hej')"]}})
+    suspicious_payload = {
+        "catalog": {
+            "OpenAction": ["JavaScript", "app.alert('Hej')"],
+        }
+    }
+    suspicious = json.dumps(suspicious_payload)
     monkeypatch.setattr(subprocess, "run", _fake_run(suspicious))
     verdict = pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 dangerous openaction")
     assert verdict.decision == "REJECT"
@@ -57,7 +68,8 @@ def test_scan_pdf_rejects_embedded_file(monkeypatch):
 
 
 def test_scan_pdf_nonzero_unknown_output_raises(monkeypatch):
-    monkeypatch.setattr(subprocess, "run", _fake_run("scanner internal error", returncode=2))
+    fake_runner = _fake_run("scanner internal error", returncode=2)
+    monkeypatch.setattr(subprocess, "run", fake_runner)
     with pytest.raises(ValueError):
         pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 unknown failure")
 

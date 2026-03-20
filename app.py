@@ -468,6 +468,7 @@ def create_app() -> Flask:
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
+    app.config["DEV_MODE"] = "true" if dev_mode else "false"
     if not dev_mode:
         root_logger = logging.getLogger()
         if root_logger.getEffectiveLevel() < logging.INFO:
@@ -709,7 +710,10 @@ def mta_sts_policy():
 
 @app.route("/debug/clear-session", methods=["GET", "POST"])
 def debug_clear_session():
-    if not current_app.config.get("DEV_MODE"):
+    dev_mode_value = current_app.config.get("DEV_MODE")
+    if not current_app.debug or not as_bool(
+        str(dev_mode_value) if dev_mode_value is not None else None
+    ):
         abort(404)
     session.clear()
     return redirect("/")
@@ -1594,10 +1598,6 @@ def user_upload_pdf_route():
     personnummer = session.get("personnummer_raw")
     if not personnummer:
         flash("Kunde inte identifiera användaren. Logga in igen.", "error")
-        return redirect("/dashboard")
-
-    if not validate_csrf_token(allow_if_absent=True):
-        flash("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.", "error")
         return redirect("/dashboard")
 
     uploaded_file = request.files.get("certificate")

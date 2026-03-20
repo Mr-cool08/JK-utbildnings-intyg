@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from functools import lru_cache
 from typing import Optional
 
@@ -31,7 +32,15 @@ from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
+
+
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def check_password_user(email: str, password: str) -> bool:

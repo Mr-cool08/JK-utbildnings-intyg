@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -34,11 +35,23 @@ from functions.applications import _ensure_company
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
+
+
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def create_test_user() -> None:
     # Populate the database with a simple test user.
+    if not _dev_mode_enabled():
+        logger.info("create_test_user hoppades över eftersom DEV_MODE inte är aktivt")
+        return
+
     email = "test@example.com"
     username = "Test User"
     personnummer = "9001011234"
@@ -60,6 +73,10 @@ def ensure_demo_data(
     supervisor_orgnr: Optional[str] = None,
 ) -> None:
     # Skapa eller uppdatera demodata för företagskonto och standardkonto.
+    if not _dev_mode_enabled():
+        logger.warning("ensure_demo_data blocked: DEV_MODE not enabled")
+        return
+
     try:
         normalized_pnr = normalize_personnummer(user_personnummer)
     except ValueError:
@@ -248,21 +265,11 @@ def ensure_demo_data(
 
 def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
-    import os
     import time
 
     # Protect against accidental database reset in production
-    if not os.getenv("ENABLE_DEMO_MODE", "").lower() in (
-        "true",
-        "1",
-        "ja",
-        "on",
-        "sant",
-        "t",
-        "yes",
-        "y",
-    ):
-        logger.warning("reset_demo_database blocked: ENABLE_DEMO_MODE not enabled")
+    if not _dev_mode_enabled():
+        logger.warning("reset_demo_database blocked: DEV_MODE not enabled")
         return False
 
     try:

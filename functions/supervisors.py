@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import delete, insert, select, update
@@ -32,7 +33,15 @@ from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
+
+
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def admin_create_supervisor(email: str, name: str) -> bool:

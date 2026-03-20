@@ -45,6 +45,7 @@
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
     --radius-pill: 999px;
     --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.1);
     --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.08);
@@ -274,7 +275,6 @@ img {
 
 .nav-links .nav-link-cta {
     background: #991B1B;
-    color: var(--color-secondary);
     border-color: #B91C1C;
     box-shadow: var(--shadow-xs);
     color: #FFFFFF;
@@ -283,7 +283,7 @@ img {
 .nav-links .nav-link-cta:hover,
 .nav-links .nav-link-cta:focus-visible {
     background: #7F1D1D;
-    color: var(--color-secondary);
+    color: #FFFFFF;
 }
 
 .nav-links .nav-link.is-active {

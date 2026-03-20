@@ -149,7 +149,7 @@ def mask_sensitive_data(data: Any) -> Any:
         for key, value in data.items():
             key_str = str(key).lower()
             if key_str in _SENSITIVE_KEYS:
-                masked[key] = "***"
+                masked[key] = MASK_PLACEHOLDER
             else:
                 masked[key] = mask_sensitive_data(value)
         return masked
@@ -163,7 +163,7 @@ def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
     masked: dict[str, str] = {}
     for key, value in headers.items():
         if key.lower() in _SENSITIVE_KEYS:
-            masked[key] = "***"
+            masked[key] = MASK_PLACEHOLDER
         else:
             masked[key] = value
     return masked

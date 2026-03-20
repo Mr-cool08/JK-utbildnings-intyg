@@ -1,24 +1,26 @@
 from pathlib import Path
 
 
-def test_server_monitor_service_exists_in_compose_files():
-    dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+def test_server_monitor_service_exists_in_compose_file():
+    compose_config = Path("docker-compose.yml").read_text(encoding="utf-8")
 
-    assert "server_monitor:" in dev_compose
-    assert "server_monitor:" in prod_compose
-    assert "CRITICAL_ALERTS_EMAIL" in dev_compose
-    assert "CRITICAL_ALERTS_EMAIL" in prod_compose
+    assert "server_monitor:" in compose_config
+    assert "CRITICAL_ALERTS_EMAIL" in compose_config
 
 
-def test_prod_compose_routes_mta_sts_via_app_service():
-    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+def test_compose_routes_mta_sts_via_app_service():
+    compose_config = Path("docker-compose.yml").read_text(encoding="utf-8")
 
-    assert "mta_sts:" not in prod_compose
-    assert "Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in prod_compose
-    assert "traefik.http.routers.app-mta-sts.entrypoints=websecure" in prod_compose
-    assert "traefik.http.routers.app-mta-sts.tls=true" in prod_compose
-    assert "traefik.http.routers.app-mta-sts.middlewares=security-headers@file" in prod_compose
+    assert "mta_sts:" not in compose_config
+    assert (
+        "Host(`mta-sts.utbildningsintyg.se`) && "
+        "Path(`/.well-known/mta-sts.txt`)"
+    ) in compose_config
+    assert "traefik.http.routers.app-mta-sts.entrypoints=websecure" in compose_config
+    assert "traefik.http.routers.app-mta-sts.tls=true" in compose_config
+    assert "traefik.http.routers.app-mta-sts.middlewares=security-headers@file" in (
+        compose_config
+    )
 
 
 def test_mta_sts_policy_file_has_expected_content():
@@ -57,13 +59,13 @@ def test_send_email_handles_smtp_timeouts_gracefully():
     assert 'logger.error("Kunde inte skicka e-postvarning: %s", str(exc))' in monitor_script
 
 
-def test_prod_compose_exposes_postgres_on_random_host_port():
-    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+def test_compose_exposes_postgres_on_random_host_port():
+    compose_config = Path("docker-compose.yml").read_text(encoding="utf-8")
 
-    assert "postgres:" in prod_compose
-    assert "ports:" in prod_compose
-    assert "POSTGRES_PUBLIC_PORT" in prod_compose
-    assert ':5432"' in prod_compose
+    assert "postgres:" in compose_config
+    assert "ports:" in compose_config
+    assert "POSTGRES_PUBLIC_PORT" in compose_config
+    assert ':5432"' in compose_config
 
 
 def test_dockerfile_copies_mta_sts_policy_into_image():
@@ -75,14 +77,11 @@ def test_dockerfile_copies_mta_sts_policy_into_image():
 
 
 def test_server_monitor_uses_uppercase_smtp_env_with_legacy_fallback():
-    dev_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    prod_compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+    compose_config = Path("docker-compose.yml").read_text(encoding="utf-8")
     monitor_script = Path("services/server_monitor/monitor.py").read_text(encoding="utf-8")
 
-    assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in dev_compose
-    assert "SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}" in dev_compose
-    assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in prod_compose
-    assert "SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}" in prod_compose
+    assert "SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}" in compose_config
+    assert "SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}" in compose_config
     assert 'env_with_legacy_fallback("SMTP_SERVER", "smtp_server", "")' in monitor_script
     assert 'env_with_legacy_fallback("SMTP_TIMEOUT", "smtp_timeout", "30")' in monitor_script
 

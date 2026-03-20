@@ -82,7 +82,9 @@ class EmailErrorHandler(logging.Handler):
         except Exception as error:
             # Never raise from a logging handler, but log failure without recursive email handler usage.
             _EMAIL_FAILURE_LOGGER.error(
-                "Emailnotifiering misslyckades i EmailErrorHandler: %s", str(error), exc_info=True
+                "E-postnotifiering misslyckades i EmailErrorHandler: %s",
+                str(error),
+                exc_info=True,
             )
 
 

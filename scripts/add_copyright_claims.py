@@ -13,7 +13,6 @@ Run from repository root: `python scripts/add_copyright_claims.py`
 
 from pathlib import Path
 import os
-import sys
 
 CLAIM = "Copyright (c) Liam Suorsa and Mika Suorsa"
 
@@ -88,6 +87,11 @@ def add_sidecar(path: Path):
 
 
 def main():
+    dev_mode = os.getenv("DEV_MODE", "").strip().lower()
+    if dev_mode not in {"1", "true", "yes", "on", "ja", "y", "t", "sant"}:
+        print("DEV_MODE är inte aktiverat; avbryter utan att modifiera filer.")
+        return
+
     modified = []
     sidecars = []
     scanned = 0
@@ -136,3 +140,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+# Copyright (c) Liam Suorsa and Mika Suorsa

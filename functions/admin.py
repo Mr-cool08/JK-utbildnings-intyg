@@ -10,10 +10,10 @@ from functions.logging import configure_module_logger
 logger = configure_module_logger(__name__)
 
 
-def log_admin_action(admin: str, action: str, details: str) -> None:
+def log_admin_action(admin: str, action: str, details: str | None) -> None:
     # Spara en revisionspost för administratörsåtgärder.
     admin_name = admin or "okänd"
-    trimmed_details = details.strip()
+    trimmed_details = (details or "").strip()
     with get_engine().begin() as conn:
         conn.execute(
             insert(admin_audit_log_table).values(

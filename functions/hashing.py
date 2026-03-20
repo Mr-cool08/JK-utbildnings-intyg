@@ -28,7 +28,8 @@ TEST_HASH_ITERATIONS = int(os.getenv("HASH_ITERATIONS_TEST", "1000"))
 
 def _pbkdf2_iterations() -> int:
     # Return the iteration count for PBKDF2 operations.
-    if os.getenv("PYTEST_CURRENT_TEST"):
+    dev_mode = os.getenv("DEV_MODE", "").strip().lower() == "true"
+    if dev_mode and os.getenv("PYTEST_CURRENT_TEST"):
         return TEST_HASH_ITERATIONS
     return DEFAULT_HASH_ITERATIONS
 

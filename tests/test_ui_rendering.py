@@ -186,16 +186,16 @@ def test_home_page_repeats_account_type_choices_in_final_cta(empty_db):
 
 
 
-def test_home_page_hero_places_account_rail_after_action_panel(empty_db):
+def test_home_page_hero_places_choice_list_inside_action_panel(empty_db):
     with _client() as client:
         response = client.get("/")
         assert response.status_code == 200
         body = response.get_data(as_text=True)
 
-    rail_index = body.index('class="hero-rail"')
     actions_index = body.index('class="hero-actions"')
+    choice_list_index = body.index('class="hero-choice-list"')
 
-    assert actions_index < rail_index
+    assert actions_index < choice_list_index
 
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
     with _client() as client:

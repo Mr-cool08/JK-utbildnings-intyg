@@ -76,12 +76,12 @@ def test_dev_mode_creates_sqlite(tmp_path, monkeypatch):
         functions.reset_engine()
 
 
-def test_demo_mode_creates_sqlite_without_dev_mode(tmp_path, monkeypatch):
+def test_demo_mode_creates_sqlite_with_dev_mode_enabled(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("POSTGRES_HOST", raising=False)
     monkeypatch.delenv("POSTGRES_USER", raising=False)
     monkeypatch.delenv("POSTGRES_DB", raising=False)
-    monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.setenv("DEV_MODE", "true")
     monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
     db_file = tmp_path / "demo.db"
     monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
@@ -97,10 +97,10 @@ def test_demo_mode_creates_sqlite_without_dev_mode(tmp_path, monkeypatch):
         functions.reset_engine()
 
 
-def test_demo_mode_overrides_database_url(tmp_path, monkeypatch):
+def test_demo_mode_overrides_database_url_with_dev_mode_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
     monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
-    monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.setenv("DEV_MODE", "true")
     db_file = tmp_path / "demo_override.db"
     monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
 

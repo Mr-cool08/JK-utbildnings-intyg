@@ -15,6 +15,10 @@ server = os.getenv("smtp_server")
 port = int(os.getenv("smtp_port", "587"))
 user = os.getenv("smtp_user")
 password = os.getenv("smtp_password")
+dev_mode = os.getenv("DEV_MODE", "false").lower()
+
+if dev_mode not in {"true", "1", "yes"}:
+    raise SystemExit("DEV_MODE måste vara aktiverat för att skicka testmejl.")
 
 if not server or not user or not password:
     raise SystemExit(

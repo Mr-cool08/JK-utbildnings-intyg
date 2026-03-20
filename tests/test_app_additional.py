@@ -232,7 +232,7 @@ def test_debug_clear_session_requires_debug(monkeypatch):
 def test_debug_clear_session_clears_session_in_debug(monkeypatch):
     app.app.secret_key = "test-secret"
     monkeypatch.setattr(app.app, "debug", True)
-    monkeypatch.setitem(app.app.config, "DEV_MODE", True)
+    monkeypatch.setitem(app.app.config, "DEV_MODE", "true")
 
     client = app.app.test_client()
     with client.session_transaction() as sess:
@@ -243,6 +243,30 @@ def test_debug_clear_session_clears_session_in_debug(monkeypatch):
     assert response.status_code == 302
     with client.session_transaction() as sess:
         assert "keep" not in sess
+
+
+def test_debug_clear_session_blocked_when_dev_mode_false(monkeypatch):
+    app.app.secret_key = "test-secret"
+    monkeypatch.setattr(app.app, "debug", True)
+    monkeypatch.setenv("DEV_MODE", "false")
+    monkeypatch.setitem(app.app.config, "DEV_MODE", "false")
+
+    client = app.app.test_client()
+    response = client.get("/debug/clear-session")
+
+    assert response.status_code == 404
+
+
+def test_debug_clear_session_blocked_when_debug_false_even_with_dev_mode(monkeypatch):
+    app.app.secret_key = "test-secret"
+    monkeypatch.setattr(app.app, "debug", False)
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setitem(app.app.config, "DEV_MODE", "true")
+
+    client = app.app.test_client()
+    response = client.get("/debug/clear-session")
+
+    assert response.status_code == 404
 
 
 def test_configure_timezone_uses_stockholm_default(monkeypatch):
