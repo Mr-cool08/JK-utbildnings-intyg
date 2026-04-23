@@ -223,8 +223,6 @@ services:
       - "${VSCODE_BIND_IP:-127.0.0.1}:8083:8080"
     volumes:
       - .:/workspace
-      - vscode_config:/home/coder/.config/code-server
-      - vscode_data:/home/coder/.local/share/code-server
     networks:
       - public_net
     restart: "no"
@@ -349,10 +347,6 @@ volumes:
     name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
-  vscode_config:
-    name: jk-utbildnings-intyg_vscode_config
-  vscode_data:
-    name: jk-utbildnings-intyg_vscode_data
 networks:
   public_net:
     name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
