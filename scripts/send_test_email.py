@@ -32,12 +32,15 @@ def main() -> None:
         raise SystemExit(
             "Saknar env: smtp_server, smtp_user eller smtp_password. Kontrollera din .env eller miljö."
         )
+    recipient = (os.getenv("SMTP_TEST_RECIPIENT") or "").strip()
+    if not recipient:
+        raise SystemExit("Sätt SMTP_TEST_RECIPIENT till en giltig testadress innan utskick.")
 
     # --- Meddelande ---
     msg = EmailMessage()
     msg["Subject"] = "Testmejl"
     msg["From"] = user
-    msg["To"] = "liamsuorsa08@gmail.com"  # <-- byt till din adress
+    msg["To"] = recipient
     msg.set_content("Hej! Detta är ett testmejl.")
 
     # --- Skicka via STARTTLS på port 587 ---
@@ -54,6 +57,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-# Copyright (c) Liam Suorsa and Mika Suorsa

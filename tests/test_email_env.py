@@ -4,6 +4,9 @@ import pytest
 from functions.emails import service as email_service
 
 
+RECIPIENT = "user@example.com"
+
+
 @pytest.fixture(autouse=True)
 def _enable_email_sending(monkeypatch):
     monkeypatch.setenv("DEV_MODE", "false")
@@ -56,7 +59,7 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
 
     # Kör funktionen
     link = "https://example.com/create"
-    email_service.send_creation_email("liamsuorsa08@gmail.com", link)
+    email_service.send_creation_email(RECIPIENT, link)
 
     # Assertions: inloggning via env
     assert sent["login"] == (env_values["smtp_user"], env_values["smtp_password"])
@@ -72,10 +75,10 @@ def test_send_creation_email_uses_env_credentials(monkeypatch):
     # Meddelandet skickades med korrekta headers och innehåll
     msg = sent["message"]
     assert msg["From"] == env_values["smtp_user"]
-    assert msg["To"] == "liamsuorsa08@gmail.com"
+    assert msg["To"] == RECIPIENT
     assert msg["Subject"] == "Skapa ditt konto"
     assert sent["from_addr"] == env_values["smtp_user"]
-    assert sent["to_addrs"] == ["liamsuorsa08@gmail.com"]
+    assert sent["to_addrs"] == [RECIPIENT]
     # Innehållet ska innehålla länken
     assert link in msg.get_content()
 
@@ -123,7 +126,7 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     monkeypatch.setattr(email_service, "SMTP", FailSMTP)
 
     link = "https://example.com/create"
-    email_service.send_creation_email("liamsuorsa08@gmail.com", link)
+    email_service.send_creation_email(RECIPIENT, link)
 
     assert sent["login"] == (env_values["smtp_user"], env_values["smtp_password"])
     assert sent["server"] == env_values["smtp_server"]
@@ -132,11 +135,11 @@ def test_send_creation_email_uses_ssl_on_port_465(monkeypatch):
     assert sent["context_provided"] is True
     msg = sent["message"]
     assert msg["From"] == env_values["smtp_user"]
-    assert msg["To"] == "liamsuorsa08@gmail.com"
+    assert msg["To"] == RECIPIENT
     assert msg["Subject"] == "Skapa ditt konto"
     assert link in msg.get_content()
     assert sent["from_addr"] == env_values["smtp_user"]
-    assert sent["to_addrs"] == ["liamsuorsa08@gmail.com"]
+    assert sent["to_addrs"] == [RECIPIENT]
 
 
 def test_send_creation_email_uses_configured_from_address(monkeypatch):
@@ -178,12 +181,12 @@ def test_send_creation_email_uses_configured_from_address(monkeypatch):
 
     monkeypatch.setattr(email_service, "SMTP", DummySMTP)
 
-    email_service.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
+    email_service.send_creation_email(RECIPIENT, "https://example.com/create")
 
     msg = sent["message"]
     assert msg["From"] == "no-reply@example.com"
     assert sent["from_addr"] == "no-reply@example.com"
-    assert sent["to_addrs"] == ["liamsuorsa08@gmail.com"]
+    assert sent["to_addrs"] == [RECIPIENT]
 
 
 def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
@@ -220,6 +223,26 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
     monkeypatch.setattr(email_service, "SMTP", RefusingSMTP)
 
     with pytest.raises(RuntimeError) as exc:
-        email_service.send_creation_email("liamsuorsa08@gmail.com", "https://example.com/create")
+        email_service.send_creation_email(RECIPIENT, "https://example.com/create")
 
     assert "accepterade inte mottagaren" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ("env_name", "invalid_value"),
+    [("smtp_port", "abc"), ("smtp_timeout", "sekunder")],
+)
+def test_load_smtp_settings_reports_invalid_integer_envs(
+    monkeypatch, env_name, invalid_value
+):
+    monkeypatch.setenv("smtp_server", "smtp.example.com")
+    monkeypatch.setenv("smtp_user", "mailer@example.com")
+    monkeypatch.setenv("smtp_password", "hemligt")
+    monkeypatch.setenv(env_name, invalid_value)
+
+    with pytest.raises(RuntimeError) as exc:
+        email_service.load_smtp_settings()
+
+    message = str(exc.value)
+    assert env_name in message
+    assert invalid_value in message

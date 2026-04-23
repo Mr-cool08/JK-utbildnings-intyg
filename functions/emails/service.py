@@ -43,14 +43,26 @@ class SMTPSettings:
     from_address: str
 
 
+def parse_env_int(name: str, default: int) -> int:
+    """Parse an integer environment variable and raise a clear error on failure."""
+
+    raw_value = os.getenv(name, str(default))
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Ogiltigt heltalsvärde för miljövariabeln {name}: {raw_value!r}"
+        ) from exc
+
+
 def load_smtp_settings() -> SMTPSettings:
     """Read SMTP configuration from environment variables."""
 
     smtp_server = os.getenv("smtp_server")
-    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_port = parse_env_int("smtp_port", 587)
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
-    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+    smtp_timeout = parse_env_int("smtp_timeout", 10)
     smtp_from = os.getenv("smtp_from") or smtp_user
 
     if not (smtp_server and smtp_user and smtp_password):
@@ -179,7 +191,7 @@ def should_disable_email_sending() -> bool:
     """Return True when outbound emails should be disabled."""
 
     dev_mode = os.getenv("DEV_MODE", "").strip().lower()
-    return dev_mode in {"1", "true", "yes", "on"}
+    return dev_mode == "true"
 
 
 def send_email(

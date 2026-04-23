@@ -3,7 +3,11 @@ from statistics import mean
 
 import app
 import functions
+import pytest
 from course_categories import COURSE_CATEGORIES
+
+
+pytestmark = pytest.mark.slow
 
 
 def _client():

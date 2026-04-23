@@ -75,7 +75,7 @@ def test_standardkonto_form_contains_expected_ui_fields(empty_db):
         "du behöver inte vara kopplad till en arbetsgivare"
         in body
     )
-    assert "Privatkonto är gratis för privatpersoner." in body
+    assert "Privatkontot är gratis för privatpersoner." in body
     assert (
         "Du kan ansöka även om din arbetsgivare inte använder "
         "Utbildningsintyg idag."
@@ -187,7 +187,6 @@ def test_home_page_repeats_account_type_choices_in_final_cta(empty_db):
     assert "Ansök om konto" not in cta_body
 
 
-
 def test_home_page_hero_places_choice_list_inside_action_panel(empty_db):
     with _client() as client:
         response = client.get("/")
@@ -198,6 +197,7 @@ def test_home_page_hero_places_choice_list_inside_action_panel(empty_db):
     choice_list_index = body.index('class="hero-choice-list"')
 
     assert actions_index < choice_list_index
+
 
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
     with _client() as client:

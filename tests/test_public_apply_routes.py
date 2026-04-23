@@ -97,7 +97,7 @@ def test_application_requires_terms_confirmation(empty_db):
                 "csrf_token": "test-token",
                 "name": "Anna Användare",
                 "email": "anna@example.com",
-                "orgnr": "556966-8337",
+                "personnummer": "19900101-1234",
                 "comment": "Ser fram emot att använda portalen.",
             },
             follow_redirects=True,

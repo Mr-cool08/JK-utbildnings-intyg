@@ -673,12 +673,18 @@ def _require_supervisor() -> tuple[str, str]:
 def inject_flags():
     # Expose flags indicating debug and demo-läge to Jinja templates.
     host = request.host
+    is_demo_host = host.split(":", 1)[0].startswith("demo.")
     if host.startswith("demo."):
         host = host[len("demo.") :]
     main_site_url = f"{request.scheme}://{host}"
+    dev_mode_value = current_app.config.get("DEV_MODE")
+    dev_mode_enabled = as_bool(
+        str(dev_mode_value) if dev_mode_value is not None else None
+    )
     return {
         "IS_DEV": current_app.debug,
-        "IS_DEMO": current_app.config.get("IS_DEMO", False),
+        "IS_DEMO": current_app.config.get("IS_DEMO", False)
+        or (dev_mode_enabled and is_demo_host),
         "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
         "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
         "MAIN_SITE_URL": main_site_url,

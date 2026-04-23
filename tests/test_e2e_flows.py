@@ -73,7 +73,6 @@ def test_e2e_standardkonto_flow_application_to_upload_and_share(empty_db, monkey
     apply_body = apply_response.get_data(as_text=True)
     assert "Vi har tagit emot din ansökan om privatkonto." in apply_body
     assert "Du får ett första svar via e-post inom 2 arbetsdagar." in apply_body
-    assert "privatkonto" in apply_body
 
     with empty_db.connect() as conn:
         application = conn.execute(

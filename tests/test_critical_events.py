@@ -306,3 +306,30 @@ def test_error_email_rate_limit_expires(monkeypatch):
     assert critical_events._should_send_error_email(record) is True
     assert critical_events._should_send_error_email(record) is False
     assert critical_events._should_send_error_email(record) is True
+
+
+def test_error_email_prunes_stale_signatures(monkeypatch):
+    monkeypatch.setenv("ERROR_EMAIL_COOLDOWN_SECONDS", "60")
+    critical_events._ERROR_EMAIL_LAST_SENT.clear()
+    critical_events._ERROR_EMAIL_LAST_SENT.update(
+        {
+            "stale": 10.0,
+            "recent": 950.0,
+        }
+    )
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=200,
+        msg="Nytt fel",
+        args=(),
+        exc_info=None,
+    )
+
+    monkeypatch.setattr(critical_events.time, "monotonic", lambda: 1000.0)
+
+    assert critical_events._should_send_error_email(record) is True
+    assert "stale" not in critical_events._ERROR_EMAIL_LAST_SENT
+    assert "recent" in critical_events._ERROR_EMAIL_LAST_SENT

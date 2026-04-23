@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -35,10 +36,23 @@ def test_build_compose_args_includes_expected_flags():
 def test_default_compose_file_uses_repo_root():
     module = _load_module()
     root = Path(module.__file__).resolve().parents[1]
-    prod_file = root / "docker-compose.yml"
-    expected = prod_file if prod_file.is_file() else root / "docker-compose.yml"
+    prod_file = root / "docker-compose.prod.yml"
+    standard_file = root / "docker-compose.yml"
+    expected = prod_file if prod_file.is_file() else standard_file
 
     assert module.default_compose_file() == str(expected)
+
+
+def test_default_compose_file_prefers_production_file(tmp_path):
+    module = _load_module()
+    module.repo_root = lambda: tmp_path
+
+    prod = tmp_path / "docker-compose.prod.yml"
+    standard = tmp_path / "docker-compose.yml"
+    prod.write_text("services: {prod: {}}\n")
+    standard.write_text("services: {standard: {}}\n")
+
+    assert module.default_compose_file() == str(prod)
 
 
 def test_default_compose_file_falls_back_to_standard_file(tmp_path):
@@ -126,9 +140,24 @@ def test_run_compose_action_cycle_orders_commands():
             "check": True,
             "cwd": None,
         },
-        {"event": "cmd", "cmd": ["docker", "image", "prune", "-a"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
+        {
+            "event": "cmd",
+            "cmd": ["docker", "image", "prune", "-a", "--force"],
+            "check": True,
+            "cwd": None,
+        },
+        {
+            "event": "cmd",
+            "cmd": ["docker", "builder", "prune", "--force"],
+            "check": True,
+            "cwd": None,
+        },
+        {
+            "event": "cmd",
+            "cmd": ["docker", "system", "prune", "-a", "--force"],
+            "check": True,
+            "cwd": None,
+        },
     ]
 
 
@@ -446,6 +475,38 @@ def test_ensure_volume_present_handles_in_use_volume(capsys, tmp_path):
     ]
     captured = capsys.readouterr()
     assert "Varning: Kunde inte ta bort Docker-volymen" in captured.err
+
+
+def test_ensure_volume_present_keeps_existing_mountpoint_on_darwin(monkeypatch, tmp_path):
+    module = _load_module()
+    calls: list[list[str]] = []
+    missing_mount = tmp_path / "missing"
+    monkeypatch.setattr(module.sys, "platform", "darwin")
+
+    def fake_runner(cmd, check, **kwargs):
+        calls.append(list(cmd))
+        if cmd[:3] == ["docker", "volume", "inspect"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=f'[{{"Mountpoint": "{missing_mount}"}}]',
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = module._ensure_volume_present("demo_env_data", runner=fake_runner)
+
+    assert result is False
+    assert calls == [["docker", "volume", "inspect", "demo_env_data"]]
+
+
+def test_parse_args_accepts_build_up(monkeypatch):
+    module = _load_module()
+    monkeypatch.setattr(sys, "argv", ["manage_compose.py", "--action", "build-up"])
+
+    args = module.parse_args()
+
+    assert args.action == "build-up"
 
 
 def test_run_menu_executes_selected_action():

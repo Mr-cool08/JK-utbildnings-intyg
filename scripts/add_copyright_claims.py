@@ -18,6 +18,10 @@ from pathlib import Path
 from scripts import is_dev_mode_enabled
 
 CLAIM = "Copyright (c) Liam Suorsa and Mika Suorsa"
+logging.basicConfig(
+    level=logging.DEBUG if is_dev_mode_enabled(os.getenv("DEV_MODE")) else logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+)
 logger = logging.getLogger(__name__)
 
 COMMENTERS = {
@@ -73,7 +77,7 @@ def append_claim(path: Path, comment_func):
             f.write("\n")
         return True
     except Exception as e:
-        print(f"Failed to append to {path}: {e}")
+        logger.error("Failed to append to %s: %s", path, e, exc_info=True)
         return False
 
 
@@ -84,7 +88,7 @@ def add_sidecar(path: Path):
             f.write(f"{path.name}: {CLAIM}\n")
         return True
     except Exception as e:
-        print(f"Failed to write sidecar for {path}: {e}")
+        logger.error("Failed to write sidecar for %s: %s", path, e, exc_info=True)
         return False
 
 

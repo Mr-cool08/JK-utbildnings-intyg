@@ -9,6 +9,11 @@ import pytest
 from services import pdf_scanner
 
 
+@pytest.fixture(autouse=True)
+def _mock_quicksand_path(monkeypatch):
+    monkeypatch.setattr(pdf_scanner.shutil, "which", lambda _name: "/usr/bin/quicksand")
+
+
 def _fake_run(stdout_text: str, returncode: int = 0):
     def _runner(*_args, **_kwargs):
         return SimpleNamespace(returncode=returncode, stdout=stdout_text, stderr="")

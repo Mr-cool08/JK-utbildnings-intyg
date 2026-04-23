@@ -31,6 +31,6 @@ def index():
 
 if __name__ == "__main__":
     port = int(os.getenv("STATUS_PORT", "80"))
-    dev_mode = os.getenv("DEV_MODE", "false").strip().lower() in {"1", "ja", "on", "sant", "true", "t", "yes", "y"}
+    dev_mode = os.getenv("DEV_MODE", "false").strip().lower() == "true"
     if dev_mode:
         app.run(host="0.0.0.0", port=port)

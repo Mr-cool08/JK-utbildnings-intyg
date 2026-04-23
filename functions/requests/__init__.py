@@ -19,11 +19,11 @@ _last_cleanup: float = 0.0
 def _trusted_proxy_count() -> int:
     raw_value = os.getenv("TRUSTED_PROXY_COUNT")
     if raw_value is None or raw_value.strip() == "":
-        return 1
+        return 0
     try:
         hops = int(raw_value)
     except ValueError:
-        return 1
+        return 0
     if hops < 0:
         return 0
     return hops

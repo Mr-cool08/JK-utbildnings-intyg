@@ -23,12 +23,16 @@ def _require_working_docker() -> None:
     if shutil.which("docker") is None:
         pytest.skip("Docker CLI finns inte installerad i testmiljön.")
 
-    check = subprocess.run(
-        ["docker", "info"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        check = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.skip("Docker-daemonen svarade inte i tid i testmiljön.")
     if check.returncode != 0:
         pytest.skip("Docker-daemonen är inte tillgänglig i testmiljön.")
 
@@ -150,6 +154,7 @@ def test_dockerfile_installs_tini_and_curl():
 
 
 @pytest.mark.docker
+@pytest.mark.slow
 def test_builds_production_app_image_with_pytest_docker(tmp_path):
     _require_working_docker()
     compose_file = _create_temp_compose_for_build(
@@ -161,6 +166,7 @@ def test_builds_production_app_image_with_pytest_docker(tmp_path):
 
 
 @pytest.mark.docker
+@pytest.mark.slow
 def test_builds_dev_status_image_with_pytest_docker(tmp_path):
     _require_working_docker()
     compose_file = _create_temp_compose_for_build(
@@ -169,6 +175,18 @@ def test_builds_dev_status_image_with_pytest_docker(tmp_path):
         dockerfile_path="status_service/Dockerfile",
     )
     _build_image_with_pytest_docker(compose_file, "build status_page")
+
+
+def test_require_working_docker_skips_when_docker_info_times_out(monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/docker")
+
+    def _timeout(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd=["docker", "info"], timeout=10)
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(pytest.skip.Exception, match="svarade inte i tid"):
+        _require_working_docker()
 
 
 def test_status_service_dockerfile_copies_functions_package():

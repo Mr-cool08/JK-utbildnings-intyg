@@ -43,6 +43,9 @@ def _run_pdf_query_with_retry(
     action: str,
     operation: Callable[[Any], Any],
 ) -> Any:
+    # Läsoperationer kan säkert upprepas vid tillfälliga DB/IO-fel.
+    # Skrivoperationerna längre ned använder inte _run_pdf_query_with_retry för
+    # att undvika dubbla bieffekter om en uppdatering eller insättning redan hann genomföras.
     engine = get_engine()
     for attempt in range(1, _PDF_QUERY_MAX_ATTEMPTS + 1):
         try:
@@ -58,8 +61,6 @@ def _run_pdf_query_with_retry(
             )
             engine.dispose()
             time.sleep(_PDF_QUERY_RETRY_DELAY_SECONDS * attempt)
-
-    return None
 
 
 def delete_user_pdf(personnummer: str, pdf_id: int) -> bool:

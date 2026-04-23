@@ -41,7 +41,7 @@ def default_compose_file() -> str:
     root = repo_root()
 
     # Prefer production compose if it exists, otherwise fall back to standard compose.
-    prod_file = root / "docker-compose.yml"
+    prod_file = root / "docker-compose.prod.yml"
     if prod_file.is_file():
         return str(prod_file)
 
@@ -112,9 +112,9 @@ def _run_docker_prune_commands(
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> None:
     # Run docker prune commands to clean up unused data.
-    runner(["docker", "image", "prune", "-a"], check=True)
-    runner(["docker", "builder", "prune"], check=True)
-    runner(["docker", "system", "prune", "-a"], check=True)
+    runner(["docker", "image", "prune", "-a", "--force"], check=True)
+    runner(["docker", "builder", "prune", "--force"], check=True)
+    runner(["docker", "system", "prune", "-a", "--force"], check=True)
 
 
 def _build_venv_command(
@@ -214,9 +214,11 @@ def send_notification(action: str, details: str = "") -> None:
         # Log critical event which will trigger email notification via logging handler
         details_msg = f"Åtgärd: {title}\nDetaljer: {details}" if details else title
         logger.critical("Docker Compose action: %s\n%s", event_type, details_msg)
+        _ = email_service
+    except ImportError as exc:
+        logger.warning("Kunde inte initiera avisering för åtgärden %s: %s", action, exc)
     except Exception:
-        # Silently fail if email module isn't available
-        pass
+        logger.exception("Avisering för Docker Compose-åtgärden %s misslyckades", action)
 
 
 def build_compose_args(
@@ -326,8 +328,12 @@ def _ensure_volume_present(
         runner(["docker", "volume", "create", volume_name], check=True)
         return True
     mountpoint = info.get("Mountpoint")
-    if mountpoint and os.path.exists(mountpoint):
-        return False
+    if mountpoint:
+        mountpoint_accessible_on_host = not (
+            sys.platform.startswith("darwin") or sys.platform.startswith("win")
+        )
+        if not mountpoint_accessible_on_host or os.path.exists(mountpoint):
+            return False
     print(f"Återskapar Docker-volym: {volume_name}")
     try:
         runner(["docker", "volume", "rm", volume_name], check=True)
@@ -623,6 +629,7 @@ def parse_args() -> argparse.Namespace:
             "stop",
             "pull",
             "up",
+            "build-up",
             "cycle",
             "git-pull",
             "pytest",

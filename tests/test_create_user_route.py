@@ -19,8 +19,11 @@ def test_create_user_route_moves_pending_user(empty_db):
         assert resp.status_code == 302
 
     with empty_db.connect() as conn:
+        user_select = functions.users_table.select().where(
+            functions.users_table.c.personnummer == pnr_hash
+        )
         user_row = conn.execute(
-            functions.users_table.select().where(functions.users_table.c.personnummer == pnr_hash)
+            user_select
         ).first()
         pending_row = conn.execute(
             functions.pending_users_table.select().where(

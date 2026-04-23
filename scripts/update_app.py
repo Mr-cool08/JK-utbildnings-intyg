@@ -75,6 +75,10 @@ def _run(cmd: Iterable[str], **kwargs) -> None:
     subprocess.run(list(cmd), check=True, **kwargs)
 
 
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "false").strip().lower() == "true"
+
+
 def _get_valid_postgres_public_port(default: str = "15432") -> str:
     """Return a valid host port for the postgres compose mapping."""
 
@@ -195,13 +199,25 @@ def main() -> None:
     _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
     _run(compose("up", "-d"), cwd=root, env=compose_env)
 
-    # 13. show stats for 60 seconds
-    proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
-    try:
-        time.sleep(60)
-    finally:
-        proc.terminate()
-        proc.wait()
+    # 13. show stats for 60 seconds in development mode
+    if _dev_mode_enabled():
+        docker_binary = shutil.which("docker")
+        if docker_binary is None:
+            print("Hoppar över docker stats eftersom docker-binären inte hittades.")
+        else:
+            proc = subprocess.Popen([docker_binary, "stats", "--all"], cwd=root)
+            try:
+                time.sleep(60)
+            finally:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print("docker stats avslutades inte i tid efter SIGTERM; dödar processen.")
+                    proc.kill()
+                    proc.wait(timeout=5)
+    else:
+        print("Hoppar över docker stats eftersom DEV_MODE inte är aktivt.")
 
     # 14. prune docker data
     _run(["docker", "image", "prune", "-a", "-f"])

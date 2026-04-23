@@ -29,19 +29,22 @@ def _get_table(table_name: str):
 
 
 def _get_id_column(table) -> Column | None:
-    if "id" not in table.c:
-        return None
-    return table.c["id"]
-
-
-def _get_default_sort_column(table) -> Column | None:
-    id_column = _get_id_column(table)
-    if id_column is not None:
-        return id_column
+    if "id" in table.c:
+        return table.c["id"]
     primary_keys = list(table.primary_key.columns)
-    if primary_keys:
+    if len(primary_keys) == 1:
         return primary_keys[0]
     return None
+
+
+def _get_default_sort_column(table) -> tuple[Column, ...]:
+    id_column = _get_id_column(table)
+    if id_column is not None:
+        return (id_column,)
+    primary_keys = tuple(table.primary_key.columns)
+    if primary_keys:
+        return primary_keys
+    return ()
 
 
 def get_table_schema(table_name: str) -> List[Dict[str, Any]]:
@@ -99,9 +102,9 @@ def fetch_table_rows(
                 conditions.append(func.lower(column).like(parameter, escape="\\"))
         if conditions:
             stmt = stmt.where(or_(*conditions))
-    sort_column = _get_default_sort_column(table)
-    if sort_column is not None:
-        stmt = stmt.order_by(sort_column.asc())
+    sort_columns = _get_default_sort_column(table)
+    if sort_columns:
+        stmt = stmt.order_by(*(column.asc() for column in sort_columns))
     stmt = stmt.limit(limit)
     with get_engine().connect() as conn:
         rows = conn.execute(stmt).mappings().all()
@@ -117,13 +120,16 @@ def create_table_row(table_name: str, values: Dict[str, Any]) -> Dict[str, Any]:
     if not prepared:
         raise ValueError("Inga giltiga kolumner angavs")
     with get_engine().begin() as conn:
+        id_column = _get_id_column(table)
         result = conn.execute(insert(table).values(**prepared))
         new_id = None
-        if "id" in table.c:
+        if id_column is not None and result.inserted_primary_key:
             new_id = result.inserted_primary_key[0]
         if new_id is None:
             return prepared
-        row = conn.execute(select(table).where(table.c.id == new_id)).mappings().first()
+        row = conn.execute(select(table).where(id_column == new_id)).mappings().first()
+    if row is None:
+        raise RuntimeError(f"Row with id {new_id} not found after insert into {table_name}.")
     return {key: _encode_value(value) for key, value in row.items()}
 
 
@@ -131,7 +137,9 @@ def update_table_row(table_name: str, row_id: int, values: Dict[str, Any]) -> bo
     table = _get_table(table_name)
     id_column = _get_id_column(table)
     if id_column is None:
-        raise ValueError("Tabellen saknar en 'id'-kolumn och kan inte uppdateras via detta gränssnitt")
+        raise ValueError(
+            "Tabellen saknar en enkel primärnyckel och kan inte uppdateras via detta gränssnitt"
+        )
     assignments: Dict[str, Any] = {}
     for column in table.c:
         if column.primary_key:
@@ -149,7 +157,9 @@ def delete_table_row(table_name: str, row_id: int) -> bool:
     table = _get_table(table_name)
     id_column = _get_id_column(table)
     if id_column is None:
-        raise ValueError("Tabellen saknar en 'id'-kolumn och kan inte raderas via detta gränssnitt")
+        raise ValueError(
+            "Tabellen saknar en enkel primärnyckel och kan inte raderas via detta gränssnitt"
+        )
     with get_engine().begin() as conn:
         result = conn.execute(delete(table).where(id_column == row_id))
     return result.rowcount > 0

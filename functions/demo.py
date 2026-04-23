@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-import os
+import errno
+import time
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -19,6 +20,7 @@ from functions.database import (
     get_engine,
     reset_engine,
 )
+from functions.dev_mode import _dev_mode_enabled
 from functions.hashing import (
     _hash_personnummer,
     hash_password,
@@ -35,12 +37,6 @@ from functions.applications import _ensure_company
 
 
 logger = configure_module_logger(__name__)
-
-_DEV_MODE_TRUTHY = {"1", "true", "yes", "on", "ja", "y", "t", "sant"}
-
-
-def _dev_mode_enabled() -> bool:
-    return os.getenv("DEV_MODE", "").strip().lower() in _DEV_MODE_TRUTHY
 
 
 logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
@@ -265,8 +261,6 @@ def ensure_demo_data(
 
 def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
     # Rensa demodatabasen och återställ standardinnehållet.
-    import time
-
     # Protect against accidental database reset in production
     if not _dev_mode_enabled():
         logger.warning("reset_demo_database blocked: DEV_MODE not enabled")
@@ -286,26 +280,30 @@ def reset_demo_database(demo_defaults: Dict[str, str]) -> bool:
             return False
 
         reset_engine()
-        # Give more time for connections to fully close and release file locks
-        time.sleep(0.5)
     except SQLAlchemyError as exc:
         logger.warning("Demodatabasen kunde inte återställas: %s", exc)
         return False
 
     try:
-        Path(database).unlink(missing_ok=True)
-        # Brief delay to ensure file is fully released
-        time.sleep(0.1)
-    except OSError:
-        logger.error("Demodatabasen kunde inte tas bort")
+        database_path = Path(database)
+        for attempt in range(1, 6):
+            try:
+                database_path.unlink(missing_ok=True)
+                break
+            except OSError as exc:
+                if exc.errno not in {errno.EACCES, errno.EBUSY, errno.EPERM}:
+                    raise
+                if attempt == 5:
+                    raise
+                time.sleep(0.1 * (2 ** (attempt - 1)))
+    except OSError as exc:
+        logger.error("Demodatabasen kunde inte tas bort: %s", exc)
         return False
 
     try:
         from functions.database import create_database
 
         create_database()
-        # Additional delay to ensure database is fully initialized
-        time.sleep(0.1)
         ensure_demo_data(**demo_defaults)
     except SQLAlchemyError as exc:
         logger.warning("Demodatabasen kunde inte återställas: %s", exc)

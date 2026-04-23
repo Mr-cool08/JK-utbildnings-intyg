@@ -59,6 +59,18 @@ def test_get_request_ip_ignores_forwarded_header_without_trusted_proxies(monkeyp
     assert ru.get_request_ip() == "198.51.100.9"
 
 
+def test_trusted_proxy_count_defaults_to_zero(monkeypatch):
+    monkeypatch.delenv("TRUSTED_PROXY_COUNT", raising=False)
+
+    assert ru._trusted_proxy_count() == 0
+
+
+def test_trusted_proxy_count_returns_zero_for_invalid_value(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "abc")
+
+    assert ru._trusted_proxy_count() == 0
+
+
 def test_get_request_ip_uses_trusted_proxy_count(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "2")
     headers = {"X-Forwarded-For": "203.0.113.10, 198.51.100.10, 198.51.100.11"}
@@ -154,14 +166,15 @@ def test_register_public_submission_serializes_concurrent_access(monkeypatch):
     start_barrier.wait()
     assert first_append_entered.wait(timeout=1)
 
-    deadline = time.time() + 0.2
-    while len(append_counts) < 2 and time.time() < deadline:
+    deadline = time.monotonic() + 0.2
+    while len(append_counts) < 2 and time.monotonic() < deadline:
         time.sleep(0.01)
 
     release_append.set()
 
     for thread in threads:
-        thread.join()
+        thread.join(timeout=1)
+        assert not thread.is_alive()
 
     assert sorted(results) == [False, True]
     assert len(ru._public_form_attempts["5.5.5.5"]) == 1

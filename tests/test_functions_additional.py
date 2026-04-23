@@ -4,12 +4,14 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import Column, Integer, MetaData, String, Table
 from sqlalchemy.exc import OperationalError
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import functions  # noqa: E402
 import functions.database as database_module  # noqa: E402
+import functions.table_admin as table_admin  # noqa: E402
 
 
 def test_normalize_personnummer():
@@ -54,6 +56,136 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
 
     monkeypatch.setattr(functions, "get_engine", fail_get_engine)
     assert functions.verify_certificate(personnummer)
+
+
+def test_create_table_row_raises_if_inserted_row_cannot_be_reloaded(monkeypatch):
+    class FakeInsertResult:
+        inserted_primary_key = [123]
+
+    class FakeSelectResult:
+        def mappings(self):
+            return self
+
+        def first(self):
+            return None
+
+    class FakeConnection:
+        def __init__(self):
+            self.execute_calls = 0
+
+        def execute(self, _statement):
+            self.execute_calls += 1
+            if self.execute_calls == 1:
+                return FakeInsertResult()
+            return FakeSelectResult()
+
+    class FakeBeginContext:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def __enter__(self):
+            return self.connection
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeEngine:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def begin(self):
+            return FakeBeginContext(self.connection)
+
+    fake_connection = FakeConnection()
+    monkeypatch.setattr(
+        table_admin,
+        "get_engine",
+        lambda: FakeEngine(fake_connection),
+    )
+
+    with pytest.raises(RuntimeError) as exc:
+        table_admin.create_table_row(
+            "pending_users",
+            {
+                "username": "Anna",
+                "email": "anna@example.com",
+                "personnummer": "9001011234",
+            },
+        )
+
+    assert "123" in str(exc.value)
+
+
+def test_demo_mode_without_dev_mode_does_not_fallback_to_sqlite(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_HOST", raising=False)
+    monkeypatch.delenv("POSTGRES_USER", raising=False)
+    monkeypatch.delenv("POSTGRES_DB", raising=False)
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEV_MODE", "false")
+
+    with pytest.raises(RuntimeError):
+        database_module._build_engine()
+
+
+def test_create_database_skips_user_pdf_column_lookup_when_table_is_missing(monkeypatch):
+    class FakeBeginContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeEngine:
+        def begin(self):
+            return FakeBeginContext()
+
+    class FakeInspector:
+        def get_table_names(self):
+            return [
+                database_module.password_resets_table.name,
+                database_module.supervisor_password_resets_table.name,
+                database_module.admin_audit_log_table.name,
+            ]
+
+        def get_columns(self, _table_name):
+            raise AssertionError("get_columns ska inte anropas när tabellen saknas")
+
+    fake_engine = FakeEngine()
+    monkeypatch.setattr(database_module, "get_engine", lambda: fake_engine)
+    monkeypatch.setattr(database_module.metadata, "create_all", lambda _engine: None)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+    monkeypatch.setattr(database_module, "inspect", lambda _conn: FakeInspector())
+
+    database_module.create_database()
+
+
+def test_get_id_column_uses_single_primary_key_when_id_is_missing():
+    table = Table(
+        "single_pk_table",
+        MetaData(),
+        Column("slug", String, primary_key=True),
+        Column("name", String),
+    )
+
+    id_column = table_admin._get_id_column(table)
+
+    assert id_column is not None
+    assert id_column.name == "slug"
+
+
+def test_get_default_sort_column_includes_composite_primary_key_order():
+    table = Table(
+        "composite_pk_table",
+        MetaData(),
+        Column("left_id", Integer, primary_key=True),
+        Column("right_id", Integer, primary_key=True),
+        Column("name", String),
+    )
+
+    sort_columns = table_admin._get_default_sort_column(table)
+
+    assert [column.name for column in sort_columns] == ["left_id", "right_id"]
 
 
 def test_dev_mode_creates_sqlite(tmp_path, monkeypatch):

@@ -256,7 +256,9 @@ def _flatten_category_groups(
 
 
 # Lista över tillgängliga kurskategorier (slug, etikett)
-COURSE_CATEGORIES: List[Tuple[str, str]] = _flatten_category_groups(COURSE_CATEGORY_GROUPS)
+COURSE_CATEGORIES: List[Tuple[str, str]] = _flatten_category_groups(
+    COURSE_CATEGORY_GROUPS
+)
 
 _CATEGORY_LOOKUP = {slug: label for slug, label in COURSE_CATEGORIES}
 

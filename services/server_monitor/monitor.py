@@ -2,6 +2,7 @@
 import datetime as dt
 import logging
 import os
+import re
 import shutil
 import smtplib
 import subprocess
@@ -87,7 +88,6 @@ SMTP_PASSWORD = env_with_legacy_fallback("SMTP_PASSWORD", "smtp_password", "")
 SMTP_TIMEOUT = int(env_with_legacy_fallback("SMTP_TIMEOUT", "smtp_timeout", "30"))
 CRITICAL_ALERTS_EMAIL = os.getenv("CRITICAL_ALERTS_EMAIL", "")
 EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM", SMTP_USER)
-HOST_ROOT = os.getenv("HOST_ROOT", "/host")
 CLAMAV_SCAN_IMAGE = os.getenv("CLAMAV_SCAN_IMAGE", "clamav/clamav:stable")
 CLAMAV_SCAN_TIMEOUT_SECONDS = int(os.getenv("CLAMAV_SCAN_TIMEOUT_SECONDS", str(6 * 3600)))
 
@@ -101,6 +101,23 @@ def _safe_int(value: str, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+_HOST_ROOT_PATTERN = re.compile(r"^/[-A-Za-z0-9._/]+$")
+
+
+def _validate_host_root(raw_value: str) -> str:
+    candidate = (raw_value or "").strip()
+    if not candidate:
+        raise ValueError("HOST_ROOT måste vara satt till en absolut katalog.")
+    if not Path(candidate).is_absolute():
+        raise ValueError("HOST_ROOT måste vara en absolut sökväg.")
+    if not _HOST_ROOT_PATTERN.fullmatch(candidate):
+        raise ValueError("HOST_ROOT innehåller otillåtna tecken.")
+    host_root = Path(candidate)
+    if not host_root.is_dir():
+        raise ValueError("HOST_ROOT måste peka på en befintlig katalog.")
+    return str(host_root)
 
 
 def parse_smoke_targets(raw_value: str) -> list[tuple[str, str]]:
@@ -141,6 +158,10 @@ SMOKE_TEST_TARGETS = parse_smoke_targets(
 DISK_THRESHOLDS = [50, 60, 75, 95, 100]
 RAM_THRESHOLD = 80
 CPU_THRESHOLD = 90
+DISK_ALERT_HYSTERESIS = _safe_int(os.getenv("DISK_ALERT_HYSTERESIS", "2"), 2)
+RAM_ALERT_RESET_THRESHOLD = _safe_int(os.getenv("RAM_ALERT_RESET_THRESHOLD", "75"), 75)
+CPU_ALERT_RESET_THRESHOLD = _safe_int(os.getenv("CPU_ALERT_RESET_THRESHOLD", "85"), 85)
+HOST_ROOT = _validate_host_root(os.getenv("HOST_ROOT", "/host"))
 
 ALERT_STATE = {
     "disk": {threshold: False for threshold in DISK_THRESHOLDS},
@@ -272,12 +293,26 @@ def collect_container_logs(client: docker.DockerClient, output_dir: Path) -> lis
 
 def collect_disk_report(output_dir: Path) -> Path:
     disk_report = output_dir / "disk_usage_top.txt"
-    command = [
-        "bash",
-        "-lc",
-        f"du -x -h --max-depth=2 {HOST_ROOT} 2>/dev/null | sort -h | tail -n 120",
-    ]
-    disk_report.write_text(run_command(command), encoding="utf-8")
+    result = subprocess.run(
+        ["du", "-x", "-k", "--max-depth=2", HOST_ROOT],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    lines: list[tuple[int, str]] = []
+    for line in (result.stdout or "").splitlines():
+        size_text, _separator, path = line.partition("\t")
+        try:
+            lines.append((int(size_text.strip()), path.strip()))
+        except ValueError:
+            continue
+    lines.sort(key=lambda item: item[0])
+    rendered_lines = [f"{size_kb}\t{path}" for size_kb, path in lines[-120:]]
+    if result.stderr.strip():
+        rendered_lines.append("")
+        rendered_lines.append("[stderr]")
+        rendered_lines.append(result.stderr.strip())
+    disk_report.write_text("\n".join(rendered_lines).strip(), encoding="utf-8")
     return disk_report
 
 
@@ -554,12 +589,14 @@ def maybe_send_weekly_smoke_report(now: dt.datetime | None = None) -> None:
 
 
 def run_clamav_scan(client: docker.DockerClient):
-    command = (
-        "sh -lc 'clamscan -r -i /host "
-        "--exclude-dir=^/host/proc --exclude-dir=^/host/sys --exclude-dir=^/host/dev "
-        "--exclude-dir=^/host/run --exclude-dir=^/host/var/lib/docker "
-        "|| true'"
-    )
+    excludes = [
+        "--exclude-dir=^/host/proc",
+        "--exclude-dir=^/host/sys",
+        "--exclude-dir=^/host/dev",
+        "--exclude-dir=^/host/run",
+        "--exclude-dir=^/host/var/lib/docker",
+    ]
+    command = ["clamscan", "-r", "-i", "/host", *excludes]
 
     container = client.containers.run(
         CLAMAV_SCAN_IMAGE,
@@ -627,7 +664,7 @@ def main():
                         f"Diskanvändningen är nu {disk_percent:.2f}% och passerade {threshold}%.",
                         client,
                     )
-                if disk_percent < max(0, threshold - 2):
+                if disk_percent < max(0, threshold - DISK_ALERT_HYSTERESIS):
                     ALERT_STATE["disk"][threshold] = False
 
             if ram_percent >= RAM_THRESHOLD and not ALERT_STATE["ram"]:
@@ -637,7 +674,7 @@ def main():
                     f"RAM-användningen är nu {ram_percent:.2f}%.",
                     client,
                 )
-            if ram_percent < 75:
+            if ram_percent < RAM_ALERT_RESET_THRESHOLD:
                 ALERT_STATE["ram"] = False
 
             if cpu_percent >= CPU_THRESHOLD and not ALERT_STATE["cpu"]:
@@ -647,7 +684,7 @@ def main():
                     f"CPU-användningen är nu {cpu_percent:.2f}%.",
                     client,
                 )
-            if cpu_percent < 85:
+            if cpu_percent < CPU_ALERT_RESET_THRESHOLD:
                 ALERT_STATE["cpu"] = False
 
             maybe_run_clamav(client, now=now)

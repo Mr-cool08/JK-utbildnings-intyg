@@ -56,3 +56,9 @@ def test_should_disable_email_sending_is_false_without_flag(monkeypatch):
     monkeypatch.delenv("DEV_MODE", raising=False)
 
     assert email_service.should_disable_email_sending() is False
+
+
+def test_should_disable_email_sending_requires_exact_true(monkeypatch):
+    monkeypatch.setenv("DEV_MODE", "1")
+
+    assert email_service.should_disable_email_sending() is False
