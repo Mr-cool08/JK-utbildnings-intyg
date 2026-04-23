@@ -72,6 +72,29 @@ Huvudtjänsterna publiceras direkt på värdportar:
 
 Traefik fungerar parallellt som tidigare för domän/HTTPS-routing.
 
+### VS Code i DEV_MODE
+
+När `DEV_MODE=true` startar Docker Compose även en VS Code-webbcontainer via `code-server`.
+Den monterar hela projektmappen till `/workspace`, så ändringar i webbläsaren skrivs direkt till filerna i repot.
+
+Lägg in detta i `.env`:
+
+```env
+DEV_MODE=true
+COMPOSE_PROFILES=${DEV_MODE:-false}
+VSCODE_PASSWORD=byt-till-ett-starkt-losenord
+VSCODE_BIND_IP=127.0.0.1
+```
+
+Starta stacken som vanligt:
+
+```bash
+docker compose up --build
+```
+
+Öppna sedan `http://localhost:8083` och logga in med `VSCODE_PASSWORD`.
+Som standard lyssnar VS Code bara lokalt. Sätt `VSCODE_BIND_IP=0.0.0.0` endast om porten ska kunna nås från nätverket och åtkomsten är skyddad.
+
 ### Produktion
 
 För produktion, se: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

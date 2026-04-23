@@ -201,6 +201,55 @@ services:
       - traefik.http.routers.status.tls=true
       - traefik.http.services.status.loadbalancer.server.port=80
 
+  vscode:
+    image: codercom/code-server:latest
+    profiles:
+      - "true"
+      - "TRUE"
+      - "True"
+      - "1"
+      - "yes"
+      - "YES"
+      - "on"
+      - "ON"
+    env_file:
+      - .env
+    environment:
+      DEV_MODE: ${DEV_MODE:-false}
+      PASSWORD: ${VSCODE_PASSWORD:-}
+      TZ: ${TZ:-Europe/Stockholm}
+    working_dir: /workspace
+    command:
+      - sh
+      - -c
+      - |
+        case "$$DEV_MODE" in
+          true|TRUE|True|1|yes|YES|on|ON)
+            if [ -z "$$PASSWORD" ]; then
+              echo "VSCODE_PASSWORD saknas. Sätt ett lösenord i .env innan VS Code startas." >&2
+              exit 1
+            fi
+            exec code-server --bind-addr 0.0.0.0:8080 --auth password /workspace
+            ;;
+          *)
+            echo "DEV_MODE är inte true. VS Code-containern startas inte."
+            exit 0
+            ;;
+        esac
+    ports:
+      - "${VSCODE_BIND_IP:-127.0.0.1}:8083:8080"
+    volumes:
+      - .:/workspace
+      - vscode_config:/home/coder/.config/code-server
+      - vscode_data:/home/coder/.local/share/code-server
+    networks:
+      - public_net
+    restart: "no"
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: "0.75"
+    pids_limit: 300
+
   postgres:
     image: postgres:16
     command:
@@ -317,6 +366,10 @@ volumes:
     name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
+  vscode_config:
+    name: jk-utbildnings-intyg_vscode_config
+  vscode_data:
+    name: jk-utbildnings-intyg_vscode_data
 networks:
   public_net:
     name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
