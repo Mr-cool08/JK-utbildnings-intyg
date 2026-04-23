@@ -219,23 +219,6 @@ services:
       PASSWORD: ${VSCODE_PASSWORD:-}
       TZ: ${TZ:-Europe/Stockholm}
     working_dir: /workspace
-    entrypoint:
-      - /bin/sh
-      - -c
-    command: |
-      case "$$DEV_MODE" in
-        true|TRUE|True|1|yes|YES|on|ON)
-          if [ -z "$$PASSWORD" ]; then
-            echo "VSCODE_PASSWORD saknas. Sätt ett lösenord i .env innan VS Code startas." >&2
-            exit 1
-          fi
-          exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 /workspace
-          ;;
-        *)
-          echo "DEV_MODE är inte true. VS Code-containern startas inte."
-          exit 0
-          ;;
-      esac
     ports:
       - "${VSCODE_BIND_IP:-127.0.0.1}:8083:8080"
     volumes:
