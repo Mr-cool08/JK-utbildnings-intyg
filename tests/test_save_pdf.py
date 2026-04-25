@@ -36,9 +36,7 @@ def test_save_pdf_stores_in_database(empty_db):
 
     with functions.get_engine().connect() as conn:
         row = conn.execute(
-            functions.user_pdfs_table.select().where(
-                functions.user_pdfs_table.c.id == result["id"]
-            )
+            functions.user_pdfs_table.select().where(functions.user_pdfs_table.c.id == result["id"])
         ).first()
     assert row is not None
     assert row.filename == result["filename"]

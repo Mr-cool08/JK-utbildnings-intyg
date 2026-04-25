@@ -90,4 +90,5 @@ def test_user_upload_rejects_too_long_note(user_db):
         )
 
     assert response.status_code == 200
-    assert "Anteckningen får vara högst 300 tecken.".encode("utf-8") in response.data
+    expected_msg = "Anteckningen får vara högst 300 tecken."
+    assert expected_msg.encode("utf-8") in response.data

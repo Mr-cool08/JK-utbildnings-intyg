@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -27,7 +28,13 @@ from functions.users import verify_certificate
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+
+def _dev_mode_enabled() -> bool:
+    return os.getenv("DEV_MODE", "").strip().lower() == "true"
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def _hash_token(token: str) -> str:

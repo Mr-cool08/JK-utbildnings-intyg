@@ -1,4 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+import threading
+import time
+
 from functions import requests as ru
 
 
@@ -44,16 +47,46 @@ def test_get_request_ip_prefers_forwarded_header(monkeypatch):
     dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.5"})
     monkeypatch.setattr(ru, "request", dummy_request)
 
-    assert ru.get_request_ip() == "198.51.100.4"
+    assert ru.get_request_ip() == "198.51.100.5"
 
 
-def test_get_request_ip_ignores_forwarded_header_when_untrusted(monkeypatch):
+def test_get_request_ip_ignores_forwarded_header_without_trusted_proxies(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
     headers = {"X-Forwarded-For": "203.0.113.9"}
     dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.9"})
     monkeypatch.setattr(ru, "request", dummy_request)
 
     assert ru.get_request_ip() == "198.51.100.9"
+
+
+def test_trusted_proxy_count_defaults_to_zero(monkeypatch):
+    monkeypatch.delenv("TRUSTED_PROXY_COUNT", raising=False)
+
+    assert ru._trusted_proxy_count() == 0
+
+
+def test_trusted_proxy_count_returns_zero_for_invalid_value(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "abc")
+
+    assert ru._trusted_proxy_count() == 0
+
+
+def test_get_request_ip_uses_trusted_proxy_count(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "2")
+    headers = {"X-Forwarded-For": "203.0.113.10, 198.51.100.10, 198.51.100.11"}
+    dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.12"})
+    monkeypatch.setattr(ru, "request", dummy_request)
+
+    assert ru.get_request_ip() == "203.0.113.10"
+
+
+def test_get_request_ip_falls_back_when_forwarded_chain_is_too_short(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "2")
+    headers = {"X-Forwarded-For": "203.0.113.10, 198.51.100.10"}
+    dummy_request = type("DummyRequest", (), {"headers": headers, "remote_addr": "198.51.100.12"})
+    monkeypatch.setattr(ru, "request", dummy_request)
+
+    assert ru.get_request_ip() == "198.51.100.12"
 
 
 def test_as_bool_interpretations():
@@ -83,3 +116,65 @@ def test_rate_limiting_respects_time_window_boundary(monkeypatch):
 
     current_time[0] = 1_000.0 + ru._PUBLIC_FORM_WINDOW + 0.1
     assert ru.register_public_submission("4.4.4.4")
+
+
+def test_register_public_submission_serializes_concurrent_access(monkeypatch):
+    append_counts = []
+    first_append_entered = threading.Event()
+    release_append = threading.Event()
+
+    class CoordinatedBucket:
+        def __init__(self):
+            self.items = []
+
+        def __bool__(self):
+            return bool(self.items)
+
+        def __len__(self):
+            return len(self.items)
+
+        def append(self, value):
+            append_counts.append(value)
+            first_append_entered.set()
+            release_append.wait(timeout=1)
+            self.items.append(value)
+
+        def popleft(self):
+            return self.items.pop(0)
+
+    ru._public_form_attempts.clear()
+    ru._public_form_attempts["5.5.5.5"] = CoordinatedBucket()
+    monkeypatch.setattr(ru, "_PUBLIC_FORM_LIMIT", 1)
+    monkeypatch.setattr(ru, "_cleanup_expired_attempts", lambda now: None)
+    monkeypatch.setattr(ru, "_trim_bucket", lambda bucket, now: None)
+    monkeypatch.setattr(ru.time, "time", lambda: 1_000.0)
+
+    start_barrier = threading.Barrier(3)
+    results = []
+    results_lock = threading.Lock()
+
+    def worker():
+        start_barrier.wait()
+        result = ru.register_public_submission("5.5.5.5")
+        with results_lock:
+            results.append(result)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+
+    start_barrier.wait()
+    assert first_append_entered.wait(timeout=1)
+
+    deadline = time.monotonic() + 0.2
+    while len(append_counts) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    release_append.set()
+
+    for thread in threads:
+        thread.join(timeout=1)
+        assert not thread.is_alive()
+
+    assert sorted(results) == [False, True]
+    assert len(ru._public_form_attempts["5.5.5.5"]) == 1

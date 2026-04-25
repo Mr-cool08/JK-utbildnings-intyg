@@ -27,11 +27,14 @@ from functions.hashing import (
     normalize_email,
     verify_password,
 )
+from functions.dev_mode import _dev_mode_enabled
 from functions.logging import configure_module_logger, mask_hash
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+
+
+logger.setLevel(logging.DEBUG if _dev_mode_enabled() else logging.INFO)
 
 
 def check_password_user(email: str, password: str) -> bool:
@@ -436,6 +439,7 @@ def get_pending_user_personnummer_hash(
         return None
 
     return str(pending_row.personnummer)
+
 
 def admin_update_user_account(
     personnummer: str, email: str, username: str

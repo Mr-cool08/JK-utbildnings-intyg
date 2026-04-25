@@ -11,7 +11,7 @@ def _client():
 
 
 def _extract_nav_links(body: str) -> str:
-    match = re.search(r'<div class="nav-links">(.*?)</div>', body, flags=re.DOTALL)
+    match = re.search(r'<div class="nav-links"[^>]*>(.*?)</div>', body, flags=re.DOTALL)
     assert match is not None
     return match.group(1)
 
@@ -40,6 +40,8 @@ def test_public_nav_shows_public_links_and_swedish_lang(empty_db):
     nav_links = _extract_nav_links(body)
 
     assert '<html lang="sv">' in body
+    assert 'aria-controls="primary-navigation"' in body
+    assert 'id="primary-navigation"' in body
     assert ">Hem<" in nav_links
     assert 'href="/ansok"' in nav_links
     assert 'href="/foretagskonto/login"' in nav_links
@@ -67,7 +69,18 @@ def test_standardkonto_form_contains_expected_ui_fields(empty_db):
         assert response.status_code == 200
         body = response.get_data(as_text=True)
 
-    assert "Ansök om användarkonto" in body
+    assert "Ansök om privatkonto" in body
+    assert "Privatkontot är gratis." in body
+    assert (
+        "du behöver inte vara kopplad till en arbetsgivare"
+        in body
+    )
+    assert "Privatkontot är gratis för privatpersoner." in body
+    assert (
+        "Du kan ansöka även om din arbetsgivare inte använder "
+        "Utbildningsintyg idag."
+        in body
+    )
     assert 'id="name"' in body
     assert 'id="email"' in body
     assert 'type="email"' in body
@@ -102,6 +115,20 @@ def test_foretagskonto_form_contains_invoice_section_and_required_fields(empty_d
     assert "form_error_highlight.js" in body
 
 
+def test_apply_page_clarifies_private_account_is_free_and_independent(empty_db):
+    with _client() as client:
+        response = client.get("/ansok")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "För privatpersoner som vill samla och dela sina egna intyg." in body
+    assert (
+        "Du kan ansöka som privatperson även utan koppling till en arbetsgivare."
+        in body
+    )
+    assert "Privatkonto kostar inget att ansöka om eller använda." in body
+
+
 def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     personnummer_hash = functions.hash_value("9001011234")
     category_slug = COURSE_CATEGORIES[0][0]
@@ -134,9 +161,42 @@ def test_home_page_exposes_motion_markers(empty_db):
         body = response.get_data(as_text=True)
 
     assert 'data-motion="hero"' in body
+    assert "Välj kontotyp" in body
+    assert "Andra vägar" in body
     assert 'data-motion-group="workflow"' in body
     assert 'data-motion-group="features"' in body
     assert 'data-motion-group="benefits"' in body
+
+
+def test_home_page_repeats_account_type_choices_in_final_cta(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    cta_match = re.search(
+        r'<section class="cta-panel"[\s\S]*?</section>',
+        body,
+    )
+    assert cta_match is not None
+    cta_body = cta_match.group(0)
+
+    assert "Välj kontotyp för att fortsätta" in body
+    assert body.count('href="/ansok/standardkonto"') >= 2
+    assert body.count('href="/ansok/foretagskonto"') >= 2
+    assert "Ansök om konto" not in cta_body
+
+
+def test_home_page_hero_places_choice_list_inside_action_panel(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    actions_index = body.index('class="hero-actions"')
+    choice_list_index = body.index('class="hero-choice-list"')
+
+    assert actions_index < choice_list_index
 
 
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):

@@ -7,7 +7,8 @@ import pytest
 
 # Ensure the project root is on ``sys.path`` so ``functions`` can be imported
 # when tests are executed directly.
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+if os.getenv("DEV_MODE", "").strip().lower() == "true":
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from functions import (
     hash_value,

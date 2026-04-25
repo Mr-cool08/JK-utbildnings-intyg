@@ -27,17 +27,13 @@ def test_save_pdf_for_user(empty_db):
 
     with functions.get_engine().connect() as conn:
         row = conn.execute(
-            functions.user_pdfs_table.select().where(
-                functions.user_pdfs_table.c.id == result["id"]
-            )
+            functions.user_pdfs_table.select().where(functions.user_pdfs_table.c.id == result["id"])
         ).first()
     assert row is not None
     assert row.filename == result["filename"]
     assert row.categories == category
 
-    personnummer_hash = functions.hash_value(
-        functions.normalize_personnummer("19900101-1234")
-    )
+    personnummer_hash = functions.hash_value(functions.normalize_personnummer("19900101-1234"))
     filename, decrypted = functions.get_pdf_content(personnummer_hash, row.id)
     assert filename == result["filename"]
     assert decrypted == pdf_bytes
@@ -58,9 +54,7 @@ def test_save_png_converts_to_pdf(empty_db):
     result = app.pdf.save_pdf_for_user("19900101-1234", file_storage, [category])
 
     assert result["filename"].endswith(".pdf")
-    personnummer_hash = functions.hash_value(
-        functions.normalize_personnummer("19900101-1234")
-    )
+    personnummer_hash = functions.hash_value(functions.normalize_personnummer("19900101-1234"))
     filename, decrypted = functions.get_pdf_content(personnummer_hash, result["id"])
     assert filename == result["filename"]
     assert decrypted.startswith(b"%PDF-")

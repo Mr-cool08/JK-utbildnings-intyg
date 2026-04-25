@@ -122,10 +122,7 @@ def test_admin_upload_pending_user(empty_db):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"
-    assert (
-        payload["message"]
-        == "Standardkontot väntar redan på aktivering. PDF:er uppladdade."
-    )
+    assert payload["message"] == "Standardkontot väntar redan på aktivering. PDF:er uppladdade."
 
     pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
     with engine.connect() as conn:
@@ -173,9 +170,7 @@ def test_admin_upload_multiple_pdfs_with_individual_categories(empty_db):
     payload = response.get_json()
     assert payload["status"] == "success"
 
-    personnummer_hash = functions.hash_value(
-        functions.normalize_personnummer(personnummer)
-    )
+    personnummer_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
     with engine.connect() as conn:
         rows = list(
             conn.execute(
@@ -214,6 +209,3 @@ def test_admin_upload_requires_category(empty_db):
     payload = response.get_json()
     assert payload["status"] == "error"
     assert payload["message"] == "Välj kategori för varje PDF."
-
-
-

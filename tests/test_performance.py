@@ -3,7 +3,11 @@ from statistics import mean
 
 import app
 import functions
+import pytest
 from course_categories import COURSE_CATEGORIES
+
+
+pytestmark = pytest.mark.slow
 
 
 def _client():
@@ -55,12 +59,10 @@ def test_public_pages_render_within_response_budget(empty_db):
         for path, max_seconds in routes_and_max_seconds.items():
             durations = _measure_get_times(client, path, iterations=3)
             assert mean(durations) < 0.60, (
-                f"Genomsnittlig svarstid för {path} var {mean(durations):.3f}s "
-                f"(budget 0.600s)"
+                f"Genomsnittlig svarstid för {path} var {mean(durations):.3f}s (budget 0.600s)"
             )
             assert max(durations) < max_seconds, (
-                f"Långsam route {path}: max {max(durations):.3f}s "
-                f"(budget {max_seconds:.3f}s)"
+                f"Långsam route {path}: max {max(durations):.3f}s (budget {max_seconds:.3f}s)"
             )
 
 
@@ -90,12 +92,8 @@ def test_dashboard_with_many_certificates_renders_within_budget(user_db):
 
         durations = _measure_get_times(client, "/dashboard", iterations=3)
 
-    assert mean(durations) < 1.20, (
-        f"Dashboard genomsnitt {mean(durations):.3f}s överskrider 1.200s"
-    )
-    assert max(durations) < 2.50, (
-        f"Dashboard max {max(durations):.3f}s överskrider 2.500s"
-    )
+    assert mean(durations) < 1.20, f"Dashboard genomsnitt {mean(durations):.3f}s överskrider 1.200s"
+    assert max(durations) < 2.50, f"Dashboard max {max(durations):.3f}s överskrider 2.500s"
 
 
 def test_dashboard_repeated_requests_remain_stable(user_db):
@@ -108,8 +106,7 @@ def test_dashboard_repeated_requests_remain_stable(user_db):
         durations = _measure_get_times(client, "/dashboard", iterations=8)
 
     assert mean(durations) < 0.70, (
-        f"Dashboard genomsnitt vid upprepade anrop var {mean(durations):.3f}s "
-        f"(budget 0.700s)"
+        f"Dashboard genomsnitt vid upprepade anrop var {mean(durations):.3f}s (budget 0.700s)"
     )
     assert max(durations) < 1.20, (
         f"Dashboard svarstidspik var {max(durations):.3f}s (budget 1.200s)"

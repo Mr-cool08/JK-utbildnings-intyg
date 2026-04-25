@@ -19,12 +19,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 try:
     from functions.logging import bootstrap_logging
     from config_loader import load_environment
+
     load_environment()
     logger = bootstrap_logging(__name__)
 except Exception:
     # Fallback if functions module not available
     logger = logging.getLogger(__name__)
-
 
 
 class ActionError(RuntimeError):
@@ -41,7 +41,7 @@ def default_compose_file() -> str:
     root = repo_root()
 
     # Prefer production compose if it exists, otherwise fall back to standard compose.
-    prod_file = root / "docker-compose.yml"
+    prod_file = root / "docker-compose.prod.yml"
     if prod_file.is_file():
         return str(prod_file)
 
@@ -112,9 +112,9 @@ def _run_docker_prune_commands(
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> None:
     # Run docker prune commands to clean up unused data.
-    runner(["docker", "image", "prune", "-a"], check=True)
-    runner(["docker", "builder", "prune"], check=True)
-    runner(["docker", "system", "prune", "-a"], check=True)
+    runner(["docker", "image", "prune", "-a", "--force"], check=True)
+    runner(["docker", "builder", "prune", "--force"], check=True)
+    runner(["docker", "system", "prune", "-a", "--force"], check=True)
 
 
 def _build_venv_command(
@@ -135,9 +135,7 @@ def _build_venv_command(
             if candidate.is_file():
                 return [str(candidate)]
 
-    raise FileNotFoundError(
-        f"Kunde inte hitta {unix_executable} i venv/.venv-katalogen."
-    )
+    raise FileNotFoundError(f"Kunde inte hitta {unix_executable} i venv/.venv-katalogen.")
 
 
 def build_pytest_command(root: Path) -> list[str]:
@@ -216,9 +214,11 @@ def send_notification(action: str, details: str = "") -> None:
         # Log critical event which will trigger email notification via logging handler
         details_msg = f"Åtgärd: {title}\nDetaljer: {details}" if details else title
         logger.critical("Docker Compose action: %s\n%s", event_type, details_msg)
+        _ = email_service
+    except ImportError as exc:
+        logger.warning("Kunde inte initiera avisering för åtgärden %s: %s", action, exc)
     except Exception:
-        # Silently fail if email module isn't available
-        pass
+        logger.exception("Avisering för Docker Compose-åtgärden %s misslyckades", action)
 
 
 def build_compose_args(
@@ -235,7 +235,6 @@ def build_compose_args(
     if project_name:
         args.extend(["--project-name", project_name])
     return args
-
 
 
 def run_compose_command(
@@ -329,8 +328,12 @@ def _ensure_volume_present(
         runner(["docker", "volume", "create", volume_name], check=True)
         return True
     mountpoint = info.get("Mountpoint")
-    if mountpoint and os.path.exists(mountpoint):
-        return False
+    if mountpoint:
+        mountpoint_accessible_on_host = not (
+            sys.platform.startswith("darwin") or sys.platform.startswith("win")
+        )
+        if not mountpoint_accessible_on_host or os.path.exists(mountpoint):
+            return False
     print(f"Återskapar Docker-volym: {volume_name}")
     try:
         runner(["docker", "volume", "rm", volume_name], check=True)
@@ -464,11 +467,11 @@ def run_compose_action(
         try:
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
-            
+
             print("Uppdaterar systemet...")
             runner(["sudo", "apt", "update"], check=True)
             runner(["sudo", "apt", "upgrade", "-y"], check=True)
-            
+
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
 
@@ -482,7 +485,6 @@ def run_compose_action(
             print("Visar Docker diskstatus...")
             _run_docker_system_df(runner=runner)
 
-            
             print("Bygger om Docker Compose-tjänsterna utan cache...")
             run_compose_command(compose_args, ["build", "--no-cache"], runner)
 
@@ -493,8 +495,7 @@ def run_compose_action(
                 ["up", "-d", "--remove-orphans", "--renew-anon-volumes"],
                 runner,
             )
-            
-            
+
             print("Rensar oanvända Docker-artefakter...")
             _run_docker_prune_commands(runner=runner)
 
@@ -545,9 +546,7 @@ def run_compose_action(
         try:
             _run_docker_system_df(runner=runner)
         except subprocess.CalledProcessError as exc:
-            raise ActionError(
-                "Ett fel uppstod när Docker diskstatus skulle hämtas."
-            ) from exc
+            raise ActionError("Ett fel uppstod när Docker diskstatus skulle hämtas.") from exc
         print("Klar.")
         return
 
@@ -630,6 +629,7 @@ def parse_args() -> argparse.Namespace:
             "stop",
             "pull",
             "up",
+            "build-up",
             "cycle",
             "git-pull",
             "pytest",

@@ -21,7 +21,12 @@ def _patch_main_runtime(
         subprocess,
         "Popen",
         lambda *args, **kwargs: type(
-            "P", (), {"terminate": lambda self: None, "wait": lambda self: None}
+            "P",
+            (),
+            {
+                "terminate": lambda self: None,
+                "wait": lambda self, timeout=None: None,
+            },
         )(),
     )
     monkeypatch.setattr(ua.time, "sleep", lambda *_: None)

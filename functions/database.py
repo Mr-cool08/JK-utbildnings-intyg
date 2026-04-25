@@ -358,9 +358,7 @@ def _add_column_if_missing(
     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column} {column_type}"))
 
 
-def _postgres_constraint_exists(
-    conn: Connection, table_name: str, constraint_name: str
-) -> bool:
+def _postgres_constraint_exists(conn: Connection, table_name: str, constraint_name: str) -> bool:
     row = conn.execute(
         text(
             """
@@ -580,6 +578,9 @@ def _migration_0008_company_users_email_role_unique(conn: Connection) -> None:
 def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
     # Lägg till anteckningsfält för användarens uppladdade intyg.
     inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if "user_pdfs" not in existing_tables:
+        return
     columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
     if "note" in columns:
         return
@@ -619,28 +620,8 @@ _ENGINE: Optional[Engine] = None
 
 
 def _is_truthy(value: Optional[str]) -> bool:
-    # Return True when the provided string represents a truthy value.
-    if value is None:
-        return False
-
-    return value.strip().lower() in {
-        "1",
-        "ja",
-        "on",
-        "sant",
-        "true",
-        "t",
-        "yes",
-        "y",
-        "True",
-        "TRUE",
-        "Ja",
-        "JA",
-        "On",
-        "ON",
-        "Sant",
-        "SANT",
-    }
+    # Return True only when the provided string is exactly "true".
+    return (value or "").strip().lower() == "true"
 
 
 def _build_engine() -> Engine:
@@ -649,7 +630,7 @@ def _build_engine() -> Engine:
     demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
     sqlite_database_path: Optional[str] = None
     dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
-    should_use_local_sqlite = demo_mode or (dev_mode and not db_url)
+    should_use_local_sqlite = dev_mode and (demo_mode or not db_url)
 
     if should_use_local_sqlite:
         test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
@@ -675,7 +656,7 @@ def _build_engine() -> Engine:
         host = os.getenv("POSTGRES_HOST")
         if not host:
             raise RuntimeError(
-                "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
+                "Sätt DATABASE_URL, aktivera DEV_MODE för lokal SQLite, slå vid behov på ENABLE_DEMO_MODE "
                 "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
             )
 
@@ -835,14 +816,17 @@ def create_database() -> None:
     run_migrations(engine)
     with engine.begin() as conn:
         inspector = inspect(conn)
-        columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
-        if "categories" not in columns:
-            conn.execute(
-                text("ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL")
-            )
-        if "note" not in columns:
-            conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
         existing_tables = set(inspector.get_table_names())
+        if "user_pdfs" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
+            if "categories" not in columns:
+                conn.execute(
+                    text("ALTER TABLE user_pdfs ADD COLUMN categories TEXT DEFAULT '' NOT NULL")
+                )
+            if "note" not in columns:
+                conn.execute(
+                    text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL")
+                )
         for table in (
             password_resets_table,
             supervisor_password_resets_table,

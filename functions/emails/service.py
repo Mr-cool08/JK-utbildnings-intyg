@@ -43,14 +43,26 @@ class SMTPSettings:
     from_address: str
 
 
+def parse_env_int(name: str, default: int) -> int:
+    """Parse an integer environment variable and raise a clear error on failure."""
+
+    raw_value = os.getenv(name, str(default))
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Ogiltigt heltalsvärde för miljövariabeln {name}: {raw_value!r}"
+        ) from exc
+
+
 def load_smtp_settings() -> SMTPSettings:
     """Read SMTP configuration from environment variables."""
 
     smtp_server = os.getenv("smtp_server")
-    smtp_port = int(os.getenv("smtp_port", "587"))
+    smtp_port = parse_env_int("smtp_port", 587)
     smtp_user = os.getenv("smtp_user")
     smtp_password = os.getenv("smtp_password")
-    smtp_timeout = int(os.getenv("smtp_timeout", "10"))
+    smtp_timeout = parse_env_int("smtp_timeout", 10)
     smtp_from = os.getenv("smtp_from") or smtp_user
 
     if not (smtp_server and smtp_user and smtp_password):
@@ -178,8 +190,8 @@ def send_email_message(
 def should_disable_email_sending() -> bool:
     """Return True when outbound emails should be disabled."""
 
-    disable_emails = os.getenv("DISABLE_EMAILS", "").strip().lower()
-    return disable_emails in {"1", "true", "yes", "on"}
+    dev_mode = os.getenv("DEV_MODE", "").strip().lower()
+    return dev_mode == "true"
 
 
 def send_email(
@@ -413,6 +425,8 @@ def send_application_rejection_email(to_email: str, company_name: str, reason: s
     )
     body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ff0000")
     send_email(to_email, subject, body)
+
+
 def new_application_email_to_support(account_type) -> None:
     """Notify support about a new application."""
 
@@ -426,4 +440,6 @@ def new_application_email_to_support(account_type) -> None:
     body = format_email_html("Ny ansökan om konto", content, accent_color="#2563eb")
     send_email(SUPPORT_EMAIL, subject, body)
     logger.info("Support har informerats om en ny ansökan för %s", account_type)
+
+
 # © 2026 Liam Suorsa. All rights reserved.

@@ -176,7 +176,9 @@ def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any
     # Samla korrelationsdata för enhetlig felloggning.
     session_personnummer = session.get("personnummer")
     masked_user = (
-        mask_hash(session_personnummer) if isinstance(session_personnummer, str) and session_personnummer else None
+        mask_hash(session_personnummer)
+        if isinstance(session_personnummer, str) and session_personnummer
+        else None
     )
     context: dict[str, Any] = {
         "endpoint": request.path,
@@ -298,6 +300,7 @@ def _sanitize_search_term(search_term: str | None) -> str | None:
         return "***"
     return f"{cleaned[:1]}***{cleaned[-1:]}"
 
+
 def _mask_username_for_log(username: str | None) -> str:
     # Maskera användarnamn före loggning för att undvika persondata i klartext.
     cleaned = (username or "").strip()
@@ -308,7 +311,6 @@ def _mask_username_for_log(username: str | None) -> str:
     if len(cleaned) <= 3:
         return "***"
     return f"{cleaned[:2]}***{cleaned[-1]}"
-
 
 
 def _trusted_proxy_hops(raw_value: str | None) -> int:
@@ -363,8 +365,6 @@ def _configure_timezone() -> str:
         tzset()
     logger.info("Applikationens tidszon är satt till %s.", timezone_name)
     return timezone_name
-
-
 
 
 def _enable_debug_mode(app: Flask) -> None:
@@ -447,7 +447,7 @@ def _resolve_secret_key() -> str:
         return secrets.token_hex(32)
     error_msg = "KRITISKT: miljövariabeln secret_key måste vara satt och inte tom"
     logger.critical(error_msg)
-    
+
     raise RuntimeError(error_msg)
 
 
@@ -468,6 +468,7 @@ def create_app() -> Flask:
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
+    app.config["DEV_MODE"] = "true" if dev_mode else "false"
     if not dev_mode:
         root_logger = logging.getLogger()
         if root_logger.getEffectiveLevel() < logging.INFO:
@@ -531,10 +532,7 @@ def create_app() -> Flask:
     return app
 
 
-
-
 app = create_app()
-
 
 
 @app.before_request
@@ -548,7 +546,7 @@ def _log_request_start() -> None:
     # Skip logging for health check endpoint and other non-essential endpoints
     if request.endpoint in ("health", "robots_txt"):
         return
-    
+
     g.request_start = time.monotonic()
     g.view_start = g.request_start
     view_func = app.view_functions.get(request.endpoint) if request.endpoint else None
@@ -587,7 +585,7 @@ def _log_request_end(response: Response) -> Response:
     # Skip logging for health check endpoint and other non-essential endpoints
     if request.endpoint in ("health", "robots_txt", "sitemap_xml"):
         return response
-    
+
     start = getattr(g, "request_start", None)
     duration = time.monotonic() - start if isinstance(start, (int, float)) else 0.0
     status_code = response.status_code
@@ -630,9 +628,6 @@ def _log_request_end(response: Response) -> Response:
 def _log_request_exception(exception: BaseException | None) -> None:
     if exception is not None:
         logger.error("Undantag under begäran: %s", str(exception))
-
-
-
 
 
 @app.teardown_appcontext
@@ -678,12 +673,18 @@ def _require_supervisor() -> tuple[str, str]:
 def inject_flags():
     # Expose flags indicating debug and demo-läge to Jinja templates.
     host = request.host
+    is_demo_host = host.split(":", 1)[0].startswith("demo.")
     if host.startswith("demo."):
         host = host[len("demo.") :]
     main_site_url = f"{request.scheme}://{host}"
+    dev_mode_value = current_app.config.get("DEV_MODE")
+    dev_mode_enabled = as_bool(
+        str(dev_mode_value) if dev_mode_value is not None else None
+    )
     return {
         "IS_DEV": current_app.debug,
-        "IS_DEMO": current_app.config.get("IS_DEMO", False),
+        "IS_DEMO": current_app.config.get("IS_DEMO", False)
+        or (dev_mode_enabled and is_demo_host),
         "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
         "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
         "MAIN_SITE_URL": main_site_url,
@@ -715,7 +716,10 @@ def mta_sts_policy():
 
 @app.route("/debug/clear-session", methods=["GET", "POST"])
 def debug_clear_session():
-    if not current_app.config.get("DEV_MODE"):
+    dev_mode_value = current_app.config.get("DEV_MODE")
+    if not current_app.debug or not as_bool(
+        str(dev_mode_value) if dev_mode_value is not None else None
+    ):
         abort(404)
     session.clear()
     return redirect("/")
@@ -731,7 +735,9 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
         if password != confirm:
             return _render_create_supervisor_page(error="Lösenorden måste matcha.", invalid=False)
         if len(password) < 8:
-            return _render_create_supervisor_page(error="Lösenordet måste vara minst 8 tecken långt.", invalid=False)
+            return _render_create_supervisor_page(
+                error="Lösenordet måste vara minst 8 tecken långt.", invalid=False
+            )
         logger.debug("Skapar användare med hash %s", pnr_hash)
         if not functions.user_create_user(password, pnr_hash):
             logger.warning("Kunde inte skapa användare för hash %s", pnr_hash)
@@ -1152,6 +1158,54 @@ def _flag_application_field_error(message: str, field_errors: dict[str, bool]) -
         field_errors["invoice_reference"] = True
 
 
+def _application_submission_content(raw_type: str) -> dict[str, str]:
+    # Returnera användarvänlig kvittenscopy för inskickad ansökan.
+    if raw_type == "foretagskonto":
+        return {
+            "account_label": "företagskonto",
+            "response_time": "inom 2 arbetsdagar",
+            "success_title": "Vi har tagit emot din ansökan om företagskonto.",
+            "success_body": (
+                "Du får ett första svar via e-post inom 2 arbetsdagar. "
+                "Om vi behöver kompletterande uppgifter hör vi av oss till adressen du angav."
+            ),
+            "watch_label": "Håll utkik efter",
+            "watch_text": "ett mejl från oss och kontrollera även skräpposten.",
+            "review_step": (
+                "Vi går igenom organisationsuppgifter, faktureringsuppgifter och kontaktvägar "
+                "så att företagskontot kan förberedas korrekt."
+            ),
+            "activation_step": (
+                "När ansökan är godkänd skickar vi bekräftelse, avtal vid behov och "
+                "inloggningsinstruktioner för företagsportalen."
+            ),
+            "prep_title": "Förberedelser medan vi behandlar ansökan",
+            "prep_access": "Planera vilka kollegor som ska ha tillgång till företagskontot.",
+        }
+
+    return {
+        "account_label": "privatkonto",
+        "response_time": "inom 2 arbetsdagar",
+        "success_title": "Vi har tagit emot din ansökan om privatkonto.",
+        "success_body": (
+            "Du får ett första svar via e-post inom 2 arbetsdagar. "
+            "Om vi behöver kompletterande uppgifter hör vi av oss till adressen du angav."
+        ),
+        "watch_label": "Håll utkik efter",
+        "watch_text": "ett mejl från oss och kontrollera även skräpposten.",
+        "review_step": (
+            "Vi går igenom dina kontaktuppgifter och verifierar att ansökan innehåller det "
+            "vi behöver för att aktivera kontot."
+        ),
+        "activation_step": (
+            "När ansökan är godkänd skickar vi inloggningsinstruktioner så att du kan logga in "
+            "och börja samla dina intyg."
+        ),
+        "prep_title": "Förberedelser medan vi behandlar ansökan",
+        "prep_access": "Fundera på vilka intyg du vill ladda upp först när kontot är aktivt.",
+    }
+
+
 @app.route("/ansok/standardkonto", methods=["GET", "POST"])
 def apply_standardkonto():
     """Visa och hantera ansökan för standardkonto."""
@@ -1223,9 +1277,7 @@ def apply_standardkonto():
                                 account_type=account_type
                             )
                         except Exception:  # pragma: no cover - e-postfel ska inte stoppa ansökan
-                            logger.exception(
-                                "Ansökan sparades men supportmejl kunde inte skickas"
-                            )
+                            logger.exception("Ansökan sparades men supportmejl kunde inte skickas")
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
@@ -1236,12 +1288,12 @@ def apply_standardkonto():
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
                     else:
-                        # Make the client-facing confirmation explicit about which account type was submitted
-                        display_type = (
-                            "företagskonto" if account_type == "foretagskonto" else "standardkonto"
-                        )
+                        submission_copy = _application_submission_content(account_type)
                         flash(
-                            f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.",
+                            (
+                                f"{submission_copy['success_title']} "
+                                f"Du får ett första svar via e-post {submission_copy['response_time']}."
+                            ),
                             "success",
                         )
                         return redirect(url_for("application_submitted", account_type=account_type))
@@ -1333,9 +1385,7 @@ def apply_foretagskonto():
                                 account_type=account_type
                             )
                         except Exception:  # pragma: no cover - e-postfel ska inte stoppa ansökan
-                            logger.exception(
-                                "Ansökan sparades men supportmejl kunde inte skickas"
-                            )
+                            logger.exception("Ansökan sparades men supportmejl kunde inte skickas")
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
@@ -1346,12 +1396,12 @@ def apply_foretagskonto():
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
                     else:
-                        # Make the client-facing confirmation explicit about which account type was submitted
-                        display_type = (
-                            "företagskonto" if account_type == "foretagskonto" else "standardkonto"
-                        )
+                        submission_copy = _application_submission_content(account_type)
                         flash(
-                            f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.",
+                            (
+                                f"{submission_copy['success_title']} "
+                                f"Du får ett första svar via e-post {submission_copy['response_time']}."
+                            ),
                             "success",
                         )
                         return redirect(url_for("application_submitted", account_type=account_type))
@@ -1382,8 +1432,8 @@ def application_submitted():
     """Visa bekräftelse och nästa steg efter inskickad ansökan."""
 
     raw_type = request.args.get("account_type", "").strip().lower()
-    account_type = "företagskonto" if raw_type == "foretagskonto" else "standardkonto"
-    return render_template("application_submitted.html", account_type=account_type)
+    submission_copy = _application_submission_content(raw_type)
+    return render_template("application_submitted.html", **submission_copy)
 
 
 @app.route("/pris", methods=["GET"])
@@ -1554,10 +1604,6 @@ def user_upload_pdf_route():
     personnummer = session.get("personnummer_raw")
     if not personnummer:
         flash("Kunde inte identifiera användaren. Logga in igen.", "error")
-        return redirect("/dashboard")
-
-    if not validate_csrf_token(allow_if_absent=True):
-        flash("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.", "error")
         return redirect("/dashboard")
 
     uploaded_file = request.files.get("certificate")
@@ -1756,7 +1802,9 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
 
     pnr_hash = session.get("personnummer")
     if not pnr_hash:
-        logger.error("Delningsbegäran saknar personnummer i session. Nycklar: %s", sorted(session.keys()))
+        logger.error(
+            "Delningsbegäran saknar personnummer i session. Nycklar: %s", sorted(session.keys())
+        )
         return jsonify({"fel": "Saknar användaruppgifter."}), 400
 
     attachments: list[tuple[str, bytes]] = []
@@ -1956,7 +2004,9 @@ def admin():  # pragma: no cover
                     {"status": "success", "message": "Standardkonto skapat", "link": link}
                 )
 
-            logger.error("Misslyckades med att skapa väntande användare för %s", mask_hash(pnr_hash))
+            logger.error(
+                "Misslyckades med att skapa väntande användare för %s", mask_hash(pnr_hash)
+            )
             return jsonify({"status": "error", "message": "Kunde inte skapa standardkonto"}), 500
 
         except ValueError as ve:
@@ -2478,9 +2528,7 @@ def admin_delete_pdf():  # pragma: no cover
     personnummer = (payload.get("personnummer") or "").strip()
     pdf_id = payload.get("pdf_id")
     if not personnummer or pdf_id is None:
-        logger.debug(
-            "Admin delete_pdf without personnummer or pdf_id", extra={"admin": admin_name}
-        )
+        logger.debug("Admin delete_pdf without personnummer or pdf_id", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange personnummer och PDF-id."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
@@ -2679,9 +2727,7 @@ def admin_update_pdf():  # pragma: no cover
         )
         return jsonify({"status": "error", "message": "Kategorier måste vara en lista."}), 400
     if not personnummer or pdf_id is None:
-        logger.debug(
-            "Admin update_pdf without personnummer or pdf_id", extra={"admin": admin_name}
-        )
+        logger.debug("Admin update_pdf without personnummer or pdf_id", extra={"admin": admin_name})
         return jsonify({"status": "error", "message": "Ange personnummer och PDF-id."}), 400
     try:
         normalized_personnummer = functions.normalize_personnummer(personnummer)
@@ -2825,7 +2871,9 @@ def admin_send_create_password_link():  # pragma: no cover
             email_service.send_creation_email(normalized_email, link)
         except RuntimeError:
             logger.error("Misslyckades att skicka skapa-konto-länk")
-            return jsonify({"status": "error", "message": "Kunde inte skicka skapa-konto-länk."}), 500
+            return jsonify(
+                {"status": "error", "message": "Kunde inte skicka skapa-konto-länk."}
+            ), 500
 
         email_hash = functions.hash_value(normalized_email)
         functions.log_admin_action(
@@ -3526,7 +3574,9 @@ def login_admin():  # pragma: no cover
         if not admin_password or not admin_username:
             error_msg = "KRITISKT: miljövariablerna admin_username och admin_password måste vara satta och inte tomma"
             logger.critical(error_msg)
-            critical_events.send_critical_error_notification(error_message=error_msg, endpoint="/login_admin", user_ip=get_request_ip())
+            critical_events.send_critical_error_notification(
+                error_message=error_msg, endpoint="/login_admin", user_ip=get_request_ip()
+            )
             raise RuntimeError(error_msg)
         submitted_username = request.form.get("username")
         submitted_password = request.form.get("password")
@@ -3668,10 +3718,14 @@ if __name__ == "__main__":  # pragma: no cover
     except KeyboardInterrupt:
         logger.info("Applikationen avbröts av användaren")
         try:
-            critical_events.send_crash_notification("Application interrupted by user (KeyboardInterrupt)")
+            critical_events.send_crash_notification(
+                "Application interrupted by user (KeyboardInterrupt)"
+            )
         except Exception as e:
             logger.critical("Misslyckades med att skicka kraschnotifikation: %s", e)
-            critical_events.send_crash_notification("Misslyckades med att skicka kraschnotifikation: " + str(e))
+            critical_events.send_crash_notification(
+                "Misslyckades med att skicka kraschnotifikation: " + str(e)
+            )
     except Exception as e:
         logger.critical("Applikationen kraschade med undantag: %s", e, exc_info=True)
         try:
