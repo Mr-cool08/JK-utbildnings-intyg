@@ -129,6 +129,13 @@ def test_compose_has_optional_rclone_cloud_backup_service():
     assert "RCLONE_CONFIG_FILE: /tmp/rclone/rclone.conf" in compose
 
 
+def test_compose_runs_postgres_backup_script_with_bash():
+    compose = _read(ROOT / "docker-compose.yml")
+
+    assert 'command: ["bash", "/scripts/postgres_backup.sh", "--loop"]' in compose
+    assert 'command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]' not in compose
+
+
 def test_example_env_documents_rclone_backup_settings():
     example_env = _read(ROOT / ".example.env")
 

@@ -286,7 +286,7 @@ services:
     volumes:
       - pgdata_backups:/backups
       - ./scripts/backup:/scripts:ro
-    command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]
+    command: ["bash", "/scripts/postgres_backup.sh", "--loop"]
     networks:
       - db_net
     restart: unless-stopped
