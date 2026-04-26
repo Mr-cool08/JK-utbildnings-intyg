@@ -17,6 +17,20 @@ class TestCriticalEventsNotifications:
         monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
         monkeypatch.setenv("APP_NAME", "utbildningsintyg.se")
         monkeypatch.setenv("HOSTNAME", "test-host")
+        monkeypatch.setenv("DEV_MODE", "false")
+        critical_events._ERROR_EMAIL_LAST_SENT.clear()
+
+        class SyncThread:
+            def __init__(self, target=None, args=(), daemon=None):
+                self._target = target
+                self._args = args
+
+            def start(self):
+                if self._target:
+                    self._target(*self._args)
+
+        monkeypatch.setattr(critical_events, "Thread", SyncThread)
+        monkeypatch.setattr(critical_events, "collect_log_attachments", lambda: [])
 
     def test_get_admin_email(self):
         """Test that admin email is retrieved correctly."""
@@ -58,81 +72,84 @@ class TestCriticalEventsNotifications:
         name = critical_events._get_app_name()
         assert name == "utbildningsintyg.se"
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_startup_notification(self, mock_send_email):
         """Test startup notification is sent correctly."""
         critical_events.send_startup_notification(hostname="test-server")
-        
+
         # Give thread time to complete
         import time
+
         time.sleep(0.1)
-        
+
         # Verify email was sent
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
         assert "startad" in str(call_args).lower()
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_startup_notification_multiple_recipients(self, mock_send_email, monkeypatch):
         """Test startup notification is sent to multiple recipients."""
         monkeypatch.setenv("ADMIN_EMAIL", "admin1@example.com,admin2@example.com")
         critical_events.send_startup_notification(hostname="test-server")
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         # Verify email was sent to both recipients
         assert mock_send_email.call_count == 2
         calls = [str(call) for call in mock_send_email.call_args_list]
         assert any("admin1@example.com" in call for call in calls)
         assert any("admin2@example.com" in call for call in calls)
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_crash_notification(self, mock_send_email):
         """Test crash notification is sent correctly."""
         critical_events.send_crash_notification(
             error_message="Database connection failed",
-            traceback="Traceback (most recent call last)..."
+            traceback="Traceback (most recent call last)...",
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
         assert "kraschat" in str(call_args).lower()
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_critical_error_notification(self, mock_send_email):
         """Test critical error notification is sent correctly."""
         critical_events.send_critical_error_notification(
-            error_message="Internal server error",
-            endpoint="/api/test",
-            user_ip="192.168.1.1"
+            error_message="Internal server error", endpoint="/api/test", user_ip="192.168.1.1"
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
         call_args = mock_send_email.call_args
         assert "admin@example.com" in str(call_args)
 
     def test_send_critical_event_email_with_error_message(self):
         """Test that critical event email includes error message."""
-        with patch('functions.notifications.critical_events.email_service.send_email') as mock_send:
+        with patch("functions.notifications.critical_events.email_service.send_email") as mock_send:
             critical_events.send_critical_event_email(
                 event_type="error",
                 title="Test Error",
                 description="Something went wrong",
-                error_message="Detailed error: Connection timeout"
+                error_message="Detailed error: Connection timeout",
             )
-            
+
             import time
+
             time.sleep(0.1)
-            
+
             # Verify email formatting
             if mock_send.called:
                 call_args = mock_send.call_args
@@ -143,35 +160,37 @@ class TestCriticalEventsNotifications:
 
     def test_html_escaping_in_error_message(self):
         """Test that HTML is properly escaped in error messages."""
-        with patch('functions.notifications.critical_events.email_service.send_email') as mock_send:
+        with patch("functions.notifications.critical_events.email_service.send_email") as mock_send:
             critical_events.send_critical_event_email(
                 event_type="error",
                 title="Test Error",
                 description="Normal description",
-                error_message="<script>alert('xss')</script>"
+                error_message="<script>alert('xss')</script>",
             )
-            
+
             import time
+
             time.sleep(0.1)
-            
+
             # Verify that dangerous HTML was escaped
             if mock_send.called:
                 call_args = str(mock_send.call_args)
                 # Should not contain unescaped script tags
                 assert "<script>" not in call_args or "&lt;script&gt;" in call_args
 
-    @patch('functions.notifications.critical_events.email_service.send_email')
+    @patch("functions.notifications.critical_events.email_service.send_email")
     def test_send_unhandled_exception_notification(self, mock_send_email):
         """Test unhandled exception notification."""
         critical_events.send_unhandled_exception_notification(
             error_message="AttributeError: 'NoneType' object has no attribute 'name'",
             traceback="Traceback...",
-            context="Processing user upload"
+            context="Processing user upload",
         )
-        
+
         import time
+
         time.sleep(0.1)
-        
+
         assert mock_send_email.called
 
 
@@ -182,13 +201,14 @@ class TestCriticalEventIntegration:
     def client(self):
         """Create Flask app test client."""
         from app import app
-        app.config['TESTING'] = True
+
+        app.config["TESTING"] = True
         with app.test_client() as client:
             yield client
 
     def test_health_endpoint_works(self, client):
         """Test that health endpoint still works after critical events integration."""
-        response = client.get('/health')
+        response = client.get("/health")
         assert response.status_code == 200
         assert response.json == {"status": "ok"}
 
@@ -222,7 +242,7 @@ def test_email_error_handler_logs_failure_without_recursive_notification(monkeyp
     handler.emit(record)
 
     assert len(logged_messages) == 1
-    assert "Emailnotifiering misslyckades" in logged_messages[0]
+    assert "E-postnotifiering misslyckades" in logged_messages[0]
 
 
 def test_send_email_async_logs_email_failure_via_failure_logger(monkeypatch):
@@ -286,3 +306,30 @@ def test_error_email_rate_limit_expires(monkeypatch):
     assert critical_events._should_send_error_email(record) is True
     assert critical_events._should_send_error_email(record) is False
     assert critical_events._should_send_error_email(record) is True
+
+
+def test_error_email_prunes_stale_signatures(monkeypatch):
+    monkeypatch.setenv("ERROR_EMAIL_COOLDOWN_SECONDS", "60")
+    critical_events._ERROR_EMAIL_LAST_SENT.clear()
+    critical_events._ERROR_EMAIL_LAST_SENT.update(
+        {
+            "stale": 10.0,
+            "recent": 950.0,
+        }
+    )
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=200,
+        msg="Nytt fel",
+        args=(),
+        exc_info=None,
+    )
+
+    monkeypatch.setattr(critical_events.time, "monotonic", lambda: 1000.0)
+
+    assert critical_events._should_send_error_email(record) is True
+    assert "stale" not in critical_events._ERROR_EMAIL_LAST_SENT
+    assert "recent" in critical_events._ERROR_EMAIL_LAST_SENT

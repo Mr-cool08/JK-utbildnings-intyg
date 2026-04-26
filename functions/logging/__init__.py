@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 MASK_PLACEHOLDER = "***"
 
 _TZ_WARNING_STATE = threading.local()
+_MODULE_LOGGER = logging.getLogger(__name__)
 
 
 class AppTimezoneFormatter(logging.Formatter):
@@ -38,11 +39,10 @@ def _resolve_timezone(timezone_name: str) -> tzinfo:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError:
         if timezone_name != "Europe/Stockholm":
-            logger = logging.getLogger(__name__)
             if not getattr(_TZ_WARNING_STATE, "active", False):
                 _TZ_WARNING_STATE.active = True
                 try:
-                    logger.warning(
+                    _MODULE_LOGGER.warning(
                         "Tidszonen %s kunde inte laddas eftersom tzdata saknas; använder Europe/Stockholm som fallback.",
                         timezone_name,
                     )
@@ -106,7 +106,9 @@ def configure_module_logger(name: str) -> logging.Logger:
         handlers = root_logger.handlers
     else:
         handler = logging.StreamHandler()
-        handler.setFormatter(AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        handler.setFormatter(
+            AppTimezoneFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        )
         root_logger.addHandler(handler)
         handlers = (handler,)
 
@@ -125,6 +127,7 @@ _SENSITIVE_KEYS = {
     "password",
     "pass",
     "passwd",
+    "key",
     "token",
     "secret",
     "authorization",
@@ -136,8 +139,9 @@ _SENSITIVE_KEYS = {
     "smtp_password",
     "api_key",
     "apikey",
-    "key",
 }
+
+_ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
 
 def mask_sensitive_data(data: Any) -> Any:
@@ -147,7 +151,7 @@ def mask_sensitive_data(data: Any) -> Any:
         for key, value in data.items():
             key_str = str(key).lower()
             if key_str in _SENSITIVE_KEYS:
-                masked[key] = "***"
+                masked[key] = MASK_PLACEHOLDER
             else:
                 masked[key] = mask_sensitive_data(value)
         return masked
@@ -161,7 +165,7 @@ def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
     masked: dict[str, str] = {}
     for key, value in headers.items():
         if key.lower() in _SENSITIVE_KEYS:
-            masked[key] = "***"
+            masked[key] = MASK_PLACEHOLDER
         else:
             masked[key] = value
     return masked
@@ -172,7 +176,15 @@ def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
     for env_var in level_env_vars:
         value = os.getenv(env_var)
         if value:
-            return value.strip().upper()
+            resolved = value.strip().upper()
+            if resolved in _ALLOWED_LOG_LEVELS:
+                return resolved
+            _MODULE_LOGGER.warning(
+                "Ogiltig loggnivå i %s=%r; använder INFO.",
+                env_var,
+                value,
+            )
+            return "INFO"
     return "INFO"
 
 
@@ -181,7 +193,7 @@ def _resolve_log_file_path(log_file_value: str, fallback_file: str) -> str:
     candidate = (log_file_value or "").strip() or fallback_file
     path = Path(candidate)
 
-    if path.exists() and path.is_dir():
+    if candidate.endswith((os.path.sep, "/", "\\")) or (path.exists() and path.is_dir()):
         return str(path / Path(fallback_file).name)
 
     return str(path)
@@ -198,10 +210,11 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
 
     root = logging.getLogger()
     os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
-    formatter = AppTimezoneFormatter("%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s")
+    formatter = AppTimezoneFormatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s: %(message)s"
+    )
     has_console_handler = any(
-        isinstance(handler, logging.StreamHandler)
-        and not isinstance(handler, logging.FileHandler)
+        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
         for handler in root.handlers
     )
     has_file_handler = any(
@@ -229,16 +242,17 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
     # Attach email handler for ERROR and CRITICAL level logs
     try:
         from functions.notifications.critical_events import EmailErrorHandler
-        has_email_handler = any(
-            isinstance(handler, EmailErrorHandler) for handler in root.handlers
-        )
+
+        has_email_handler = any(isinstance(handler, EmailErrorHandler) for handler in root.handlers)
         if not has_email_handler:
             email_handler = EmailErrorHandler()
             email_handler.setFormatter(formatter)
             root.addHandler(email_handler)
     except Exception:
-        # Silently fail if email handler can't be attached (e.g., during early initialization)
-        pass
+        _MODULE_LOGGER.debug(
+            "Kunde inte koppla e-postlogghanteraren under initiering.",
+            exc_info=True,
+        )
 
 
 def bootstrap_logging(
@@ -276,7 +290,12 @@ def collect_log_attachments() -> list[tuple[str, bytes]]:
             with open(path, "rb") as fh:
                 content = fh.read()
             attachments.append((Path(path).name, content))
-        except Exception:
+        except OSError:
+            _MODULE_LOGGER.debug(
+                "Kunde inte läsa loggfilen %s för att bifoga den till felrapporten.",
+                path,
+                exc_info=True,
+            )
             continue
     return attachments
 

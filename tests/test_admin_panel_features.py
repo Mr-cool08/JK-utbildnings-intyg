@@ -33,14 +33,10 @@ def test_admin_delete_pdf_removes_record(empty_db):
 
     with engine.connect() as conn:
         result = conn.execute(
-            functions.user_pdfs_table.select().where(
-                functions.user_pdfs_table.c.id == pdf_id
-            )
+            functions.user_pdfs_table.select().where(functions.user_pdfs_table.c.id == pdf_id)
         ).first()
         assert result is None
-        log_entry = conn.execute(
-            functions.admin_audit_log_table.select()
-        ).first()
+        log_entry = conn.execute(functions.admin_audit_log_table.select()).first()
         assert log_entry is not None
         assert log_entry.admin == "testadmin"
 
@@ -65,9 +61,7 @@ def test_admin_update_pdf_categories(empty_db):
 
     with engine.connect() as conn:
         result = conn.execute(
-            functions.user_pdfs_table.select().where(
-                functions.user_pdfs_table.c.id == pdf_id
-            )
+            functions.user_pdfs_table.select().where(functions.user_pdfs_table.c.id == pdf_id)
         ).first()
         assert result is not None
         assert set(result.categories.split(",")) == set(slugs)
@@ -143,45 +137,63 @@ def test_admin_delete_account_removes_records(empty_db, monkeypatch):
     assert data["status"] == "success"
 
     with engine.connect() as conn:
-        assert conn.execute(
-            functions.users_table.select().where(
-                functions.users_table.c.personnummer == pnr_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.user_pdfs_table.select().where(
-                functions.user_pdfs_table.c.personnummer == pnr_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.password_resets_table.select().where(
-                functions.password_resets_table.c.personnummer == pnr_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisor_link_requests_table.select().where(
-                functions.supervisor_link_requests_table.c.user_personnummer == pnr_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.company_users_table.select().where(
-                functions.company_users_table.c.created_via_application_id
-                == application_id
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.application_requests_table.select().where(
-                functions.application_requests_table.c.id == application_id
-            )
-        ).first() is None
-        log_entry = conn.execute(
-            functions.admin_audit_log_table.select()
-        ).first()
+        assert (
+            conn.execute(
+                functions.users_table.select().where(
+                    functions.users_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.user_pdfs_table.select().where(
+                    functions.user_pdfs_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.password_resets_table.select().where(
+                    functions.password_resets_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisor_connections_table.select().where(
+                    functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisor_link_requests_table.select().where(
+                    functions.supervisor_link_requests_table.c.user_personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.company_users_table.select().where(
+                    functions.company_users_table.c.created_via_application_id == application_id
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.application_requests_table.select().where(
+                    functions.application_requests_table.c.id == application_id
+                )
+            ).first()
+            is None
+        )
+        log_entry = conn.execute(functions.admin_audit_log_table.select()).first()
     assert log_entry is not None
 
 
@@ -218,11 +230,14 @@ def test_admin_delete_account_without_email(empty_db, monkeypatch):
     assert called["sent"] is False
 
     with empty_db.connect() as conn:
-        assert conn.execute(
-            functions.users_table.select().where(
-                functions.users_table.c.personnummer == pnr_hash
-            )
-        ).first() is None
+        assert (
+            conn.execute(
+                functions.users_table.select().where(
+                    functions.users_table.c.personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
 
 
 def test_admin_guide_renders_markdown():
@@ -326,17 +341,13 @@ def test_admin_list_accounts_returns_active_and_pending(empty_db):
     personnummer_active = "19900101-1234"
     email_active = "aktiv@example.com"
     assert functions.admin_create_user(email_active, "Aktiv", personnummer_active)
-    pnr_active_hash = functions.hash_value(
-        functions.normalize_personnummer(personnummer_active)
-    )
+    pnr_active_hash = functions.hash_value(functions.normalize_personnummer(personnummer_active))
     assert functions.user_create_user("StartLosen1!", pnr_active_hash)
 
     personnummer_pending = "19900202-2345"
     email_pending = "vantande@example.com"
     assert functions.admin_create_user(email_pending, "Väntande", personnummer_pending)
-    pnr_pending_hash = functions.hash_value(
-        functions.normalize_personnummer(personnummer_pending)
-    )
+    pnr_pending_hash = functions.hash_value(functions.normalize_personnummer(personnummer_pending))
 
     with _admin_client() as client:
         response = client.get("/admin/api/konton/lista")
@@ -393,9 +404,7 @@ def test_admin_update_account_updates_record(empty_db):
 
     with empty_db.connect() as conn:
         row = conn.execute(
-            functions.users_table.select().where(
-                functions.users_table.c.personnummer == pnr_hash
-            )
+            functions.users_table.select().where(functions.users_table.c.personnummer == pnr_hash)
         ).first()
         assert row is not None
         assert row.username == new_name
@@ -461,11 +470,14 @@ def test_admin_remove_supervisor_connection(empty_db):
     assert response.status_code == 200
 
     with empty_db.connect() as conn:
-        assert conn.execute(
-            functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
-            )
-        ).first() is None
+        assert (
+            conn.execute(
+                functions.supervisor_connections_table.select().where(
+                    functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
 
 
 def test_admin_change_supervisor_connection(empty_db):
@@ -479,12 +491,8 @@ def test_admin_change_supervisor_connection(empty_db):
     orgnr_new = "556677-8899"
     supervisor_old_email = "old@example.com"
     supervisor_new_email = "new@example.com"
-    supervisor_old_hash = functions.hash_value(
-        functions.normalize_email(supervisor_old_email)
-    )
-    supervisor_new_hash = functions.hash_value(
-        functions.normalize_email(supervisor_new_email)
-    )
+    supervisor_old_hash = functions.hash_value(functions.normalize_email(supervisor_old_email))
+    supervisor_new_hash = functions.hash_value(functions.normalize_email(supervisor_new_email))
 
     with empty_db.begin() as conn:
         old_company_id = conn.execute(
@@ -563,14 +571,12 @@ def test_admin_change_supervisor_connection(empty_db):
     with empty_db.connect() as conn:
         old_link = conn.execute(
             functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.supervisor_email
-                == supervisor_old_hash
+                functions.supervisor_connections_table.c.supervisor_email == supervisor_old_hash
             )
         ).first()
         new_link = conn.execute(
             functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.supervisor_email
-                == supervisor_new_hash
+                functions.supervisor_connections_table.c.supervisor_email == supervisor_new_hash
             )
         ).first()
         assert old_link is None
@@ -629,11 +635,14 @@ def test_admin_remove_supervisor_connection_by_hash(empty_db):
     assert response.status_code == 200
 
     with empty_db.connect() as conn:
-        assert conn.execute(
-            functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.user_personnummer == pnr_hash
-            )
-        ).first() is None
+        assert (
+            conn.execute(
+                functions.supervisor_connections_table.select().where(
+                    functions.supervisor_connections_table.c.user_personnummer == pnr_hash
+                )
+            ).first()
+            is None
+        )
 
 
 def test_admin_delete_supervisor_account(empty_db):
@@ -693,40 +702,55 @@ def test_admin_delete_supervisor_account(empty_db):
     assert response.status_code == 200
 
     with empty_db.connect() as conn:
-        assert conn.execute(
-            functions.company_users_table.select().where(
-                functions.company_users_table.c.company_id == company_id,
-                functions.company_users_table.c.role == "foretagskonto",
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisors_table.select().where(
-                functions.supervisors_table.c.email == supervisor_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisor_connections_table.select().where(
-                functions.supervisor_connections_table.c.supervisor_email
-                == supervisor_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisor_link_requests_table.select().where(
-                functions.supervisor_link_requests_table.c.supervisor_email
-                == supervisor_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.supervisor_password_resets_table.select().where(
-                functions.supervisor_password_resets_table.c.email
-                == supervisor_hash
-            )
-        ).first() is None
-        assert conn.execute(
-            functions.companies_table.select().where(
-                functions.companies_table.c.id == company_id
-            )
-        ).first() is None
+        assert (
+            conn.execute(
+                functions.company_users_table.select().where(
+                    functions.company_users_table.c.company_id == company_id,
+                    functions.company_users_table.c.role == "foretagskonto",
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisors_table.select().where(
+                    functions.supervisors_table.c.email == supervisor_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisor_connections_table.select().where(
+                    functions.supervisor_connections_table.c.supervisor_email == supervisor_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisor_link_requests_table.select().where(
+                    functions.supervisor_link_requests_table.c.supervisor_email == supervisor_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.supervisor_password_resets_table.select().where(
+                    functions.supervisor_password_resets_table.c.email == supervisor_hash
+                )
+            ).first()
+            is None
+        )
+        assert (
+            conn.execute(
+                functions.companies_table.select().where(
+                    functions.companies_table.c.id == company_id
+                )
+            ).first()
+            is None
+        )
 
 
 def test_password_reset_token_lifecycle(empty_db):
@@ -740,9 +764,7 @@ def test_password_reset_token_lifecycle(empty_db):
     info = functions.get_password_reset(token)
     assert info is not None
     assert info["personnummer"] == pnr_hash
-    assert info["email"] == functions.hash_value(
-        functions.normalize_email(email)
-    )
+    assert info["email"] == functions.hash_value(functions.normalize_email(email))
     assert info["used_at"] is None
 
     assert functions.reset_password_with_token(token, "NyttLosen1!") is True
@@ -814,9 +836,7 @@ def test_admin_advanced_crud(empty_db):
         rows = rows_resp.get_json()["rows"]
         assert any(row["id"] == new_id for row in rows)
 
-        delete_resp = client.delete(
-            f"/admin/advanced/api/rows/pending_users/{new_id}"
-        )
+        delete_resp = client.delete(f"/admin/advanced/api/rows/pending_users/{new_id}")
         assert delete_resp.status_code == 200
 
     with engine.connect() as conn:
@@ -951,8 +971,6 @@ def test_admin_send_create_password_link(empty_db, monkeypatch):
     assert sent["link"] == data["link"]
 
 
-
-
 def test_admin_password_status_without_email(empty_db):
     personnummer = "19900707-7777"
     email = "pending-no-email@example.com"
@@ -1064,6 +1082,7 @@ def test_admin_send_create_password_link_without_email(empty_db, monkeypatch):
     assert data["status"] == "success"
     assert "Ingen e-post angavs" in data["message"]
     assert called["sent"] is False
+
 
 def test_admin_password_status_active_account(empty_db):
     personnummer = "19900606-6666"

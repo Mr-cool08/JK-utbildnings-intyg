@@ -3,8 +3,11 @@ import importlib.util
 import logging
 import os
 import sys
+import tempfile
 import types
 from pathlib import Path
+
+import pytest
 
 
 def _load_monitor_module(monkeypatch, **env):
@@ -12,6 +15,8 @@ def _load_monitor_module(monkeypatch, **env):
         if key.startswith("MONITOR_"):
             monkeypatch.delenv(key, raising=False)
 
+    host_root = env.pop("HOST_ROOT", tempfile.mkdtemp(prefix="monitor-host-root-"))
+    monkeypatch.setenv("HOST_ROOT", str(host_root))
     for key, value in env.items():
         monkeypatch.setenv(key, str(value))
 
@@ -27,6 +32,13 @@ def _load_monitor_module(monkeypatch, **env):
         raise AssertionError("Kunde inte ladda monitor-modulen.")
     spec.loader.exec_module(module)
     return module
+
+
+def test_invalid_host_root_is_rejected(monkeypatch, tmp_path):
+    invalid_host_root = tmp_path / "bad;path"
+
+    with pytest.raises(ValueError):
+        _load_monitor_module(monkeypatch, HOST_ROOT=invalid_host_root)
 
 
 def test_parse_smoke_targets_supports_named_and_unnamed_entries(monkeypatch):
@@ -50,8 +62,20 @@ def test_run_smoke_tests_records_daily_results(monkeypatch):
     module.DAILY_SMOKE_RESULTS.clear()
 
     responses = [
-        {"name": "Hälsa", "url": "https://a.test", "ok": True, "details": "HTTP 200", "duration_seconds": 0.01},
-        {"name": "Status", "url": "https://b.test", "ok": False, "details": "HTTP 503", "duration_seconds": 0.02},
+        {
+            "name": "Hälsa",
+            "url": "https://a.test",
+            "ok": True,
+            "details": "HTTP 200",
+            "duration_seconds": 0.01,
+        },
+        {
+            "name": "Status",
+            "url": "https://b.test",
+            "ok": False,
+            "details": "HTTP 503",
+            "duration_seconds": 0.02,
+        },
     ]
 
     def _fake_run(name, url):
@@ -243,10 +267,7 @@ def test_configure_fallback_logging_sets_console_handler_and_level(monkeypatch):
 
         assert configured_logger.name == "jk.test.monitor"
         assert root_logger.level == logging.DEBUG
-        assert any(
-            isinstance(handler, logging.StreamHandler)
-            for handler in root_logger.handlers
-        )
+        assert any(isinstance(handler, logging.StreamHandler) for handler in root_logger.handlers)
     finally:
         for handler in list(root_logger.handlers):
             try:

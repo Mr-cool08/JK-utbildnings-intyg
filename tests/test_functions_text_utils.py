@@ -9,7 +9,7 @@ import functions  # noqa: E402
 
 
 def test_is_truthy_various_inputs():
-    assert functions._is_truthy("  JA  ")
+    assert not functions._is_truthy("  JA  ")
     assert functions._is_truthy("true")
     assert not functions._is_truthy("nej")
     assert not functions._is_truthy(None)

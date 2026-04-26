@@ -89,8 +89,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
                 "Operatör TSA och/eller TA – grund",
             ),
             (
-                "repetition-sos-ledare-sos-planerare-tillsyningsman-e2-"
-                "operator-tsa-ta-tsm",
+                "repetition-sos-ledare-sos-planerare-tillsyningsman-e2-operator-tsa-ta-tsm",
                 "Repetition - SoS-ledare, SoS-planerare, Tillsyningsman, E2, "
                 "Operatör TSA och Operatör TA, TSM spärrfärd och växling",
             ),

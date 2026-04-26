@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from typing import Iterable, Literal, NamedTuple
@@ -88,8 +89,11 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
         tmp_path = tmp.name
 
     try:
+        quicksand_path = os.getenv("QUICKSAND_PATH") or shutil.which("quicksand")
+        if not quicksand_path:
+            raise FileNotFoundError("quicksand")
         result = subprocess.run(
-            ["quicksand", "-f", "json", tmp_path],
+            [quicksand_path, "-f", "json", tmp_path],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -28,9 +28,7 @@ def test_ensure_demo_data_creates_accounts(empty_db):
         DEMO_PARAMS["supervisor_email"], DEMO_PARAMS["supervisor_password"]
     )
 
-    details = functions.get_supervisor_login_details_for_orgnr(
-        DEMO_PARAMS["supervisor_orgnr"]
-    )
+    details = functions.get_supervisor_login_details_for_orgnr(DEMO_PARAMS["supervisor_orgnr"])
     assert details is not None
     assert details["email"] == functions.normalize_email(DEMO_PARAMS["supervisor_email"])
 
@@ -95,20 +93,20 @@ def test_ensure_demo_data_is_idempotent(empty_db):
 
 
 def test_demo_menu_link_points_to_main_domain(monkeypatch):
-    monkeypatch.setitem(app.app.config, "IS_DEMO", True)
+    monkeypatch.setitem(app.app.config, "DEV_MODE", True)
     client = app.app.test_client()
 
     response = client.get("/", base_url="https://demo.exempel.se")
 
     assert response.status_code == 200
-    assert b'L\xc3\xa4mna demomilj\xc3\xb6' in response.data
+    assert b"L\xc3\xa4mna demomilj\xc3\xb6" in response.data
     assert b'href="https://exempel.se"' in response.data
 
 
 def test_reset_demo_database_recreates_defaults(tmp_path, monkeypatch):
     db_path = tmp_path / "demo-reset.db"
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEV_MODE", "true")
     monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_path))
     functions.reset_engine()
     functions.create_database()

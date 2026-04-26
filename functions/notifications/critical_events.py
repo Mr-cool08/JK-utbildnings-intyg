@@ -82,9 +82,9 @@ class EmailErrorHandler(logging.Handler):
         except Exception as error:
             # Never raise from a logging handler, but log failure without recursive email handler usage.
             _EMAIL_FAILURE_LOGGER.error(
-                "Emailnotifiering misslyckades i EmailErrorHandler: %s",
+                "E-postnotifiering misslyckades i EmailErrorHandler: %s",
                 str(error),
-                exc_info=True
+                exc_info=True,
             )
 
 
@@ -103,6 +103,17 @@ def _error_email_signature(record: logging.LogRecord) -> str:
     return f"{record.name}|{record.pathname}|{record.lineno}|{record.getMessage()}"
 
 
+def _prune_stale_error_email_entries(now: float, ttl_seconds: int) -> None:
+    cutoff = now - max(ttl_seconds, 0)
+    stale_signatures = [
+        signature
+        for signature, timestamp in _ERROR_EMAIL_LAST_SENT.items()
+        if timestamp < cutoff
+    ]
+    for signature in stale_signatures:
+        _ERROR_EMAIL_LAST_SENT.pop(signature, None)
+
+
 def _should_send_error_email(record: logging.LogRecord) -> bool:
     """Return True when an ERROR email should be sent for this log record."""
     cooldown = _get_error_email_cooldown_seconds()
@@ -111,6 +122,8 @@ def _should_send_error_email(record: logging.LogRecord) -> bool:
 
     signature = _error_email_signature(record)
     now = time.monotonic()
+    retention_window = max(cooldown, _ERROR_EMAIL_DEFAULT_COOLDOWN_SECONDS)
+    _prune_stale_error_email_entries(now, retention_window)
     last_sent = _ERROR_EMAIL_LAST_SENT.get(signature)
     if last_sent is not None and now - last_sent < cooldown:
         return False
@@ -174,10 +187,7 @@ def _send_email_async(recipients: list[str], subject: str, html_body: str) -> No
                 email_service.send_email(recipient, subject, html_body)
         except Exception as error:
             _EMAIL_FAILURE_LOGGER.error(
-                "Misslyckades att skicka e-post till %s: %s",
-                recipient,
-                str(error),
-                exc_info=True
+                "Misslyckades att skicka e-post till %s: %s", recipient, str(error), exc_info=True
             )
 
 
@@ -229,13 +239,13 @@ def send_unified_notification(
     safe_error = escape(error_message) if error_message else None
 
     event_colors = {
-        "error": "#f97316",      # Orange
-        "critical": "#dc3545",   # Red
-        "crash": "#dc3545",      # Red
-        "warning": "#ff9800",    # Orange
-        "startup": "#28a745",    # Green
-        "shutdown": "#ffc107",   # Amber
-        "restart": "#17a2b8",    # Cyan
+        "error": "#f97316",  # Orange
+        "critical": "#dc3545",  # Red
+        "crash": "#dc3545",  # Red
+        "warning": "#ff9800",  # Orange
+        "startup": "#28a745",  # Green
+        "shutdown": "#ffc107",  # Amber
+        "restart": "#17a2b8",  # Cyan
     }
     color = event_colors.get(notification_type.lower(), "#6c757d")
 
@@ -263,9 +273,7 @@ def send_unified_notification(
     )
 
     # Send email asynchronously
-    thread = Thread(
-        target=_send_email_async, args=(recipients, title, html_body), daemon=True
-    )
+    thread = Thread(target=_send_email_async, args=(recipients, title, html_body), daemon=True)
     thread.start()
 
 
@@ -300,6 +308,7 @@ def send_startup_notification(hostname: str = "Unknown") -> None:
         title="🟢 Applikation startad",
         description=f"Applikationen har startats framgångsrikt.\n\nVärd: {escape(hostname)}\nTidsstämpel: {_get_timestamp()}",
     )
+
 
 def send_crash_notification(
     error_message: str,

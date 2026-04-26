@@ -9,7 +9,7 @@ from functions.emails import service as email_service
 
 @pytest.fixture(autouse=True)
 def _enable_email_sending(monkeypatch):
-    monkeypatch.setenv("DISABLE_EMAILS", "false")
+    monkeypatch.setenv("DEV_MODE", "false")
 
 
 def _login_default_user(client):

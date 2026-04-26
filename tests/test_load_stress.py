@@ -64,9 +64,17 @@ def test_load_public_routes_high_traffic_stays_available(empty_db):
             }
         except Exception as exc:  # pragma: no cover - defensiv fallback
             duration = perf_counter() - started
-            return {"ok": False, "duration": duration, "status": "exception", "path": path, "error": str(exc)}
+            return {
+                "ok": False,
+                "duration": duration,
+                "status": "exception",
+                "path": path,
+                "error": str(exc),
+            }
 
-    results = _run_concurrent_requests(total_requests=total_requests, workers=workers, request_fn=_request)
+    results = _run_concurrent_requests(
+        total_requests=total_requests, workers=workers, request_fn=_request
+    )
     failures = [result for result in results if not result["ok"]]
     durations = [float(result["duration"]) for result in results]
 
@@ -135,21 +143,32 @@ def test_stress_mixed_authenticated_traffic_handles_burst_load(user_db):
                     started = perf_counter()
                     response = client.get(path)
                     duration = perf_counter() - started
-                    ok = response.status_code == 200 and response.headers.get("Content-Type", "").startswith(
-                        "application/pdf"
-                    )
+                    ok = response.status_code == 200 and response.headers.get(
+                        "Content-Type", ""
+                    ).startswith("application/pdf")
                 else:
                     path = "/dashboard"
                     started = perf_counter()
                     response = client.get(path)
                     duration = perf_counter() - started
-                    ok = response.status_code == 200 and b"H\xc3\xa4r \xc3\xa4r dina intyg." in response.get_data()
+                    ok = (
+                        response.status_code == 200
+                        and b"H\xc3\xa4r \xc3\xa4r dina intyg." in response.get_data()
+                    )
             return {"ok": ok, "duration": duration, "status": response.status_code, "path": path}
         except Exception as exc:  # pragma: no cover - defensiv fallback
             duration = perf_counter() - started
-            return {"ok": False, "duration": duration, "status": "exception", "path": "internal", "error": str(exc)}
+            return {
+                "ok": False,
+                "duration": duration,
+                "status": "exception",
+                "path": "internal",
+                "error": str(exc),
+            }
 
-    results = _run_concurrent_requests(total_requests=total_requests, workers=workers, request_fn=_request)
+    results = _run_concurrent_requests(
+        total_requests=total_requests, workers=workers, request_fn=_request
+    )
     failures = [result for result in results if not result["ok"]]
     durations = [float(result["duration"]) for result in results]
 

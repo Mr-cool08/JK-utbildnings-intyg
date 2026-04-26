@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hmac
+import os
 import secrets
 from typing import Any
 
@@ -9,6 +10,7 @@ from flask import request, session
 
 
 CSRF_SESSION_KEY = "csrf_token"
+DEV_MODE = os.getenv("DEV_MODE", "").strip().lower() == "true"
 
 
 def ensure_csrf_token() -> str:
@@ -34,7 +36,10 @@ def extract_csrf_token() -> str | None:
         form_token = request.form.get("csrf_token")
         if form_token:
             return form_token
-    return request.args.get("csrf_token")
+    if DEV_MODE:
+        # Query-parametrar tillåts endast i utvecklingsläge för lokal felsökning.
+        return request.args.get("csrf_token")
+    return None
 
 
 def validate_csrf_token(allow_if_absent: bool = False) -> bool:
@@ -43,13 +48,13 @@ def validate_csrf_token(allow_if_absent: bool = False) -> bool:
     ``allow_if_absent`` används för bakåtkompatibilitet i flöden där en
     session ännu inte har ett token och klienten inte skickar med något, t.ex.
     ett direkt POST-anrop utan föregående GET. När både väntat token och
-    kandidat saknas returnerar funktionen True om flaggan är satt.
+    kandidat saknas tillåts detta endast om flaggan är satt och DEV_MODE är aktivt.
     """
     expected = session.get(CSRF_SESSION_KEY)
     candidate = extract_csrf_token()
 
     if not expected and not candidate:
-        return allow_if_absent
+        return allow_if_absent and DEV_MODE
     if not expected or not candidate:
         return False
     try:

@@ -46,9 +46,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
         assert user.company_id == company.id
         assert user.role == "foretagskonto"
 
-        pending_supervisor = conn.execute(
-            functions.pending_supervisors_table.select()
-        ).first()
+        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).first()
         assert pending_supervisor is not None
         assert pending_supervisor.email == functions.hash_value(
             functions.normalize_email("applicant@example.com")
@@ -76,14 +74,11 @@ def test_application_rejection_stores_reason(fresh_app_db):
         company_name="Handledarbolaget",
         comment="Behöver åtkomst",
         invoice_address="Bolagsgatan 2",
-        invoice_contact="Björn", 
+        invoice_contact="Björn",
         invoice_reference="Order 77",
     )
 
-    result = functions.reject_application_request(
-        application_id, "admin"
-    )
-
+    result = functions.reject_application_request(application_id, "admin")
 
     assert result["account_type"] == "foretagskonto"
     assert result["company_name"] == "Handledarbolaget"
@@ -123,9 +118,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         personnummer="9001011234",
     )
 
-    foretagskonto_result = functions.approve_application_request(
-        foretagskonto_id, "admin"
-    )
+    foretagskonto_result = functions.approve_application_request(foretagskonto_id, "admin")
     user_result = functions.approve_application_request(user_id, "admin")
 
     assert foretagskonto_result["company_created"] is True
@@ -148,9 +141,7 @@ def test_approval_reuses_existing_company(fresh_app_db):
         emails = {row.email for row in users}
         assert emails == {"first@example.com", "foretagskonto@example.com"}
 
-        pending_supervisor = conn.execute(
-            functions.pending_supervisors_table.select()
-        ).fetchall()
+        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).fetchall()
         assert len(pending_supervisor) == 1
 
 
@@ -179,9 +170,7 @@ def test_foretagskonto_and_standard_can_share_email(fresh_app_db):
         personnummer="9001011234",
     )
 
-    foretagskonto_result = functions.approve_application_request(
-        foretagskonto_id, "admin"
-    )
+    foretagskonto_result = functions.approve_application_request(foretagskonto_id, "admin")
     standard_result = functions.approve_application_request(standard_id, "admin")
 
     assert foretagskonto_result["account_type"] == "foretagskonto"
@@ -350,9 +339,7 @@ def test_list_companies_for_invoicing_counts_connected_users(fresh_app_db):
     functions.approve_application_request(user_id_1, "admin")
     functions.approve_application_request(user_id_2, "admin")
 
-    supervisor_hash = functions.hash_value(
-        functions.normalize_email("foretagskonto1@example.com")
-    )
+    supervisor_hash = functions.hash_value(functions.normalize_email("foretagskonto1@example.com"))
     user_1_hash = functions.hash_value(functions.normalize_personnummer("9012311234"))
     user_2_hash = functions.hash_value(functions.normalize_personnummer("9201011234"))
     with fresh_app_db.begin() as conn:
@@ -417,9 +404,7 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
         companies = conn.execute(functions.companies_table.select()).fetchall()
         assert companies == []
 
-        pending_supervisor = conn.execute(
-            functions.pending_supervisors_table.select()
-        ).fetchall()
+        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).fetchall()
         assert pending_supervisor == []
 
 
@@ -437,11 +422,3 @@ def test_standard_application_rejects_orgnr(fresh_app_db):
             comment="",
             personnummer="8801011234",
         )
-
-        application = conn.execute(
-            functions.application_requests_table.select().where(
-                functions.application_requests_table.c.id == application_id
-            )
-        ).first()
-        assert application.status == "approved"
-        assert application.reviewed_by == "admin"

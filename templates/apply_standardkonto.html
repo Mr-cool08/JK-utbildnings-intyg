@@ -1,8 +1,8 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Ansök om användarkonto – Utbildningsintyg{% endblock %}
+{% block title %}Ansök om privatkonto – Utbildningsintyg{% endblock %}
 {% block head %}
-    <meta name="description" content="Ansök om användarkonto och få tillgång till Utbildningsintygets portal.">
+    <meta name="description" content="Ansök om privatkonto och få tillgång till Utbildningsintygets portal.">
 {% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title" data-motion="hero">
@@ -11,8 +11,8 @@
         <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet" data-motion-child>&#x2190; Tillbaka</a>
 
         <div class="apply-intro" data-motion-child>
-            <h1 id="apply-title">Ansök om användarkonto</h1>
-            <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart.</p>
+            <h1 id="apply-title">Ansök om privatkonto</h1>
+            <p>Privatkontot är gratis. Du kan ansöka själv, och du behöver inte vara kopplad till en arbetsgivare för att skicka in ansökan.</p>
         </div>
         <form method="post" class="apply-form" novalidate data-motion-child>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -111,9 +111,10 @@
 </section>
 
 <section class="apply-info" aria-labelledby="info-title" data-motion="section">
-    <h2 id="info-title">Om användarkonton</h2>
-    <p class="apply-price">Användarkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
-    <p>Företagskonton hanterar kopplingen mellan användare och företag vid behov.</p>
+    <h2 id="info-title">Om privatkonton</h2>
+    <p class="apply-price">Privatkontot är gratis för privatpersoner.</p>
+    <p>Du kan ansöka även om din arbetsgivare inte använder Utbildningsintyg idag.</p>
+    <p>Om din arbetsplats är ansluten kan vi vid behov senare koppla ditt konto till företaget.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
