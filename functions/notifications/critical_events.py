@@ -181,6 +181,11 @@ def _send_email_async(recipients: list[str], subject: str, html_body: str) -> No
             )
 
 
+def _should_send_email_inline() -> bool:
+    """Use inline delivery while pytest is running to keep tests deterministic."""
+    return bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+
 def send_unified_notification(
     notification_type: str,
     title: str,
@@ -261,6 +266,10 @@ def send_unified_notification(
         content,
         accent_color=color,
     )
+
+    if _should_send_email_inline():
+        _send_email_async(recipients, title, html_body)
+        return
 
     # Send email asynchronously
     thread = Thread(

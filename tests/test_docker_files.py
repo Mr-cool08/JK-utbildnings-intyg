@@ -129,6 +129,34 @@ def test_compose_has_optional_rclone_cloud_backup_service():
     assert "RCLONE_CONFIG_FILE: /tmp/rclone/rclone.conf" in compose
 
 
+def test_compose_runs_postgres_backup_script_with_bash():
+    compose = _read(ROOT / "docker-compose.yml")
+
+    assert 'command: ["bash", "/scripts/postgres_backup.sh", "--loop"]' in compose
+    assert 'command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]' not in compose
+
+
+def test_gitattributes_forces_lf_for_shell_scripts():
+    gitattributes = _read(ROOT / ".gitattributes")
+
+    assert "*.sh text eol=lf" in gitattributes
+
+
+def test_shell_scripts_use_lf_line_endings():
+    shell_scripts = sorted(ROOT.rglob("*.sh"))
+    assert shell_scripts, "Expected shell scripts to exist in the repository"
+
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in shell_scripts
+        if b"\r\n" in path.read_bytes()
+    ]
+    assert offenders == [], (
+        "Expected LF line endings in shell scripts, found CRLF in: "
+        + ", ".join(offenders)
+    )
+
+
 def test_example_env_documents_rclone_backup_settings():
     example_env = _read(ROOT / ".example.env")
 
