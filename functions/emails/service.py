@@ -110,12 +110,7 @@ def send_email_message(
             settings.timeout,
         )
 
-        smtp_cls = SMTP_SSL if use_ssl else SMTP
-        smtp_kwargs = {"timeout": settings.timeout}
-        if use_ssl:
-            smtp_kwargs["context"] = context
-
-        with smtp_cls(settings.server, settings.port, **smtp_kwargs) as smtp:
+        with open_smtp_connection(settings, context) as smtp:
             if hasattr(smtp, "ehlo"):
                 smtp.ehlo()
 
@@ -173,6 +168,20 @@ def send_email_message(
     except OSError as exc:
         logger.error("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
+
+
+def open_smtp_connection(settings: SMTPSettings, context: ssl.SSLContext) -> SMTP:
+    """Open an SMTP connection with the correct TLS mode for ``settings``."""
+
+    if settings.port == 465:
+        return SMTP_SSL(
+            settings.server,
+            settings.port,
+            timeout=settings.timeout,
+            context=context,
+        )
+
+    return SMTP(settings.server, settings.port, timeout=settings.timeout)
 
 
 def should_disable_email_sending() -> bool:
