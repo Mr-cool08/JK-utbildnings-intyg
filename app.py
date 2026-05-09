@@ -945,7 +945,7 @@ def supervisor_approve_organization_link_request_route(request_id: int):
     email_hash, _ = _require_supervisor()
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
-    if not validate_csrf_token(allow_if_absent=True):
+    if not validate_csrf_token():
         flash(CSRF_EXPIRED_MESSAGE, "error")
         return redirect(redirect_target)
     if not supervisor_orgnr:
@@ -998,7 +998,7 @@ def supervisor_reject_organization_link_request_route(request_id: int):
     email_hash, _ = _require_supervisor()
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
-    if not validate_csrf_token(allow_if_absent=True):
+    if not validate_csrf_token():
         flash(CSRF_EXPIRED_MESSAGE, "error")
         return redirect(redirect_target)
     if not supervisor_orgnr:
@@ -1318,45 +1318,53 @@ def _handle_standard_account_registration():
                         "Du m\u00e5ste intyga att du har l\u00e4st och f\u00f6rst\u00e5tt villkoren och den juridiska informationen innan du skapar kontot."
                     )
                 if not form_errors:
+                    class _ActivationEmailDeliveryError(RuntimeError):
+                        pass
+
                     try:
-                        result = functions.register_standard_account(
+                        def _send_creation_email_before_commit(
+                            registration_result: dict[str, str],
+                        ) -> None:
+                            creation_link = url_for(
+                                "create_user",
+                                pnr_hash=registration_result["personnummer_hash"],
+                                _external=True,
+                            )
+                            try:
+                                email_service.send_creation_email(
+                                    registration_result["email"],
+                                    creation_link,
+                                )
+                            except Exception as exc:
+                                raise _ActivationEmailDeliveryError from exc
+
+                        functions.register_standard_account(
                             form_data["name"],
                             form_data["email"],
                             form_data["personnummer"],
                             form_data.get("orgnr"),
+                            before_commit=_send_creation_email_before_commit,
                         )
                         logger.info(
                             "Nytt privatkonto registrerat f\u00f6r %s",
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
-                        creation_link = url_for(
-                            "create_user",
-                            pnr_hash=result["personnummer_hash"],
-                            _external=True,
+                        flash(
+                            "Kontot \u00e4r skapat. Kontrollera din e-post och skapa ditt l\u00f6senord innan du loggar in.",
+                            "success",
                         )
-                        try:
-                            email_service.send_creation_email(
-                                result["email"],
-                                creation_link,
-                            )
-                        except Exception:
-                            logger.exception(
-                                "Privatkonto skapades men aktiveringsmejlet kunde inte skickas"
-                            )
-                            flash(
-                                "Kontot \u00e4r skapat men aktiveringsmejlet kunde inte skickas just nu. Kontakta support s\u00e5 hj\u00e4lper vi dig.",
-                                "error",
-                            )
-                        else:
-                            flash(
-                                "Kontot \u00e4r skapat. Kontrollera din e-post och skapa ditt l\u00f6senord innan du loggar in.",
-                                "success",
-                            )
                         return redirect(url_for("login"))
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
                         _flag_application_field_error(message, field_errors)
+                    except _ActivationEmailDeliveryError:
+                        logger.exception(
+                            "Privatkonto kunde inte skapas eftersom aktiveringsmejlet inte gick att skicka"
+                        )
+                        form_errors.append(
+                            "Det gick inte att skicka aktiveringsmejlet just nu. Försök igen senare."
+                        )
                     except Exception:
                         logger.exception("Kunde inte skapa privatkonto")
                         form_errors.append(

@@ -63,7 +63,7 @@ def supervisor_setup(empty_db):
     }
 
 
-def _supervisor_client(email_hash, name, orgnr=None):
+def _supervisor_client(email_hash, name, orgnr=None, csrf_token=None):
     client = app.app.test_client()
     with client.session_transaction() as sess:
         sess["supervisor_logged_in"] = True
@@ -71,6 +71,8 @@ def _supervisor_client(email_hash, name, orgnr=None):
         sess["supervisor_name"] = name
         if orgnr:
             sess["supervisor_orgnr"] = orgnr
+        if csrf_token:
+            sess["csrf_token"] = csrf_token
     return client
 
 
@@ -150,6 +152,7 @@ def test_supervisor_dashboard_lists_pending_organization_requests(supervisor_set
 
 def test_supervisor_can_approve_organization_request(supervisor_setup, monkeypatch, empty_db):
     captured = {}
+    csrf_token = "approve-token"
     registration = functions.register_standard_account(
         "Ny Person",
         "ny.person@example.com",
@@ -179,10 +182,11 @@ def test_supervisor_can_approve_organization_request(supervisor_setup, monkeypat
         supervisor_setup["email_hash"],
         supervisor_setup["name"],
         orgnr=supervisor_setup["orgnr"],
+        csrf_token=csrf_token,
     )
     response = client.post(
         f"/foretagskonto/organisationskopplingar/{request_row.id}/godkann",
-        data={},
+        data={"csrf_token": csrf_token},
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -210,6 +214,7 @@ def test_supervisor_can_approve_organization_request(supervisor_setup, monkeypat
 
 def test_supervisor_can_reject_organization_request(supervisor_setup, monkeypatch, empty_db):
     captured = {}
+    csrf_token = "reject-token"
     registration = functions.register_standard_account(
         "Ny Person",
         "ny.person@example.com",
@@ -239,10 +244,11 @@ def test_supervisor_can_reject_organization_request(supervisor_setup, monkeypatc
         supervisor_setup["email_hash"],
         supervisor_setup["name"],
         orgnr=supervisor_setup["orgnr"],
+        csrf_token=csrf_token,
     )
     response = client.post(
         f"/foretagskonto/organisationskopplingar/{request_row.id}/avsla",
-        data={},
+        data={"csrf_token": csrf_token},
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -266,6 +272,61 @@ def test_supervisor_can_reject_organization_request(supervisor_setup, monkeypatc
     assert connection is None
     assert captured["email"] == "ny.person@example.com"
     assert captured["company_name"] == "Testbolaget AB"
+
+
+@pytest.mark.parametrize("action", ["godkann", "avsla"])
+def test_supervisor_org_request_decision_requires_csrf(
+    supervisor_setup,
+    empty_db,
+    action,
+):
+    registration = functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        supervisor_setup["orgnr"],
+    )
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+        csrf_token="required-token",
+    )
+    response = client.post(
+        f"/foretagskonto/organisationskopplingar/{request_row.id}/{action}",
+        data={},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert app.CSRF_EXPIRED_MESSAGE in response.get_data(as_text=True)
+
+    with empty_db.connect() as conn:
+        updated_request = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.id == request_row.id
+            )
+        ).first()
+        connection = conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_setup["email_hash"],
+                functions.supervisor_connections_table.c.user_personnummer
+                == registration["personnummer_hash"],
+            )
+        ).first()
+
+    assert updated_request is not None
+    assert updated_request.status == "pending"
+    assert connection is None
 
 
 def test_org_request_becomes_visible_after_company_account_is_created(empty_db):

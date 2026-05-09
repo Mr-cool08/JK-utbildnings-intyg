@@ -106,6 +106,70 @@ def test_user_account_registration_without_orgnr_only_creates_pending_user(
 
 
 @pytest.mark.allow_public_rate_limited
+def test_user_account_registration_rolls_back_when_activation_email_fails(
+    empty_db, monkeypatch
+):
+    failure_message = "smtp nere"
+    send_state = {"fail": True}
+
+    def _fake_send_creation_email(_to_email, _link):
+        if send_state["fail"]:
+            raise RuntimeError(failure_message)
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_send_creation_email)
+
+    with _client() as client:
+        with client.session_transaction() as session:
+            session["csrf_token"] = "test-token"
+        response = client.post(
+            "/ansok/standardkonto",
+            data={
+                "csrf_token": "test-token",
+                "name": "Anna Användare",
+                "email": "anna@example.com",
+                "personnummer": "9001011234",
+                "orgnr": "556966-8337",
+                "terms_confirmed": "1",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        body = response.data.decode("utf-8")
+        assert "Det gick inte att skicka aktiveringsmejlet just nu." in body
+
+    with empty_db.connect() as conn:
+        pending_users = conn.execute(functions.pending_users_table.select()).fetchall()
+        org_requests = conn.execute(functions.organization_link_requests_table.select()).fetchall()
+        assert pending_users == []
+        assert org_requests == []
+
+    send_state["fail"] = False
+    with _client() as client:
+        with client.session_transaction() as session:
+            session["csrf_token"] = "retry-token"
+        retry_response = client.post(
+            "/ansok/standardkonto",
+            data={
+                "csrf_token": "retry-token",
+                "name": "Anna Användare",
+                "email": "anna@example.com",
+                "personnummer": "9001011234",
+                "orgnr": "556966-8337",
+                "terms_confirmed": "1",
+            },
+            follow_redirects=False,
+        )
+        assert retry_response.status_code == 302
+        assert retry_response.headers["Location"].endswith("/login")
+
+    with empty_db.connect() as conn:
+        pending_user = conn.execute(functions.pending_users_table.select()).first()
+        org_request = conn.execute(functions.organization_link_requests_table.select()).first()
+        assert pending_user is not None
+        assert org_request is not None
+
+
+@pytest.mark.allow_public_rate_limited
 def test_foretagskonto_application_submission(empty_db):
     with _client() as client:
         with client.session_transaction() as session:

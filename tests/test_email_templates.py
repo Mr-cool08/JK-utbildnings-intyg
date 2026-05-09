@@ -22,12 +22,13 @@ def test_send_application_rejection_email_uses_branded_support_email(monkeypatch
     captured = _capture_send_email(monkeypatch)
 
     email_service.send_application_rejection_email(
-        "test@example.com", "ACME AB", "Saknar underlag"
+        "test@example.com", "AT&T AB", "Saknar underlag"
     )
 
     normalized_body = " ".join(captured["body"].split())
 
-    assert captured["subject"] == "Ansökan avslogs för ACME AB"
+    assert captured["subject"] == "Ansökan avslogs för AT&T AB"
+    assert "AT&amp;T AB" in normalized_body
     assert "support@utbildningsintyg.se" in normalized_body
 
 
@@ -36,11 +37,12 @@ def test_send_organization_link_approved_email(monkeypatch):
 
     email_service.send_organization_link_approved_email(
         "test@example.com",
-        "ACME AB",
+        "AT&T AB",
     )
 
     assert captured["recipient"] == "test@example.com"
-    assert "ACME AB" in captured["subject"]
+    assert "AT&T AB" in captured["subject"]
+    assert "AT&amp;T AB" in captured["body"]
     assert "godkänd" in captured["body"]
 
 
@@ -49,12 +51,13 @@ def test_send_organization_link_rejected_email(monkeypatch):
 
     email_service.send_organization_link_rejected_email(
         "test@example.com",
-        "ACME AB",
+        "AT&T AB",
     )
 
     assert captured["recipient"] == "test@example.com"
     assert "avslogs" in captured["subject"]
-    assert "ACME AB" in captured["body"]
+    assert "AT&T AB" in captured["subject"]
+    assert "AT&amp;T AB" in captured["body"]
 
 
 def test_send_email_skips_when_disable_emails_enabled(monkeypatch):

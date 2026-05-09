@@ -409,6 +409,79 @@ def _postgres_constraint_exists(
     return row is not None
 
 
+def _table_has_index_for_columns(
+    conn: Connection, table_name: str, columns: list[str]
+) -> bool:
+    inspector = inspect(conn)
+    expected_columns = list(columns)
+    for index in inspector.get_indexes(table_name):
+        if list(index.get("column_names") or []) == expected_columns:
+            return True
+    return False
+
+
+def _table_has_unique_for_columns(
+    conn: Connection, table_name: str, columns: list[str]
+) -> bool:
+    inspector = inspect(conn)
+    expected_columns = list(columns)
+    for constraint in inspector.get_unique_constraints(table_name):
+        if list(constraint.get("column_names") or []) == expected_columns:
+            return True
+    for index in inspector.get_indexes(table_name):
+        if index.get("unique") and list(index.get("column_names") or []) == expected_columns:
+            return True
+    return False
+
+
+def _ensure_index(
+    conn: Connection,
+    table_name: str,
+    index_name: str,
+    columns: list[str],
+) -> None:
+    if _table_has_index_for_columns(conn, table_name, columns):
+        return
+    column_sql = ", ".join(columns)
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column_sql})"))
+
+
+def _ensure_unique_columns(
+    conn: Connection,
+    table_name: str,
+    constraint_name: str,
+    columns: list[str],
+) -> None:
+    if _table_has_unique_for_columns(conn, table_name, columns):
+        return
+
+    column_sql = ", ".join(columns)
+    dialect = conn.dialect.name
+
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                f"CREATE UNIQUE INDEX IF NOT EXISTS {constraint_name} "
+                f"ON {table_name} ({column_sql})"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        if not _postgres_constraint_exists(conn, table_name, constraint_name):
+            conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    f"ADD CONSTRAINT {constraint_name} UNIQUE ({column_sql})"
+                )
+            )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
 def _migration_0003_add_invoice_fields(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
@@ -626,10 +699,36 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
     existing_tables = set(inspector.get_table_names())
     if pending_users_table.name in existing_tables:
         _add_column_if_missing(conn, pending_users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+        _ensure_index(
+            conn,
+            pending_users_table.name,
+            "ix_pending_users_orgnr_normalized",
+            ["orgnr_normalized"],
+        )
     if users_table.name in existing_tables:
         _add_column_if_missing(conn, users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+        _ensure_index(
+            conn,
+            users_table.name,
+            "ix_users_orgnr_normalized",
+            ["orgnr_normalized"],
+        )
+    if supervisor_link_requests_table.name in existing_tables:
+        _ensure_unique_columns(
+            conn,
+            supervisor_link_requests_table.name,
+            "uq_supervisor_link_requests_pair",
+            ["supervisor_email", "user_personnummer"],
+        )
     if organization_link_requests_table.name not in existing_tables:
         organization_link_requests_table.create(bind=conn)
+    else:
+        _ensure_unique_columns(
+            conn,
+            organization_link_requests_table.name,
+            "uq_organization_link_requests_pair",
+            ["orgnr_normalized", "user_personnummer"],
+        )
 
 
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [

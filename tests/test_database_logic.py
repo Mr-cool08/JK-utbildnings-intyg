@@ -2,7 +2,7 @@ import os
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import create_engine, insert, inspect as sqlalchemy_inspect, select
+from sqlalchemy import create_engine, insert, inspect as sqlalchemy_inspect, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import functions
@@ -258,6 +258,201 @@ def test_create_database_does_not_fallback_to_sqlite_without_dev_mode(monkeypatc
     assert reset_calls == []
     assert os.environ["DATABASE_URL"] == database_url
 
+
+def test_migration_0010_sqlite_adds_indexes_and_duplicate_protection():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE supervisor_link_requests (
+                    id INTEGER PRIMARY KEY,
+                    supervisor_email TEXT NOT NULL,
+                    user_personnummer TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE organization_link_requests (
+                    id INTEGER PRIMARY KEY,
+                    orgnr_normalized TEXT NOT NULL,
+                    user_personnummer TEXT NOT NULL,
+                    user_name TEXT NOT NULL,
+                    user_email TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    handled_by_supervisor_email TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    handled_at DATETIME
+                )
+                """
+            )
+        )
+        database_module._migration_0010_add_orgnr_to_users_and_org_requests(conn)
+
+    inspector = sqlalchemy_inspect(engine)
+    pending_columns = {column["name"] for column in inspector.get_columns("pending_users")}
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    pending_indexes = inspector.get_indexes("pending_users")
+    user_indexes = inspector.get_indexes("users")
+
+    assert "orgnr_normalized" in pending_columns
+    assert "orgnr_normalized" in user_columns
+    assert any(index["column_names"] == ["orgnr_normalized"] for index in pending_indexes)
+    assert any(index["column_names"] == ["orgnr_normalized"] for index in user_indexes)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO supervisor_link_requests (supervisor_email, user_personnummer)
+                VALUES ('chef@example.com', 'pnr-hash')
+                """
+            )
+        )
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO supervisor_link_requests (supervisor_email, user_personnummer)
+                    VALUES ('chef@example.com', 'pnr-hash')
+                    """
+                )
+            )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO organization_link_requests (
+                    orgnr_normalized,
+                    user_personnummer,
+                    user_name,
+                    user_email
+                ) VALUES (
+                    '5569668337',
+                    'pnr-hash',
+                    'Test Person',
+                    'test@example.com'
+                )
+                """
+            )
+        )
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO organization_link_requests (
+                        orgnr_normalized,
+                        user_personnummer,
+                        user_name,
+                        user_email
+                    ) VALUES (
+                        '5569668337',
+                        'pnr-hash',
+                        'Test Person',
+                        'test@example.com'
+                    )
+                    """
+                )
+            )
+
+
+def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatch):
+    class _FakeResult:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar_one_or_none(self):
+            return self._value
+
+    class _FakeConn:
+        dialect = SimpleNamespace(name="postgresql")
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            sql = str(statement)
+            self.executed_sql.append((sql, parameters))
+            if "FROM pg_constraint" in sql:
+                return _FakeResult(None)
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [
+                functions.pending_users_table.name,
+                functions.users_table.name,
+                functions.supervisor_link_requests_table.name,
+                functions.organization_link_requests_table.name,
+            ],
+            get_columns=lambda table_name: [{"name": "id"}]
+            if table_name in {functions.pending_users_table.name, functions.users_table.name}
+            else [{"name": "id"}, {"name": "user_personnummer"}],
+            get_indexes=lambda _table_name: [],
+            get_unique_constraints=lambda _table_name: [],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0010_add_orgnr_to_users_and_org_requests(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "ALTER TABLE pending_users ADD COLUMN orgnr_normalized TEXT DEFAULT ''"
+        in executed_sql_texts
+    )
+    assert "ALTER TABLE users ADD COLUMN orgnr_normalized TEXT DEFAULT ''" in executed_sql_texts
+    assert (
+        "CREATE INDEX IF NOT EXISTS ix_pending_users_orgnr_normalized "
+        "ON pending_users (orgnr_normalized)"
+    ) in executed_sql_texts
+    assert (
+        "CREATE INDEX IF NOT EXISTS ix_users_orgnr_normalized "
+        "ON users (orgnr_normalized)"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE supervisor_link_requests "
+        "ADD CONSTRAINT uq_supervisor_link_requests_pair "
+        "UNIQUE (supervisor_email, user_personnummer)"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests "
+        "ADD CONSTRAINT uq_organization_link_requests_pair "
+        "UNIQUE (orgnr_normalized, user_personnummer)"
+    ) in executed_sql_texts
 
 def test_switch_postgres_host_returns_false_without_fallback_hosts(monkeypatch):
     monkeypatch.delenv("POSTGRES_FALLBACK_HOSTS", raising=False)

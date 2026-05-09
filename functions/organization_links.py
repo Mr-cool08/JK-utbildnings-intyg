@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -34,6 +34,8 @@ def register_standard_account(
     email: str,
     personnummer: str,
     orgnr: str | None = None,
+    *,
+    before_commit: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     # Skapa ett väntande privatkonto och registrera eventuell org-förfrågan.
     cleaned_name = (name or "").strip()
@@ -45,6 +47,8 @@ def register_standard_account(
     normalized_orgnr = validate_orgnr(orgnr) if (orgnr or "").strip() else ""
     email_hash = hash_value(normalized_email)
     personnummer_hash = hash_value(normalized_personnummer)
+
+    result: dict[str, Any] = {}
 
     with get_engine().begin() as conn:
         existing_user_by_personnummer = conn.execute(
@@ -106,13 +110,17 @@ def register_standard_account(
                     )
                 )
 
+        result = {
+            "email": normalized_email,
+            "personnummer_hash": personnummer_hash,
+            "orgnr_normalized": normalized_orgnr,
+            "organization_request_created": bool(normalized_orgnr),
+        }
+        if before_commit is not None:
+            before_commit(result)
+
     logger.info("Registrerade väntande privatkonto %s", mask_hash(personnummer_hash))
-    return {
-        "email": normalized_email,
-        "personnummer_hash": personnummer_hash,
-        "orgnr_normalized": normalized_orgnr,
-        "organization_request_created": bool(normalized_orgnr),
-    }
+    return result
 
 
 def get_public_organization_overview(orgnr: str) -> dict[str, Any]:

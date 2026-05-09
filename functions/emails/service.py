@@ -98,6 +98,7 @@ def send_email_message(
 
     context = ssl.create_default_context()
     recipient_mask = mask_hash(functions.hash_value(normalized_recipient))
+    masked_user = mask_hash(functions.hash_value(settings.user))
 
     def _send_using_connection(smtp: SMTP, use_ssl: bool) -> None:
         if hasattr(smtp, "ehlo"):
@@ -121,7 +122,7 @@ def send_email_message(
                 smtp.ehlo()
 
         smtp.login(settings.user, settings.password)
-        logger.debug("SMTP inloggning lyckades för %s", settings.user)
+        logger.debug("SMTP inloggning lyckades för %s", masked_user)
 
         if hasattr(smtp, "send_message"):
             refused = smtp.send_message(
@@ -360,8 +361,9 @@ def send_account_deletion_email(to_email: str, username: str | None = None) -> N
 def send_organization_link_approved_email(to_email: str, company_name: str) -> None:
     """Skicka besked om godkänd organisationskoppling."""
 
-    safe_company = escape((company_name or "").strip()) or "organisationen"
-    subject = f"Kopplingen till {safe_company} \u00e4r godk\u00e4nd"
+    company_label = (company_name or "").strip() or "organisationen"
+    safe_company = escape(company_label)
+    subject = f"Kopplingen till {company_label} \u00e4r godk\u00e4nd"
     content = (
         "<p>Hej,</p>"
         f"<p>Din koppling till {safe_company} har godk\u00e4nts.</p>"
@@ -379,8 +381,9 @@ def send_organization_link_approved_email(to_email: str, company_name: str) -> N
 def send_organization_link_rejected_email(to_email: str, company_name: str) -> None:
     """Skicka besked om avslagen organisationskoppling."""
 
-    safe_company = escape((company_name or "").strip()) or "organisationen"
-    subject = f"Kopplingen till {safe_company} avslogs"
+    company_label = (company_name or "").strip() or "organisationen"
+    safe_company = escape(company_label)
+    subject = f"Kopplingen till {company_label} avslogs"
     content = (
         "<p>Hej,</p>"
         f"<p>Din f\u00f6rfr\u00e5gan om koppling till {safe_company} har avslagits.</p>"
@@ -445,11 +448,10 @@ def send_pdf_share_email(
 def send_application_rejection_email(to_email: str, company_name: str, reason: str) -> None:
     """Skicka besked om avslagen ansökan."""
 
-    safe_company = escape((company_name or "").strip())
-    if not safe_company:
-        safe_company = "företaget"
+    company_label = (company_name or "").strip() or "företaget"
+    safe_company = escape(company_label)
     safe_reason = escape(reason)
-    subject = f"Ansökan avslogs för {safe_company}"
+    subject = f"Ansökan avslogs för {company_label}"
     content = (
         "<p>Hej,</p>"
         f"<p>Vi har tyvärr inte kunnat godkänna din ansökan om konto kopplat till {safe_company}.</p>"
