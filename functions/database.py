@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -12,6 +13,7 @@ from urllib.parse import quote_plus
 from sqlalchemy import (
     Column,
     DateTime,
+    Index,
     Integer,
     LargeBinary,
     MetaData,
@@ -31,6 +33,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateIndex, DDL
 
 from config_loader import load_environment
 from functions.logging import configure_module_logger, mask_sensitive_data
@@ -53,6 +56,7 @@ APP_ROOT = str(Path(__file__).resolve().parent.parent)
 logger.debug("Application root directory: %s", APP_ROOT)
 
 metadata = MetaData()
+SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 pending_users_table = Table(
     "pending_users",
@@ -434,6 +438,41 @@ def _table_has_unique_for_columns(
     return False
 
 
+def _validate_sql_identifier(value: str, label: str) -> str:
+    if not SQL_IDENTIFIER_RE.fullmatch(value):
+        raise ValueError(f"Ogiltig SQL-identifierare för {label}: {value!r}")
+    return value
+
+
+def _quote_sql_identifier(conn: Connection, value: str, label: str) -> str:
+    validated_value = _validate_sql_identifier(value, label)
+    return conn.dialect.identifier_preparer.quote(validated_value)
+
+
+def _build_runtime_table(
+    table_name: str,
+    columns: list[str],
+    *,
+    include_id: bool = False,
+) -> Table:
+    validated_table_name = _validate_sql_identifier(table_name, "tabellnamn")
+    validated_columns = [
+        _validate_sql_identifier(column_name, "kolumnnamn")
+        for column_name in columns
+    ]
+
+    runtime_columns = []
+    if include_id:
+        runtime_columns.append(Column("id", Integer))
+
+    for column_name in validated_columns:
+        if include_id and column_name == "id":
+            continue
+        runtime_columns.append(Column(column_name, String))
+
+    return Table(validated_table_name, MetaData(), *runtime_columns)
+
+
 def _ensure_index(
     conn: Connection,
     table_name: str,
@@ -442,8 +481,12 @@ def _ensure_index(
 ) -> None:
     if _table_has_index_for_columns(conn, table_name, columns):
         return
-    column_sql = ", ".join(columns)
-    conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column_sql})"))
+    runtime_table = _build_runtime_table(table_name, columns)
+    index = Index(
+        _validate_sql_identifier(index_name, "indexnamn"),
+        *(runtime_table.c[column_name] for column_name in columns),
+    )
+    conn.execute(CreateIndex(index, if_not_exists=True))
 
 
 def _ensure_unique_columns(
@@ -455,26 +498,16 @@ def _ensure_unique_columns(
     if _table_has_unique_for_columns(conn, table_name, columns):
         return
 
-    column_sql = ", ".join(columns)
     dialect = conn.dialect.name
+    runtime_table = _build_runtime_table(table_name, columns)
+    unique_index = Index(
+        _validate_sql_identifier(constraint_name, "unikhetsnamn"),
+        *(runtime_table.c[column_name] for column_name in columns),
+        unique=True,
+    )
 
-    if dialect == "sqlite":
-        conn.execute(
-            text(
-                f"CREATE UNIQUE INDEX IF NOT EXISTS {constraint_name} "
-                f"ON {table_name} ({column_sql})"
-            )
-        )
-        return
-
-    if dialect.startswith("postgresql"):
-        if not _postgres_constraint_exists(conn, table_name, constraint_name):
-            conn.execute(
-                text(
-                    f"ALTER TABLE {table_name} "
-                    f"ADD CONSTRAINT {constraint_name} UNIQUE ({column_sql})"
-                )
-            )
+    if dialect == "sqlite" or dialect.startswith("postgresql"):
+        conn.execute(CreateIndex(unique_index, if_not_exists=True))
         return
 
     raise RuntimeError(
@@ -487,18 +520,12 @@ def _delete_duplicate_rows_for_unique_pair(
     table_name: str,
     columns: list[str],
 ) -> None:
-    grouped_columns = ", ".join(columns)
+    runtime_table = _build_runtime_table(table_name, ["id", *columns], include_id=True)
+    duplicate_ids = select(func.min(runtime_table.c.id)).group_by(
+        *(runtime_table.c[column_name] for column_name in columns)
+    )
     conn.execute(
-        text(
-            f"""
-            DELETE FROM {table_name}
-            WHERE id NOT IN (
-                SELECT MIN(id)
-                FROM {table_name}
-                GROUP BY {grouped_columns}
-            )
-            """
-        )
+        runtime_table.delete().where(runtime_table.c.id.not_in(duplicate_ids))
     )
 
 
@@ -592,7 +619,12 @@ def _rebuild_sqlite_table_with_non_null_orgnr(conn: Connection, table_name: str)
 
 
 def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
-    conn.execute(text(f"UPDATE {table_name} SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL"))
+    runtime_table = _build_runtime_table(table_name, ["orgnr_normalized"])
+    conn.execute(
+        runtime_table.update()
+        .where(runtime_table.c.orgnr_normalized.is_(None))
+        .values(orgnr_normalized="")
+    )
     inspector = inspect(conn)
     column = next(
         (item for item in inspector.get_columns(table_name) if item["name"] == "orgnr_normalized"),
@@ -607,7 +639,16 @@ def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
         return
 
     if dialect.startswith("postgresql"):
-        conn.execute(text(f"ALTER TABLE {table_name} ALTER COLUMN orgnr_normalized SET NOT NULL"))
+        quoted_table_name = _quote_sql_identifier(conn, table_name, "tabellnamn")
+        quoted_column_name = _quote_sql_identifier(
+            conn, "orgnr_normalized", "kolumnnamn"
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_column_name} SET NOT NULL"
+            )
+        )
         return
 
     raise RuntimeError(

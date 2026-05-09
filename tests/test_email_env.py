@@ -272,7 +272,7 @@ def test_send_email_message_masks_smtp_user_in_debug_log(monkeypatch):
         server="smtp.example.com",
         port=587,
         user="real.user@example.com",
-        password="hemligt",
+        password="x",
         timeout=10,
         from_address="from@example.com",
     )

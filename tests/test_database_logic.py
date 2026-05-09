@@ -490,8 +490,16 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
         in executed_sql_texts
     )
     assert "ALTER TABLE users ADD COLUMN orgnr_normalized TEXT DEFAULT '' NOT NULL" in executed_sql_texts
-    assert "UPDATE pending_users SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL" in executed_sql_texts
-    assert "UPDATE users SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL" in executed_sql_texts
+    assert any(
+        "UPDATE pending_users SET orgnr_normalized=" in sql
+        and "pending_users.orgnr_normalized IS NULL" in sql
+        for sql in executed_sql_texts
+    )
+    assert any(
+        "UPDATE users SET orgnr_normalized=" in sql
+        and "users.orgnr_normalized IS NULL" in sql
+        for sql in executed_sql_texts
+    )
     assert (
         "CREATE INDEX IF NOT EXISTS ix_pending_users_orgnr_normalized "
         "ON pending_users (orgnr_normalized)"
@@ -502,24 +510,29 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
     ) in executed_sql_texts
     assert any(
         "DELETE FROM supervisor_link_requests" in sql
-        and "GROUP BY supervisor_email, user_personnummer" in sql
+        and "GROUP BY supervisor_link_requests.supervisor_email" in sql
+        and "supervisor_link_requests.user_personnummer" in sql
         for sql in executed_sql_texts
     )
     assert (
-        "ALTER TABLE supervisor_link_requests "
-        "ADD CONSTRAINT uq_supervisor_link_requests_pair "
-        "UNIQUE (supervisor_email, user_personnummer)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_supervisor_link_requests_pair "
+        "ON supervisor_link_requests (supervisor_email, user_personnummer)"
     ) in executed_sql_texts
     assert any(
         "DELETE FROM organization_link_requests" in sql
-        and "GROUP BY orgnr_normalized, user_personnummer" in sql
+        and "GROUP BY organization_link_requests.orgnr_normalized" in sql
+        and "organization_link_requests.user_personnummer" in sql
         for sql in executed_sql_texts
     )
     assert (
-        "ALTER TABLE organization_link_requests "
-        "ADD CONSTRAINT uq_organization_link_requests_pair "
-        "UNIQUE (orgnr_normalized, user_personnummer)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_organization_link_requests_pair "
+        "ON organization_link_requests (orgnr_normalized, user_personnummer)"
     ) in executed_sql_texts
+
+
+def test_build_runtime_table_rejects_invalid_identifier():
+    with pytest.raises(ValueError, match="Ogiltig SQL-identifierare"):
+        database_module._build_runtime_table("users;DROP TABLE users", ["orgnr_normalized"])
 
 def test_switch_postgres_host_returns_false_without_fallback_hosts(monkeypatch):
     monkeypatch.delenv("POSTGRES_FALLBACK_HOSTS", raising=False)
