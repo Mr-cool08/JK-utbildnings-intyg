@@ -482,6 +482,139 @@ def _ensure_unique_columns(
     )
 
 
+def _delete_duplicate_rows_for_unique_pair(
+    conn: Connection,
+    table_name: str,
+    columns: list[str],
+) -> None:
+    grouped_columns = ", ".join(columns)
+    conn.execute(
+        text(
+            f"""
+            DELETE FROM {table_name}
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM {table_name}
+                GROUP BY {grouped_columns}
+            )
+            """
+        )
+    )
+
+
+def _rebuild_sqlite_table_with_non_null_orgnr(conn: Connection, table_name: str) -> None:
+    conn.execute(text("PRAGMA foreign_keys=OFF"))
+    try:
+        if table_name == pending_users_table.name:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE pending_users_new (
+                        id INTEGER PRIMARY KEY,
+                        username VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL,
+                        personnummer VARCHAR NOT NULL UNIQUE,
+                        orgnr_normalized VARCHAR DEFAULT '' NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO pending_users_new (
+                        id,
+                        username,
+                        email,
+                        personnummer,
+                        orgnr_normalized
+                    )
+                    SELECT
+                        id,
+                        username,
+                        email,
+                        personnummer,
+                        COALESCE(orgnr_normalized, '')
+                    FROM pending_users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE pending_users"))
+            conn.execute(text("ALTER TABLE pending_users_new RENAME TO pending_users"))
+            return
+
+        if table_name == users_table.name:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE users_new (
+                        id INTEGER PRIMARY KEY,
+                        username VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL UNIQUE,
+                        password VARCHAR NOT NULL,
+                        personnummer VARCHAR NOT NULL UNIQUE,
+                        orgnr_normalized VARCHAR DEFAULT '' NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO users_new (
+                        id,
+                        username,
+                        email,
+                        password,
+                        personnummer,
+                        orgnr_normalized
+                    )
+                    SELECT
+                        id,
+                        username,
+                        email,
+                        password,
+                        personnummer,
+                        COALESCE(orgnr_normalized, '')
+                    FROM users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE users"))
+            conn.execute(text("ALTER TABLE users_new RENAME TO users"))
+            return
+    finally:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+
+    raise RuntimeError(
+        f"SQLite-ombyggnad för orgnr_normalized stöds inte för tabellen '{table_name}'."
+    )
+
+
+def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
+    conn.execute(text(f"UPDATE {table_name} SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL"))
+    inspector = inspect(conn)
+    column = next(
+        (item for item in inspector.get_columns(table_name) if item["name"] == "orgnr_normalized"),
+        None,
+    )
+    if not column or column.get("nullable", True) is False:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
+        return
+
+    if dialect.startswith("postgresql"):
+        conn.execute(text(f"ALTER TABLE {table_name} ALTER COLUMN orgnr_normalized SET NOT NULL"))
+        return
+
+    raise RuntimeError(
+        f"Migrationen stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
 def _migration_0003_add_invoice_fields(conn: Connection) -> None:
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
@@ -698,7 +831,13 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if pending_users_table.name in existing_tables:
-        _add_column_if_missing(conn, pending_users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+        _add_column_if_missing(
+            conn,
+            pending_users_table.name,
+            "orgnr_normalized",
+            "TEXT DEFAULT '' NOT NULL",
+        )
+        _ensure_orgnr_column_not_null(conn, pending_users_table.name)
         _ensure_index(
             conn,
             pending_users_table.name,
@@ -706,7 +845,13 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
             ["orgnr_normalized"],
         )
     if users_table.name in existing_tables:
-        _add_column_if_missing(conn, users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+        _add_column_if_missing(
+            conn,
+            users_table.name,
+            "orgnr_normalized",
+            "TEXT DEFAULT '' NOT NULL",
+        )
+        _ensure_orgnr_column_not_null(conn, users_table.name)
         _ensure_index(
             conn,
             users_table.name,
@@ -714,6 +859,11 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
             ["orgnr_normalized"],
         )
     if supervisor_link_requests_table.name in existing_tables:
+        _delete_duplicate_rows_for_unique_pair(
+            conn,
+            supervisor_link_requests_table.name,
+            ["supervisor_email", "user_personnummer"],
+        )
         _ensure_unique_columns(
             conn,
             supervisor_link_requests_table.name,
@@ -723,6 +873,11 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
     if organization_link_requests_table.name not in existing_tables:
         organization_link_requests_table.create(bind=conn)
     else:
+        _delete_duplicate_rows_for_unique_pair(
+            conn,
+            organization_link_requests_table.name,
+            ["orgnr_normalized", "user_personnummer"],
+        )
         _ensure_unique_columns(
             conn,
             organization_link_requests_table.name,

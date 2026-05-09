@@ -150,6 +150,24 @@ def test_supervisor_dashboard_lists_pending_organization_requests(supervisor_set
     assert "Inväntar lösenord" in body
 
 
+def test_supervisor_dashboard_handles_missing_public_org_overview(
+    supervisor_setup, monkeypatch
+):
+    def _missing_overview(_orgnr):
+        raise ValueError("saknas")
+
+    monkeypatch.setattr(app.functions, "get_public_organization_overview", _missing_overview)
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+    )
+    response = client.get("/foretagskonto")
+    assert response.status_code == 200
+    assert supervisor_setup["user_name"] in response.get_data(as_text=True)
+
+
 def test_supervisor_can_approve_organization_request(supervisor_setup, monkeypatch, empty_db):
     captured = {}
     csrf_token = "approve-token"
@@ -272,6 +290,63 @@ def test_supervisor_can_reject_organization_request(supervisor_setup, monkeypatc
     assert connection is None
     assert captured["email"] == "ny.person@example.com"
     assert captured["company_name"] == "Testbolaget AB"
+
+
+@pytest.mark.parametrize(
+    ("action", "email_attr"),
+    [
+        ("godkann", "send_organization_link_approved_email"),
+        ("avsla", "send_organization_link_rejected_email"),
+    ],
+)
+def test_supervisor_org_request_decision_uses_orgnr_fallback_when_overview_missing(
+    supervisor_setup,
+    monkeypatch,
+    empty_db,
+    action,
+    email_attr,
+):
+    captured = {}
+    csrf_token = f"{action}-token"
+    registration = functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        supervisor_setup["orgnr"],
+    )
+
+    def _missing_overview(_orgnr):
+        raise ValueError("saknas")
+
+    monkeypatch.setattr(app.functions, "get_public_organization_overview", _missing_overview)
+    monkeypatch.setattr(
+        app.email_service,
+        email_attr,
+        lambda email, company_name: captured.update(email=email, company_name=company_name),
+    )
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+        csrf_token=csrf_token,
+    )
+    response = client.post(
+        f"/foretagskonto/organisationskopplingar/{request_row.id}/{action}",
+        data={"csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert captured["email"] == "ny.person@example.com"
+    assert captured["company_name"] == f"organisationsnummer {supervisor_setup['orgnr']}"
 
 
 @pytest.mark.parametrize("action", ["godkann", "avsla"])

@@ -199,20 +199,19 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
         monkeypatch.setenv(key, env_values[key])
 
     class RefusingSMTP:
-        def __init__(self, server, port, timeout=30):
+        def __init__(self, _server, _port, **_kwargs):
             pass
 
         def ehlo(self):
             pass
 
-        def starttls(self, context=None):
+        def starttls(self, _context=None):
             pass
 
-        def login(self, user, password):
+        def login(self, _user, _password):
             pass
 
         def send_message(self, msg, from_addr=None, to_addrs=None):
-            _ = (from_addr, to_addrs)
             return {msg["To"]: (550, b"Mailbox unavailable")}
 
         def __enter__(self):
@@ -235,20 +234,19 @@ def test_send_email_message_masks_smtp_user_in_debug_log(monkeypatch):
     debug_messages = []
 
     class DummySMTP:
-        def __init__(self, _server, _port, timeout=30):
-            _ = timeout
+        def __init__(self, _server, _port, **_kwargs):
+            pass
 
         def ehlo(self):
             pass
 
-        def starttls(self, context=None):
-            _ = context
+        def starttls(self, _context=None):
+            pass
 
         def login(self, _user, _password):
             pass
 
         def send_message(self, _msg, from_addr=None, to_addrs=None):
-            _ = (from_addr, to_addrs)
             return {}
 
         def __enter__(self):

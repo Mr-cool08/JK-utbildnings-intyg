@@ -270,7 +270,8 @@ def test_migration_0010_sqlite_adds_indexes_and_duplicate_protection():
                     id INTEGER PRIMARY KEY,
                     username TEXT NOT NULL,
                     email TEXT NOT NULL,
-                    personnummer TEXT NOT NULL UNIQUE
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT DEFAULT NULL
                 )
                 """
             )
@@ -283,7 +284,8 @@ def test_migration_0010_sqlite_adds_indexes_and_duplicate_protection():
                     username TEXT NOT NULL,
                     email TEXT NOT NULL UNIQUE,
                     password TEXT NOT NULL,
-                    personnummer TEXT NOT NULL UNIQUE
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT DEFAULT NULL
                 )
                 """
             )
@@ -318,38 +320,52 @@ def test_migration_0010_sqlite_adds_indexes_and_duplicate_protection():
                 """
             )
         )
-        database_module._migration_0010_add_orgnr_to_users_and_org_requests(conn)
-
-    inspector = sqlalchemy_inspect(engine)
-    pending_columns = {column["name"] for column in inspector.get_columns("pending_users")}
-    user_columns = {column["name"] for column in inspector.get_columns("users")}
-    pending_indexes = inspector.get_indexes("pending_users")
-    user_indexes = inspector.get_indexes("users")
-
-    assert "orgnr_normalized" in pending_columns
-    assert "orgnr_normalized" in user_columns
-    assert any(index["column_names"] == ["orgnr_normalized"] for index in pending_indexes)
-    assert any(index["column_names"] == ["orgnr_normalized"] for index in user_indexes)
-
-    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO pending_users (
+                    username,
+                    email,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Pending Person',
+                    'pending-hash',
+                    'pending-pnr',
+                    NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (
+                    username,
+                    email,
+                    password,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Active Person',
+                    'active-hash',
+                    'hashed-password',
+                    'active-pnr',
+                    NULL
+                )
+                """
+            )
+        )
         conn.execute(
             text(
                 """
                 INSERT INTO supervisor_link_requests (supervisor_email, user_personnummer)
-                VALUES ('chef@example.com', 'pnr-hash')
+                VALUES
+                    ('chef@example.com', 'pnr-hash'),
+                    ('chef@example.com', 'pnr-hash')
                 """
             )
         )
-        with pytest.raises(IntegrityError):
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO supervisor_link_requests (supervisor_email, user_personnummer)
-                    VALUES ('chef@example.com', 'pnr-hash')
-                    """
-                )
-            )
-
         conn.execute(
             text(
                 """
@@ -358,33 +374,72 @@ def test_migration_0010_sqlite_adds_indexes_and_duplicate_protection():
                     user_personnummer,
                     user_name,
                     user_email
-                ) VALUES (
-                    '5569668337',
-                    'pnr-hash',
-                    'Test Person',
-                    'test@example.com'
-                )
+                ) VALUES
+                    ('5569668337', 'pnr-hash', 'Test Person', 'test@example.com'),
+                    ('5569668337', 'pnr-hash', 'Test Person', 'test@example.com')
                 """
             )
         )
+        database_module._migration_0010_add_orgnr_to_users_and_org_requests(conn)
+
+    inspector = sqlalchemy_inspect(engine)
+    pending_columns = {
+        column["name"]: column for column in inspector.get_columns("pending_users")
+    }
+    user_columns = {column["name"]: column for column in inspector.get_columns("users")}
+    pending_indexes = inspector.get_indexes("pending_users")
+    user_indexes = inspector.get_indexes("users")
+
+    assert "orgnr_normalized" in pending_columns
+    assert "orgnr_normalized" in user_columns
+    assert pending_columns["orgnr_normalized"]["nullable"] is False
+    assert user_columns["orgnr_normalized"]["nullable"] is False
+    assert any(index["column_names"] == ["orgnr_normalized"] for index in pending_indexes)
+    assert any(index["column_names"] == ["orgnr_normalized"] for index in user_indexes)
+
+    with engine.begin() as conn:
+        pending_row = conn.execute(text("SELECT orgnr_normalized FROM pending_users")).first()
+        user_row = conn.execute(text("SELECT orgnr_normalized FROM users")).first()
+        supervisor_rows = conn.execute(
+            text("SELECT id FROM supervisor_link_requests")
+        ).fetchall()
+        organization_rows = conn.execute(
+            text("SELECT id FROM organization_link_requests")
+        ).fetchall()
+
+        assert pending_row.orgnr_normalized == ""
+        assert user_row.orgnr_normalized == ""
+        assert len(supervisor_rows) == 1
+        assert len(organization_rows) == 1
+
         with pytest.raises(IntegrityError):
             conn.execute(
                 text(
                     """
-                    INSERT INTO organization_link_requests (
-                        orgnr_normalized,
-                        user_personnummer,
-                        user_name,
-                        user_email
-                    ) VALUES (
-                        '5569668337',
-                        'pnr-hash',
-                        'Test Person',
-                        'test@example.com'
+                        INSERT INTO supervisor_link_requests (supervisor_email, user_personnummer)
+                        VALUES ('chef@example.com', 'pnr-hash')
+                        """
                     )
-                    """
                 )
-            )
+
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                text(
+                    """
+                        INSERT INTO organization_link_requests (
+                            orgnr_normalized,
+                            user_personnummer,
+                            user_name,
+                            user_email
+                        ) VALUES (
+                            '5569668337',
+                            'pnr-hash',
+                            'Test Person',
+                            'test@example.com'
+                        )
+                        """
+                    )
+                )
 
 
 def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatch):
@@ -431,10 +486,12 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
 
     executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
     assert (
-        "ALTER TABLE pending_users ADD COLUMN orgnr_normalized TEXT DEFAULT ''"
+        "ALTER TABLE pending_users ADD COLUMN orgnr_normalized TEXT DEFAULT '' NOT NULL"
         in executed_sql_texts
     )
-    assert "ALTER TABLE users ADD COLUMN orgnr_normalized TEXT DEFAULT ''" in executed_sql_texts
+    assert "ALTER TABLE users ADD COLUMN orgnr_normalized TEXT DEFAULT '' NOT NULL" in executed_sql_texts
+    assert "UPDATE pending_users SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL" in executed_sql_texts
+    assert "UPDATE users SET orgnr_normalized = '' WHERE orgnr_normalized IS NULL" in executed_sql_texts
     assert (
         "CREATE INDEX IF NOT EXISTS ix_pending_users_orgnr_normalized "
         "ON pending_users (orgnr_normalized)"
@@ -443,11 +500,21 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
         "CREATE INDEX IF NOT EXISTS ix_users_orgnr_normalized "
         "ON users (orgnr_normalized)"
     ) in executed_sql_texts
+    assert any(
+        "DELETE FROM supervisor_link_requests" in sql
+        and "GROUP BY supervisor_email, user_personnummer" in sql
+        for sql in executed_sql_texts
+    )
     assert (
         "ALTER TABLE supervisor_link_requests "
         "ADD CONSTRAINT uq_supervisor_link_requests_pair "
         "UNIQUE (supervisor_email, user_personnummer)"
     ) in executed_sql_texts
+    assert any(
+        "DELETE FROM organization_link_requests" in sql
+        and "GROUP BY orgnr_normalized, user_personnummer" in sql
+        for sql in executed_sql_texts
+    )
     assert (
         "ALTER TABLE organization_link_requests "
         "ADD CONSTRAINT uq_organization_link_requests_pair "

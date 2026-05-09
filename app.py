@@ -913,7 +913,10 @@ def supervisor_dashboard():
     company_name = None
     organization_link_requests = []
     if supervisor_orgnr:
-        overview = functions.get_public_organization_overview(supervisor_orgnr)
+        try:
+            overview = functions.get_public_organization_overview(supervisor_orgnr)
+        except ValueError:
+            overview = {}
         company_name = overview.get("company_name")
         organization_link_requests = functions.list_pending_organization_link_requests(
             supervisor_orgnr
@@ -968,8 +971,12 @@ def supervisor_approve_organization_link_request_route(request_id: int):
             flash("Kopplingen kunde inte godk\u00e4nnas.", "error")
         return redirect(redirect_target)
 
-    overview = functions.get_public_organization_overview(supervisor_orgnr)
-    company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
+    try:
+        overview = functions.get_public_organization_overview(supervisor_orgnr)
+    except ValueError:
+        company_name = f"organisationsnummer {supervisor_orgnr}"
+    else:
+        company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
     try:
         email_service.send_organization_link_approved_email(
             request_data["user_email"],
@@ -1019,8 +1026,12 @@ def supervisor_reject_organization_link_request_route(request_id: int):
             flash("Kopplingen kunde inte avsl\u00e5s.", "error")
         return redirect(redirect_target)
 
-    overview = functions.get_public_organization_overview(supervisor_orgnr)
-    company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
+    try:
+        overview = functions.get_public_organization_overview(supervisor_orgnr)
+    except ValueError:
+        company_name = f"organisationsnummer {supervisor_orgnr}"
+    else:
+        company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
     try:
         email_service.send_organization_link_rejected_email(
             request_data["user_email"],
