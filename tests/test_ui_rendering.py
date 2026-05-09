@@ -152,6 +152,49 @@ def test_home_page_exposes_motion_markers(empty_db):
     assert 'data-motion-group="benefits"' in body
 
 
+def test_home_page_head_uses_non_blocking_assets_and_cmp_order(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    cmp_script = "https://cdn.consentmanager.net/delivery/autoblocking/79b762eac2d3b.js"
+    clarity_script = "https://www.clarity.ms/tag/"
+    google_script = "https://www.googletagmanager.com/gtag/js?id=G-EHG218KKPZ"
+
+    assert body.index(cmp_script) < body.index(clarity_script)
+    assert body.index(cmp_script) < body.index(google_script)
+    assert 'rel="preconnect" href="https://cdn.consentmanager.net"' in body
+    assert 'rel="preconnect" href="https://a.delivery.consentmanager.net"' in body
+    assert 'rel="preload" href="/static/css/base.css"' in body
+    assert 'media="print" onload="this.media=\'all\'"' in body
+    assert 'type="text/plain" class="cmplazyload" data-cmp-vendor="s2631"' in body
+    assert 'type="text/plain" class="cmplazyload" data-cmp-vendor="s26"' in body
+
+
+def test_logo_asset_is_optimized_for_small_ui_slots():
+    logo_path = Path("static/pictures/favicon_smaller.png")
+    data = logo_path.read_bytes()
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert int.from_bytes(data[16:20], "big") == 80
+    assert int.from_bytes(data[20:24], "big") == 80
+    assert logo_path.stat().st_size < 10_000
+
+
+def test_home_page_logo_images_declare_explicit_dimensions(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert 'class="brand-logo"' in body
+    assert 'width="40"' in body
+    assert 'height="40"' in body
+    assert 'width="30"' in body
+    assert 'height="30"' in body
+
+
 def test_apply_and_pricing_pages_expose_motion_markers(empty_db):
     with _client() as client:
         apply_response = client.get("/ansok")

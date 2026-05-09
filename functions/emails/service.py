@@ -151,21 +151,45 @@ def send_email_message(
             settings.timeout,
         )
 
-        if use_ssl:
-            with SMTP_SSL(
-                settings.server,
-                settings.port,
-                timeout=settings.timeout,
-                context=context,
-            ) as smtp:
-                _send_using_connection(smtp, use_ssl=True)
-        else:
-            with SMTP(
-                settings.server,
-                settings.port,
-                timeout=settings.timeout,
-            ) as smtp:
-                _send_using_connection(smtp, use_ssl=False)
+        with open_smtp_connection(settings, context) as smtp:
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
+            if not use_ssl:
+                try:
+                    from inspect import signature
+
+                    if "context" in signature(smtp.starttls).parameters:
+                        smtp.starttls(context=context)
+                        logger.debug("SMTP STARTTLS initierad med kontext")
+                    else:
+                        smtp.starttls()
+                        logger.debug("SMTP STARTTLS initierad utan kontext")
+                except (TypeError, ValueError):
+                    smtp.starttls()
+                    logger.debug("SMTP STARTTLS initierad (fallback)")
+
+                if hasattr(smtp, "ehlo"):
+                    smtp.ehlo()
+
+            smtp.login(settings.user, settings.password)
+            logger.debug("SMTP inloggning lyckades för %s", settings.user)
+
+            if hasattr(smtp, "send_message"):
+                refused = smtp.send_message(
+                    msg,
+                    from_addr=settings.from_address,
+                    to_addrs=[normalized_recipient],
+                )
+            else:
+                refused = smtp.sendmail(
+                    settings.from_address, [normalized_recipient], msg.as_string()
+                )
+
+            logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
+            if refused:
+                logger.error("SMTP server refused recipients: %s", recipient_mask)
+                raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
         logger.debug(
             "Meddelande-ID för utskick till %s: %s",
@@ -185,6 +209,20 @@ def send_email_message(
     except OSError as exc:
         logger.error("Connection error to email server")
         raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
+
+
+def open_smtp_connection(settings: SMTPSettings, context: ssl.SSLContext) -> SMTP:
+    """Open an SMTP connection with the correct TLS mode for ``settings``."""
+
+    if settings.port == 465:
+        return SMTP_SSL(
+            settings.server,
+            settings.port,
+            timeout=settings.timeout,
+            context=context,
+        )
+
+    return SMTP(settings.server, settings.port, timeout=settings.timeout)
 
 
 def should_disable_email_sending() -> bool:

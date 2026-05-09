@@ -545,6 +545,9 @@ def _before_first_request():
 
 @app.before_request
 def _log_request_start() -> None:
+    if _is_pytest_running():
+        return
+
     # Skip logging for health check endpoint and other non-essential endpoints
     if request.endpoint in ("health", "robots_txt"):
         return
@@ -584,6 +587,9 @@ def _log_request_start() -> None:
 
 @app.after_request
 def _log_request_end(response: Response) -> Response:
+    if _is_pytest_running():
+        return response
+
     # Skip logging for health check endpoint and other non-essential endpoints
     if request.endpoint in ("health", "robots_txt", "sitemap_xml"):
         return response

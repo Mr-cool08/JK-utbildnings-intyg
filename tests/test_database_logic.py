@@ -549,6 +549,29 @@ def test_switch_postgres_host_returns_false_for_non_dns_error(monkeypatch):
     assert os.environ["DATABASE_URL"] == "postgresql://user:pass@postgres:5432/testdb"
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        '[Errno -2] Name or service not known',
+        '[Errno -3] Temporary failure in name resolution',
+        '[Errno 11001] getaddrinfo failed',
+        'nodename nor servname provided, or not known',
+    ],
+)
+def test_switch_postgres_host_handles_platform_specific_dns_errors(monkeypatch, message):
+    monkeypatch.setenv("POSTGRES_FALLBACK_HOSTS", "localhost,127.0.0.1")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
+    monkeypatch.setattr(database_module, "reset_engine", lambda: None)
+
+    switched = database_module._switch_postgres_host_after_dns_error(
+        _postgres_engine(),
+        OperationalError("SELECT 1", {}, Exception(message)),
+    )
+
+    assert switched is True
+    assert os.environ["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/testdb"
+
+
 def test_switch_postgres_host_returns_false_when_only_current_host_is_listed(monkeypatch):
     monkeypatch.setenv("POSTGRES_FALLBACK_HOSTS", "postgres")
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")

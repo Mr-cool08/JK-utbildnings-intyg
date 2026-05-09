@@ -1184,13 +1184,25 @@ def _switch_to_dev_sqlite_after_failed_retries(engine: Engine) -> bool:
     return True
 
 
+def _is_postgres_dns_error(error: OperationalError) -> bool:
+    # Match common DNS resolution failures emitted by libpq/psycopg on different platforms.
+    error_message = str(getattr(error, "orig", error)).lower()
+    known_dns_error_fragments = (
+        "could not translate host name",
+        "name or service not known",
+        "temporary failure in name resolution",
+        "nodename nor servname provided, or not known",
+        "getaddrinfo failed",
+    )
+    return any(fragment in error_message for fragment in known_dns_error_fragments)
+
+
 def _switch_postgres_host_after_dns_error(engine: Engine, error: OperationalError) -> bool:
     # Byt till alternativ PostgreSQL-värd vid DNS-fel för ökad robusthet i varierande miljöer.
     if engine.url.get_backend_name() != "postgresql":
         return False
 
-    error_message = str(getattr(error, "orig", error)).lower()
-    if "could not translate host name" not in error_message:
+    if not _is_postgres_dns_error(error):
         return False
 
     current_host = engine.url.host or ""

@@ -15,7 +15,6 @@
 !deploy/fail2ban/fail2ban.local
 *.pem
 *.key
-.python-version
 
 # ----------------------------------------
 # Python cache & compiled files
