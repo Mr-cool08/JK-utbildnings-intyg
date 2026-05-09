@@ -1,3 +1,5 @@
+import pytest
+
 import app
 import functions
 
@@ -17,6 +19,7 @@ def test_apply_landing_has_links(empty_db):
         assert "Skapa privatkonto" in body
 
 
+@pytest.mark.allow_public_rate_limited
 def test_user_account_registration_creates_pending_user_and_org_request(
     empty_db, monkeypatch
 ):
@@ -71,6 +74,7 @@ def test_user_account_registration_creates_pending_user_and_org_request(
     assert "/create_user/" in sent["link"]
 
 
+@pytest.mark.allow_public_rate_limited
 def test_user_account_registration_without_orgnr_only_creates_pending_user(
     empty_db, monkeypatch
 ):
@@ -101,6 +105,7 @@ def test_user_account_registration_without_orgnr_only_creates_pending_user(
         assert org_requests == []
 
 
+@pytest.mark.allow_public_rate_limited
 def test_foretagskonto_application_submission(empty_db):
     with _client() as client:
         with client.session_transaction() as session:
@@ -135,6 +140,7 @@ def test_foretagskonto_application_submission(empty_db):
         assert row.invoice_reference == "Märkning 123"
 
 
+@pytest.mark.allow_public_rate_limited
 def test_user_account_registration_requires_terms_confirmation(empty_db):
     with _client() as client:
         with client.session_transaction() as session:

@@ -920,13 +920,13 @@ def supervisor_dashboard():
         )
         status_labels = {
             "active": "Aktivt privatkonto",
-            "pending": "InvÃ¤ntar lÃ¶senord",
+            "pending": "Inv\u00e4ntar l\u00f6senord",
             "missing": "Kontot kunde inte hittas",
         }
         for entry in organization_link_requests:
             entry["account_status_label"] = status_labels.get(
                 entry.get("account_status", ""),
-                "OkÃ¤nd status",
+                "Ok\u00e4nd status",
             )
 
     return render_template(
@@ -949,7 +949,7 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         flash(CSRF_EXPIRED_MESSAGE, "error")
         return redirect(redirect_target)
     if not supervisor_orgnr:
-        flash("FÃ¶retagskontot saknar organisationsnummer.", "error")
+        flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
         return redirect(redirect_target)
 
     success, request_data, reason = functions.approve_organization_link_request(
@@ -959,13 +959,13 @@ def supervisor_approve_organization_link_request_route(request_id: int):
     )
     if not success:
         if reason == "missing_request":
-            flash("FÃ¶rfrÃ¥gan kunde inte hittas.", "error")
+            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
         elif reason == "missing_user":
-            flash("Privatkontot finns inte lÃ¤ngre kvar.", "error")
+            flash("Privatkontot finns inte l\u00e4ngre kvar.", "error")
         elif reason == "handled_request":
-            flash("FÃ¶rfrÃ¥gan Ã¤r redan hanterad.", "error")
+            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
         else:
-            flash("Kopplingen kunde inte godkÃ¤nnas.", "error")
+            flash("Kopplingen kunde inte godk\u00e4nnas.", "error")
         return redirect(redirect_target)
 
     overview = functions.get_public_organization_overview(supervisor_orgnr)
@@ -977,15 +977,18 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         )
     except Exception:
         logger.exception(
-            "Koppling godkÃ¤nd men mejl kunde inte skickas till privatkonto fÃ¶r org-fÃ¶rfrÃ¥gan %s",
+            "Koppling godk\u00e4nd men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
             request_id,
         )
         flash(
-            "Kopplingen godkÃ¤ndes men bekrÃ¤ftelsemejlet kunde inte skickas till privatpersonen.",
+            "Kopplingen godk\u00e4ndes men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
             "error",
         )
     else:
-        flash("Kopplingen har godkÃ¤nts och privatpersonen har informerats via e-post.", "success")
+        flash(
+            "Kopplingen har godk\u00e4nts och privatpersonen har informerats via e-post.",
+            "success",
+        )
 
     return redirect(redirect_target)
 
@@ -999,7 +1002,7 @@ def supervisor_reject_organization_link_request_route(request_id: int):
         flash(CSRF_EXPIRED_MESSAGE, "error")
         return redirect(redirect_target)
     if not supervisor_orgnr:
-        flash("FÃ¶retagskontot saknar organisationsnummer.", "error")
+        flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
         return redirect(redirect_target)
 
     success, request_data, reason = functions.reject_organization_link_request(
@@ -1009,11 +1012,11 @@ def supervisor_reject_organization_link_request_route(request_id: int):
     )
     if not success:
         if reason == "missing_request":
-            flash("FÃ¶rfrÃ¥gan kunde inte hittas.", "error")
+            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
         elif reason == "handled_request":
-            flash("FÃ¶rfrÃ¥gan Ã¤r redan hanterad.", "error")
+            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
         else:
-            flash("Kopplingen kunde inte avslÃ¥s.", "error")
+            flash("Kopplingen kunde inte avsl\u00e5s.", "error")
         return redirect(redirect_target)
 
     overview = functions.get_public_organization_overview(supervisor_orgnr)
@@ -1025,15 +1028,18 @@ def supervisor_reject_organization_link_request_route(request_id: int):
         )
     except Exception:
         logger.exception(
-            "Koppling avslogs men mejl kunde inte skickas till privatkonto fÃ¶r org-fÃ¶rfrÃ¥gan %s",
+            "Koppling avslogs men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
             request_id,
         )
         flash(
-            "FÃ¶rfrÃ¥gan avslogs men bekrÃ¤ftelsemejlet kunde inte skickas till privatpersonen.",
+            "F\u00f6rfr\u00e5gan avslogs men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
             "error",
         )
     else:
-        flash("FÃ¶rfrÃ¥gan har avslagits och privatpersonen har informerats via e-post.", "success")
+        flash(
+            "F\u00f6rfr\u00e5gan har avslagits och privatpersonen har informerats via e-post.",
+            "success",
+        )
 
     return redirect(redirect_target)
 
@@ -1309,99 +1315,6 @@ def _handle_standard_account_registration():
                 if not as_bool(form_data.get("terms_confirmed")):
                     field_errors["terms_confirmed"] = True
                     form_errors.append(
-                        "Du mÃ¥ste intyga att du har lÃ¤st och fÃ¶rstÃ¥tt villkoren och den juridiska informationen innan du skapar kontot."
-                    )
-                if not form_errors:
-                    try:
-                        result = functions.register_standard_account(
-                            form_data["name"],
-                            form_data["email"],
-                            form_data["personnummer"],
-                            form_data.get("orgnr"),
-                        )
-                        logger.info(
-                            "Nytt privatkonto registrerat fÃ¶r %s",
-                            mask_hash(functions.hash_value(form_data["email"].lower())),
-                        )
-                        creation_link = url_for(
-                            "create_user",
-                            pnr_hash=result["personnummer_hash"],
-                            _external=True,
-                        )
-                        try:
-                            email_service.send_creation_email(
-                                result["email"],
-                                creation_link,
-                            )
-                        except Exception:
-                            logger.exception(
-                                "Privatkonto skapades men aktiveringsmejlet kunde inte skickas"
-                            )
-                            flash(
-                                "Kontot Ã¤r skapat men aktiveringsmejlet kunde inte skickas just nu. Kontakta support sÃ¥ hjÃ¤lper vi dig.",
-                                "error",
-                            )
-                        else:
-                            flash(
-                                "Kontot Ã¤r skapat. Kontrollera din e-post och skapa ditt lÃ¶senord innan du loggar in.",
-                                "success",
-                            )
-                        return redirect(url_for("login"))
-                    except ValueError as exc:
-                        message = str(exc)
-                        form_errors.append(message)
-                        _flag_application_field_error(message, field_errors)
-                    except Exception:
-                        logger.exception("Kunde inte skapa privatkonto")
-                        form_errors.append(
-                            "Det gick inte att skapa kontot just nu. FÃ¶rsÃ¶k igen senare."
-                        )
-
-    csrf_token = sec.ensure_csrf_token()
-    return (
-        render_template(
-            "apply_standardkonto.html",
-            csrf_token=csrf_token,
-            form_data=form_data,
-            form_errors=form_errors,
-            field_errors=field_errors,
-        ),
-        status_code,
-    )
-
-
-def _handle_standard_account_registration_v2():
-    form_errors: list[str] = []
-    field_errors = {
-        "name": False,
-        "email": False,
-        "personnummer": False,
-        "orgnr": False,
-        "terms_confirmed": False,
-    }
-    form_data = {
-        "name": "",
-        "email": "",
-        "personnummer": "",
-        "orgnr": "",
-        "terms_confirmed": "",
-    }
-    status_code = 200
-
-    if request.method == "POST":
-        for key in form_data:
-            form_data[key] = (request.form.get(key, "") or "").strip()
-        if not validate_csrf_token():
-            form_errors.append(CSRF_EXPIRED_MESSAGE)
-        else:
-            client_ip = get_request_ip()
-            if not register_public_submission(client_ip):
-                status_code = 429
-                form_errors.append(TOO_MANY_ATTEMPTS_MESSAGE)
-            else:
-                if not as_bool(form_data.get("terms_confirmed")):
-                    field_errors["terms_confirmed"] = True
-                    form_errors.append(
                         "Du m\u00e5ste intyga att du har l\u00e4st och f\u00f6rst\u00e5tt villkoren och den juridiska informationen innan du skapar kontot."
                     )
                 if not form_errors:
@@ -1467,108 +1380,7 @@ def _handle_standard_account_registration_v2():
 def apply_standardkonto():
     """Visa och hantera ansökan för standardkonto."""
 
-    return _handle_standard_account_registration_v2()
-    form_errors: list[str] = []
-    base_field_errors = {
-        "name": False,
-        "email": False,
-        "personnummer": False,
-        "company_name": False,
-        "invoice_address": False,
-        "invoice_contact": False,
-        "invoice_reference": False,
-        "comment": False,
-        "terms_confirmed": False,
-    }
-    field_errors = dict(base_field_errors)
-    status_code = 200
-
-    base_form_data = {
-        "name": "",
-        "email": "",
-        "personnummer": "",
-        "comment": "",
-        "terms_confirmed": "",
-        "company_name": "",
-    }
-
-    form_data = dict(base_form_data)
-
-    if request.method == "POST":
-        for key in form_data:
-            form_data[key] = (request.form.get(key, "") or "").strip()
-        if not validate_csrf_token():
-            form_errors.append("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.")
-        else:
-            client_ip = get_request_ip()
-            if not register_public_submission(client_ip):
-                status_code = 429
-                form_errors.append("Du har gjort för många försök. Vänta en stund och prova igen.")
-            else:
-                if not as_bool(form_data.get("terms_confirmed")):
-                    field_errors["terms_confirmed"] = True
-                    form_errors.append(
-                        "Du måste intyga att du har läst och förstått villkoren och den juridiska informationen innan du skickar ansökan."
-                    )
-                if not form_errors:
-                    try:
-                        request_id = functions.create_application_request(
-                            account_type,
-                            form_data["name"],
-                            form_data["email"],
-                            "",
-                            form_data.get("company_name"),
-                            form_data.get("comment"),
-                            form_data.get("invoice_address"),
-                            form_data.get("invoice_contact"),
-                            form_data.get("invoice_reference"),
-                            form_data.get("personnummer"),
-                        )
-                        logger.info(
-                            "Ny ansökan %s mottagen från %s",
-                            request_id,
-                            mask_hash(functions.hash_value(form_data["email"].lower())),
-                        )
-                        try:
-                            email_service.new_application_email_to_support(
-                                account_type=account_type
-                            )
-                        except Exception:  # pragma: no cover - e-postfel ska inte stoppa ansökan
-                            logger.exception(
-                                "Ansökan sparades men supportmejl kunde inte skickas"
-                            )
-                    except ValueError as exc:
-                        message = str(exc)
-                        form_errors.append(message)
-                        _flag_application_field_error(message, field_errors)
-                    except Exception as exc:  # pragma: no cover - defensiv loggning
-                        logger.error("Kunde inte spara ansökan")
-                        form_errors.append(
-                            "Det gick inte att skicka ansökan just nu. Försök igen senare."
-                        )
-                    else:
-                        # Make the client-facing confirmation explicit about which account type was submitted
-                        display_type = (
-                            "företagskonto" if account_type == "foretagskonto" else "standardkonto"
-                        )
-                        flash(
-                            f"Din ansökan om {display_type} har skickats. Tack! Vi hör av oss så snart vi granskat ansökan.",
-                            "success",
-                        )
-                        return redirect(url_for("application_submitted", account_type=account_type))
-
-    csrf_token = sec.ensure_csrf_token()
-
-    return (
-        render_template(
-            "apply_standardkonto.html",
-            csrf_token=csrf_token,
-            form_data=form_data,
-            form_errors=form_errors,
-            field_errors=field_errors,
-        ),
-        status_code,
-    )
+    return _handle_standard_account_registration()
 
 
 @app.route("/ansok/foretagskonto", methods=["GET", "POST"])

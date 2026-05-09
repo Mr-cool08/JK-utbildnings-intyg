@@ -47,7 +47,12 @@ def allow_pdf_scanning(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def allow_public_rate_limited_routes(monkeypatch: pytest.MonkeyPatch):
+def allow_public_rate_limited_routes(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    if request.node.get_closest_marker("allow_public_rate_limited") is None:
+        return
     monkeypatch.setattr(app, "register_public_submission", lambda _ip: True)
 
 

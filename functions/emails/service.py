@@ -461,6 +461,8 @@ def send_application_rejection_email(to_email: str, company_name: str, reason: s
     )
     body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ff0000")
     send_email(to_email, subject, body)
+
+
 def new_application_email_to_support(account_type) -> None:
     """Notify support about a new application."""
 

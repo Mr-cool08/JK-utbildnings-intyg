@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 import app
 import functions
+import pytest
 from course_categories import COURSE_CATEGORIES
 
 
@@ -51,6 +52,7 @@ def _supervisor_login(client, orgnr: str, password: str) -> None:
     assert response.headers.get("Location", "").endswith("/foretagskonto")
 
 
+@pytest.mark.allow_public_rate_limited
 def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monkeypatch):
     sent = {}
 
@@ -166,6 +168,7 @@ def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monke
     assert shared["attachments"][0][0] == uploaded.filename
 
 
+@pytest.mark.allow_public_rate_limited
 def test_e2e_foretagskonto_flow_application_to_link_request_and_acceptance(empty_db):
     personnummer = "9112121234"
     personnummer_hash = functions.hash_value(functions.normalize_personnummer(personnummer))

@@ -621,7 +621,7 @@ def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
 
 
 def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> None:
-    # LÃ¤gg till organisationsnummer pÃ¥ privatkonton och tabell fÃ¶r org-fÃ¶rfrÃ¥gningar.
+    # Lägg till organisationsnummer på privatkonton och tabell för org-förfrågningar.
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if pending_users_table.name in existing_tables:
