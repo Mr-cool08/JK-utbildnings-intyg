@@ -1,57 +1,58 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Ansök om konto{% endblock %}
+{% block title %}Skapa eller ansök om konto{% endblock %}
 {% block head %}
-    <meta name="description" content="Välj ansökningsväg för att skapa konto i Utbildningsintygets portal.">
+    <meta name="description" content="Välj rätt väg för att skapa privatkonto eller ansöka om företagskonto i Utbildningsintygs portal.">
 {% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title" data-motion="hero">
     <div class="apply-hero-content">
         <div class="apply-intro" data-motion-child>
-            <h1 id="apply-title">Ansök om konto</h1>
-            <p>Välj vilken typ av konto du behöver för att komma igång med Utbildningsintyg.</p>
-            <!-- Buttons moved into each choice card below to make selection more direct -->
+            <h1 id="apply-title">Skapa eller ansök om konto</h1>
+            <p>Privatpersoner skapar konto direkt. Organisationer ansöker om företagskonto.</p>
         </div>
+
         <div class="apply-choice-panels" data-motion-group="apply-options">
             <article class="apply-choice-card" data-motion-child>
                 <h2>Privatkonto</h2>
-                    <p>För användare som vill hantera sina egna intyg.</p>
+                <p>För dig som vill hantera dina egna intyg.</p>
                 <ul>
-                    <li>Enkel tillgång till intyg dina egna intyg</li>
+                    <li>Direkt registrering utan manuell granskning.</li>
+                    <li>Lösenord skapas via länk i e-post.</li>
                     <li>Privatkonto är alltid gratis.</li>
-                    <li>Ansökan tar bara någon minut.</li>
                 </ul>
-                <a class="btn btn-secondary" href="{{ url_for('apply_standardkonto') }}" aria-label="Ansök om användarkonto">Ansök om användarkonto</a>
-             </article>
-             <article class="apply-choice-card" data-motion-child>
-                 <h2>Företagskonto</h2>
-                    <p>För organisationer som behöver hantera flera användare och intyg.</p>
-                 <ul>
-                     <li>Administrera flera intyg och användare.</li>
-                     <li>Enkel hantering av flera intyg.</li>
-                     <li>Sammanställning av fakturering.</li>
+                <a class="btn btn-secondary" href="{{ url_for('apply_standardkonto') }}" aria-label="Skapa privatkonto">Skapa privatkonto</a>
+            </article>
+
+            <article class="apply-choice-card" data-motion-child>
+                <h2>Företagskonto</h2>
+                <p>För organisationer som behöver hantera flera användare och intyg.</p>
+                <ul>
+                    <li>Ansökan granskas innan kontot aktiveras.</li>
+                    <li>Flera användare kan kopplas till samma organisation.</li>
+                    <li>Fakturaunderlag och företagsöversikt ingår.</li>
                 </ul>
                 <a class="btn btn-secondary" href="{{ url_for('apply_foretagskonto') }}" aria-label="Ansök om företagskonto">Ansök om företagskonto</a>
-             </article>
-         </div>
-     </div>
- </section>
+            </article>
+        </div>
+    </div>
+</section>
 
 <section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
-    <h2 id="steps-title">Så går ansökan till</h2>
+    <h2 id="steps-title">Så går det till</h2>
     <ol class="apply-step-list" data-motion-group="apply-steps">
         <li data-motion-child>
-            <h3>Skicka in uppgifter</h3>
-            <p>Välj rätt konto och fyll i uppgifterna så att vi kan återkoppla.</p>
+            <h3>Välj kontotyp</h3>
+            <p>Privatkonto skapas direkt medan företagskonto går via ansökan.</p>
         </li>
         <li data-motion-child>
-            <h3>Verifiering</h3>
-            <p>Vi kontrollerar uppgifterna, skapar företag och återkopplar via e-post.</p>
+            <h3>Bekräfta dina uppgifter</h3>
+            <p>Privatpersoner får en länk via e-post för att skapa lösenord. Företagskonton granskas innan aktivering.</p>
         </li>
         <li data-motion-child>
-            <h3>Starta upp</h3>
-            <p>När ansökan godkänns skickar vi instruktioner för att logga in och börja använda tjänsten.</p>
+            <h3>Kom igång</h3>
+            <p>När kontot är aktiverat kan du logga in och börja använda portalen.</p>
         </li>
     </ol>
 </section>
 {% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

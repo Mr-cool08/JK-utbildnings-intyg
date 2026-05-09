@@ -98,6 +98,47 @@ def send_email_message(
 
     context = ssl.create_default_context()
     recipient_mask = mask_hash(functions.hash_value(normalized_recipient))
+    masked_user = mask_hash(functions.hash_value(settings.user))
+
+    def _send_using_connection(smtp: SMTP, use_ssl: bool) -> None:
+        if hasattr(smtp, "ehlo"):
+            smtp.ehlo()
+
+        if not use_ssl:
+            try:
+                from inspect import signature
+
+                if "context" in signature(smtp.starttls).parameters:
+                    smtp.starttls(context=context)
+                    logger.debug("SMTP STARTTLS initierad med kontext")
+                else:
+                    smtp.starttls()
+                    logger.debug("SMTP STARTTLS initierad utan kontext")
+            except (TypeError, ValueError):
+                smtp.starttls()
+                logger.debug("SMTP STARTTLS initierad (fallback)")
+
+            if hasattr(smtp, "ehlo"):
+                smtp.ehlo()
+
+        smtp.login(settings.user, settings.password)
+        logger.debug("SMTP inloggning lyckades för %s", masked_user)
+
+        if hasattr(smtp, "send_message"):
+            refused = smtp.send_message(
+                msg,
+                from_addr=settings.from_address,
+                to_addrs=[normalized_recipient],
+            )
+        else:
+            refused = smtp.sendmail(
+                settings.from_address, [normalized_recipient], msg.as_string()
+            )
+
+        logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
+        if refused:
+            logger.error("SMTP server refused recipients: %s", recipient_mask)
+            raise RuntimeError("E-postservern accepterade inte mottagaren.")
 
     try:
         use_ssl = settings.port == 465
@@ -132,7 +173,7 @@ def send_email_message(
                     smtp.ehlo()
 
             smtp.login(settings.user, settings.password)
-            logger.debug("SMTP inloggning lyckades för %s", settings.user)
+            logger.debug("SMTP inloggning lyckades för %s", masked_user)
 
             if hasattr(smtp, "send_message"):
                 refused = smtp.send_message(
@@ -157,7 +198,7 @@ def send_email_message(
         )
 
     except SMTPAuthenticationError as exc:
-        logger.error("SMTP login failed for %s", settings.user)
+        logger.error("SMTP login failed for %s", masked_user)
         raise RuntimeError("SMTP-inloggning misslyckades") from exc
     except SMTPServerDisconnected as exc:
         logger.error("Server closed the connection during SMTP session")
@@ -355,6 +396,45 @@ def send_account_deletion_email(to_email: str, username: str | None = None) -> N
     send_email(to_email, "Ditt konto har raderats", body)
 
 
+def send_organization_link_approved_email(to_email: str, company_name: str) -> None:
+    """Skicka besked om godkänd organisationskoppling."""
+
+    company_label = (company_name or "").strip() or "organisationen"
+    safe_company = escape(company_label)
+    subject = f"Kopplingen till {company_label} \u00e4r godk\u00e4nd"
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Din koppling till {safe_company} har godk\u00e4nts.</p>"
+        "<p>Du kan nu logga in och forts\u00e4tta anv\u00e4nda ditt privatkonto som vanligt.</p>"
+        "<p>Har du fr\u00e5gor \u00e4r du v\u00e4lkommen att kontakta support.</p>"
+    )
+    body = format_email_html(
+        "Din organisationskoppling \u00e4r godk\u00e4nd",
+        content,
+        accent_color="#15803d",
+    )
+    send_email(to_email, subject, body)
+
+
+def send_organization_link_rejected_email(to_email: str, company_name: str) -> None:
+    """Skicka besked om avslagen organisationskoppling."""
+
+    company_label = (company_name or "").strip() or "organisationen"
+    safe_company = escape(company_label)
+    subject = f"Kopplingen till {company_label} avslogs"
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Din f\u00f6rfr\u00e5gan om koppling till {safe_company} har avslagits.</p>"
+        "<p>Om du anser att det blivit fel kan du kontakta organisationen eller v\u00e5r support.</p>"
+    )
+    body = format_email_html(
+        "Din organisationskoppling avslogs",
+        content,
+        accent_color="#b91c1c",
+    )
+    send_email(to_email, subject, body)
+
+
 def send_pdf_share_email(
     recipient_email: str,
     attachments: Sequence[tuple[str, bytes]],
@@ -406,11 +486,10 @@ def send_pdf_share_email(
 def send_application_rejection_email(to_email: str, company_name: str, reason: str) -> None:
     """Skicka besked om avslagen ansökan."""
 
-    safe_company = escape((company_name or "").strip())
-    if not safe_company:
-        safe_company = "företaget"
+    company_label = (company_name or "").strip() or "företaget"
+    safe_company = escape(company_label)
     safe_reason = escape(reason)
-    subject = f"Ansökan avslogs för {safe_company}"
+    subject = f"Ansökan avslogs för {company_label}"
     content = (
         "<p>Hej,</p>"
         f"<p>Vi har tyvärr inte kunnat godkänna din ansökan om konto kopplat till {safe_company}.</p>"
@@ -422,6 +501,8 @@ def send_application_rejection_email(to_email: str, company_name: str, reason: s
     )
     body = format_email_html("Din ansökan blev avslagen", content, accent_color="#ff0000")
     send_email(to_email, subject, body)
+
+
 def new_application_email_to_support(account_type) -> None:
     """Notify support about a new application."""
 

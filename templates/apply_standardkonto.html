@@ -1,19 +1,18 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Ansök om användarkonto – Utbildningsintyg{% endblock %}
+{% block title %}Skapa privatkonto – Utbildningsintyg{% endblock %}
 {% block head %}
-    <meta name="description" content="Ansök om användarkonto och få tillgång till Utbildningsintygets portal.">
+    <meta name="description" content="Skapa privatkonto och få tillgång till Utbildningsintygets portal.">
 {% endblock %}
 {% block content %}
 <section class="apply-hero" aria-labelledby="apply-title" data-motion="hero">
     <div class="apply-hero-content" data-motion-group="apply-user-hero">
-
         <a class="back-link" href="{{ url_for('apply_account') }}" aria-label="Tillbaka till kontovalet" data-motion-child>&#x2190; Tillbaka</a>
 
         <div class="apply-intro" data-motion-child>
-            <h1 id="apply-title">Ansök om användarkonto</h1>
-            <p>Fyll i uppgifterna så kontaktar vi dig när kontot är klart.</p>
+            <h1 id="apply-title">Skapa privatkonto</h1>
+            <p>Fyll i dina uppgifter. Vi skickar en länk via e-post där du själv skapar ditt lösenord.</p>
         </div>
+
         <form method="post" class="apply-form" novalidate data-motion-child>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             {% if form_errors %}
@@ -59,7 +58,7 @@
                 name="personnummer"
                 type="text"
                 inputmode="numeric"
-                pattern="[0-9\\s-]{10,13}"
+                pattern="[0-9\s-]{10,13}"
                 value="{{ form_data.personnummer }}"
                 placeholder="ÅÅMMDDXXXX"
                 required
@@ -72,15 +71,24 @@
                 <p class="field-error-message" id="personnummer-error">Ange ett giltigt personnummer i formatet ÅÅMMDDXXXX.</p>
             {% endif %}
 
-            {% set comment_error = field_errors.get('comment') %}
-            <label for="comment">Extra information <span class="optional">(valfritt)</span></label>
-            <textarea
-                id="comment"
-                name="comment"
-                rows="4"
-                class="{% if comment_error %}input-error{% endif %}"
-                aria-invalid="{{ 'true' if comment_error else 'false' }}"
-            >{{ form_data.comment }}</textarea>
+            {% set orgnr_error = field_errors.get('orgnr') %}
+            <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
+            <input
+                id="orgnr"
+                name="orgnr"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9\s-]{10,13}"
+                value="{{ form_data.orgnr }}"
+                placeholder="5569668337"
+                class="{% if orgnr_error %}input-error{% endif %}"
+                aria-invalid="{{ 'true' if orgnr_error else 'false' }}"
+                aria-describedby="orgnr-hint{% if orgnr_error %} orgnr-error{% endif %}"
+            >
+            <small class="hint" id="orgnr-hint">Ange organisationsnummer om du vill koppla kontot till en organisation senare.</small>
+            {% if orgnr_error %}
+                <p class="field-error-message" id="orgnr-error">Kontrollera organisationsnumret och försök igen.</p>
+            {% endif %}
 
             {% set terms_error = field_errors.get('terms_confirmed') %}
             <div class="form-consent">
@@ -100,36 +108,31 @@
                 </label>
             </div>
 
-            <button type="submit" class="btn">Skicka ansökan</button>
+            <button type="submit" class="btn">Skapa konto</button>
         </form>
-        {% if success_message %}
-            <div class="message success" role="status" aria-live="polite" data-motion-child>
-                {{ success_message }}
-            </div>
-        {% endif %}
     </div>
 </section>
 
 <section class="apply-info" aria-labelledby="info-title" data-motion="section">
-    <h2 id="info-title">Om användarkonton</h2>
-    <p class="apply-price">Användarkonto är gratis för arbetsplatser anslutna till Utbildningsintyg.</p>
-    <p>Företagskonton hanterar kopplingen mellan användare och företag vid behov.</p>
+    <h2 id="info-title">Så fungerar det</h2>
+    <p class="apply-price">Privatkonto är gratis.</p>
+    <p>Om du anger ett organisationsnummer sparas det på ditt konto. Finns ett företagskonto redan skickas en kopplingsförfrågan dit. Finns det inget företagskonto ännu blir förfrågan synlig när ett sådant konto skapas senare.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
-    <h2 id="steps-title">Så går ansökan till</h2>
+    <h2 id="steps-title">Nästa steg</h2>
     <ol class="apply-step-list" data-motion-group="apply-steps">
         <li data-motion-child>
-            <h3>Skicka in uppgifter</h3>
-            <p>Berätta vem du är och hur vi kan nå dig.</p>
+            <h3>Skapa konto</h3>
+            <p>Vi sparar dina uppgifter direkt när formuläret skickas in.</p>
         </li>
         <li data-motion-child>
-            <h3>Verifiering</h3>
-            <p>Vi granskar uppgifterna och kontaktar dig om vi behöver kompletteringar.</p>
+            <h3>Skapa lösenord</h3>
+            <p>Du får ett mejl med en länk där du väljer ditt lösenord själv.</p>
         </li>
         <li data-motion-child>
-            <h3>Starta upp</h3>
-            <p>Vid godkänd ansökan skickar vi inloggningsinstruktioner via e-post.</p>
+            <h3>Logga in</h3>
+            <p>När lösenordet är skapat skickas du vidare till inloggningen för privatkonto.</p>
         </li>
     </ol>
 </section>
@@ -138,49 +141,63 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/form_error_highlight.js') }}" defer></script>
 <script>
-// Show an immediate toast when the user submits the application form to improve UX.
-// This does not change server behaviour — it only displays a local "sending" state
-// while the browser performs the normal form submission/redirect.
-(function(){
-    var form = document.querySelector('.apply-form');
-    if(!form) return;
-    form.addEventListener('submit', function onSubmit(e){
-        try{
-            // disable the submit button to avoid double submits
-            var btn = form.querySelector('button[type=submit]');
-            if(btn) { btn.disabled = true; btn.setAttribute('aria-disabled', 'true'); }
+(function () {
+    var form = document.querySelector(".apply-form");
+    if (!form) {
+        return;
+    }
 
-            // create or reuse toast container
-            var container = document.querySelector('.toast-container');
-            if(!container){
-                container = document.createElement('div');
-                container.className = 'toast-container';
-                container.setAttribute('aria-live','polite');
-                container.setAttribute('aria-atomic','true');
+    form.addEventListener("submit", function () {
+        try {
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.setAttribute("aria-disabled", "true");
+            }
+
+            var container = document.querySelector(".toast-container");
+            if (!container) {
+                container = document.createElement("div");
+                container.className = "toast-container";
+                container.setAttribute("aria-live", "polite");
+                container.setAttribute("aria-atomic", "true");
                 document.body.appendChild(container);
             }
 
-            // create a sending toast
-            var toast = document.createElement('div');
-            toast.className = 'toast info';
-            toast.setAttribute('role','status');
-            var msg = document.createElement('div');
-            msg.className = 'toast-message';
-            msg.textContent = 'Skickar ansökan…';
-            var close = document.createElement('button');
-            close.className = 'toast-close';
-            close.setAttribute('aria-label','Stäng meddelande');
-            close.textContent = '×';
-            close.addEventListener('click', function(){ container.removeChild(toast); if(btn) btn.disabled = false; });
-            toast.appendChild(msg);
+            var toast = document.createElement("div");
+            toast.className = "toast info";
+            toast.setAttribute("role", "status");
+
+            var message = document.createElement("div");
+            message.className = "toast-message";
+            message.textContent = "Skapar konto…";
+
+            var close = document.createElement("button");
+            close.className = "toast-close";
+            close.setAttribute("aria-label", "Stäng meddelande");
+            close.textContent = "×";
+            close.addEventListener("click", function () {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            });
+
+            toast.appendChild(message);
             toast.appendChild(close);
             container.appendChild(toast);
-            // animate in and auto-remove after 6s
-            requestAnimationFrame(function(){ toast.classList.add('show'); });
-            setTimeout(function(){ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 6000);
-        } catch(err){ /* fail silently */ }
-        // allow the form to submit normally (do not call preventDefault)
+            requestAnimationFrame(function () {
+                toast.classList.add("show");
+            });
+            setTimeout(function () {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 6000);
+        } catch (_error) {
+            return;
+        }
     });
-})();
+}());
 </script>
 {% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -12,6 +13,7 @@ from urllib.parse import quote_plus
 from sqlalchemy import (
     Column,
     DateTime,
+    Index,
     Integer,
     LargeBinary,
     MetaData,
@@ -31,6 +33,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateIndex, DDL
 
 from config_loader import load_environment
 from functions.logging import configure_module_logger, mask_sensitive_data
@@ -53,6 +56,7 @@ APP_ROOT = str(Path(__file__).resolve().parent.parent)
 logger.debug("Application root directory: %s", APP_ROOT)
 
 metadata = MetaData()
+SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 pending_users_table = Table(
     "pending_users",
@@ -61,6 +65,7 @@ pending_users_table = Table(
     Column("username", String, nullable=False),
     Column("email", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
+    Column("orgnr_normalized", String, nullable=False, server_default="", index=True),
 )
 
 users_table = Table(
@@ -71,6 +76,7 @@ users_table = Table(
     Column("email", String, nullable=False, unique=True),
     Column("password", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
+    Column("orgnr_normalized", String, nullable=False, server_default="", index=True),
 )
 
 user_pdfs_table = Table(
@@ -154,6 +160,37 @@ supervisor_link_requests_table = Table(
         "supervisor_email",
         "user_personnummer",
         name="uq_supervisor_link_requests_pair",
+    ),
+)
+
+organization_link_requests_table = Table(
+    "organization_link_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("orgnr_normalized", String, nullable=False, index=True),
+    Column("user_personnummer", String, nullable=False, index=True),
+    Column("user_name", String, nullable=False),
+    Column("user_email", String, nullable=False),
+    Column("status", String, nullable=False, server_default="pending", index=True),
+    Column("handled_by_supervisor_email", String, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("handled_at", DateTime(timezone=True)),
+    UniqueConstraint(
+        "orgnr_normalized",
+        "user_personnummer",
+        name="uq_organization_link_requests_pair",
     ),
 )
 
@@ -308,6 +345,7 @@ TABLE_REGISTRY: dict[str, Table] = {
         supervisors_table,
         supervisor_connections_table,
         supervisor_link_requests_table,
+        organization_link_requests_table,
         password_resets_table,
         admin_audit_log_table,
         schema_migrations_table,
@@ -373,6 +411,249 @@ def _postgres_constraint_exists(
         {"constraint_name": constraint_name, "table_name": table_name},
     ).scalar_one_or_none()
     return row is not None
+
+
+def _table_has_index_for_columns(
+    conn: Connection, table_name: str, columns: list[str]
+) -> bool:
+    inspector = inspect(conn)
+    expected_columns = list(columns)
+    for index in inspector.get_indexes(table_name):
+        if list(index.get("column_names") or []) == expected_columns:
+            return True
+    return False
+
+
+def _table_has_unique_for_columns(
+    conn: Connection, table_name: str, columns: list[str]
+) -> bool:
+    inspector = inspect(conn)
+    expected_columns = list(columns)
+    for constraint in inspector.get_unique_constraints(table_name):
+        if list(constraint.get("column_names") or []) == expected_columns:
+            return True
+    for index in inspector.get_indexes(table_name):
+        if index.get("unique") and list(index.get("column_names") or []) == expected_columns:
+            return True
+    return False
+
+
+def _validate_sql_identifier(value: str, label: str) -> str:
+    if not SQL_IDENTIFIER_RE.fullmatch(value):
+        raise ValueError(f"Ogiltig SQL-identifierare för {label}: {value!r}")
+    return value
+
+
+def _quote_sql_identifier(conn: Connection, value: str, label: str) -> str:
+    validated_value = _validate_sql_identifier(value, label)
+    return conn.dialect.identifier_preparer.quote(validated_value)
+
+
+def _build_runtime_table(
+    table_name: str,
+    columns: list[str],
+    *,
+    include_id: bool = False,
+) -> Table:
+    validated_table_name = _validate_sql_identifier(table_name, "tabellnamn")
+    validated_columns = [
+        _validate_sql_identifier(column_name, "kolumnnamn")
+        for column_name in columns
+    ]
+
+    runtime_columns = []
+    if include_id:
+        runtime_columns.append(Column("id", Integer))
+
+    for column_name in validated_columns:
+        if include_id and column_name == "id":
+            continue
+        runtime_columns.append(Column(column_name, String))
+
+    return Table(validated_table_name, MetaData(), *runtime_columns)
+
+
+def _ensure_index(
+    conn: Connection,
+    table_name: str,
+    index_name: str,
+    columns: list[str],
+) -> None:
+    if _table_has_index_for_columns(conn, table_name, columns):
+        return
+    runtime_table = _build_runtime_table(table_name, columns)
+    index = Index(
+        _validate_sql_identifier(index_name, "indexnamn"),
+        *(runtime_table.c[column_name] for column_name in columns),
+    )
+    conn.execute(CreateIndex(index, if_not_exists=True))
+
+
+def _ensure_unique_columns(
+    conn: Connection,
+    table_name: str,
+    constraint_name: str,
+    columns: list[str],
+) -> None:
+    if _table_has_unique_for_columns(conn, table_name, columns):
+        return
+
+    dialect = conn.dialect.name
+    runtime_table = _build_runtime_table(table_name, columns)
+    unique_index = Index(
+        _validate_sql_identifier(constraint_name, "unikhetsnamn"),
+        *(runtime_table.c[column_name] for column_name in columns),
+        unique=True,
+    )
+
+    if dialect == "sqlite" or dialect.startswith("postgresql"):
+        conn.execute(CreateIndex(unique_index, if_not_exists=True))
+        return
+
+    raise RuntimeError(
+        f"Migrationen stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
+def _delete_duplicate_rows_for_unique_pair(
+    conn: Connection,
+    table_name: str,
+    columns: list[str],
+) -> None:
+    runtime_table = _build_runtime_table(table_name, ["id", *columns], include_id=True)
+    duplicate_ids = select(func.min(runtime_table.c.id)).group_by(
+        *(runtime_table.c[column_name] for column_name in columns)
+    )
+    conn.execute(
+        runtime_table.delete().where(runtime_table.c.id.not_in(duplicate_ids))
+    )
+
+
+def _rebuild_sqlite_table_with_non_null_orgnr(conn: Connection, table_name: str) -> None:
+    conn.execute(text("PRAGMA foreign_keys=OFF"))
+    try:
+        if table_name == pending_users_table.name:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE pending_users_new (
+                        id INTEGER PRIMARY KEY,
+                        username VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL,
+                        personnummer VARCHAR NOT NULL UNIQUE,
+                        orgnr_normalized VARCHAR DEFAULT '' NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO pending_users_new (
+                        id,
+                        username,
+                        email,
+                        personnummer,
+                        orgnr_normalized
+                    )
+                    SELECT
+                        id,
+                        username,
+                        email,
+                        personnummer,
+                        COALESCE(orgnr_normalized, '')
+                    FROM pending_users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE pending_users"))
+            conn.execute(text("ALTER TABLE pending_users_new RENAME TO pending_users"))
+            return
+
+        if table_name == users_table.name:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE users_new (
+                        id INTEGER PRIMARY KEY,
+                        username VARCHAR NOT NULL,
+                        email VARCHAR NOT NULL UNIQUE,
+                        password VARCHAR NOT NULL,
+                        personnummer VARCHAR NOT NULL UNIQUE,
+                        orgnr_normalized VARCHAR DEFAULT '' NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO users_new (
+                        id,
+                        username,
+                        email,
+                        password,
+                        personnummer,
+                        orgnr_normalized
+                    )
+                    SELECT
+                        id,
+                        username,
+                        email,
+                        password,
+                        personnummer,
+                        COALESCE(orgnr_normalized, '')
+                    FROM users
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE users"))
+            conn.execute(text("ALTER TABLE users_new RENAME TO users"))
+            return
+    finally:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+
+    raise RuntimeError(
+        f"SQLite-ombyggnad för orgnr_normalized stöds inte för tabellen '{table_name}'."
+    )
+
+
+def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
+    runtime_table = _build_runtime_table(table_name, ["orgnr_normalized"])
+    conn.execute(
+        runtime_table.update()
+        .where(runtime_table.c.orgnr_normalized.is_(None))
+        .values(orgnr_normalized="")
+    )
+    inspector = inspect(conn)
+    column = next(
+        (item for item in inspector.get_columns(table_name) if item["name"] == "orgnr_normalized"),
+        None,
+    )
+    if not column or column.get("nullable", True) is False:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(conn, table_name, "tabellnamn")
+        quoted_column_name = _quote_sql_identifier(
+            conn, "orgnr_normalized", "kolumnnamn"
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_column_name} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
 
 
 def _migration_0003_add_invoice_fields(conn: Connection) -> None:
@@ -586,6 +867,66 @@ def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
     conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
 
 
+def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> None:
+    # Lägg till organisationsnummer på privatkonton och tabell för org-förfrågningar.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if pending_users_table.name in existing_tables:
+        _add_column_if_missing(
+            conn,
+            pending_users_table.name,
+            "orgnr_normalized",
+            "TEXT DEFAULT '' NOT NULL",
+        )
+        _ensure_orgnr_column_not_null(conn, pending_users_table.name)
+        _ensure_index(
+            conn,
+            pending_users_table.name,
+            "ix_pending_users_orgnr_normalized",
+            ["orgnr_normalized"],
+        )
+    if users_table.name in existing_tables:
+        _add_column_if_missing(
+            conn,
+            users_table.name,
+            "orgnr_normalized",
+            "TEXT DEFAULT '' NOT NULL",
+        )
+        _ensure_orgnr_column_not_null(conn, users_table.name)
+        _ensure_index(
+            conn,
+            users_table.name,
+            "ix_users_orgnr_normalized",
+            ["orgnr_normalized"],
+        )
+    if supervisor_link_requests_table.name in existing_tables:
+        _delete_duplicate_rows_for_unique_pair(
+            conn,
+            supervisor_link_requests_table.name,
+            ["supervisor_email", "user_personnummer"],
+        )
+        _ensure_unique_columns(
+            conn,
+            supervisor_link_requests_table.name,
+            "uq_supervisor_link_requests_pair",
+            ["supervisor_email", "user_personnummer"],
+        )
+    if organization_link_requests_table.name not in existing_tables:
+        organization_link_requests_table.create(bind=conn)
+    else:
+        _delete_duplicate_rows_for_unique_pair(
+            conn,
+            organization_link_requests_table.name,
+            ["orgnr_normalized", "user_personnummer"],
+        )
+        _ensure_unique_columns(
+            conn,
+            organization_link_requests_table.name,
+            "uq_organization_link_requests_pair",
+            ["orgnr_normalized", "user_personnummer"],
+        )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -596,6 +937,7 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
     ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
     ("0009_add_user_pdf_note", _migration_0009_add_user_pdf_note),
+    ("0010_add_orgnr_to_users_and_org_requests", _migration_0010_add_orgnr_to_users_and_org_requests),
 ]
 
 

@@ -1,4 +1,3 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -12,6 +11,9 @@
   </url>
   <url>
     <loc>https://www.utbildningsintyg.se/ansok/foretagskonto</loc>
+  </url>
+  <url>
+    <loc>https://www.utbildningsintyg.se/organisationer</loc>
   </url>
   <url>
     <loc>https://www.utbildningsintyg.se/foretagskonto/login</loc>
@@ -32,3 +34,4 @@
     <loc>https://www.utbildningsintyg.se/ansok/klart</loc>
   </url>
 </urlset>
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

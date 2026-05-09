@@ -1,4 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+from email.message import EmailMessage
+
 import pytest
 
 from functions.emails import service as email_service
@@ -197,20 +199,19 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
         monkeypatch.setenv(key, env_values[key])
 
     class RefusingSMTP:
-        def __init__(self, server, port, timeout=30):
+        def __init__(self, _server, _port, **_kwargs):
             pass
 
         def ehlo(self):
             pass
 
-        def starttls(self, context=None):
+        def starttls(self, _context=None):
             pass
 
-        def login(self, user, password):
+        def login(self, _user, _password):
             pass
 
         def send_message(self, msg, from_addr=None, to_addrs=None):
-            _ = (from_addr, to_addrs)
             return {msg["To"]: (550, b"Mailbox unavailable")}
 
         def __enter__(self):
@@ -227,3 +228,57 @@ def test_send_creation_email_raises_on_refused_recipient(monkeypatch):
         )
 
     assert "accepterade inte mottagaren" in str(exc.value)
+
+
+def test_send_email_message_masks_smtp_user_in_debug_log(monkeypatch):
+    debug_messages = []
+
+    class DummySMTP:
+        def __init__(self, _server, _port, **_kwargs):
+            pass
+
+        def ehlo(self):
+            pass
+
+        def starttls(self, _context=None):
+            pass
+
+        def login(self, _user, _password):
+            pass
+
+        def send_message(self, _msg, from_addr=None, to_addrs=None):
+            return {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(email_service, "SMTP", DummySMTP)
+    monkeypatch.setattr(
+        email_service.logger,
+        "debug",
+        lambda message, *args: debug_messages.append(message % args if args else message),
+    )
+
+    msg = EmailMessage()
+    msg["Subject"] = "Test"
+    msg["From"] = "from@example.com"
+    msg["To"] = "to@example.com"
+    msg.set_content("Hej")
+
+    settings = email_service.SMTPSettings(
+        server="smtp.example.com",
+        port=587,
+        user="real.user@example.com",
+        password="x",
+        timeout=10,
+        from_address="from@example.com",
+    )
+
+    email_service.send_email_message(msg, "to@example.com", settings)
+
+    login_logs = [entry for entry in debug_messages if "SMTP inloggning lyckades" in entry]
+    assert login_logs
+    assert all("real.user@example.com" not in entry for entry in login_logs)
