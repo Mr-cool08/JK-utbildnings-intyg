@@ -173,7 +173,7 @@ def send_email_message(
                     smtp.ehlo()
 
             smtp.login(settings.user, settings.password)
-            logger.debug("SMTP inloggning lyckades för %s", settings.user)
+            logger.debug("SMTP inloggning lyckades för %s", masked_user)
 
             if hasattr(smtp, "send_message"):
                 refused = smtp.send_message(
@@ -198,7 +198,7 @@ def send_email_message(
         )
 
     except SMTPAuthenticationError as exc:
-        logger.error("SMTP login failed for %s", settings.user)
+        logger.error("SMTP login failed for %s", masked_user)
         raise RuntimeError("SMTP-inloggning misslyckades") from exc
     except SMTPServerDisconnected as exc:
         logger.error("Server closed the connection during SMTP session")
