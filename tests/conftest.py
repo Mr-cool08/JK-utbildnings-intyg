@@ -46,6 +46,11 @@ def allow_pdf_scanning(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("functions.pdf.service.scan_pdf_bytes", _allow_scan)
 
 
+@pytest.fixture(autouse=True)
+def allow_public_rate_limited_routes(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(app, "register_public_submission", lambda _ip: True)
+
+
 @pytest.fixture
 def empty_db(tmp_path, monkeypatch):
     # Provide a fresh empty database for a test.

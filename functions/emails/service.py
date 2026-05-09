@@ -346,6 +346,43 @@ def send_account_deletion_email(to_email: str, username: str | None = None) -> N
     send_email(to_email, "Ditt konto har raderats", body)
 
 
+def send_organization_link_approved_email(to_email: str, company_name: str) -> None:
+    """Skicka besked om godkänd organisationskoppling."""
+
+    safe_company = escape((company_name or "").strip()) or "organisationen"
+    subject = f"Kopplingen till {safe_company} \u00e4r godk\u00e4nd"
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Din koppling till {safe_company} har godk\u00e4nts.</p>"
+        "<p>Du kan nu logga in och forts\u00e4tta anv\u00e4nda ditt privatkonto som vanligt.</p>"
+        "<p>Har du fr\u00e5gor \u00e4r du v\u00e4lkommen att kontakta support.</p>"
+    )
+    body = format_email_html(
+        "Din organisationskoppling \u00e4r godk\u00e4nd",
+        content,
+        accent_color="#15803d",
+    )
+    send_email(to_email, subject, body)
+
+
+def send_organization_link_rejected_email(to_email: str, company_name: str) -> None:
+    """Skicka besked om avslagen organisationskoppling."""
+
+    safe_company = escape((company_name or "").strip()) or "organisationen"
+    subject = f"Kopplingen till {safe_company} avslogs"
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Din f\u00f6rfr\u00e5gan om koppling till {safe_company} har avslagits.</p>"
+        "<p>Om du anser att det blivit fel kan du kontakta organisationen eller v\u00e5r support.</p>"
+    )
+    body = format_email_html(
+        "Din organisationskoppling avslogs",
+        content,
+        accent_color="#b91c1c",
+    )
+    send_email(to_email, subject, body)
+
+
 def send_pdf_share_email(
     recipient_email: str,
     attachments: Sequence[tuple[str, bytes]],

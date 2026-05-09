@@ -63,12 +63,14 @@ def supervisor_setup(empty_db):
     }
 
 
-def _supervisor_client(email_hash, name):
+def _supervisor_client(email_hash, name, orgnr=None):
     client = app.app.test_client()
     with client.session_transaction() as sess:
         sess["supervisor_logged_in"] = True
         sess["supervisor_email_hash"] = email_hash
         sess["supervisor_name"] = name
+        if orgnr:
+            sess["supervisor_orgnr"] = orgnr
     return client
 
 
@@ -123,6 +125,192 @@ def test_supervisor_dashboard_has_dropdown_and_search(supervisor_setup):
     assert '<details>' in body
     assert 'supervisor-user-summary' in body
     assert 'data-user-panel' in body
+
+
+def test_supervisor_dashboard_lists_pending_organization_requests(supervisor_setup):
+    functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        supervisor_setup["orgnr"],
+    )
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+    )
+    response = client.get("/foretagskonto")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Väntande organisationsförfrågningar" in body
+    assert "Ny Person" in body
+    assert "Inväntar lösenord" in body
+
+
+def test_supervisor_can_approve_organization_request(supervisor_setup, monkeypatch, empty_db):
+    captured = {}
+    registration = functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        supervisor_setup["orgnr"],
+    )
+
+    def _fake_send(email, company_name):
+        captured["email"] = email
+        captured["company_name"] = company_name
+
+    monkeypatch.setattr(
+        app.email_service,
+        "send_organization_link_approved_email",
+        _fake_send,
+    )
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+    )
+    response = client.post(
+        f"/foretagskonto/organisationskopplingar/{request_row.id}/godkann",
+        data={},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.id == request_row.id
+            )
+        ).first()
+        connection = conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_setup["email_hash"],
+                functions.supervisor_connections_table.c.user_personnummer
+                == registration["personnummer_hash"],
+            )
+        ).first()
+
+    assert request_row.status == "approved"
+    assert connection is not None
+    assert captured["email"] == "ny.person@example.com"
+    assert captured["company_name"] == "Testbolaget AB"
+
+
+def test_supervisor_can_reject_organization_request(supervisor_setup, monkeypatch, empty_db):
+    captured = {}
+    registration = functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        supervisor_setup["orgnr"],
+    )
+
+    def _fake_send(email, company_name):
+        captured["email"] = email
+        captured["company_name"] = company_name
+
+    monkeypatch.setattr(
+        app.email_service,
+        "send_organization_link_rejected_email",
+        _fake_send,
+    )
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        orgnr=supervisor_setup["orgnr"],
+    )
+    response = client.post(
+        f"/foretagskonto/organisationskopplingar/{request_row.id}/avsla",
+        data={},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.id == request_row.id
+            )
+        ).first()
+        connection = conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_setup["email_hash"],
+                functions.supervisor_connections_table.c.user_personnummer
+                == registration["personnummer_hash"],
+            )
+        ).first()
+
+    assert request_row.status == "rejected"
+    assert connection is None
+    assert captured["email"] == "ny.person@example.com"
+    assert captured["company_name"] == "Testbolaget AB"
+
+
+def test_org_request_becomes_visible_after_company_account_is_created(empty_db):
+    registration = functions.register_standard_account(
+        "Ny Person",
+        "ny.person@example.com",
+        "19850505-1234",
+        "5569668337",
+    )
+
+    application_id = functions.create_application_request(
+        "foretagskonto",
+        "Chef Test",
+        "chef@example.com",
+        "5569668337",
+        "Testbolaget AB",
+        "",
+        "Fakturavägen 1",
+        "Ekonomi Test",
+        "REF-123",
+    )
+    approval = functions.approve_application_request(application_id, "admin")
+    email_hash = approval["supervisor_email_hash"]
+    assert functions.supervisor_activate_account(email_hash, "StarktLosen123")
+
+    client = _supervisor_client(
+        email_hash,
+        "Chef Test",
+        orgnr="5569668337",
+    )
+    response = client.get("/foretagskonto")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Ny Person" in body
+    assert "Väntande organisationsförfrågningar" in body
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+    assert request_row is not None
+    assert request_row.status == "pending"
 
 
 def test_supervisor_share_pdf(monkeypatch, supervisor_setup):

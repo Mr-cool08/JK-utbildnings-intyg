@@ -67,18 +67,20 @@ def test_standardkonto_form_contains_expected_ui_fields(empty_db):
         assert response.status_code == 200
         body = response.get_data(as_text=True)
 
-    assert "Ansök om användarkonto" in body
+    assert "Skapa privatkonto" in body
     assert 'id="name"' in body
     assert 'id="email"' in body
     assert 'type="email"' in body
     assert 'id="personnummer"' in body
     assert 'inputmode="numeric"' in body
     assert 'placeholder="ÅÅMMDDXXXX"' in body
+    assert 'id="orgnr"' in body
+    assert 'placeholder="5569668337"' in body
     assert 'id="terms_confirmed"' in body
     assert 'href="/villkor"' in body
     assert 'href="/gdpr"' in body
     assert "form_error_highlight.js" in body
-    assert "Skickar ansökan" in body
+    assert "Skapar konto" in body
 
 
 def test_foretagskonto_form_contains_invoice_section_and_required_fields(empty_db):
@@ -100,6 +102,17 @@ def test_foretagskonto_form_contains_invoice_section_and_required_fields(empty_d
     assert 'href="/villkor"' in body
     assert 'href="/gdpr"' in body
     assert "form_error_highlight.js" in body
+
+
+def test_public_organization_search_page_renders_form(empty_db):
+    with _client() as client:
+        response = client.get("/organisationer")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Sök organisationsnummer" in body
+    assert 'id="orgnr"' in body
+    assert "Registrerade privatkonton" not in body
 
 
 def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):

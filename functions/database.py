@@ -61,6 +61,7 @@ pending_users_table = Table(
     Column("username", String, nullable=False),
     Column("email", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
+    Column("orgnr_normalized", String, nullable=False, server_default="", index=True),
 )
 
 users_table = Table(
@@ -71,6 +72,7 @@ users_table = Table(
     Column("email", String, nullable=False, unique=True),
     Column("password", String, nullable=False),
     Column("personnummer", String, nullable=False, unique=True),
+    Column("orgnr_normalized", String, nullable=False, server_default="", index=True),
 )
 
 user_pdfs_table = Table(
@@ -154,6 +156,37 @@ supervisor_link_requests_table = Table(
         "supervisor_email",
         "user_personnummer",
         name="uq_supervisor_link_requests_pair",
+    ),
+)
+
+organization_link_requests_table = Table(
+    "organization_link_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("orgnr_normalized", String, nullable=False, index=True),
+    Column("user_personnummer", String, nullable=False, index=True),
+    Column("user_name", String, nullable=False),
+    Column("user_email", String, nullable=False),
+    Column("status", String, nullable=False, server_default="pending", index=True),
+    Column("handled_by_supervisor_email", String, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("handled_at", DateTime(timezone=True)),
+    UniqueConstraint(
+        "orgnr_normalized",
+        "user_personnummer",
+        name="uq_organization_link_requests_pair",
     ),
 )
 
@@ -308,6 +341,7 @@ TABLE_REGISTRY: dict[str, Table] = {
         supervisors_table,
         supervisor_connections_table,
         supervisor_link_requests_table,
+        organization_link_requests_table,
         password_resets_table,
         admin_audit_log_table,
         schema_migrations_table,
@@ -586,6 +620,18 @@ def _migration_0009_add_user_pdf_note(conn: Connection) -> None:
     conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
 
 
+def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> None:
+    # LÃ¤gg till organisationsnummer pÃ¥ privatkonton och tabell fÃ¶r org-fÃ¶rfrÃ¥gningar.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if pending_users_table.name in existing_tables:
+        _add_column_if_missing(conn, pending_users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+    if users_table.name in existing_tables:
+        _add_column_if_missing(conn, users_table.name, "orgnr_normalized", "TEXT DEFAULT ''")
+    if organization_link_requests_table.name not in existing_tables:
+        organization_link_requests_table.create(bind=conn)
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -596,6 +642,7 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0007_add_supervisor_password_resets", _migration_0007_add_supervisor_password_resets),
     ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
     ("0009_add_user_pdf_note", _migration_0009_add_user_pdf_note),
+    ("0010_add_orgnr_to_users_and_org_requests", _migration_0010_add_orgnr_to_users_and_org_requests),
 ]
 
 

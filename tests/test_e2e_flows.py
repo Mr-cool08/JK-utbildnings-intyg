@@ -51,7 +51,15 @@ def _supervisor_login(client, orgnr: str, password: str) -> None:
     assert response.headers.get("Location", "").endswith("/foretagskonto")
 
 
-def test_e2e_standardkonto_flow_application_to_upload_and_share(empty_db, monkeypatch):
+def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monkeypatch):
+    sent = {}
+
+    def _fake_creation_email(recipient, link):
+        sent["recipient"] = recipient
+        sent["link"] = link
+
+    monkeypatch.setattr(app.email_service, "send_creation_email", _fake_creation_email)
+
     public_client = app.app.test_client()
     apply_get = public_client.get("/ansok/standardkonto")
     assert apply_get.status_code == 200
@@ -64,45 +72,31 @@ def test_e2e_standardkonto_flow_application_to_upload_and_share(empty_db, monkey
             "name": "E2E Standard",
             "email": "e2e.standard@example.com",
             "personnummer": "9001011234",
-            "comment": "E2E testflöde för standardkonto.",
+            "orgnr": "5569668337",
             "terms_confirmed": "1",
         },
         follow_redirects=True,
     )
     assert apply_response.status_code == 200
     apply_body = apply_response.get_data(as_text=True)
-    assert "Tack! Vi hör av oss så snart vi granskat ansökan." in apply_body
-    assert "standardkonto" in apply_body
+    assert "Kontot är skapat." in apply_body
+    assert "Privatinloggning" in apply_body
 
     with empty_db.connect() as conn:
-        application = conn.execute(
-            functions.application_requests_table.select().where(
-                functions.application_requests_table.c.email == "e2e.standard@example.com"
+        pending_user = conn.execute(
+            functions.pending_users_table.select().where(
+                functions.pending_users_table.c.personnummer
+                == functions.hash_value("9001011234")
             )
         ).first()
+        application = conn.execute(functions.application_requests_table.select()).fetchall()
 
-    assert application is not None
-    assert application.status == "pending"
-    application_id = application.id
+    assert pending_user is not None
+    assert pending_user.orgnr_normalized == "5569668337"
+    assert application == []
 
-    admin_client = app.app.test_client()
-    _admin_login(admin_client)
-    admin_get = admin_client.get("/admin/ansokningar")
-    assert admin_get.status_code == 200
-    admin_csrf = _csrf_token(admin_client)
-
-    approve_response = admin_client.post(
-        f"/admin/api/ansokningar/{application_id}/godkann",
-        json={"csrf_token": admin_csrf},
-        headers={"X-CSRF-Token": admin_csrf},
-    )
-    assert approve_response.status_code == 200
-    approve_payload = approve_response.get_json()
-    assert approve_payload is not None
-    assert approve_payload["status"] == "success"
-    assert approve_payload["data"]["account_type"] == "standard"
-    creation_link = approve_payload["creation_link"]
-    activation_path = urlparse(creation_link).path
+    activation_path = urlparse(sent["link"]).path
+    assert sent["recipient"] == "e2e.standard@example.com"
 
     activation_client = app.app.test_client()
     activation_get = activation_client.get(activation_path)
@@ -135,7 +129,9 @@ def test_e2e_standardkonto_flow_application_to_upload_and_share(empty_db, monkey
         follow_redirects=True,
     )
     assert upload_response.status_code == 200
-    assert "Intyget har laddats upp och sparats som PDF." in upload_response.get_data(as_text=True)
+    assert "Intyget har laddats upp och sparats som PDF." in upload_response.get_data(
+        as_text=True
+    )
 
     personnummer_hash = functions.hash_value("9001011234")
     with empty_db.connect() as conn:

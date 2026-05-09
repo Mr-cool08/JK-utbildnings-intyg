@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Publik organisationssökning – Utbildningsintyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Sök på organisationsnummer och se hur många aktiva privatkonton som är registrerade på numret.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="organization-search-title" data-motion="hero">
+    <div class="apply-hero-content" data-motion-group="organization-search">
+        <div class="apply-intro" data-motion-child>
+            <h1 id="organization-search-title">Sök organisationsnummer</h1>
+            <p>Alla kan söka och se hur många aktiva privatkonton som är registrerade på ett organisationsnummer.</p>
+        </div>
+
+        <form method="get" class="apply-form" novalidate data-motion-child>
+            <label for="orgnr">Organisationsnummer</label>
+            <input
+                id="orgnr"
+                name="orgnr"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9\\s-]{10,13}"
+                value="{{ form_data.orgnr }}"
+                placeholder="5569668337"
+                aria-describedby="orgnr-hint{% if form_error %} orgnr-error{% endif %}"
+                {% if form_error %}aria-invalid="true"{% endif %}
+            >
+            <small class="hint" id="orgnr-hint">Ange organisationsnumret med eller utan bindestreck.</small>
+            {% if form_error %}
+                <p class="field-error-message" id="orgnr-error">{{ form_error }}</p>
+            {% endif %}
+            <button type="submit" class="btn">Sök</button>
+        </form>
+
+        {% if result %}
+            <section class="panel" data-motion-child>
+                <h2>Resultat</h2>
+                <p><strong>Organisationsnummer:</strong> {{ result.orgnr }}</p>
+                {% if result.company_name %}
+                    <p><strong>Företagsnamn:</strong> {{ result.company_name }}</p>
+                {% endif %}
+                <p><strong>Registrerade privatkonton:</strong> {{ result.user_count }}</p>
+            </section>
+        {% elif form_data.orgnr and not form_error %}
+            <section class="panel" data-motion-child>
+                <h2>Resultat</h2>
+                <p><strong>Organisationsnummer:</strong> {{ form_data.orgnr }}</p>
+                <p><strong>Registrerade privatkonton:</strong> 0</p>
+            </section>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

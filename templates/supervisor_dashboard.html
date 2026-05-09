@@ -1,9 +1,67 @@
-<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
 {% block title %}Företagskontopanel{% endblock %}
 {% block content %}
     <h1>Företagskontopanel</h1>
-    <p>Välkommen {{ supervisor_name }}. Här ser du alla användarkonton som administratören har kopplat till dig.</p>
+    <p>Välkommen {{ supervisor_name }}. Här ser du kopplade privatkonton, väntande organisationsförfrågningar och företagets intygsöversikt.</p>
+
+    {% if supervisor_orgnr %}
+        <section class="panel">
+            <h2>Organisation</h2>
+            {% if company_name %}
+                <p><strong>Företagsnamn:</strong> {{ company_name }}</p>
+            {% endif %}
+            <p><strong>Organisationsnummer:</strong> {{ supervisor_orgnr }}</p>
+        </section>
+    {% endif %}
+
+    <section class="panel" id="organization-link-requests">
+        <h2>Väntande organisationsförfrågningar</h2>
+        <p>Här kan du godkänna eller avslå privatpersoner som har registrerat sig med ert organisationsnummer.</p>
+        {% if organization_link_requests %}
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Namn</th>
+                            <th>Status</th>
+                            <th>Åtgärder</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in organization_link_requests %}
+                            <tr>
+                                <td>{{ entry.user_name }}</td>
+                                <td>
+                                    {% if entry.account_status == "active" %}
+                                        Aktivt privatkonto
+                                    {% elif entry.account_status == "pending" %}
+                                        Inväntar lösenord
+                                    {% else %}
+                                        Kontot kunde inte hittas
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <form method="post" action="{{ url_for('supervisor_approve_organization_link_request_route', request_id=entry.id | int) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button type="submit" class="btn">Godkänn</button>
+                                        </form>
+                                        <form method="post" action="{{ url_for('supervisor_reject_organization_link_request_route', request_id=entry.id | int) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button type="submit" class="btn btn-danger">Avslå</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>Det finns inga väntande organisationsförfrågningar just nu.</p>
+        {% endif %}
+    </section>
+
     {% if users %}
         <section class="panel">
             <form class="supervisor-search" data-user-search-form>
@@ -15,6 +73,7 @@
             </form>
             <p id="supervisor-user-search-empty" hidden>Inga användare matchar din sökning.</p>
         </section>
+
         {% for user in users %}
             <section class="panel" id="user-{{ user.personnummer_hash }}" data-user-panel data-user-name="{{ user.username | lower }}">
                 <details>
@@ -74,17 +133,20 @@
                             </table>
                         </div>
                     {% else %}
-                        <p>Inga intyg är uppladdade för detta användarkonto ännu.</p>
+                        <p>Inga intyg är uppladdade för detta privatkonto ännu.</p>
                     {% endif %}
                 </details>
             </section>
         {% endfor %}
     {% else %}
-        <p>Det finns inga kopplade användarkonton just nu. Kontakta administratören om du behöver åtkomst.</p>
+        <section class="panel">
+            <p>Det finns inga kopplade privatkonton just nu.</p>
+        </section>
     {% endif %}
+
     <section class="panel">
-        <h2>Skicka kopplingsförfrågan</h2>
-        <p>Ange personnummer för användarkontot du vill koppla till ditt företagskonto.</p>
+        <h2>Skicka manuell kopplingsförfrågan</h2>
+        <p>Ange personnummer för privatkontot du vill koppla till företagskontot.</p>
         <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="link-request-personnummer">Personnummer</label>
@@ -93,52 +155,53 @@
         </form>
     </section>
 <script>
-(function(){
-    var formulär = document.querySelectorAll('[data-supervisor-remove]');
-    var sokfalt = document.querySelector('[data-user-search]');
-    var sokFormular = document.querySelector('[data-user-search-form]');
-    var användarpaneler = document.querySelectorAll('[data-user-panel]');
-    var tomtMeddelande = document.getElementById('supervisor-user-search-empty');
+(function () {
+    var forms = document.querySelectorAll("[data-supervisor-remove]");
+    var searchField = document.querySelector("[data-user-search]");
+    var searchForm = document.querySelector("[data-user-search-form]");
+    var userPanels = document.querySelectorAll("[data-user-panel]");
+    var emptyMessage = document.getElementById("supervisor-user-search-empty");
 
-    function filtreraAnvandare() {
-        var soktext = sokfalt.value.toLowerCase().trim();
-        var antalTraffar = 0;
+    function filterUsers() {
+        var searchText = searchField.value.toLowerCase().trim();
+        var matchCount = 0;
 
-        användarpaneler.forEach(function(panel) {
-            var namn = panel.getAttribute('data-user-name') || '';
-            var matchar = !soktext || namn.indexOf(soktext) !== -1;
-            panel.hidden = !matchar;
-            if (matchar) {
-                antalTraffar += 1;
+        userPanels.forEach(function (panel) {
+            var name = panel.getAttribute("data-user-name") || "";
+            var matches = !searchText || name.indexOf(searchText) !== -1;
+            panel.hidden = !matches;
+            if (matches) {
+                matchCount += 1;
             }
         });
 
-        if (tomtMeddelande) {
-            tomtMeddelande.hidden = antalTraffar !== 0;
+        if (emptyMessage) {
+            emptyMessage.hidden = matchCount !== 0;
         }
     }
 
-    if (sokfalt && användarpaneler.length) {
-        sokfalt.addEventListener('input', filtreraAnvandare);
-        if (sokFormular) {
-            sokFormular.addEventListener('submit', function(event) {
+    if (searchField && userPanels.length) {
+        searchField.addEventListener("input", filterUsers);
+        if (searchForm) {
+            searchForm.addEventListener("submit", function (event) {
                 event.preventDefault();
-                filtreraAnvandare();
+                filterUsers();
             });
         }
     }
 
-    formulär.forEach(function(form){
-        form.addEventListener('submit', function(event){
-            if(!confirm('Vill du ta bort kopplingen till användaren?')){
+    forms.forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            if (!confirm("Vill du ta bort kopplingen till användaren?")) {
                 event.preventDefault();
                 return;
             }
-            if(!confirm('Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.')){
+            if (!confirm("Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.")) {
                 event.preventDefault();
             }
         });
     });
-})();
+}());
 </script>
 {% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

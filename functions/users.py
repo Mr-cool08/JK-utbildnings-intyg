@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from functions.database import (
     application_requests_table,
     company_users_table,
+    organization_link_requests_table,
     password_resets_table,
     pending_users_table,
     supervisor_connections_table,
@@ -28,6 +29,7 @@ from functions.hashing import (
     verify_password,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.organization_links import update_organization_request_contact_details
 
 
 logger = configure_module_logger(__name__)
@@ -138,6 +140,7 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
                     email=hashed_email,
                     username=username,
                     personnummer=pnr_hash,
+                    orgnr_normalized="",
                 )
             )
     except IntegrityError:
@@ -163,6 +166,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             row = conn.execute(
                 select(
                     pending_users_table.c.email,
+                    pending_users_table.c.orgnr_normalized,
                     pending_users_table.c.username,
                     pending_users_table.c.personnummer,
                 ).where(pending_users_table.c.personnummer == personnummer_hash)
@@ -178,6 +182,7 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
             conn.execute(
                 insert(users_table).values(
                     email=row.email,
+                    orgnr_normalized=row.orgnr_normalized or "",
                     password=hash_password(password),
                     username=row.username,
                     personnummer=row.personnummer,
@@ -287,6 +292,14 @@ def _admin_delete_user_account_by_hash(
             conn.execute(
                 delete(supervisor_link_requests_table).where(
                     supervisor_link_requests_table.c.user_personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["organization_link_requests"] = (
+            conn.execute(
+                delete(organization_link_requests_table).where(
+                    organization_link_requests_table.c.user_personnummer == personnummer_hash
                 )
             ).rowcount
             or 0
@@ -437,6 +450,7 @@ def get_pending_user_personnummer_hash(
 
     return str(pending_row.personnummer)
 
+
 def admin_update_user_account(
     personnummer: str, email: str, username: str
 ) -> tuple[bool, dict[str, int] | None, str | None]:
@@ -493,5 +507,10 @@ def admin_update_user_account(
     logger.info(
         "Admin uppdaterade konto för %s",
         mask_hash(pnr_hash),
+    )
+    summary["organization_link_requests"] = update_organization_request_contact_details(
+        pnr_hash,
+        username,
+        normalized_email,
     )
     return True, summary, None
