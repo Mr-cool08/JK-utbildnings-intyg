@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 import threading
 import time
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 import json
 
 from flask import (
@@ -955,8 +955,16 @@ def supervisor_dashboard():
     )
 
 
-@app.post("/foretagskonto/organisationskopplingar/<int:request_id>/godkann")
-def supervisor_approve_organization_link_request_route(request_id: int):
+def _handle_org_link_request_action(
+    request_id: int,
+    action_func: Callable[[int, str, str], tuple[bool, dict[str, str] | None, str]],
+    email_sender: Callable[[str, str], None],
+    success_message: str,
+    email_failure_message: str,
+    failure_messages: dict[str, str],
+    fallback_message: str,
+    email_log_message: str,
+) -> Response:
     email_hash, _ = _require_supervisor()
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
@@ -967,20 +975,16 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
         return redirect(redirect_target)
 
-    success, request_data, reason = functions.approve_organization_link_request(
+    success, request_data, reason = action_func(
         request_id,
         email_hash,
         supervisor_orgnr,
     )
     if not success:
-        if reason == "missing_request":
-            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
-        elif reason == "missing_user":
-            flash("Privatkontot finns inte l\u00e4ngre kvar.", "error")
-        elif reason == "handled_request":
-            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
-        else:
-            flash("Kopplingen kunde inte godk\u00e4nnas.", "error")
+        flash(failure_messages.get(reason, fallback_message), "error")
+        return redirect(redirect_target)
+    if request_data is None:
+        flash(fallback_message, "error")
         return redirect(redirect_target)
 
     try:
@@ -989,82 +993,51 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         company_name = f"organisationsnummer {supervisor_orgnr}"
     else:
         company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
+
     try:
-        email_service.send_organization_link_approved_email(
-            request_data["user_email"],
-            company_name,
-        )
+        email_sender(request_data["user_email"], company_name)
     except Exception:
-        logger.exception(
-            "Koppling godk\u00e4nd men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
-            request_id,
-        )
-        flash(
-            "Kopplingen godk\u00e4ndes men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
-            "error",
-        )
+        logger.exception(email_log_message, request_id)
+        flash(email_failure_message, "error")
     else:
-        flash(
-            "Kopplingen har godk\u00e4nts och privatpersonen har informerats via e-post.",
-            "success",
-        )
+        flash(success_message, "success")
 
     return redirect(redirect_target)
+
+
+@app.post("/foretagskonto/organisationskopplingar/<int:request_id>/godkann")
+def supervisor_approve_organization_link_request_route(request_id: int):
+    return _handle_org_link_request_action(
+        request_id,
+        functions.approve_organization_link_request,
+        email_service.send_organization_link_approved_email,
+        "Kopplingen har godk\u00e4nts och privatpersonen har informerats via e-post.",
+        "Kopplingen godk\u00e4ndes men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
+        {
+            "missing_request": "F\u00f6rfr\u00e5gan kunde inte hittas.",
+            "missing_user": "Privatkontot finns inte l\u00e4ngre kvar.",
+            "handled_request": "F\u00f6rfr\u00e5gan \u00e4r redan hanterad.",
+        },
+        "Kopplingen kunde inte godk\u00e4nnas.",
+        "Koppling godk\u00e4nd men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
+    )
 
 
 @app.post("/foretagskonto/organisationskopplingar/<int:request_id>/avsla")
 def supervisor_reject_organization_link_request_route(request_id: int):
-    email_hash, _ = _require_supervisor()
-    supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
-    redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
-    if not validate_csrf_token():
-        flash(CSRF_EXPIRED_MESSAGE, "error")
-        return redirect(redirect_target)
-    if not supervisor_orgnr:
-        flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
-        return redirect(redirect_target)
-
-    success, request_data, reason = functions.reject_organization_link_request(
+    return _handle_org_link_request_action(
         request_id,
-        email_hash,
-        supervisor_orgnr,
+        functions.reject_organization_link_request,
+        email_service.send_organization_link_rejected_email,
+        "F\u00f6rfr\u00e5gan har avslagits och privatpersonen har informerats via e-post.",
+        "F\u00f6rfr\u00e5gan avslogs men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
+        {
+            "missing_request": "F\u00f6rfr\u00e5gan kunde inte hittas.",
+            "handled_request": "F\u00f6rfr\u00e5gan \u00e4r redan hanterad.",
+        },
+        "Kopplingen kunde inte avsl\u00e5s.",
+        "Koppling avslogs men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
     )
-    if not success:
-        if reason == "missing_request":
-            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
-        elif reason == "handled_request":
-            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
-        else:
-            flash("Kopplingen kunde inte avsl\u00e5s.", "error")
-        return redirect(redirect_target)
-
-    try:
-        overview = functions.get_public_organization_overview(supervisor_orgnr)
-    except ValueError:
-        company_name = f"organisationsnummer {supervisor_orgnr}"
-    else:
-        company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
-    try:
-        email_service.send_organization_link_rejected_email(
-            request_data["user_email"],
-            company_name,
-        )
-    except Exception:
-        logger.exception(
-            "Koppling avslogs men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
-            request_id,
-        )
-        flash(
-            "F\u00f6rfr\u00e5gan avslogs men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
-            "error",
-        )
-    else:
-        flash(
-            "F\u00f6rfr\u00e5gan har avslagits och privatpersonen har informerats via e-post.",
-            "success",
-        )
-
-    return redirect(redirect_target)
 
 
 @app.post("/foretagskonto/kopplingsforfragan")
@@ -1867,7 +1840,7 @@ def user_upload_page():
             session["username"] = user_name
 
     csrf_token = sec.ensure_csrf_token()
-    certificate_count = len(functions.get_user_pdfs(personnummer_hash))
+    certificate_count = functions.count_user_pdfs(personnummer_hash)
     return render_template(
         "upload_intyg.html",
         course_categories=COURSE_CATEGORIES,
@@ -3840,9 +3813,17 @@ def conflict_error(_):  # pragma: no cover
 def request_entity_too_large(_):  # pragma: no cover
     # Visa ett tydligt felmeddelande när uppladdningen överskrider global gräns.
     logger.warning("413 För stor uppladdning: %s", request.path)
-    if request.path == "/admin":
+    endpoint = request.endpoint or ""
+    if endpoint.startswith("admin") or request.path == "/admin" or request.path.startswith(
+        "/admin/"
+    ):
         return jsonify({"status": "error", "message": UPLOAD_TOO_LARGE_MESSAGE}), 413
-    if request.path == "/dashboard/ladda-upp":
+    if endpoint in {"user_upload_page", "user_upload_pdf_route"} or request.path in {
+        "/dashboard/ladda-upp",
+        "/dashboard/upload",
+    } or request.path.startswith("/dashboard/ladda-upp/") or request.path.startswith(
+        "/dashboard/upload/"
+    ):
         flash(UPLOAD_TOO_LARGE_MESSAGE, "error")
         return redirect(url_for("user_upload_page"))
 

@@ -98,6 +98,11 @@
     if (!files.length) { showMessage('error', 'PDF-fil saknas.'); pdfInput.focus(); return; }
     if (categorySelects.length !== files.length) {
       showMessage('error', 'Välj kategori för varje PDF.');
+      if (categorySelects[0]) {
+        categorySelects[0].focus();
+      } else if (pdfInput) {
+        pdfInput.focus();
+      }
       return;
     }
 

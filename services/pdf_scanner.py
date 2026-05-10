@@ -92,7 +92,7 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=60,
+            timeout=55,
             text=True,
         )
     except FileNotFoundError:

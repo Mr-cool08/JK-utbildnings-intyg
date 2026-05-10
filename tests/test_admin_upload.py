@@ -14,6 +14,17 @@ def _admin_client():
     return client
 
 
+def test_request_entity_too_large_treats_admin_prefix_as_json():
+    with app.app.test_request_context("/admin/api/ansokningar/1/godkann", method="POST"):
+        response, status_code = app.request_entity_too_large(None)
+
+    assert status_code == 413
+    assert response.get_json() == {
+        "status": "error",
+        "message": app.UPLOAD_TOO_LARGE_MESSAGE,
+    }
+
+
 def test_admin_upload_existing_user_only_saves_pdf(empty_db):
     engine = empty_db
     with engine.begin() as conn:

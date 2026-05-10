@@ -250,6 +250,15 @@ def test_admin_upload_script_enforces_total_upload_limit():
     assert "if (totalBytes > MAX_BYTES)" in admin_js
 
 
+def test_admin_upload_script_focuses_field_after_category_mismatch():
+    admin_js = Path("static/js/admin.js").read_text(encoding="utf-8")
+
+    assert "if (categorySelects[0]) {" in admin_js
+    assert "categorySelects[0].focus();" in admin_js
+    assert "} else if (pdfInput) {" in admin_js
+    assert "pdfInput.focus();" in admin_js
+
+
 def test_home_page_exposes_motion_markers(empty_db):
     with _client() as client:
         response = client.get("/")

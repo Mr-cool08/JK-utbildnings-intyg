@@ -80,6 +80,7 @@ from functions.password_resets import (
     reset_supervisor_password_with_token,
 )
 from functions.pdf_storage import (
+    count_user_pdfs,
     delete_user_pdf,
     get_pdf_content,
     get_pdf_metadata,
@@ -174,6 +175,7 @@ __all__ = [
     "create_supervisor_link_request",
     "create_table_row",
     "create_test_user",
+    "count_user_pdfs",
     "delete_table_row",
     "delete_user_pdf",
     "ensure_demo_data",

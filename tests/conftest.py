@@ -13,7 +13,8 @@ os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
 os.environ.setdefault("secret_key", "test-secret-key")
 os.environ.setdefault("DEV_MODE", "true")
-os.environ.setdefault("DISABLE_EMAILS", "true")
+if os.environ.get("DEV_MODE", "false").lower() == "true":
+    os.environ.setdefault("DISABLE_EMAILS", "true")
 # Ensure tests keep log output inside the workspace to avoid temp-dir permission issues.
 _test_log_dir = Path(__file__).resolve().parents[1] / ".pytest_tmp" / "logs"
 _test_log_dir.mkdir(parents=True, exist_ok=True)

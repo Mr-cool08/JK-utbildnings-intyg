@@ -81,3 +81,18 @@ def test_scan_pdf_handles_timeout(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _timeout)
     with pytest.raises(ValueError):
         pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 slow", logging.getLogger(__name__))
+
+
+def test_scan_pdf_uses_shorter_subprocess_timeout(monkeypatch):
+    captured = {}
+
+    def _runner(*_args, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        return SimpleNamespace(returncode=0, stdout=json.dumps({"objects": []}), stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _runner)
+
+    verdict = pdf_scanner.scan_pdf_bytes(b"%PDF-1.4 clean")
+
+    assert verdict.decision == "ALLOW"
+    assert captured["timeout"] == 55
