@@ -34,6 +34,7 @@ from flask import (
     session,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 from markupsafe import Markup
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -964,7 +965,7 @@ def _handle_org_link_request_action(
     failure_messages: dict[str, str],
     fallback_message: str,
     email_log_message: str,
-) -> Response:
+) -> ResponseReturnValue:
     email_hash, _ = _require_supervisor()
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
