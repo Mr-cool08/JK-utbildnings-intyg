@@ -2,69 +2,6 @@
 // static/js/dashboard.js
 
 (() => {
-  const checkboxes = Array.from(
-    document.querySelectorAll('[data-category-filter]')
-  );
-  const pdfItems = Array.from(
-    document.querySelectorAll('[data-pdf-categories]')
-  );
-  const categoryGroups = Array.from(
-    document.querySelectorAll('[data-category-group]')
-  );
-  const noResults = document.getElementById('noFilteredResults');
-
-  function setupFiltering() {
-    if (!checkboxes.length || !pdfItems.length) {
-      if (noResults) {
-        noResults.hidden = true;
-      }
-      return;
-    }
-
-    function updateVisibility() {
-      const active = checkboxes
-        .filter((checkbox) => checkbox.checked)
-        .map((checkbox) => checkbox.value);
-
-      let visibleCount = 0;
-
-      pdfItems.forEach((item) => {
-        const categories = (item.dataset.pdfCategories || '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value);
-        const matches =
-          active.length === 0 ||
-          categories.some((category) => active.includes(category));
-
-        item.style.display = matches ? '' : 'none';
-        if (matches) {
-          visibleCount += 1;
-        }
-      });
-
-      categoryGroups.forEach((group) => {
-        const groupItems = Array.from(
-          group.querySelectorAll('[data-pdf-categories]')
-        );
-        const hasVisibleItem = groupItems.some(
-          (item) => item.style.display !== 'none'
-        );
-        group.hidden = !hasVisibleItem;
-      });
-
-      if (noResults) {
-        noResults.hidden = visibleCount !== 0;
-      }
-    }
-
-    checkboxes.forEach((checkbox) => {
-      checkbox.addEventListener('change', updateVisibility);
-    });
-
-    updateVisibility();
-  }
-
   function setupShareModal() {
     const shareModal = document.getElementById('shareModal');
     const shareForm = document.getElementById('shareForm');
@@ -335,6 +272,5 @@
 
   }
 
-  setupFiltering();
   setupShareModal();
 })();

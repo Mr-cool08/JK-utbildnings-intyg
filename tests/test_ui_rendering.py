@@ -137,8 +137,8 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert 'id="shareModal"' in body
     assert 'id="shareRecipientEmail"' in body
     assert "data-share-select" in body
-    assert "Filtrera arkivet" in body
-    assert "Ladda upp nytt intyg" in body
+    assert "Mina intyg" in body
+    assert "Ladda upp intyg" in body
     assert "dashboard.js" in body
 
 

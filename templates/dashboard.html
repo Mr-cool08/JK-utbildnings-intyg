@@ -6,208 +6,12 @@
 {% endblock %}
 {% block content %}
 <section class="dashboard-shell">
-    <section class="dashboard-hero" aria-label="Översikt för privatkonto">
-        <div class="dashboard-hero__content">
-            <p class="section-kicker">Privatkonto</p>
-            <h1 class="dashboard-title">
-                {% if user_name %}
-                    Hej {{ user_name }}! Här är dina intyg.
-                {% else %}
-                    Hej! Här är dina intyg.
-                {% endif %}
-            </h1>
-            <p class="dashboard-lead">
-                Samla dina utbildningsintyg på ett ställe, dela markerade filer via e-post och håll koll på vilka företag som har åtkomst.
-            </p>
-            <div class="dashboard-hero__actions">
-                <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp nytt intyg</a>
-                <a class="btn btn-secondary" href="#intygsarkiv">Gå till arkivet</a>
-                {% if pending_link_requests %}
-                    <a class="btn btn-ghost" href="#kopplingsforfragningar">Se förfrågningar</a>
-                {% endif %}
-            </div>
-        </div>
-        <div class="dashboard-stats" aria-label="Snabb statistik">
-            <article class="dashboard-stat">
-                <span class="dashboard-stat__label">Intyg i arkivet</span>
-                <strong class="dashboard-stat__value">{{ pdfs | length }}</strong>
-            </article>
-            <article class="dashboard-stat">
-                <span class="dashboard-stat__label">Väntande förfrågningar</span>
-                <strong class="dashboard-stat__value">{{ pending_link_requests | length }}</strong>
-            </article>
-            <article class="dashboard-stat">
-                <span class="dashboard-stat__label">Aktiva kopplingar</span>
-                <strong class="dashboard-stat__value">{{ supervisor_connections | length }}</strong>
-            </article>
-        </div>
-    </section>
-
-    {% if pdfs %}
-    <section class="category-list" aria-label="Filtrera intyg efter kategori">
-        <div class="section-heading">
-            <div>
-                <p class="section-kicker">Kategorier</p>
-                <h2>Filtrera arkivet</h2>
-            </div>
-            <p class="section-note">Markera en eller flera kategorier för att visa rätt intyg snabbare.</p>
-        </div>
-        <ul>
-            {% for category in category_summary %}
-                {% if category.count %}
-                <li>
-                    <label class="category-filter">
-                        <input type="checkbox" value="{{ category.slug }}" data-category-filter>
-                        <span>{{ category.label }}</span>
-                        <span class="category-count-badge">{{ category.count }}</span>
-                    </label>
-                </li>
-                {% endif %}
-            {% endfor %}
-        </ul>
-    </section>
-    {% endif %}
-
-    <div class="dashboard-layout">
-        <section class="dashboard-main" id="intygsarkiv">
-            <div class="section-heading">
-                <div>
-                    <p class="section-kicker">Intygsarkiv</p>
-                    <h2>Dina uppladdade intyg</h2>
-                </div>
-                {% if pdfs %}
-                <p class="section-note">Markera ett eller flera intyg för att dela dem via e-post.</p>
-                {% endif %}
-            </div>
-
-            {% if grouped_pdfs %}
-            <div class="share-selection" aria-label="Delning av flera intyg">
-                <button
-                    type="button"
-                    id="shareSelectedButton"
-                    class="btn share-selected-button"
-                    disabled
-                >
-                    Dela markerade intyg
-                </button>
-                <p class="share-selection__hint">
-                    Markera de intyg du vill dela och klicka på knappen för att skicka dem i samma e-post.
-                </p>
-            </div>
-
-            <section class="category-groups" aria-label="Intyg sorterade efter kategori">
-                {% for group in grouped_pdfs %}
-                <article class="category-group" data-category-group>
-                    <header class="category-header">
-                        <h3>{{ group.label }}</h3>
-                        <p class="category-count">{{ group.pdfs | length }} intyg</p>
-                    </header>
-                    <ul class="pdf-list">
-                        {% for pdf in group.pdfs %}
-                        <li data-pdf-categories="{{ pdf.categories | join(',') if pdf.categories else 'okategoriserade' }}">
-                            <div class="pdf-entry">
-                                <input
-                                    type="checkbox"
-                                    class="pdf-select"
-                                    data-share-select
-                                    value="{{ pdf.id }}"
-                                    data-pdf-name="{{ pdf.filename }}"
-                                    aria-label="Markera {{ pdf.filename }} för delning"
-                                >
-                                <div class="pdf-details">
-                                    <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
-                                        {{ pdf.filename }}
-                                    </a>
-                                    <span class="pdf-meta">
-                                        <strong>Kategorier:</strong>
-                                        {% if pdf.category_labels %}
-                                            {{ pdf.category_labels | join(', ') }}
-                                        {% else %}
-                                            Inte angiven
-                                        {% endif %}
-                                        <br>
-                                        <strong>Anteckning:</strong>
-                                        {% if pdf.note %}
-                                            {{ pdf.note }}
-                                        {% else %}
-                                            Ingen anteckning
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="pdf-actions">
-                                <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="btn btn-danger">Ta bort intyg</button>
-                                </form>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </article>
-                {% endfor %}
-            </section>
-            <p id="noFilteredResults" class="dashboard-empty dashboard-empty--compact" hidden>
-                Inga intyg matchar de valda kategorierna. Avmarkera ett filter eller ladda upp ett nytt intyg.
-            </p>
-            {% else %}
-            <section class="dashboard-empty" aria-label="Tomt intygsarkiv">
-                <p class="section-kicker">Redo att börja</p>
-                <h2>Ditt arkiv väntar på första intyget</h2>
-                <p>Du har inga intyg uppladdade ännu. Börja med att lägga till ditt första intyg i PDF, PNG eller JPG.</p>
-                <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp första intyget</a>
-            </section>
-            {% endif %}
-        </section>
-
-        <aside class="dashboard-side">
-            <section class="dashboard-card dashboard-card--accent">
-                <p class="section-kicker">Snabbstart</p>
-                <h2>Ladda upp med rätt kategori direkt</h2>
-                <p>På uppladdningssidan kan du välja kategori och lägga till en kort anteckning så att intyget blir lättare att hitta senare.</p>
-                <a class="btn" href="{{ url_for('user_upload_page') }}">Öppna uppladdning</a>
-            </section>
-
-            <section class="dashboard-card">
-                <p class="section-kicker">Kontohantering</p>
-                <h2>Behöver du radera dina uppgifter?</h2>
-                <p>Kontakta supporten så hjälper vi dig att ta bort användardata och avsluta kontot på ett tryggt sätt.</p>
-                <a
-                    class="btn btn-ghost support-email-button"
-                    href="mailto:support@utbildningsintyg.se?subject=Beg%C3%A4ran%20om%20radering%20av%20anv%C3%A4ndardata&body=Hej%20supportteamet%2C%0A%0AJag%20vill%20beg%C3%A4ra%20att%20all%20min%20anv%C3%A4ndardata%20tas%20bort.%0A%0AV%C3%A4nligen%20bekr%C3%A4fta%20n%C3%A4r%20det%20%C3%A4r%20klart.%0A%0ATack!"
-                    aria-describedby="supportRemovalHint"
-                >
-                    Begär radering av mina uppgifter
-                </a>
-                <p class="support-text visually-hidden" id="supportRemovalHint">
-                    Behöver du radera dina uppgifter? Kontakta oss så hjälper vi dig.
-                </p>
-            </section>
-
-            {% if supervisor_connections %}
-            <section class="dashboard-card">
-                <p class="section-kicker">Företagsåtkomst</p>
-                <h2>Kopplade företag</h2>
-                <ul class="dashboard-mini-list">
-                    {% for connection in supervisor_connections %}
-                    <li>{{ connection.supervisor_name }}</li>
-                    {% endfor %}
-                </ul>
-            </section>
-            {% endif %}
-        </aside>
-    </div>
-
     {% if pending_link_requests %}
-    <section class="connection-panel" id="kopplingsforfragningar" aria-label="Väntande kopplingsförfrågningar">
+    <section class="dashboard-alert" id="kopplingsforfragningar" aria-label="Väntande kopplingsförfrågningar">
         <div class="section-heading">
-            <div>
-                <p class="section-kicker">Förfrågningar</p>
-                <h2>Väntande kopplingsförfrågningar</h2>
-            </div>
-            <p class="section-note">Företagskonton som vill koppla sig till ditt användarkonto.</p>
+            <h2>Väntande kopplingsförfrågningar</h2>
         </div>
-        <ul class="connection-list">
+        <ul class="connection-list connection-list--priority">
             {% for request in pending_link_requests %}
             <li>
                 <div>
@@ -230,15 +34,86 @@
     </section>
     {% endif %}
 
-    {% if supervisor_connections %}
-    <section class="connection-panel" aria-label="Dina kopplade företagskonton">
-        <div class="section-heading">
-            <div>
-                <p class="section-kicker">Aktiva kopplingar</p>
-                <h2>Kopplade företagskonton</h2>
+    <section class="dashboard-main" id="intygsarkiv">
+        <header class="dashboard-head">
+            <div class="dashboard-head__content">
+                <p class="dashboard-greeting">
+                    {% if user_name %}
+                        Hej {{ user_name }}!
+                    {% else %}
+                        Hej!
+                    {% endif %}
+                </p>
+                <h1 class="dashboard-title">Mina intyg</h1>
+                <p class="dashboard-subtitle">Här är dina intyg.</p>
             </div>
-            <p class="section-note">Företagskonton som har åtkomst till dina intyg.</p>
+            <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp intyg</a>
+        </header>
+
+        {% if grouped_pdfs %}
+        <div class="dashboard-toolbar">
+            <button
+                type="button"
+                id="shareSelectedButton"
+                class="btn share-selected-button"
+                disabled
+            >
+                Dela markerade intyg
+            </button>
         </div>
+
+        <section class="category-groups" aria-label="Intyg sorterade efter kategori">
+            {% for group in grouped_pdfs %}
+            <article class="category-group">
+                <header class="category-header">
+                    <h2>{{ group.label }}</h2>
+                    <p class="category-count">{{ group.pdfs | length }}</p>
+                </header>
+                <ul class="pdf-list">
+                    {% for pdf in group.pdfs %}
+                    <li>
+                        <div class="pdf-entry">
+                            <input
+                                type="checkbox"
+                                class="pdf-select"
+                                data-share-select
+                                value="{{ pdf.id }}"
+                                data-pdf-name="{{ pdf.filename }}"
+                                aria-label="Markera {{ pdf.filename }} för delning"
+                            >
+                            <div class="pdf-details">
+                                <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
+                                    {{ pdf.filename }}
+                                </a>
+                                {% if pdf.note %}
+                                <span class="pdf-note">{{ pdf.note }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="pdf-actions">
+                            <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="btn btn-danger">Ta bort</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </article>
+            {% endfor %}
+        </section>
+        {% else %}
+        <section class="dashboard-empty" aria-label="Tomt intygsarkiv">
+            <h2>Inga intyg än</h2>
+            <p>Ladda upp ditt första intyg för att komma igång.</p>
+            <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp första intyget</a>
+        </section>
+        {% endif %}
+    </section>
+
+    {% if supervisor_connections %}
+    <details class="dashboard-secondary">
+        <summary>Företagskopplingar ({{ supervisor_connections | length }})</summary>
         <ul class="connection-list">
             {% for connection in supervisor_connections %}
             <li>
@@ -253,8 +128,17 @@
             </li>
             {% endfor %}
         </ul>
-    </section>
+    </details>
     {% endif %}
+
+    <div class="dashboard-footer">
+        <a
+            class="dashboard-link"
+            href="mailto:support@utbildningsintyg.se?subject=Beg%C3%A4ran%20om%20radering%20av%20anv%C3%A4ndardata&body=Hej%20supportteamet%2C%0A%0AJag%20vill%20beg%C3%A4ra%20att%20all%20min%20anv%C3%A4ndardata%20tas%20bort.%0A%0AV%C3%A4nligen%20bekr%C3%A4fta%20n%C3%A4r%20det%20%C3%A4r%20klart.%0A%0ATack!"
+        >
+            Begär radering av mina uppgifter
+        </a>
+    </div>
 </section>
 
 <dialog id="shareModal" class="share-modal" aria-modal="true" aria-labelledby="shareModalTitle">
@@ -262,10 +146,9 @@
         <button type="button" class="share-modal__close" aria-label="Stäng delningsrutan" data-share-close>&times;</button>
         <h2 id="shareModalTitle">Dela intyg via e-post</h2>
         <p class="share-modal__lead">
-            Du delar <strong id="shareDocumentSummary">intyget</strong>. Ange mottagarens e-postadress nedan.
+            Du delar <strong id="shareDocumentSummary">intyget</strong>.
         </p>
         <div class="share-modal__selection" id="shareDocumentSelection" hidden>
-            <p class="share-modal__selection-lead">Följande intyg skickas som bilagor:</p>
             <ul id="shareDocumentList"></ul>
         </div>
         <form id="shareForm" class="share-form" novalidate>
@@ -278,7 +161,7 @@
                 autocomplete="email"
                 placeholder="namn@example.se"
             >
-            <button type="submit" class="btn share-submit">Skicka intyget</button>
+            <button type="submit" class="btn share-submit">Skicka</button>
         </form>
         <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
     </div>
