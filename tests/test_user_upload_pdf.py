@@ -91,3 +91,39 @@ def test_user_upload_rejects_too_long_note(user_db):
 
     assert response.status_code == 200
     assert "Anteckningen får vara högst 300 tecken.".encode("utf-8") in response.data
+
+
+def test_user_upload_rejects_request_over_global_limit(user_db, monkeypatch):
+    pdf_bytes = b"%PDF-1.4 via upload"
+
+    with app.app.test_client() as client:
+        with client.session_transaction() as session_data:
+            session_data["csrf_token"] = "test-token"
+        client.post(
+            "/login",
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
+        )
+
+        client.get("/dashboard")
+
+        with client.session_transaction() as session_data:
+            csrf_token = session_data.get("csrf_token")
+
+        monkeypatch.setitem(app.app.config, "MAX_CONTENT_LENGTH", 1)
+        response = client.post(
+            "/dashboard/ladda-upp",
+            data={
+                "category": COURSE_CATEGORIES[1][0],
+                "certificate": (io.BytesIO(pdf_bytes), "intyg.pdf"),
+                "csrf_token": csrf_token,
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+
+    assert response.status_code == 200
+    assert "Uppladdningen är för stor. Max 100 MB tillåts.".encode("utf-8") in response.data

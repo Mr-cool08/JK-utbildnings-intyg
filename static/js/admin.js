@@ -101,6 +101,13 @@
       return;
     }
 
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > MAX_BYTES) {
+      showMessage('error', `Den totala uppladdningen är för stor (max ${MAX_MB} MB).`);
+      pdfInput.focus();
+      return;
+    }
+
     for (const file of files) {
       const pdfError = validatePdf(file);
       if (pdfError) { showMessage('error', pdfError); pdfInput.focus(); return; }

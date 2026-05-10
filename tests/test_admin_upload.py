@@ -216,4 +216,24 @@ def test_admin_upload_requires_category(empty_db):
     assert payload["message"] == "Välj kategori för varje PDF."
 
 
+def test_admin_upload_rejects_request_over_global_limit(empty_db, monkeypatch):
+    monkeypatch.setitem(app.app.config, "MAX_CONTENT_LENGTH", 1)
+    pdf_bytes = b"%PDF-1.4 test"
+    data = {
+        "email": "new@example.com",
+        "username": "Ny",
+        "personnummer": "19900101-5678",
+        "pdf": (io.BytesIO(pdf_bytes), "doc.pdf"),
+        "categories": COURSE_CATEGORIES[0][0],
+    }
+
+    with _admin_client() as client:
+        response = client.post("/admin", data=data, content_type="multipart/form-data")
+
+    assert response.status_code == 413
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert payload["message"] == "Uppladdningen är för stor. Max 100 MB tillåts."
+
+
 

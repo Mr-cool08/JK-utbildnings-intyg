@@ -239,6 +239,15 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert 'id="category"' in body
     assert 'id="note"' in body
     assert "Tillbaka till mina intyg" in body
+    assert "Max 100 MB per uppladdning." in body
+    assert 'data-max-bytes="104857600"' in body
+
+
+def test_admin_upload_script_enforces_total_upload_limit():
+    admin_js = Path("static/js/admin.js").read_text(encoding="utf-8")
+
+    assert "const totalBytes = files.reduce((sum, file) => sum + file.size, 0);" in admin_js
+    assert "if (totalBytes > MAX_BYTES)" in admin_js
 
 
 def test_home_page_exposes_motion_markers(empty_db):

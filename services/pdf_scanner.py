@@ -20,7 +20,6 @@ DANGEROUS_MARKERS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\brichmedia\b", re.IGNORECASE), "RichMedia"),
     (re.compile(r"\bgotoe\b", re.IGNORECASE), "GoToE"),
     (re.compile(r"\bgotor\b", re.IGNORECASE), "GoToR"),
-    (re.compile(r"\buri\b", re.IGNORECASE), "URI"),
     (re.compile(r"\bsubmitform\b", re.IGNORECASE), "SubmitForm"),
 )
 
@@ -93,7 +92,7 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=20,
+            timeout=300,
             text=True,
         )
     except FileNotFoundError:

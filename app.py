@@ -151,9 +151,15 @@ CLIENT_LOG_TRUNCATION_LIMITS = {
     "details": 1000,
 }
 
+UPLOAD_MAX_MB = 100
+UPLOAD_MAX_BYTES = UPLOAD_MAX_MB * 1024 * 1024
+
 # Gemensamma användarmeddelanden
 CSRF_EXPIRED_MESSAGE = "Formuläret är inte längre giltigt. Ladda om sidan och försök igen."
 TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund och prova igen."
+UPLOAD_TOO_LARGE_MESSAGE = (
+    f"Uppladdningen är för stor. Max {UPLOAD_MAX_MB} MB tillåts."
+)
 
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
@@ -464,7 +470,7 @@ def create_app() -> Flask:
     # Validate secret_key is set
     app.secret_key = _resolve_secret_key()
 
-    app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+    app.config["MAX_CONTENT_LENGTH"] = UPLOAD_MAX_BYTES
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
@@ -1869,6 +1875,8 @@ def user_upload_page():
         csrf_token=csrf_token,
         user_name=_format_display_name(user_name),
         certificate_count=certificate_count,
+        max_upload_mb=UPLOAD_MAX_MB,
+        max_upload_bytes=UPLOAD_MAX_BYTES,
     )
 
 
@@ -3824,6 +3832,23 @@ def conflict_error(_):  # pragma: no cover
     return render_template(
         "error.html", error_code=error_code, error_message=error_message, time=time.time()
     ), 409
+
+
+@app.errorhandler(413)
+def request_entity_too_large(_):  # pragma: no cover
+    # Visa ett tydligt felmeddelande när uppladdningen överskrider global gräns.
+    logger.warning("413 För stor uppladdning: %s", request.path)
+    if request.path == "/admin":
+        return jsonify({"status": "error", "message": UPLOAD_TOO_LARGE_MESSAGE}), 413
+    if request.path == "/dashboard/ladda-upp":
+        flash(UPLOAD_TOO_LARGE_MESSAGE, "error")
+        return redirect(url_for("user_upload_page"))
+
+    error_code = 413
+    error_message = UPLOAD_TOO_LARGE_MESSAGE
+    return render_template(
+        "error.html", error_code=error_code, error_message=error_message, time=time.time()
+    ), 413
 
 
 @app.errorhandler(404)
