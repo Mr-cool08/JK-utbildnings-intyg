@@ -56,6 +56,8 @@ def test_logged_in_user_nav_shows_user_actions_only(user_db):
     nav_links = _extract_nav_links(body)
 
     assert ">Intyg<" in nav_links
+    assert "Ladda upp intyg" in nav_links
+    assert 'href="/dashboard/upload"' in nav_links
     assert 'href="/logout"' in nav_links
     assert "Privatinloggning" not in nav_links
     assert "/foretagskonto/login" not in nav_links
@@ -135,9 +137,32 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert 'id="shareModal"' in body
     assert 'id="shareRecipientEmail"' in body
     assert "data-share-select" in body
+    assert "Filtrera arkivet" in body
+    assert "Ladda upp nytt intyg" in body
+    assert "dashboard.js" in body
+
+
+def test_upload_page_requires_login(empty_db):
+    with _client() as client:
+        response = client.get("/dashboard/upload", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_upload_page_renders_form_for_logged_in_user(user_db):
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard/upload")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Ladda upp ett nytt intyg" in body
+    assert 'name="csrf_token"' in body
     assert 'id="certificate"' in body
     assert 'id="category"' in body
-    assert "dashboard.js" in body
+    assert 'id="note"' in body
+    assert "Tillbaka till mina intyg" in body
 
 
 def test_home_page_exposes_motion_markers(empty_db):

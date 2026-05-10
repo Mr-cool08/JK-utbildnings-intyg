@@ -67,3 +67,29 @@ def test_dashboard_capitalizes_first_letter_of_forename_and_surname(user_db):
         )
         response = client.get("/dashboard")
         assert b"Hej Anna Andersson!" in response.data
+
+
+def test_upload_page_formats_logged_in_user_name(user_db):
+    engine = user_db
+    with engine.begin() as conn:
+        conn.execute(
+            functions.users_table.update()
+            .where(functions.users_table.c.personnummer == functions.hash_value("9001011234"))
+            .values(username="anna andersson")
+        )
+
+    with app.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        client.post(
+            "/login",
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
+        )
+        response = client.get("/dashboard/upload")
+
+    assert response.status_code == 200
+    assert b"Anna Andersson, ladda upp ett nytt intyg" in response.data

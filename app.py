@@ -1844,6 +1844,33 @@ def user_delete_pdf_route(pdf_id: int):
 
     return redirect("/dashboard")
 
+@app.route("/dashboard/upload", methods=["GET"])
+def user_upload_page():
+    if not session.get("user_logged_in"):
+        logger.debug("Oautentiserad åtkomst till uppladdningssidan")
+        return redirect("/login")
+
+    personnummer_hash = session.get("personnummer")
+    if not personnummer_hash:
+        return redirect("/login")
+
+    user_name = session.get("username")
+    if not user_name:
+        user_name = functions.get_username_by_personnummer_hash(personnummer_hash)
+        if user_name:
+            session["username"] = user_name
+
+    csrf_token = sec.ensure_csrf_token()
+    certificate_count = len(functions.get_user_pdfs(personnummer_hash))
+    return render_template(
+        "upload_intyg.html",
+        course_categories=COURSE_CATEGORIES,
+        course_category_groups=COURSE_CATEGORY_GROUPS,
+        csrf_token=csrf_token,
+        user_name=_format_display_name(user_name),
+        certificate_count=certificate_count,
+    )
+
 
 @app.route("/my_pdfs/<int:pdf_id>")
 def download_pdf(pdf_id: int):

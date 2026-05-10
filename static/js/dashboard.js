@@ -8,12 +8,15 @@
   const pdfItems = Array.from(
     document.querySelectorAll('[data-pdf-categories]')
   );
+  const categoryGroups = Array.from(
+    document.querySelectorAll('[data-category-group]')
+  );
   const noResults = document.getElementById('noFilteredResults');
 
   function setupFiltering() {
     if (!checkboxes.length || !pdfItems.length) {
       if (noResults) {
-        noResults.style.display = 'none';
+        noResults.hidden = true;
       }
       return;
     }
@@ -40,8 +43,18 @@
         }
       });
 
+      categoryGroups.forEach((group) => {
+        const groupItems = Array.from(
+          group.querySelectorAll('[data-pdf-categories]')
+        );
+        const hasVisibleItem = groupItems.some(
+          (item) => item.style.display !== 'none'
+        );
+        group.hidden = !hasVisibleItem;
+      });
+
       if (noResults) {
-        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        noResults.hidden = visibleCount !== 0;
       }
     }
 
