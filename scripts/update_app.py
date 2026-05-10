@@ -177,7 +177,7 @@ def main() -> None:
 
     # 6. prepare venv commands
     pip_cmd = _build_venv_command(root, "pip", "pip.exe")
-    pytest_cmd = [*_build_venv_command(root, "pytest", "pytest.exe"), "-n", "auto"]
+    pytest_cmd = [*_build_venv_command(root, "pytest", "pytest.exe"), "-n", "auto", "-q"]
 
     # 7. install requirements
     reqs = _find_requirements(root)

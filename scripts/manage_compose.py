@@ -411,7 +411,7 @@ def run_compose_action(
         print("Kör pytest (parallellt)...")
         pytest_cmd = build_pytest_command(repo_root())
         try:
-            runner([*pytest_cmd, "-n", "auto"], check=True, cwd=repo_root())
+            runner([*pytest_cmd, "-n", "auto", "-q"], check=True, cwd=repo_root())
         except subprocess.CalledProcessError as exc:
             raise ActionError("Ett fel uppstod när pytest kördes.") from exc
         print("Klar.")
