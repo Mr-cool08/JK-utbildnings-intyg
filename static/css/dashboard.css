@@ -19,6 +19,7 @@
 
 .dashboard-main,
 .dashboard-alert,
+.dashboard-secondary,
 .upload-panel {
     padding: clamp(1.25rem, 3vw, 1.75rem);
 }
@@ -31,6 +32,7 @@
 }
 
 .dashboard-alert h2,
+.dashboard-secondary h2,
 .dashboard-title,
 .upload-panel h2,
 .dashboard-empty h2,
@@ -66,22 +68,6 @@
     font-size: clamp(1.9rem, 4vw, 2.5rem);
     line-height: 1.1;
     color: var(--color-text);
-}
-
-.dashboard-badge {
-    margin: 0;
-    width: fit-content;
-    padding: 0.22rem 0.7rem;
-    border-radius: var(--radius-pill);
-    background: rgba(230, 222, 11, 0.28);
-    color: var(--color-text);
-    font-size: 0.82rem;
-    font-weight: 700;
-}
-
-.dashboard-alert__head {
-    display: grid;
-    gap: 0.45rem;
 }
 
 .dashboard-subtitle,
@@ -255,28 +241,8 @@
 }
 
 .dashboard-secondary {
-    padding: 0 1rem 1rem;
-}
-
-.dashboard-secondary summary {
-    cursor: pointer;
-    padding: 1rem 0;
-    font-weight: 600;
-}
-
-.dashboard-secondary summary::-webkit-details-marker {
-    display: none;
-}
-
-.dashboard-secondary summary::after {
-    content: "Visa";
-    float: right;
-    color: var(--color-text-muted);
-    font-weight: 500;
-}
-
-.dashboard-secondary[open] summary::after {
-    content: "Dölj";
+    display: grid;
+    gap: 1rem;
 }
 
 .dashboard-footer {

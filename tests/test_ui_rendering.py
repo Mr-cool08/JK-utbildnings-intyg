@@ -187,6 +187,37 @@ def test_dashboard_hides_search_when_user_has_five_or_fewer_certificates(user_db
     assert 'data-dashboard-search' not in body
 
 
+def test_dashboard_shows_company_connection_without_details_panel(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    supervisor_hash = functions.hash_value("foretag@example.com")
+
+    with user_db.begin() as conn:
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                name="Handledarbolaget",
+                email=supervisor_hash,
+                password=functions.hash_password("super-secret-1"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Företagskoppling" in body
+    assert "Handledarbolaget" in body
+    assert "Ta bort koppling" in body
+    assert '<details class="dashboard-secondary">' not in body
+
+
 def test_upload_page_requires_login(empty_db):
     with _client() as client:
         response = client.get("/dashboard/upload", follow_redirects=False)
