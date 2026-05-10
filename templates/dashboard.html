@@ -9,7 +9,10 @@
     {% if pending_link_requests %}
     <section class="dashboard-alert" id="kopplingsforfragningar" aria-label="Väntande kopplingsförfrågningar">
         <div class="section-heading">
-            <h2>Väntande kopplingsförfrågningar</h2>
+            <div class="dashboard-alert__head">
+                <p class="dashboard-badge">Att ta hand om nu</p>
+                <h2>Väntande kopplingsförfrågningar</h2>
+            </div>
         </div>
         <ul class="connection-list connection-list--priority">
             {% for request in pending_link_requests %}
@@ -52,6 +55,18 @@
 
         {% if grouped_pdfs %}
         <div class="dashboard-toolbar">
+            {% if pdfs | length > 5 %}
+            <div class="dashboard-search">
+                <label for="dashboardSearch">Sök intyg</label>
+                <input
+                    id="dashboardSearch"
+                    type="search"
+                    placeholder="Sök på filnamn eller anteckning"
+                    autocomplete="off"
+                    data-dashboard-search
+                >
+            </div>
+            {% endif %}
             <button
                 type="button"
                 id="shareSelectedButton"
@@ -64,14 +79,17 @@
 
         <section class="category-groups" aria-label="Intyg sorterade efter kategori">
             {% for group in grouped_pdfs %}
-            <article class="category-group">
+            <article class="category-group" data-pdf-group>
                 <header class="category-header">
                     <h2>{{ group.label }}</h2>
                     <p class="category-count">{{ group.pdfs | length }}</p>
                 </header>
                 <ul class="pdf-list">
                     {% for pdf in group.pdfs %}
-                    <li>
+                    <li
+                        data-pdf-item
+                        data-search-text="{{ (pdf.filename ~ ' ' ~ (pdf.note or '') ~ ' ' ~ group.label)|lower }}"
+                    >
                         <div class="pdf-entry">
                             <input
                                 type="checkbox"
@@ -102,10 +120,13 @@
             </article>
             {% endfor %}
         </section>
+        <p class="dashboard-empty dashboard-empty--compact" id="dashboardSearchEmpty" hidden>
+            Ingen träff just nu. Prova ett annat ord.
+        </p>
         {% else %}
         <section class="dashboard-empty" aria-label="Tomt intygsarkiv">
             <h2>Inga intyg än</h2>
-            <p>Ladda upp ditt första intyg för att komma igång.</p>
+            <p>Ladda upp ditt första intyg när du är redo.</p>
             <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp första intyget</a>
         </section>
         {% endif %}

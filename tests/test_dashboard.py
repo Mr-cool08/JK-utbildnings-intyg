@@ -92,4 +92,5 @@ def test_upload_page_formats_logged_in_user_name(user_db):
         response = client.get("/dashboard/upload")
 
     assert response.status_code == 200
-    assert b"Anna Andersson, ladda upp ett nytt intyg" in response.data
+    assert b"Hej Anna Andersson!" in response.data
+    assert b"Ladda upp intyg" in response.data

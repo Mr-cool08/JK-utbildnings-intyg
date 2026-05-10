@@ -142,6 +142,51 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert "dashboard.js" in body
 
 
+def test_dashboard_shows_search_when_user_has_more_than_five_certificates(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+
+    for index in range(6):
+        functions.store_pdf_blob(
+            personnummer_hash,
+            f"intyg-{index}.pdf",
+            f"%PDF-1.4 ui-test-{index}".encode(),
+            [category_slug],
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Sök intyg" in body
+    assert 'data-dashboard-search' in body
+    assert 'id="dashboardSearch"' in body
+
+
+def test_dashboard_hides_search_when_user_has_five_or_fewer_certificates(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+
+    for index in range(5):
+        functions.store_pdf_blob(
+            personnummer_hash,
+            f"kort-{index}.pdf",
+            f"%PDF-1.4 small-{index}".encode(),
+            [category_slug],
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Sök intyg" not in body
+    assert 'data-dashboard-search' not in body
+
+
 def test_upload_page_requires_login(empty_db):
     with _client() as client:
         response = client.get("/dashboard/upload", follow_redirects=False)
@@ -157,7 +202,7 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
         assert response.status_code == 200
         body = response.get_data(as_text=True)
 
-    assert "Ladda upp ett nytt intyg" in body
+    assert "Ladda upp intyg" in body
     assert 'name="csrf_token"' in body
     assert 'id="certificate"' in body
     assert 'id="category"' in body

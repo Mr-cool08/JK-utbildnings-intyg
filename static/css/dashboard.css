@@ -8,10 +8,10 @@
 .dashboard-main,
 .dashboard-alert,
 .dashboard-secondary,
-.upload-hero,
-.upload-panel,
-.dashboard-card {
-    background: var(--color-surface);
+.upload-panel {
+    background:
+        radial-gradient(circle at top right, rgba(230, 222, 11, 0.12), transparent 18rem),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 234, 0.72));
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
@@ -19,22 +19,20 @@
 
 .dashboard-main,
 .dashboard-alert,
-.upload-hero,
-.upload-panel,
-.dashboard-card {
+.upload-panel {
     padding: clamp(1.25rem, 3vw, 1.75rem);
 }
 
 .dashboard-alert {
     border-left: 4px solid var(--color-primary);
-    background: rgba(233, 59, 86, 0.05);
+    background:
+        linear-gradient(90deg, rgba(233, 59, 86, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 234, 0.72));
 }
 
 .dashboard-alert h2,
 .dashboard-title,
-.upload-hero h1,
 .upload-panel h2,
-.dashboard-card h2,
 .dashboard-empty h2,
 .share-modal__dialog h2 {
     margin: 0;
@@ -57,6 +55,11 @@
 .dashboard-greeting {
     margin: 0;
     font-weight: 600;
+    width: fit-content;
+    padding: 0.22rem 0.7rem;
+    border-radius: var(--radius-pill);
+    background: rgba(233, 59, 86, 0.1);
+    color: var(--color-secondary);
 }
 
 .dashboard-title {
@@ -65,8 +68,23 @@
     color: var(--color-text);
 }
 
+.dashboard-badge {
+    margin: 0;
+    width: fit-content;
+    padding: 0.22rem 0.7rem;
+    border-radius: var(--radius-pill);
+    background: rgba(230, 222, 11, 0.28);
+    color: var(--color-text);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.dashboard-alert__head {
+    display: grid;
+    gap: 0.45rem;
+}
+
 .dashboard-subtitle,
-.dashboard-lead,
 .section-note,
 .connection-meta,
 .pdf-note,
@@ -78,6 +96,31 @@
 
 .dashboard-toolbar {
     margin-bottom: 1.25rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.dashboard-search {
+    display: grid;
+    gap: 0.45rem;
+    min-width: min(100%, 22rem);
+}
+
+.dashboard-search label {
+    font-weight: 600;
+}
+
+.dashboard-search input {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-soft);
+    padding: 0.8rem 0.9rem;
+    font: inherit;
+    color: var(--color-text);
 }
 
 .share-selected-button[disabled] {
@@ -114,16 +157,16 @@
 .category-count {
     margin: 0;
     min-width: 1.5rem;
-    color: var(--color-text-muted);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-pill);
+    background: rgba(233, 59, 86, 0.08);
+    color: var(--color-secondary);
     font-weight: 600;
     text-align: right;
 }
 
 .pdf-list,
-.connection-list,
-.upload-format-list,
-.upload-steps,
-.upload-category-group ul {
+.connection-list {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -142,12 +185,23 @@
     gap: 1rem;
     padding-top: 0.75rem;
     border-top: 1px solid var(--color-border);
+    transition:
+        transform var(--transition-base),
+        background-color var(--transition-base),
+        border-color var(--transition-base);
 }
 
 .pdf-list li:first-child,
 .connection-list li:first-child {
     padding-top: 0;
     border-top: 0;
+}
+
+.pdf-list li:hover,
+.connection-list li:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.45);
+    border-color: rgba(233, 59, 86, 0.18);
 }
 
 .pdf-entry {
@@ -177,9 +231,15 @@
     overflow-wrap: anywhere;
 }
 
+.pdf-details a:hover,
+.pdf-details a:focus-visible,
+.dashboard-link:hover,
+.dashboard-link:focus-visible {
+    color: var(--color-secondary);
+}
+
 .pdf-actions,
-.connection-actions,
-.dashboard-hero__actions {
+.connection-actions {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
@@ -188,6 +248,10 @@
 .dashboard-empty {
     display: grid;
     gap: 0.75rem;
+}
+
+.dashboard-empty--compact {
+    padding-top: 0.25rem;
 }
 
 .dashboard-secondary {
@@ -225,57 +289,13 @@
     text-underline-offset: 0.18em;
 }
 
-.section-kicker {
-    margin: 0;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--color-text-muted);
-}
-
-.upload-hero,
-.upload-panel,
-.dashboard-card {
+.upload-panel {
     display: grid;
     gap: 1rem;
 }
 
-.upload-hero {
-    background: var(--color-surface-soft);
-}
-
-.upload-hero__content {
-    display: grid;
-    gap: 0.85rem;
-}
-
-.upload-hero__status {
-    display: inline-grid;
-    gap: 0.25rem;
-    padding: 0.9rem 1rem;
-    width: fit-content;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-}
-
-.upload-hero__status-label {
-    color: var(--color-text-muted);
-    font-size: 0.88rem;
-}
-
-.upload-hero__status-value {
-    font-size: clamp(1.8rem, 4vw, 2.3rem);
-    line-height: 1;
-    font-weight: 700;
-}
-
-.upload-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(18rem, 0.9fr);
-    gap: 1.5rem;
-    align-items: start;
+.upload-panel--simple {
+    gap: 1.25rem;
 }
 
 .section-heading {
@@ -288,10 +308,16 @@
 
 .form-field,
 .upload-form,
-.share-form,
-.upload-category-groups {
+.share-form {
     display: grid;
     gap: 1rem;
+}
+
+.form-help,
+.upload-meta {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--color-text-muted);
 }
 
 .form-field label,
@@ -310,6 +336,10 @@
     padding: 0.85rem 0.95rem;
     font: inherit;
     color: var(--color-text);
+    transition:
+        border-color var(--transition-base),
+        box-shadow var(--transition-base),
+        background-color var(--transition-base);
 }
 
 .form-field input[type="file"] {
@@ -321,24 +351,43 @@
     min-height: 8rem;
 }
 
-.dashboard-card {
-    background: var(--color-surface-soft);
+.upload-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
-.dashboard-card--accent {
-    border-color: rgba(233, 59, 86, 0.24);
+.dashboard-shell .btn,
+.upload-page .btn {
+    transition:
+        transform var(--transition-base),
+        box-shadow var(--transition-base);
 }
 
-.upload-format-list,
-.upload-steps,
-.upload-category-group ul {
-    padding-left: 1.1rem;
-    list-style: disc;
+.dashboard-shell .btn:hover,
+.dashboard-shell .btn:focus-visible,
+.upload-page .btn:hover,
+.upload-page .btn:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
-.upload-category-group h3 {
-    margin: 0 0 0.45rem;
-    font-size: 1rem;
+.dashboard-search input:focus,
+.dashboard-search input:focus-visible,
+.form-field input[type="file"]:focus,
+.form-field input[type="file"]:focus-visible,
+.form-field select:focus,
+.form-field select:focus-visible,
+.form-field textarea:focus,
+.form-field textarea:focus-visible,
+.share-form input:focus,
+.share-form input:focus-visible {
+    outline: none;
+    border-color: rgba(233, 59, 86, 0.45);
+    box-shadow: 0 0 0 4px rgba(233, 59, 86, 0.12);
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .share-modal {
@@ -372,7 +421,9 @@
     display: grid;
     gap: 1rem;
     padding: 1.5rem;
-    background: var(--color-surface);
+    background:
+        radial-gradient(circle at top right, rgba(230, 222, 11, 0.12), transparent 12rem),
+        var(--color-surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
 }
@@ -411,12 +462,6 @@
     border: 0;
 }
 
-@media (max-width: 860px) {
-    .upload-layout {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 720px) {
     .dashboard-head,
     .section-heading,
@@ -442,17 +487,43 @@
     .pdf-actions .btn,
     .connection-actions .btn,
     .dashboard-head .btn,
-    .dashboard-hero__actions .btn,
     .share-submit,
     .share-selected-button {
         width: 100%;
         justify-content: center;
     }
+
+    .dashboard-search {
+        width: 100%;
+    }
+
+    .upload-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .pdf-list li,
+    .connection-list li,
+    .dashboard-shell .btn,
+    .upload-page .btn,
+    .dashboard-search input,
+    .form-field input[type="file"],
+    .form-field select,
+    .form-field textarea,
+    .share-form input,
     .share-modal__close {
         transition: none;
+    }
+
+    .pdf-list li:hover,
+    .connection-list li:hover,
+    .dashboard-shell .btn:hover,
+    .dashboard-shell .btn:focus-visible,
+    .upload-page .btn:hover,
+    .upload-page .btn:focus-visible {
+        transform: none;
     }
 }
 /* # Copyright (c) Liam Suorsa and Mika Suorsa */

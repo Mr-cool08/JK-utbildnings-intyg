@@ -2,6 +2,45 @@
 // static/js/dashboard.js
 
 (() => {
+  function setupDashboardSearch() {
+    const searchInput = document.querySelector('[data-dashboard-search]');
+    const pdfItems = Array.from(document.querySelectorAll('[data-pdf-item]'));
+    const groups = Array.from(document.querySelectorAll('[data-pdf-group]'));
+    const emptyState = document.getElementById('dashboardSearchEmpty');
+
+    if (!searchInput || !pdfItems.length) {
+      return;
+    }
+
+    function filterItems() {
+      const query = searchInput.value.toLowerCase().trim();
+      let visibleCount = 0;
+
+      pdfItems.forEach((item) => {
+        const haystack = item.dataset.searchText || '';
+        const matches = !query || haystack.includes(query);
+        item.hidden = !matches;
+        if (matches) {
+          visibleCount += 1;
+        }
+      });
+
+      groups.forEach((group) => {
+        const visibleItems = Array.from(
+          group.querySelectorAll('[data-pdf-item]')
+        ).some((item) => !item.hidden);
+        group.hidden = !visibleItems;
+      });
+
+      if (emptyState) {
+        emptyState.hidden = visibleCount !== 0;
+      }
+    }
+
+    searchInput.addEventListener('input', filterItems);
+    filterItems();
+  }
+
   function setupShareModal() {
     const shareModal = document.getElementById('shareModal');
     const shareForm = document.getElementById('shareForm');
@@ -272,5 +311,6 @@
 
   }
 
+  setupDashboardSearch();
   setupShareModal();
 })();
