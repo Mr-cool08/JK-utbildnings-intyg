@@ -48,9 +48,10 @@
                         Hej {{ user_name }}!
                     {% else %}
                         Hej!
-                    {% endif %}
+                {% endif %}
                 </p>
                 <h1 class="dashboard-title">Mina intyg</h1>
+                <p class="dashboard-subtitle">Här är dina intyg.</p>
             </div>
             <a class="btn" href="{{ url_for('user_upload_page') }}">Ladda upp intyg</a>
         </header>

@@ -35,7 +35,7 @@ from flask import (
     url_for,
 )
 from markupsafe import Markup
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
@@ -2165,6 +2165,8 @@ def admin():  # pragma: no cover
         except ValueError as ve:
             logger.error("Värdefel under adminuppladdning: %s", ve)
             return jsonify({"status": "error", "message": "Felaktiga användardata."}), 400
+        except RequestEntityTooLarge:
+            raise
         except Exception as e:
             logger.error("Serverfel under adminuppladdning", exc_info=e)
             return jsonify({"status": "error", "message": "Serverfel"}), 500
