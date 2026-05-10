@@ -1,0 +1,104 @@
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
+{% extends 'base.html' %}
+{% block title %}Ladda upp intyg{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<section class="upload-page">
+    <section class="upload-panel upload-panel--simple" aria-label="Formulär för att ladda upp egna intyg">
+        <header class="dashboard-head">
+            <div class="dashboard-head__content">
+                <p class="dashboard-greeting">
+                    {% if user_name %}
+                        Hej {{ user_name }}!
+                    {% else %}
+                        Hej!
+                    {% endif %}
+                </p>
+                <h1 class="dashboard-title">Ladda upp intyg</h1>
+                <p class="dashboard-subtitle">PDF, PNG eller JPG. Max {{ max_upload_mb }} MB per uppladdning.</p>
+            </div>
+            <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Tillbaka till mina intyg</a>
+        </header>
+
+        <form action="{{ url_for('user_upload_pdf_route') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-field">
+                <label for="certificate">Välj fil</label>
+                <input type="file" id="certificate" name="certificate" accept=".pdf,.png,.jpg,.jpeg" data-max-bytes="{{ max_upload_bytes }}" data-max-mb="{{ max_upload_mb }}" required>
+                <p class="form-help">PNG och JPG sparas som PDF. Max {{ max_upload_mb }} MB.</p>
+            </div>
+            <div class="form-field">
+                <label for="category">Kategori</label>
+                <select id="category" name="category" required>
+                    <option value="">Välj kategori</option>
+                    {% for group_label, items in course_category_groups %}
+                        <optgroup label="{{ group_label }}">
+                            {% for slug, label in items %}
+                                <option value="{{ slug }}">{{ label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="note">Anteckning</label>
+                <textarea id="note" name="note" maxlength="300" rows="4" placeholder="Valfritt"></textarea>
+            </div>
+            <div class="upload-actions">
+                <button type="submit" class="btn">Ladda upp intyg</button>
+                <p class="upload-meta">{{ certificate_count }} intyg i arkivet</p>
+            </div>
+        </form>
+    </section>
+</section>
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const certificateInput = document.getElementById("certificate");
+  if (!certificateInput) {
+    return;
+  }
+
+  const maxBytes = Number(certificateInput.dataset.maxBytes || 0);
+  const maxMb = certificateInput.dataset.maxMb || "100";
+
+  function validateSelectedFile() {
+    const selectedFile = certificateInput.files && certificateInput.files[0];
+    if (!selectedFile || !maxBytes) {
+      certificateInput.setCustomValidity("");
+      return;
+    }
+
+    if (selectedFile.size > maxBytes) {
+      certificateInput.setCustomValidity(
+        `Filen är för stor. Maxstorlek är ${maxMb} MB.`
+      );
+      return;
+    }
+
+    certificateInput.setCustomValidity("");
+  }
+
+  certificateInput.addEventListener("change", () => {
+    validateSelectedFile();
+    if (certificateInput.validationMessage) {
+      certificateInput.reportValidity();
+    }
+  });
+
+  if (certificateInput.form) {
+    certificateInput.form.addEventListener("submit", (event) => {
+      validateSelectedFile();
+      if (!certificateInput.checkValidity()) {
+        event.preventDefault();
+        certificateInput.reportValidity();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 import threading
 import time
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 import json
 
 from flask import (
@@ -34,8 +34,9 @@ from flask import (
     session,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 from markupsafe import Markup
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config_loader import load_environment
@@ -151,9 +152,15 @@ CLIENT_LOG_TRUNCATION_LIMITS = {
     "details": 1000,
 }
 
+UPLOAD_MAX_MB = 100
+UPLOAD_MAX_BYTES = UPLOAD_MAX_MB * 1024 * 1024
+
 # Gemensamma användarmeddelanden
 CSRF_EXPIRED_MESSAGE = "Formuläret är inte längre giltigt. Ladda om sidan och försök igen."
 TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund och prova igen."
+UPLOAD_TOO_LARGE_MESSAGE = (
+    f"Uppladdningen är för stor. Max {UPLOAD_MAX_MB} MB tillåts."
+)
 
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
@@ -464,7 +471,7 @@ def create_app() -> Flask:
     # Validate secret_key is set
     app.secret_key = _resolve_secret_key()
 
-    app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+    app.config["MAX_CONTENT_LENGTH"] = UPLOAD_MAX_BYTES
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
     app.config["DEBUG"] = debug_mode
@@ -949,8 +956,16 @@ def supervisor_dashboard():
     )
 
 
-@app.post("/foretagskonto/organisationskopplingar/<int:request_id>/godkann")
-def supervisor_approve_organization_link_request_route(request_id: int):
+def _handle_org_link_request_action(
+    request_id: int,
+    action_func: Callable[[int, str, str], tuple[bool, dict[str, str] | None, str]],
+    email_sender: Callable[[str, str], None],
+    success_message: str,
+    email_failure_message: str,
+    failure_messages: dict[str, str],
+    fallback_message: str,
+    email_log_message: str,
+) -> ResponseReturnValue:
     email_hash, _ = _require_supervisor()
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
@@ -961,20 +976,16 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
         return redirect(redirect_target)
 
-    success, request_data, reason = functions.approve_organization_link_request(
+    success, request_data, reason = action_func(
         request_id,
         email_hash,
         supervisor_orgnr,
     )
     if not success:
-        if reason == "missing_request":
-            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
-        elif reason == "missing_user":
-            flash("Privatkontot finns inte l\u00e4ngre kvar.", "error")
-        elif reason == "handled_request":
-            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
-        else:
-            flash("Kopplingen kunde inte godk\u00e4nnas.", "error")
+        flash(failure_messages.get(reason, fallback_message), "error")
+        return redirect(redirect_target)
+    if request_data is None:
+        flash(fallback_message, "error")
         return redirect(redirect_target)
 
     try:
@@ -983,82 +994,51 @@ def supervisor_approve_organization_link_request_route(request_id: int):
         company_name = f"organisationsnummer {supervisor_orgnr}"
     else:
         company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
+
     try:
-        email_service.send_organization_link_approved_email(
-            request_data["user_email"],
-            company_name,
-        )
+        email_sender(request_data["user_email"], company_name)
     except Exception:
-        logger.exception(
-            "Koppling godk\u00e4nd men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
-            request_id,
-        )
-        flash(
-            "Kopplingen godk\u00e4ndes men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
-            "error",
-        )
+        logger.exception(email_log_message, request_id)
+        flash(email_failure_message, "error")
     else:
-        flash(
-            "Kopplingen har godk\u00e4nts och privatpersonen har informerats via e-post.",
-            "success",
-        )
+        flash(success_message, "success")
 
     return redirect(redirect_target)
+
+
+@app.post("/foretagskonto/organisationskopplingar/<int:request_id>/godkann")
+def supervisor_approve_organization_link_request_route(request_id: int):
+    return _handle_org_link_request_action(
+        request_id,
+        functions.approve_organization_link_request,
+        email_service.send_organization_link_approved_email,
+        "Kopplingen har godk\u00e4nts och privatpersonen har informerats via e-post.",
+        "Kopplingen godk\u00e4ndes men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
+        {
+            "missing_request": "F\u00f6rfr\u00e5gan kunde inte hittas.",
+            "missing_user": "Privatkontot finns inte l\u00e4ngre kvar.",
+            "handled_request": "F\u00f6rfr\u00e5gan \u00e4r redan hanterad.",
+        },
+        "Kopplingen kunde inte godk\u00e4nnas.",
+        "Koppling godk\u00e4nd men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
+    )
 
 
 @app.post("/foretagskonto/organisationskopplingar/<int:request_id>/avsla")
 def supervisor_reject_organization_link_request_route(request_id: int):
-    email_hash, _ = _require_supervisor()
-    supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
-    redirect_target = f"{url_for('supervisor_dashboard')}#organization-link-requests"
-    if not validate_csrf_token():
-        flash(CSRF_EXPIRED_MESSAGE, "error")
-        return redirect(redirect_target)
-    if not supervisor_orgnr:
-        flash("F\u00f6retagskontot saknar organisationsnummer.", "error")
-        return redirect(redirect_target)
-
-    success, request_data, reason = functions.reject_organization_link_request(
+    return _handle_org_link_request_action(
         request_id,
-        email_hash,
-        supervisor_orgnr,
+        functions.reject_organization_link_request,
+        email_service.send_organization_link_rejected_email,
+        "F\u00f6rfr\u00e5gan har avslagits och privatpersonen har informerats via e-post.",
+        "F\u00f6rfr\u00e5gan avslogs men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
+        {
+            "missing_request": "F\u00f6rfr\u00e5gan kunde inte hittas.",
+            "handled_request": "F\u00f6rfr\u00e5gan \u00e4r redan hanterad.",
+        },
+        "Kopplingen kunde inte avsl\u00e5s.",
+        "Koppling avslogs men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
     )
-    if not success:
-        if reason == "missing_request":
-            flash("F\u00f6rfr\u00e5gan kunde inte hittas.", "error")
-        elif reason == "handled_request":
-            flash("F\u00f6rfr\u00e5gan \u00e4r redan hanterad.", "error")
-        else:
-            flash("Kopplingen kunde inte avsl\u00e5s.", "error")
-        return redirect(redirect_target)
-
-    try:
-        overview = functions.get_public_organization_overview(supervisor_orgnr)
-    except ValueError:
-        company_name = f"organisationsnummer {supervisor_orgnr}"
-    else:
-        company_name = overview.get("company_name") or f"organisationsnummer {supervisor_orgnr}"
-    try:
-        email_service.send_organization_link_rejected_email(
-            request_data["user_email"],
-            company_name,
-        )
-    except Exception:
-        logger.exception(
-            "Koppling avslogs men mejl kunde inte skickas till privatkonto f\u00f6r org-f\u00f6rfr\u00e5gan %s",
-            request_id,
-        )
-        flash(
-            "F\u00f6rfr\u00e5gan avslogs men bekr\u00e4ftelsemejlet kunde inte skickas till privatpersonen.",
-            "error",
-        )
-    else:
-        flash(
-            "F\u00f6rfr\u00e5gan har avslagits och privatpersonen har informerats via e-post.",
-            "success",
-        )
-
-    return redirect(redirect_target)
 
 
 @app.post("/foretagskonto/kopplingsforfragan")
@@ -1844,6 +1824,35 @@ def user_delete_pdf_route(pdf_id: int):
 
     return redirect("/dashboard")
 
+@app.route("/dashboard/upload", methods=["GET"])
+def user_upload_page():
+    if not session.get("user_logged_in"):
+        logger.debug("Oautentiserad åtkomst till uppladdningssidan")
+        return redirect("/login")
+
+    personnummer_hash = session.get("personnummer")
+    if not personnummer_hash:
+        return redirect("/login")
+
+    user_name = session.get("username")
+    if not user_name:
+        user_name = functions.get_username_by_personnummer_hash(personnummer_hash)
+        if user_name:
+            session["username"] = user_name
+
+    csrf_token = sec.ensure_csrf_token()
+    certificate_count = functions.count_user_pdfs(personnummer_hash)
+    return render_template(
+        "upload_intyg.html",
+        course_categories=COURSE_CATEGORIES,
+        course_category_groups=COURSE_CATEGORY_GROUPS,
+        csrf_token=csrf_token,
+        user_name=_format_display_name(user_name),
+        certificate_count=certificate_count,
+        max_upload_mb=UPLOAD_MAX_MB,
+        max_upload_bytes=UPLOAD_MAX_BYTES,
+    )
+
 
 @app.route("/my_pdfs/<int:pdf_id>")
 def download_pdf(pdf_id: int):
@@ -2130,6 +2139,8 @@ def admin():  # pragma: no cover
         except ValueError as ve:
             logger.error("Värdefel under adminuppladdning: %s", ve)
             return jsonify({"status": "error", "message": "Felaktiga användardata."}), 400
+        except RequestEntityTooLarge:
+            raise
         except Exception as e:
             logger.error("Serverfel under adminuppladdning", exc_info=e)
             return jsonify({"status": "error", "message": "Serverfel"}), 500
@@ -3797,6 +3808,31 @@ def conflict_error(_):  # pragma: no cover
     return render_template(
         "error.html", error_code=error_code, error_message=error_message, time=time.time()
     ), 409
+
+
+@app.errorhandler(413)
+def request_entity_too_large(_):  # pragma: no cover
+    # Visa ett tydligt felmeddelande när uppladdningen överskrider global gräns.
+    logger.warning("413 För stor uppladdning: %s", request.path)
+    endpoint = request.endpoint or ""
+    if endpoint.startswith("admin") or request.path == "/admin" or request.path.startswith(
+        "/admin/"
+    ):
+        return jsonify({"status": "error", "message": UPLOAD_TOO_LARGE_MESSAGE}), 413
+    if endpoint in {"user_upload_page", "user_upload_pdf_route"} or request.path in {
+        "/dashboard/ladda-upp",
+        "/dashboard/upload",
+    } or request.path.startswith("/dashboard/ladda-upp/") or request.path.startswith(
+        "/dashboard/upload/"
+    ):
+        flash(UPLOAD_TOO_LARGE_MESSAGE, "error")
+        return redirect(url_for("user_upload_page"))
+
+    error_code = 413
+    error_message = UPLOAD_TOO_LARGE_MESSAGE
+    return render_template(
+        "error.html", error_code=error_code, error_message=error_message, time=time.time()
+    ), 413
 
 
 @app.errorhandler(404)

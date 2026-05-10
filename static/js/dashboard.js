@@ -2,54 +2,43 @@
 // static/js/dashboard.js
 
 (() => {
-  const checkboxes = Array.from(
-    document.querySelectorAll('[data-category-filter]')
-  );
-  const pdfItems = Array.from(
-    document.querySelectorAll('[data-pdf-categories]')
-  );
-  const noResults = document.getElementById('noFilteredResults');
+  function setupDashboardSearch() {
+    const searchInput = document.querySelector('[data-dashboard-search]');
+    const pdfItems = Array.from(document.querySelectorAll('[data-pdf-item]'));
+    const groups = Array.from(document.querySelectorAll('[data-pdf-group]'));
+    const emptyState = document.getElementById('dashboardSearchEmpty');
 
-  function setupFiltering() {
-    if (!checkboxes.length || !pdfItems.length) {
-      if (noResults) {
-        noResults.style.display = 'none';
-      }
+    if (!searchInput || !pdfItems.length) {
       return;
     }
 
-    function updateVisibility() {
-      const active = checkboxes
-        .filter((checkbox) => checkbox.checked)
-        .map((checkbox) => checkbox.value);
-
+    function filterItems() {
+      const query = searchInput.value.toLowerCase().trim();
       let visibleCount = 0;
 
       pdfItems.forEach((item) => {
-        const categories = (item.dataset.pdfCategories || '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value);
-        const matches =
-          active.length === 0 ||
-          categories.some((category) => active.includes(category));
-
-        item.style.display = matches ? '' : 'none';
+        const haystack = item.dataset.searchText || '';
+        const matches = !query || haystack.includes(query);
+        item.hidden = !matches;
         if (matches) {
           visibleCount += 1;
         }
       });
 
-      if (noResults) {
-        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+      groups.forEach((group) => {
+        const visibleItems = Array.from(
+          group.querySelectorAll('[data-pdf-item]')
+        ).some((item) => !item.hidden);
+        group.hidden = !visibleItems;
+      });
+
+      if (emptyState) {
+        emptyState.hidden = visibleCount !== 0;
       }
     }
 
-    checkboxes.forEach((checkbox) => {
-      checkbox.addEventListener('change', updateVisibility);
-    });
-
-    updateVisibility();
+    searchInput.addEventListener('input', filterItems);
+    filterItems();
   }
 
   function setupShareModal() {
@@ -322,6 +311,6 @@
 
   }
 
-  setupFiltering();
+  setupDashboardSearch();
   setupShareModal();
 })();

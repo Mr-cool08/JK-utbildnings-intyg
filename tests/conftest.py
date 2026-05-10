@@ -1,7 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,9 +13,12 @@ os.environ.setdefault("admin_username", "test_admin")
 os.environ.setdefault("admin_password", "test_password_123")
 os.environ.setdefault("secret_key", "test-secret-key")
 os.environ.setdefault("DEV_MODE", "true")
-os.environ.setdefault("DISABLE_EMAILS", "true")
-# Ensure tests use a temp directory for logs to avoid permission issues
-_test_log_file = os.path.join(tempfile.gettempdir(), "pytest.log")
+if os.environ.get("DEV_MODE", "false").lower() == "true":
+    os.environ.setdefault("DISABLE_EMAILS", "true")
+# Ensure tests keep log output inside the workspace to avoid temp-dir permission issues.
+_test_log_dir = Path(__file__).resolve().parents[1] / ".pytest_tmp" / "logs"
+_test_log_dir.mkdir(parents=True, exist_ok=True)
+_test_log_file = os.fspath(_test_log_dir / "pytest.log")
 os.environ.setdefault("LOG_FILE", _test_log_file)
 import app  # noqa: E402
 import functions  # noqa: E402

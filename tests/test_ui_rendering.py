@@ -56,6 +56,8 @@ def test_logged_in_user_nav_shows_user_actions_only(user_db):
     nav_links = _extract_nav_links(body)
 
     assert ">Intyg<" in nav_links
+    assert "Ladda upp intyg" in nav_links
+    assert 'href="/dashboard/upload"' in nav_links
     assert 'href="/logout"' in nav_links
     assert "Privatinloggning" not in nav_links
     assert "/foretagskonto/login" not in nav_links
@@ -135,9 +137,126 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert 'id="shareModal"' in body
     assert 'id="shareRecipientEmail"' in body
     assert "data-share-select" in body
+    assert "Mina intyg" in body
+    assert "Ladda upp intyg" in body
+    assert "dashboard.js" in body
+
+
+def test_dashboard_shows_search_when_user_has_more_than_five_certificates(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+
+    for index in range(6):
+        functions.store_pdf_blob(
+            personnummer_hash,
+            f"intyg-{index}.pdf",
+            f"%PDF-1.4 ui-test-{index}".encode(),
+            [category_slug],
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Sök intyg" in body
+    assert 'data-dashboard-search' in body
+    assert 'id="dashboardSearch"' in body
+
+
+def test_dashboard_hides_search_when_user_has_five_or_fewer_certificates(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+
+    for index in range(5):
+        functions.store_pdf_blob(
+            personnummer_hash,
+            f"kort-{index}.pdf",
+            f"%PDF-1.4 small-{index}".encode(),
+            [category_slug],
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Sök intyg" not in body
+    assert 'data-dashboard-search' not in body
+
+
+def test_dashboard_shows_company_connection_without_details_panel(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    supervisor_hash = functions.hash_value("foretag@example.com")
+
+    with user_db.begin() as conn:
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                name="Handledarbolaget",
+                email=supervisor_hash,
+                password=functions.hash_password("super-secret-1"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Företagskoppling" in body
+    assert "Handledarbolaget" in body
+    assert "Ta bort koppling" in body
+    assert '<details class="dashboard-secondary">' not in body
+
+
+def test_upload_page_requires_login(empty_db):
+    with _client() as client:
+        response = client.get("/dashboard/upload", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_upload_page_renders_form_for_logged_in_user(user_db):
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard/upload")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Ladda upp intyg" in body
+    assert 'name="csrf_token"' in body
     assert 'id="certificate"' in body
     assert 'id="category"' in body
-    assert "dashboard.js" in body
+    assert 'id="note"' in body
+    assert "Tillbaka till mina intyg" in body
+    assert "Max 100 MB per uppladdning." in body
+    assert 'data-max-bytes="104857600"' in body
+
+
+def test_admin_upload_script_enforces_total_upload_limit():
+    admin_js = Path("static/js/admin.js").read_text(encoding="utf-8")
+
+    assert "const totalBytes = files.reduce((sum, file) => sum + file.size, 0);" in admin_js
+    assert "if (totalBytes > MAX_BYTES)" in admin_js
+
+
+def test_admin_upload_script_focuses_field_after_category_mismatch():
+    admin_js = Path("static/js/admin.js").read_text(encoding="utf-8")
+
+    assert "if (categorySelects[0]) {" in admin_js
+    assert "categorySelects[0].focus();" in admin_js
+    assert "} else if (pdfInput) {" in admin_js
+    assert "pdfInput.focus();" in admin_js
 
 
 def test_home_page_exposes_motion_markers(empty_db):

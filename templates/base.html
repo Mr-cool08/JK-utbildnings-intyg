@@ -137,7 +137,8 @@
                     <a href="{{ url_for('supervisor_dashboard') }}">Företagskontopanel</a>
                     <a href="/logout">Logga ut</a>
                 {% elif session.get('user_logged_in') %}
-                    <a href="/dashboard">Intyg</a>
+                    <a class="nav-link {% if request.path == '/dashboard' %}is-active{% endif %}" href="/dashboard">Intyg</a>
+                    <a class="nav-link {% if request.path == '/dashboard/upload' %}is-active{% endif %}" href="{{ url_for('user_upload_page') }}">Ladda upp intyg</a>
                     <a href="/logout">Logga ut</a>
                 {% elif session.get('admin_logged_in') %}
                     <a href="/admin">Admin</a>
