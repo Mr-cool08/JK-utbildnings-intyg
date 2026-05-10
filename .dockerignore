@@ -1,21 +1,40 @@
-# Copyright (c) Liam Suorsa and Mika Suorsa
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-*.log
-uploads
-.git
-.gitignore
-tests
-.git
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.log
 *.sqlite
+
+# Virtual environments
+.venv/
+.venv-linux/
+.venv*/
+venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# Tests/temp
+tests/
+.pytest*
+.pytest*/
+.pytest*/**
+.tmp_pytest/
+.tmp_pytest/**
+**/.tmp_pytest/**
+**/.pytest*/**
+
+# Node/local
 node_modules/
+
+# App local data
 uploads/
 
+artifacts/pytesttmp/
+artifacts/pytesttmp/**
+**/pytesttmp/
+**/pytesttmp/**
 
