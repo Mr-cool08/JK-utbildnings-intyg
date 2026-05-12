@@ -98,6 +98,18 @@
     if (!files.length) { showMessage('error', 'PDF-fil saknas.'); pdfInput.focus(); return; }
     if (categorySelects.length !== files.length) {
       showMessage('error', 'Välj kategori för varje PDF.');
+      if (categorySelects[0]) {
+        categorySelects[0].focus();
+      } else if (pdfInput) {
+        pdfInput.focus();
+      }
+      return;
+    }
+
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > MAX_BYTES) {
+      showMessage('error', `Den totala uppladdningen är för stor (max ${MAX_MB} MB).`);
+      pdfInput.focus();
       return;
     }
 

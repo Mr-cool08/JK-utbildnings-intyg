@@ -8,6 +8,7 @@
 !.example.env
 !.env.example
 *.ini
+!pytest.ini
 *.cfg
 *.secret
 *.local

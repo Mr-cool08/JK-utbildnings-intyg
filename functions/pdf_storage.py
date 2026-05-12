@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import OperationalError
 
 from functions.database import user_pdfs_table, get_engine
@@ -155,6 +155,34 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
             get_engine().dispose()
 
     return []
+
+
+def count_user_pdfs(personnummer_hash: str) -> int:
+    # Returnera antal PDF:er som tillhör ``personnummer_hash``.
+    if not _is_valid_hash(personnummer_hash):
+        logger.warning("Avvisade ogiltig hash för personnummer")
+        return 0
+
+    query = (
+        select(func.count())
+        .select_from(user_pdfs_table)
+        .where(user_pdfs_table.c.personnummer == personnummer_hash)
+    )
+
+    for attempt in (1, 2):
+        try:
+            with get_engine().connect() as conn:
+                return int(conn.execute(query).scalar_one())
+        except OperationalError:
+            if attempt == 2:
+                raise
+            logger.warning(
+                "Databasanslutningen tappades vid hämtning av PDF-antal för %s. Försöker igen.",
+                mask_hash(personnummer_hash),
+            )
+            get_engine().dispose()
+
+    return 0
 
 
 def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, Any]]:

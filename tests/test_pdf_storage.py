@@ -150,3 +150,18 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             "note": "",
         }
     ]
+
+
+def test_count_user_pdfs_counts_only_matching_owner(empty_db):
+    _ = empty_db
+
+    primary_hash = _personnummer_hash("9001011234")
+    other_hash = _personnummer_hash("9002024567")
+
+    functions.store_pdf_blob(primary_hash, "first.pdf", b"%PDF-1.4 first", [])
+    functions.store_pdf_blob(primary_hash, "second.pdf", b"%PDF-1.4 second", [])
+    functions.store_pdf_blob(other_hash, "other.pdf", b"%PDF-1.4 other", [])
+
+    assert functions.count_user_pdfs(primary_hash) == 2
+    assert functions.count_user_pdfs(other_hash) == 1
+    assert functions.count_user_pdfs("invalid-hash") == 0
