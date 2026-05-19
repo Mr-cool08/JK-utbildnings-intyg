@@ -246,7 +246,7 @@ def test_e2e_foretagskonto_flow_application_to_link_request_and_acceptance(empty
     _supervisor_login(supervisor_client, "5569668337", "Supervisor123")
     supervisor_dashboard = supervisor_client.get("/foretagskonto")
     assert supervisor_dashboard.status_code == 200
-    assert "Företagskontopanel" in supervisor_dashboard.get_data(as_text=True)
+    assert "Företagsportal" in supervisor_dashboard.get_data(as_text=True)
 
     supervisor_csrf = _csrf_token(supervisor_client)
     request_link = supervisor_client.post(

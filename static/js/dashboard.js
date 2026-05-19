@@ -2,6 +2,16 @@
 // static/js/dashboard.js
 
 (() => {
+  function normalizeSearchValue(value) {
+    const normalized = (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+    if (typeof normalized.normalize !== 'function') {
+      return normalized;
+    }
+
+    return normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
   function setupDashboardSearch() {
     const searchInput = document.querySelector('[data-dashboard-search]');
     const pdfItems = Array.from(document.querySelectorAll('[data-pdf-item]'));
@@ -13,11 +23,11 @@
     }
 
     function filterItems() {
-      const query = searchInput.value.toLowerCase().trim();
+      const query = normalizeSearchValue(searchInput.value);
       let visibleCount = 0;
 
       pdfItems.forEach((item) => {
-        const haystack = item.dataset.searchText || '';
+        const haystack = normalizeSearchValue(item.dataset.searchText || '');
         const matches = !query || haystack.includes(query);
         item.hidden = !matches;
         if (matches) {
@@ -39,6 +49,106 @@
 
     searchInput.addEventListener('input', filterItems);
     filterItems();
+  }
+
+  function setupSupervisorDashboard() {
+    const searchInput = document.querySelector('[data-user-search]');
+    const userCards = Array.from(document.querySelectorAll('[data-user-card]'));
+    const searchStatus = document.querySelector('[data-user-search-status]');
+    const emptyMessage = document.getElementById('supervisor-user-search-empty');
+    const toggleButtons = Array.from(document.querySelectorAll('[data-user-toggle]'));
+    const removeForms = Array.from(
+      document.querySelectorAll('[data-supervisor-remove]')
+    );
+
+    function updateToggleState(button, shouldExpand) {
+      const detailsId = button.getAttribute('aria-controls');
+      const details = detailsId ? document.getElementById(detailsId) : null;
+      const openLabel = button.dataset.openLabel || 'Visa detaljer';
+      const closeLabel = button.dataset.closeLabel || 'Dölj detaljer';
+
+      button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+      button.textContent = shouldExpand ? closeLabel : openLabel;
+
+      if (details) {
+        details.hidden = !shouldExpand;
+      }
+    }
+
+    toggleButtons.forEach((button) => {
+      updateToggleState(button, button.getAttribute('aria-expanded') === 'true');
+      button.addEventListener('click', () => {
+        const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        updateToggleState(button, !isExpanded);
+      });
+    });
+
+    removeForms.forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        if (!window.confirm('Vill du ta bort kopplingen till användaren?')) {
+          event.preventDefault();
+          return;
+        }
+
+        if (
+          !window.confirm(
+            'Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.'
+          )
+        ) {
+          event.preventDefault();
+        }
+      });
+    });
+
+    if (!searchInput || !userCards.length) {
+      return;
+    }
+
+    const totalUsers = userCards.length;
+
+    function updateSearchStatus(visibleCount, hasQuery) {
+      if (!searchStatus) {
+        return;
+      }
+
+      if (!hasQuery) {
+        searchStatus.textContent = `Visar alla ${totalUsers} användare.`;
+        return;
+      }
+
+      if (visibleCount === 0) {
+        searchStatus.textContent = 'Ingen användare matchar sökningen.';
+        return;
+      }
+
+      searchStatus.textContent = `Visar ${visibleCount} av ${totalUsers} användare.`;
+    }
+
+    function filterUsers() {
+      const query = normalizeSearchValue(searchInput.value);
+      let visibleCount = 0;
+
+      userCards.forEach((card) => {
+        const haystack = normalizeSearchValue(
+          card.dataset.userSearchText || card.dataset.userName || ''
+        );
+        const matches = !query || haystack.includes(query);
+        card.hidden = !matches;
+
+        if (matches) {
+          visibleCount += 1;
+        }
+      });
+
+      if (emptyMessage) {
+        emptyMessage.hidden = visibleCount !== 0;
+      }
+
+      updateSearchStatus(visibleCount, query.length > 0);
+    }
+
+    searchInput.addEventListener('input', filterUsers);
+    filterUsers();
   }
 
   function setupShareModal() {
@@ -312,5 +422,6 @@
   }
 
   setupDashboardSearch();
+  setupSupervisorDashboard();
   setupShareModal();
 })();

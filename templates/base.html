@@ -134,7 +134,7 @@
             </button>
             <div class="nav-links">
                 {% if session.get('supervisor_logged_in') %}
-                    <a href="{{ url_for('supervisor_dashboard') }}">Företagskontopanel</a>
+                    <a href="{{ url_for('supervisor_dashboard') }}">Företagsportal</a>
                     <a href="/logout">Logga ut</a>
                 {% elif session.get('user_logged_in') %}
                     <a class="nav-link {% if request.path == '/dashboard' %}is-active{% endif %}" href="/dashboard">Mina intyg</a>
