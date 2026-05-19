@@ -348,7 +348,9 @@ def test_base_css_exposes_compact_palette_tokens():
     assert "--color-secondary:" in base_css
     assert "--color-accent-soft:" in base_css
     assert "--color-info-bg:" in base_css
+    assert "--status-pending:" in base_css
     assert "--status-approved:" in base_css
+    assert "--status-rejected:" in base_css
     assert "--color-bg: #FAF5F4;" in base_css
     assert "--color-surface-soft: #FCF7F6;" in base_css
     assert "--color-support-ocean:" not in base_css

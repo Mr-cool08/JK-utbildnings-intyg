@@ -1,7 +1,7 @@
 /* # Copyright (c) Liam Suorsa and Mika Suorsa */
 :root {
-    --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-base: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
+    --font-heading: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
     --color-primary: #E93B56; /* Livlig primärton */
     --color-primary-dark: #E33E26; /* Mörkare ton för hovring */
     --color-secondary: #9C1E0A; /* Djup sekundärton */
@@ -31,6 +31,7 @@
     --color-error-border: rgba(227, 62, 38, 0.5);
     --color-error-text: #9C1E0A;
     --status-pending: #8F6A17;
+    --status-pending-border: rgba(184, 137, 30, 0.28);
     --status-approved: #E33E26;
     --status-rejected: #9C1E0A;
     --radius-sm: 0.5rem;
@@ -2522,7 +2523,7 @@ small.hint {
 .badge-pending {
     background: var(--color-accent-soft);
     color: var(--status-pending);
-    border-color: rgba(184, 137, 30, 0.28);
+    border-color: var(--status-pending-border);
 }
 
 .badge-approved {
