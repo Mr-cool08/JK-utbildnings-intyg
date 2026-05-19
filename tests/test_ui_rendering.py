@@ -349,4 +349,24 @@ def test_motion_assets_support_reduced_motion():
     assert "@media (prefers-reduced-motion: reduce)" in base_css
 
 
+def test_base_css_exposes_compact_palette_tokens():
+    base_css = Path("static/css/base.css").read_text(encoding="utf-8")
+
+    assert "--color-primary:" in base_css
+    assert "--color-secondary:" in base_css
+    assert "--color-accent-soft:" in base_css
+    assert "--color-info-bg:" in base_css
+    assert "--status-pending:" in base_css
+    assert "--status-approved:" in base_css
+    assert "--status-rejected:" in base_css
+    assert "--color-bg: #FAF5F4;" in base_css
+    assert "--color-surface-soft: #FCF7F6;" in base_css
+    assert "--color-support-ocean:" not in base_css
+    assert "--color-support-sage:" not in base_css
+    assert "--color-support-apricot:" not in base_css
+    assert ".feature-card:nth-child(3n + 1)" in base_css
+    assert ".workflow-card:nth-child(3n + 2) .step-number" in base_css
+    assert ".benefit-card:nth-child(3n + 3)" in base_css
+
+
 # Copyright (c) Liam Suorsa and Mika Suorsa
