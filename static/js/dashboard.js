@@ -87,15 +87,6 @@
       form.addEventListener('submit', (event) => {
         if (!window.confirm('Vill du ta bort kopplingen till användaren?')) {
           event.preventDefault();
-          return;
-        }
-
-        if (
-          !window.confirm(
-            'Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.'
-          )
-        ) {
-          event.preventDefault();
         }
       });
     });
