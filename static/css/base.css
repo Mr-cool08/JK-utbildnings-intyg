@@ -1,14 +1,15 @@
 /* # Copyright (c) Liam Suorsa and Mika Suorsa */
 :root {
-    --font-base: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-heading: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-base: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
+    --font-heading: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
     --color-primary: #E93B56; /* Livlig primärton */
     --color-primary-dark: #E33E26; /* Mörkare ton för hovring */
     --color-secondary: #9C1E0A; /* Djup sekundärton */
-    --color-accent: #E6DE0B; /* Kontrasterande accent */
-    --color-bg: #F7F8EA; /* Ljust bakgrundsfält */
+    --color-accent: #B8891E; /* Dämpad accent för status och små detaljer */
+    --color-accent-soft: rgba(184, 137, 30, 0.12);
+    --color-bg: #FAF5F4; /* Ljust bakgrundsfält */
     --color-surface: #FFFFFF; /* Neutral kortyta */
-    --color-surface-soft: #F7F8EA; /* Mjuk yta */
+    --color-surface-soft: #FCF7F6; /* Mjuk yta */
     --color-text: #373737; /* Primär textfärg */
     --color-text-muted: rgba(55, 55, 55, 0.75); /* Dämpad text */
     --color-footer: #373737; /* Sidfotsfärg */
@@ -20,12 +21,19 @@
     --gradient-primary-soft: linear-gradient(135deg, rgba(233, 59, 86, 0.85), rgba(156, 30, 10, 0.85));
     --color-nav-border: rgba(255, 255, 255, 0.28);
     --color-nav-hover: rgba(255, 255, 255, 0.16);
-    --color-success-bg: rgba(230, 222, 11, 0.2);
-    --color-success-border: rgba(230, 222, 11, 0.6);
+    --color-info-bg: rgba(233, 59, 86, 0.08);
+    --color-info-border: rgba(227, 62, 38, 0.22);
+    --color-info-text: #9C1E0A;
+    --color-success-bg: rgba(184, 137, 30, 0.14);
+    --color-success-border: rgba(184, 137, 30, 0.32);
     --color-success-text: #373737;
     --color-error-bg: rgba(233, 59, 86, 0.15);
     --color-error-border: rgba(227, 62, 38, 0.5);
     --color-error-text: #9C1E0A;
+    --status-pending: #8F6A17;
+    --status-pending-border: rgba(184, 137, 30, 0.28);
+    --status-approved: #E33E26;
+    --status-rejected: #9C1E0A;
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 1rem;
@@ -1049,8 +1057,12 @@ small.hint {
 }
 
 .demo-info {
-    background: var(--color-surface);
+    background:
+        radial-gradient(circle at top right, rgba(227, 62, 38, 0.06), transparent 38%),
+        radial-gradient(circle at bottom left, rgba(233, 59, 86, 0.1), transparent 42%),
+        var(--color-surface);
     border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
     box-shadow: var(--shadow-sm);
     width: min(100%, var(--container-max));
     margin: 2rem auto 0;
@@ -1066,8 +1078,8 @@ small.hint {
     margin-top: 1.75rem;
     padding: 1.75rem;
     border-radius: var(--radius-md);
-    background: var(--color-primary-soft);
-    box-shadow: inset 0 0 0 1px var(--color-border);
+    background: rgba(233, 59, 86, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(233, 59, 86, 0.18);
 }
 
 .demo-credentials h2 {
@@ -1104,8 +1116,13 @@ small.hint {
     align-items: stretch;
     justify-content: space-between;
     gap: clamp(1.5rem, 4vw, 2.5rem);
+    position: relative;
+    overflow: hidden;
     /* Make hero background white and neutral */
-    background: var(--color-surface);
+    background:
+        radial-gradient(circle at top right, rgba(227, 62, 38, 0.06), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(233, 59, 86, 0.1), transparent 36%),
+        var(--color-surface);
     border-radius: 2rem;
     padding: clamp(2.5rem, 5vw, 3.5rem);
     box-shadow: var(--shadow-md);
@@ -1122,7 +1139,7 @@ small.hint {
     letter-spacing: 0.18em;
     font-weight: 700;
     margin: 0 0 0.75rem;
-    color: var(--color-text-muted);
+    color: var(--color-secondary);
 }
 
 .hero-text h1 {
@@ -1253,6 +1270,7 @@ small.hint {
     border-radius: var(--radius-lg);
     padding: clamp(1.5rem, 3vw, 2rem);
     border: 1px solid var(--color-border);
+    border-top: 3px solid transparent;
     box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
@@ -1266,9 +1284,57 @@ small.hint {
     margin: 0;
 }
 
+.feature-card:nth-child(3n + 1) {
+    background: linear-gradient(180deg, rgba(233, 59, 86, 0.07), var(--color-surface-soft) 38%);
+    border-color: rgba(233, 59, 86, 0.16);
+    border-top-color: var(--color-primary);
+}
+
+.feature-card:nth-child(3n + 2) {
+    background: linear-gradient(180deg, rgba(227, 62, 38, 0.05), var(--color-surface-soft) 38%);
+    border-color: rgba(227, 62, 38, 0.14);
+    border-top-color: var(--color-primary-dark);
+}
+
+.feature-card:nth-child(3n + 3) {
+    background: linear-gradient(180deg, rgba(156, 30, 10, 0.04), var(--color-surface-soft) 38%);
+    border-color: rgba(156, 30, 10, 0.12);
+    border-top-color: var(--color-secondary);
+}
+
 .feature-highlight {
     color: var(--color-primary);
     font-weight: 600;
+}
+
+.feature-card:nth-child(3n + 1) .feature-highlight,
+.feature-card:nth-child(3n + 1) .feature-link {
+    color: var(--color-primary-dark);
+}
+
+.feature-card:nth-child(3n + 2) .feature-highlight,
+.feature-card:nth-child(3n + 2) .feature-link {
+    color: var(--color-secondary);
+}
+
+.feature-card:nth-child(3n + 3) .feature-highlight,
+.feature-card:nth-child(3n + 3) .feature-link {
+    color: var(--color-secondary);
+}
+
+.feature-card:nth-child(3n + 1) .feature-link:hover,
+.feature-card:nth-child(3n + 1) .feature-link:focus-visible {
+    color: var(--color-primary-dark);
+}
+
+.feature-card:nth-child(3n + 2) .feature-link:hover,
+.feature-card:nth-child(3n + 2) .feature-link:focus-visible {
+    color: var(--color-secondary);
+}
+
+.feature-card:nth-child(3n + 3) .feature-link:hover,
+.feature-card:nth-child(3n + 3) .feature-link:focus-visible {
+    color: var(--color-secondary);
 }
 
 .feature-list {
@@ -1322,6 +1388,7 @@ small.hint {
     border-radius: var(--radius-lg);
     padding: clamp(1.75rem, 4vw, 2rem);
     border: 1px solid var(--color-border);
+    border-top: 3px solid transparent;
     box-shadow: var(--shadow-sm);
     display: grid;
     gap: 0.75rem;
@@ -1332,6 +1399,24 @@ small.hint {
 
 .workflow-card h3 {
     margin: 0;
+}
+
+.workflow-card:nth-child(3n + 1) {
+    background: linear-gradient(180deg, rgba(233, 59, 86, 0.07), var(--color-surface-soft) 40%);
+    border-color: rgba(233, 59, 86, 0.16);
+    border-top-color: var(--color-primary);
+}
+
+.workflow-card:nth-child(3n + 2) {
+    background: linear-gradient(180deg, rgba(227, 62, 38, 0.05), var(--color-surface-soft) 40%);
+    border-color: rgba(227, 62, 38, 0.14);
+    border-top-color: var(--color-primary-dark);
+}
+
+.workflow-card:nth-child(3n + 3) {
+    background: linear-gradient(180deg, rgba(156, 30, 10, 0.04), var(--color-surface-soft) 40%);
+    border-color: rgba(156, 30, 10, 0.12);
+    border-top-color: var(--color-secondary);
 }
 
 .step-number {
@@ -1347,6 +1432,19 @@ small.hint {
     display: grid;
     place-items: center;
     box-shadow: var(--shadow-sm);
+}
+
+.workflow-card:nth-child(3n + 1) .step-number {
+    background: var(--color-primary);
+}
+
+.workflow-card:nth-child(3n + 2) .step-number {
+    background: var(--color-primary-dark);
+    color: #fff;
+}
+
+.workflow-card:nth-child(3n + 3) .step-number {
+    background: var(--color-secondary);
 }
 
 .benefits {
@@ -1370,9 +1468,55 @@ small.hint {
     padding: clamp(1.75rem, 4vw, 2.25rem);
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--color-border);
+    border-top: 3px solid transparent;
     transition:
         transform var(--motion-duration-medium) var(--ease-out-quart),
         box-shadow var(--motion-duration-medium) var(--ease-out-quart);
+}
+
+.benefit-card:nth-child(3n + 1) {
+    background: linear-gradient(180deg, rgba(233, 59, 86, 0.07), var(--color-surface) 34%);
+    border-color: rgba(233, 59, 86, 0.16);
+    border-top-color: var(--color-primary);
+}
+
+.benefit-card:nth-child(3n + 2) {
+    background: linear-gradient(180deg, rgba(227, 62, 38, 0.05), var(--color-surface) 34%);
+    border-color: rgba(227, 62, 38, 0.14);
+    border-top-color: var(--color-primary-dark);
+}
+
+.benefit-card:nth-child(3n + 3) {
+    background: linear-gradient(180deg, rgba(156, 30, 10, 0.04), var(--color-surface) 34%);
+    border-color: rgba(156, 30, 10, 0.12);
+    border-top-color: var(--color-secondary);
+}
+
+.benefit-card:nth-child(3n + 1) a {
+    color: var(--color-primary);
+}
+
+.benefit-card:nth-child(3n + 2) a {
+    color: var(--color-primary-dark);
+}
+
+.benefit-card:nth-child(3n + 3) a {
+    color: var(--color-secondary);
+}
+
+.benefit-card:nth-child(3n + 1) a:hover,
+.benefit-card:nth-child(3n + 1) a:focus-visible {
+    color: var(--color-primary);
+}
+
+.benefit-card:nth-child(3n + 2) a:hover,
+.benefit-card:nth-child(3n + 2) a:focus-visible {
+    color: var(--color-primary-dark);
+}
+
+.benefit-card:nth-child(3n + 3) a:hover,
+.benefit-card:nth-child(3n + 3) a:focus-visible {
+    color: var(--color-secondary);
 }
 
 .feature-card:hover,
@@ -2354,15 +2498,15 @@ small.hint {
 }
 
 .status-pending {
-    color: var(--status-pending, #d97706); /* amber */
+    color: var(--status-pending);
 }
 
 .status-approved {
-    color: var(--status-approved, #15803d); /* green */
+    color: var(--status-approved);
 }
 
 .status-rejected {
-    color: var(--status-rejected, #b91c1c); /* red */
+    color: var(--status-rejected);
 }
 
 .status-badge {
@@ -2377,21 +2521,21 @@ small.hint {
 }
 
 .badge-pending {
-    background: #fff7ed;
-    color: var(--status-pending, #d97706);
-    border-color: rgba(217, 119, 6, 0.25);
+    background: var(--color-accent-soft);
+    color: var(--status-pending);
+    border-color: var(--status-pending-border);
 }
 
 .badge-approved {
-    background: #ecfdf3;
-    color: var(--status-approved, #15803d);
-    border-color: rgba(21, 128, 61, 0.25);
+    background: var(--color-info-bg);
+    color: var(--status-approved);
+    border-color: var(--color-info-border);
 }
 
 .badge-rejected {
-    background: #fef2f2;
-    color: var(--status-rejected, #b91c1c);
-    border-color: rgba(185, 28, 28, 0.25);
+    background: var(--color-error-bg);
+    color: var(--status-rejected);
+    border-color: var(--color-error-border);
 }
 
 /* Buttons */
@@ -2413,9 +2557,10 @@ small.hint {
 .message {
     margin-top: 1rem;
     font-size: 0.9rem;
-    background: var(--info-bg, #f9fafb);
-    border: 1px solid var(--border-color, #ddd);
+    background: var(--color-info-bg);
+    border: 1px solid var(--color-info-border);
     border-radius: 0.5rem;
+    color: var(--color-info-text);
     padding: 0.75rem 1rem;
 }
 
@@ -2598,3 +2743,5 @@ small.hint {
         transform: none !important;
     }
 }
+
+
