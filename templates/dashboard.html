@@ -175,12 +175,16 @@
 <dialog id="shareModal" class="share-modal" aria-modal="true" aria-labelledby="shareModalTitle">
     <div class="share-modal__dialog" role="document">
         <button type="button" class="share-modal__close" aria-label="Stäng delningsrutan" data-share-close>&times;</button>
-        <h2 id="shareModalTitle">Dela intyg via e-post</h2>
-        <p class="share-modal__lead">
-            Du delar <strong id="shareDocumentSummary">intyget</strong>.
-        </p>
+        <div class="share-modal__intro">
+            <p class="share-modal__eyebrow">Säker delning</p>
+            <h2 id="shareModalTitle">Dela intyg via e-post</h2>
+            <p class="share-modal__lead">
+                Du delar <strong id="shareDocumentSummary" class="share-modal__summary-name">intyget</strong>.
+            </p>
+        </div>
         <div class="share-modal__selection" id="shareDocumentSelection" hidden>
-            <ul id="shareDocumentList"></ul>
+            <p class="share-modal__selection-title">Valda intyg</p>
+            <ul id="shareDocumentList" class="share-modal__selection-list"></ul>
         </div>
         <form id="shareForm" class="share-form" novalidate>
             <label for="shareRecipientEmail">Mottagarens e-postadress</label>
@@ -190,9 +194,11 @@
                 name="recipient_email"
                 required
                 autocomplete="email"
+                inputmode="email"
                 placeholder="namn@example.se"
             >
-            <button type="submit" class="btn share-submit">Skicka</button>
+            <p class="share-modal__hint">Intyget skickas som PDF-bilaga till mottagaren.</p>
+            <button type="submit" class="btn share-submit">Skicka intyg</button>
         </form>
         <p class="share-modal__feedback" id="shareFeedback" role="alert" hidden></p>
     </div>

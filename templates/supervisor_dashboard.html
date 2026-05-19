@@ -1,207 +1,285 @@
 {% extends 'base.html' %}
-{% block title %}Företagskontopanel{% endblock %}
+{% block title %}Företagsportal{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
 {% block content %}
-    <h1>Företagskontopanel</h1>
-    <p>Välkommen {{ supervisor_name }}. Här ser du kopplade privatkonton, väntande organisationsförfrågningar och företagets intygsöversikt.</p>
+<section class="dashboard-shell supervisor-dashboard">
+    {% if organization_link_requests %}
+        <section
+            class="dashboard-alert"
+            id="organization-link-requests"
+            aria-label="Väntande organisationsförfrågningar"
+        >
+            <div class="section-heading">
+                <div>
+                    <h2>Väntande organisationsförfrågningar</h2>
+                    <p class="section-note">
+                        Godkänn eller avslå privatpersoner som har registrerat sig med ert
+                        organisationsnummer.
+                    </p>
+                </div>
+                <p class="supervisor-stat-badge">{{ organization_link_requests | length }} väntar</p>
+            </div>
 
-    {% if supervisor_orgnr %}
-        <section class="panel">
-            <h2>Organisation</h2>
-            {% if company_name %}
-                <p><strong>Företagsnamn:</strong> {{ company_name }}</p>
-            {% endif %}
-            <p><strong>Organisationsnummer:</strong> {{ supervisor_orgnr }}</p>
+            <ul class="supervisor-request-list">
+                {% for entry in organization_link_requests %}
+                    <li>
+                        <article class="supervisor-request-card">
+                            <div class="supervisor-request-card__content">
+                                <strong>{{ entry.user_name }}</strong>
+                                <p class="connection-meta">{{ entry.user_email }}</p>
+                                <span
+                                    class="supervisor-status-badge supervisor-status-badge--{{ entry.account_status }}"
+                                >
+                                    {{ entry.account_status_label }}
+                                </span>
+                            </div>
+
+                            <div class="connection-actions">
+                                <form
+                                    method="post"
+                                    action="{{ url_for('supervisor_approve_organization_link_request_route', request_id=entry.id | int) }}"
+                                    class="supervisor-inline-form"
+                                >
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn">Godkänn</button>
+                                </form>
+                                <form
+                                    method="post"
+                                    action="{{ url_for('supervisor_reject_organization_link_request_route', request_id=entry.id | int) }}"
+                                    class="supervisor-inline-form"
+                                >
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-danger">Avslå</button>
+                                </form>
+                            </div>
+                        </article>
+                    </li>
+                {% endfor %}
+            </ul>
         </section>
     {% endif %}
 
-    <section class="panel" id="organization-link-requests">
-        <h2>Väntande organisationsförfrågningar</h2>
-        <p>Här kan du godkänna eller avslå privatpersoner som har registrerat sig med ert organisationsnummer.</p>
-        {% if organization_link_requests %}
-            <div class="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Namn</th>
-                            <th>Status</th>
-                            <th>Åtgärder</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in organization_link_requests %}
-                            <tr>
-                                <td>{{ entry.user_name }}</td>
-                                <td>
-                                    {% if entry.account_status == "active" %}
-                                        Aktivt privatkonto
-                                    {% elif entry.account_status == "pending" %}
-                                        Inväntar lösenord
-                                    {% else %}
-                                        Kontot kunde inte hittas
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="actions">
-                                        <form method="post" action="{{ url_for('supervisor_approve_organization_link_request_route', request_id=entry.id | int) }}">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                            <button type="submit" class="btn">Godkänn</button>
-                                        </form>
-                                        <form method="post" action="{{ url_for('supervisor_reject_organization_link_request_route', request_id=entry.id | int) }}">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                            <button type="submit" class="btn btn-danger">Avslå</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <section class="dashboard-main">
+        <header class="dashboard-head supervisor-head">
+            <div class="dashboard-head__content">
+                <p class="dashboard-greeting">Hej {{ supervisor_name }}!</p>
+                <h1 class="dashboard-title">Företagsportal</h1>
+                <p class="dashboard-subtitle">
+                    Här hittar du alla kopplade användare och deras intyg på ett ställe.
+                </p>
             </div>
+
+            <div class="supervisor-summary">
+                {% if company_name %}
+                    <p class="supervisor-summary__item">
+                        <span>Företag</span>
+                        <strong>{{ company_name }}</strong>
+                    </p>
+                {% endif %}
+                {% if supervisor_orgnr %}
+                    <p class="supervisor-summary__item">
+                        <span>Organisationsnummer</span>
+                        <strong>{{ supervisor_orgnr }}</strong>
+                    </p>
+                {% endif %}
+                <p class="supervisor-summary__item">
+                    <span>Kopplade användare</span>
+                    <strong>{{ users | length }}</strong>
+                </p>
+            </div>
+        </header>
+
+        {% if users %}
+            <div class="dashboard-toolbar supervisor-toolbar">
+                <div class="dashboard-search supervisor-user-search">
+                    <label for="supervisorUserSearch">Sök användare</label>
+                    <input
+                        id="supervisorUserSearch"
+                        type="search"
+                        placeholder="Sök på namn, filnamn eller kategori"
+                        autocomplete="off"
+                        data-user-search
+                    >
+                    <p
+                        class="section-note"
+                        id="supervisorUserSearchStatus"
+                        data-user-search-status
+                        aria-live="polite"
+                    >
+                        Visar alla {{ users | length }} användare.
+                    </p>
+                </div>
+            </div>
+
+            <p class="dashboard-empty dashboard-empty--compact" id="supervisor-user-search-empty" hidden>
+                Inga användare matchar sökningen.
+            </p>
+
+            <ul class="supervisor-user-list" aria-label="Kopplade användare">
+                {% for user in users %}
+                    {% set pdf_count = user.pdfs | length %}
+                    <li
+                        class="supervisor-user-card"
+                        id="user-{{ user.personnummer_hash }}"
+                        data-user-card
+                        data-user-panel
+                        data-user-name="{{ user.username | lower }}"
+                        data-user-search-text="{% filter trim %}{{ user.username | lower }} {% for pdf in user.pdfs %}{{ pdf.filename | lower }} {% if pdf.category_labels %}{{ pdf.category_labels | join(' ') | lower }} {% endif %} {% endfor %}{% endfilter %}"
+                    >
+                        <article class="supervisor-user-card__shell">
+                            <div class="supervisor-user-card__header">
+                                <div class="supervisor-user-card__identity">
+                                    <h2>{{ user.username }}</h2>
+                                    {% if pdf_count == 0 %}
+                                        <p class="section-note">Inga intyg uppladdade ännu.</p>
+                                    {% elif pdf_count == 1 %}
+                                        <p class="section-note">1 intyg uppladdat.</p>
+                                    {% else %}
+                                        <p class="section-note">{{ pdf_count }} intyg uppladdade.</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="supervisor-user-card__actions">
+                                    <p class="supervisor-stat-badge">{{ pdf_count }} intyg</p>
+                                    <button
+                                        type="button"
+                                        class="btn btn-secondary"
+                                        data-user-toggle
+                                        data-open-label="Visa detaljer"
+                                        data-close-label="Dölj detaljer"
+                                        aria-expanded="false"
+                                        aria-controls="user-detail-{{ user.personnummer_hash }}"
+                                    >
+                                        Visa detaljer
+                                    </button>
+                                    <form
+                                        method="post"
+                                        action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}"
+                                        class="supervisor-inline-form"
+                                        data-supervisor-remove
+                                    >
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                                        <button type="submit" class="btn btn-danger">Ta bort koppling</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div
+                                class="supervisor-user-card__details"
+                                id="user-detail-{{ user.personnummer_hash }}"
+                                hidden
+                                data-user-details
+                            >
+                                {% if user.pdfs %}
+                                    <ul class="pdf-list supervisor-pdf-list" aria-label="Intyg för {{ user.username }}">
+                                        {% for pdf in user.pdfs %}
+                                            <li>
+                                                <div class="pdf-entry">
+                                                    <div class="pdf-details">
+                                                        <strong>{{ pdf.filename }}</strong>
+                                                        <span class="pdf-note">
+                                                            {% if pdf.category_labels %}
+                                                                {{ pdf.category_labels | join(', ') }}
+                                                            {% else %}
+                                                                Okategoriserat
+                                                            {% endif %}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="supervisor-pdf-actions">
+                                                    <div class="pdf-actions">
+                                                        <a
+                                                            class="btn btn-secondary"
+                                                            href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0"
+                                                            target="_blank"
+                                                            rel="noopener"
+                                                        >
+                                                            Visa
+                                                        </a>
+                                                        <a
+                                                            class="btn"
+                                                            href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}"
+                                                        >
+                                                            Ladda ner
+                                                        </a>
+                                                    </div>
+
+                                                    <form
+                                                        class="share-form supervisor-share-form"
+                                                        method="post"
+                                                        action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}"
+                                                    >
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
+                                                        <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}">
+                                                            Dela intyg via e-post
+                                                        </label>
+                                                        <div class="supervisor-share-form__controls">
+                                                            <input
+                                                                type="email"
+                                                                id="share-{{ user.personnummer_hash }}-{{ pdf.id }}"
+                                                                name="recipient_email"
+                                                                required
+                                                                autocomplete="email"
+                                                                inputmode="email"
+                                                                placeholder="mottagare@example.com"
+                                                            >
+                                                            <button type="submit" class="btn">Dela</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="dashboard-empty dashboard-empty--compact">
+                                        Det finns inga uppladdade intyg för den här användaren ännu.
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </article>
+                    </li>
+                {% endfor %}
+            </ul>
         {% else %}
-            <p>Det finns inga väntande organisationsförfrågningar just nu.</p>
+            <section class="dashboard-empty" aria-label="Tom användarlista">
+                <h2>Inga kopplade användare ännu</h2>
+                <p>När ett privatkonto kopplas till företaget visas det här.</p>
+            </section>
         {% endif %}
     </section>
 
-    {% if users %}
-        <section class="panel">
-            <form class="supervisor-search" data-user-search-form>
-                <label for="supervisor-user-search">Sök efter person</label>
-                <div class="supervisor-search-controls">
-                    <input id="supervisor-user-search" type="search" placeholder="Sök på namn" data-user-search>
-                    <button type="submit" class="btn btn-secondary" data-user-search-button>Sök</button>
-                </div>
-            </form>
-            <p id="supervisor-user-search-empty" hidden>Inga användare matchar din sökning.</p>
-        </section>
+    <section class="dashboard-secondary supervisor-secondary">
+        <div class="section-heading">
+            <div>
+                <h2>Koppla ny användare</h2>
+                <p class="section-note">
+                    Ange personnummer för privatkontot som ska få åtkomst till företagsportalen.
+                </p>
+            </div>
+        </div>
 
-        {% for user in users %}
-            <section class="panel" id="user-{{ user.personnummer_hash }}" data-user-panel data-user-name="{{ user.username | lower }}">
-                <details>
-                    <summary class="supervisor-user-summary">
-                        {{ user.username }}
-                        {% if user.pdfs %}
-                            ({{ user.pdfs | length }} intyg)
-                        {% else %}
-                            (0 intyg)
-                        {% endif %}
-                    </summary>
-                    <div class="panel-header">
-                        <h2>{{ user.username }}</h2>
-                        <form method="post" action="{{ url_for('supervisor_remove_connection_route', person_hash=user.personnummer_hash) }}" data-supervisor-remove>
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                            <button type="submit" class="btn btn-danger">Ta bort koppling</button>
-                        </form>
-                    </div>
-                    {% if user.pdfs %}
-                        <div class="table-scroll">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Filnamn</th>
-                                        <th>Kategorier</th>
-                                        <th>Åtgärder</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for pdf in user.pdfs %}
-                                        <tr>
-                                            <td>{{ pdf.filename }}</td>
-                                            <td>
-                                                {% if pdf.category_labels %}
-                                                    {{ pdf.category_labels | join(', ') }}
-                                                {% else %}
-                                                    Okategoriserat
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <div class="actions">
-                                                    <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}?download=0" target="_blank">Visa</a>
-                                                    <a class="btn" href="{{ url_for('supervisor_download_pdf', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">Ladda ner</a>
-                                                    <form class="share-form" method="post" action="{{ url_for('supervisor_share_pdf_route', person_hash=user.personnummer_hash, pdf_id=pdf.id) }}">
-                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                                        <input type="hidden" name="anchor" value="user-{{ user.personnummer_hash }}">
-                                                        <label for="share-{{ user.personnummer_hash }}-{{ pdf.id }}" class="sr-only">E-postadress</label>
-                                                        <input type="email" id="share-{{ user.personnummer_hash }}-{{ pdf.id }}" name="recipient_email" required placeholder="mottagare@example.com">
-                                                        <button type="submit" class="btn btn-secondary">Dela intyg</button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p>Inga intyg är uppladdade för detta privatkonto ännu.</p>
-                    {% endif %}
-                </details>
-            </section>
-        {% endfor %}
-    {% else %}
-        <section class="panel">
-            <p>Det finns inga kopplade privatkonton just nu.</p>
-        </section>
-    {% endif %}
-
-    <section class="panel">
-        <h2>Skicka manuell kopplingsförfrågan</h2>
-        <p>Ange personnummer för privatkontot du vill koppla till företagskontot.</p>
-        <form method="post" action="{{ url_for('supervisor_link_request_route') }}">
+        <form method="post" action="{{ url_for('supervisor_link_request_route') }}" class="supervisor-link-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <label for="link-request-personnummer">Personnummer</label>
-            <input id="link-request-personnummer" name="personnummer" type="text" required placeholder="ÅÅMMDDXXXX">
+            <div class="form-field">
+                <label for="link-request-personnummer">Personnummer</label>
+                <input
+                    id="link-request-personnummer"
+                    name="personnummer"
+                    type="text"
+                    inputmode="numeric"
+                    required
+                    placeholder="ÅÅMMDDXXXX"
+                >
+            </div>
             <button type="submit" class="btn">Skicka förfrågan</button>
         </form>
     </section>
-<script>
-(function () {
-    var forms = document.querySelectorAll("[data-supervisor-remove]");
-    var searchField = document.querySelector("[data-user-search]");
-    var searchForm = document.querySelector("[data-user-search-form]");
-    var userPanels = document.querySelectorAll("[data-user-panel]");
-    var emptyMessage = document.getElementById("supervisor-user-search-empty");
-
-    function filterUsers() {
-        var searchText = searchField.value.toLowerCase().trim();
-        var matchCount = 0;
-
-        userPanels.forEach(function (panel) {
-            var name = panel.getAttribute("data-user-name") || "";
-            var matches = !searchText || name.indexOf(searchText) !== -1;
-            panel.hidden = !matches;
-            if (matches) {
-                matchCount += 1;
-            }
-        });
-
-        if (emptyMessage) {
-            emptyMessage.hidden = matchCount !== 0;
-        }
-    }
-
-    if (searchField && userPanels.length) {
-        searchField.addEventListener("input", filterUsers);
-        if (searchForm) {
-            searchForm.addEventListener("submit", function (event) {
-                event.preventDefault();
-                filterUsers();
-            });
-        }
-    }
-
-    forms.forEach(function (form) {
-        form.addEventListener("submit", function (event) {
-            if (!confirm("Vill du ta bort kopplingen till användaren?")) {
-                event.preventDefault();
-                return;
-            }
-            if (!confirm("Bekräfta borttagningen. Företagskontot förlorar åtkomst till intygen.")) {
-                event.preventDefault();
-            }
-        });
-    });
-}());
-</script>
+</section>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

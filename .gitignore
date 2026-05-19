@@ -144,3 +144,8 @@ deploy/rclone/rclone.conf
 Inloggningsuppgifter.md
 environment.toml
 .venv-linux
+.pytest_cache/
+.pytest_tmp/*
+.pytest_tmp/
+/.devcontainer/*
+/.codex/*
