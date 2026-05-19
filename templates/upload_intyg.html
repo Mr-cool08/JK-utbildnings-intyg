@@ -22,7 +22,14 @@
             <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Tillbaka till mina intyg</a>
         </header>
 
-        <form action="{{ url_for('user_upload_pdf_route') }}" method="post" enctype="multipart/form-data" class="upload-form">
+        <form
+            action="{{ url_for('user_upload_pdf_route') }}"
+            method="post"
+            enctype="multipart/form-data"
+            class="upload-form"
+            id="userUploadForm"
+            data-redirect-url="{{ url_for('dashboard') }}"
+        >
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-field">
                 <label for="certificate">Välj fil</label>
@@ -47,9 +54,41 @@
                 <textarea id="note" name="note" maxlength="300" rows="4" placeholder="Valfritt"></textarea>
             </div>
             <div class="upload-actions">
-                <button type="submit" class="btn">Ladda upp intyg</button>
+                <button type="submit" class="btn" id="uploadSubmitButton">
+                    <span id="uploadSubmitLabel">Ladda upp intyg</span>
+                </button>
                 <p class="upload-meta">{{ certificate_count }} intyg i arkivet</p>
             </div>
+            <section
+                id="uploadProgress"
+                class="upload-progress"
+                aria-live="polite"
+                aria-atomic="true"
+                hidden
+            >
+                <div class="upload-progress__header">
+                    <p class="upload-progress__eyebrow">Uppladdning pågår</p>
+                    <p class="upload-progress__title" id="uploadProgressTitle">Vi laddar upp ditt intyg</p>
+                    <p class="upload-progress__status" id="uploadProgressStatus">Förbereder uppladdningen...</p>
+                </div>
+                <div
+                    id="uploadProgressTrack"
+                    class="upload-progress__track"
+                    role="progressbar"
+                    aria-labelledby="uploadProgressTitle uploadProgressStatus"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="0"
+                >
+                    <div id="uploadProgressBar" class="upload-progress__fill"></div>
+                </div>
+                <div class="upload-progress__meta">
+                    <span id="uploadProgressPercent">0 %</span>
+                    <span id="uploadProgressDetail">Startar...</span>
+                </div>
+            </section>
+            <p id="uploadProgressError" class="message error" hidden></p>
+            <p id="uploadProgressAssistive" class="visually-hidden" aria-live="polite"></p>
         </form>
     </section>
 </section>
@@ -58,13 +97,31 @@
 {% block scripts %}
 <script>
 (() => {
+  const form = document.getElementById("userUploadForm");
   const certificateInput = document.getElementById("certificate");
-  if (!certificateInput) {
+  if (!form || !certificateInput) {
     return;
   }
 
   const maxBytes = Number(certificateInput.dataset.maxBytes || 0);
   const maxMb = certificateInput.dataset.maxMb || "100";
+  const submitButton = document.getElementById("uploadSubmitButton");
+  const submitLabel = document.getElementById("uploadSubmitLabel");
+  const progressSection = document.getElementById("uploadProgress");
+  const progressTrack = document.getElementById("uploadProgressTrack");
+  const progressBar = document.getElementById("uploadProgressBar");
+  const progressStatus = document.getElementById("uploadProgressStatus");
+  const progressPercent = document.getElementById("uploadProgressPercent");
+  const progressDetail = document.getElementById("uploadProgressDetail");
+  const progressError = document.getElementById("uploadProgressError");
+  const progressAssistive = document.getElementById("uploadProgressAssistive");
+  const fallbackRedirect = form.dataset.redirectUrl || "/dashboard";
+  const formControls = Array.from(
+    form.querySelectorAll("input, select, textarea, button")
+  );
+
+  let isSubmitting = false;
+  let processingTimer = null;
 
   function validateSelectedFile() {
     const selectedFile = certificateInput.files && certificateInput.files[0];
@@ -83,6 +140,153 @@
     certificateInput.setCustomValidity("");
   }
 
+  function formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return "0 MB";
+    }
+
+    const megaBytes = bytes / (1024 * 1024);
+    const decimals = megaBytes >= 10 ? 0 : 1;
+    return `${megaBytes.toFixed(decimals).replace(".", ",")} MB`;
+  }
+
+  function clearProcessingTimer() {
+    if (processingTimer) {
+      window.clearInterval(processingTimer);
+      processingTimer = null;
+    }
+  }
+
+  function updateAssistiveStatus(message) {
+    if (progressAssistive) {
+      progressAssistive.textContent = message;
+    }
+  }
+
+  function setProgress(value) {
+    const normalizedValue = Math.max(0, Math.min(100, Math.round(value)));
+    if (progressBar) {
+      progressBar.style.width = `${normalizedValue}%`;
+    }
+    if (progressTrack) {
+      progressTrack.setAttribute("aria-valuenow", String(normalizedValue));
+    }
+    if (progressPercent) {
+      progressPercent.textContent = `${normalizedValue} %`;
+    }
+  }
+
+  function setProgressState(state) {
+    if (!progressSection) {
+      return;
+    }
+
+    progressSection.classList.remove("is-processing", "is-indeterminate");
+    if (state) {
+      progressSection.classList.add(state);
+    }
+  }
+
+  function showProgress() {
+    if (progressSection) {
+      progressSection.hidden = false;
+    }
+  }
+
+  function setProgressCopy(statusText, detailText) {
+    if (progressStatus) {
+      progressStatus.textContent = statusText;
+    }
+    if (progressDetail) {
+      progressDetail.textContent = detailText;
+    }
+    updateAssistiveStatus(`${statusText} ${detailText}`.trim());
+  }
+
+  function setSubmittingState(loading) {
+    form.classList.toggle("is-uploading", loading);
+    form.setAttribute("aria-busy", loading ? "true" : "false");
+
+    formControls.forEach((control) => {
+      if (control instanceof HTMLInputElement && control.type === "hidden") {
+        return;
+      }
+      control.disabled = loading;
+    });
+
+    if (submitLabel) {
+      submitLabel.textContent = loading ? "Laddar upp..." : "Ladda upp intyg";
+    }
+    if (submitButton) {
+      submitButton.disabled = loading;
+    }
+  }
+
+  function clearProgressError() {
+    if (progressError) {
+      progressError.textContent = "";
+      progressError.hidden = true;
+    }
+  }
+
+  function showProgressError(message) {
+    clearProcessingTimer();
+    setSubmittingState(false);
+    setProgressState("");
+    isSubmitting = false;
+
+    if (progressError) {
+      progressError.textContent = message;
+      progressError.hidden = false;
+    }
+    updateAssistiveStatus(message);
+  }
+
+  function startProcessingState() {
+    clearProcessingTimer();
+    setProgressState("is-processing");
+    setProgress(
+      Math.max(
+        Number(progressTrack && progressTrack.getAttribute("aria-valuenow")) || 0,
+        92
+      )
+    );
+    setProgressCopy(
+      "Filen är uppladdad.",
+      "Vi kontrollerar och sparar intyget. Det kan ta några sekunder."
+    );
+
+    processingTimer = window.setInterval(() => {
+      const currentValue = Number(
+        progressTrack && progressTrack.getAttribute("aria-valuenow")
+      ) || 92;
+      if (currentValue < 98) {
+        setProgress(currentValue + 1);
+      }
+    }, 450);
+  }
+
+  function submitWithFallback() {
+    isSubmitting = true;
+    clearProgressError();
+    showProgress();
+    setProgressState("is-processing");
+    setProgress(18);
+    setProgressCopy(
+      "Uppladdningen har startat.",
+      "Vi laddar upp och sparar intyget. Vänta kvar på sidan."
+    );
+    form.classList.add("is-uploading");
+    form.setAttribute("aria-busy", "true");
+    if (submitLabel) {
+      submitLabel.textContent = "Laddar upp...";
+    }
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
+    form.submit();
+  }
+
   certificateInput.addEventListener("change", () => {
     validateSelectedFile();
     if (certificateInput.validationMessage) {
@@ -90,15 +294,125 @@
     }
   });
 
-  if (certificateInput.form) {
-    certificateInput.form.addEventListener("submit", (event) => {
-      validateSelectedFile();
-      if (!certificateInput.checkValidity()) {
-        event.preventDefault();
-        certificateInput.reportValidity();
-      }
+  form.addEventListener("submit", (event) => {
+    validateSelectedFile();
+    if (!certificateInput.checkValidity()) {
+      event.preventDefault();
+      certificateInput.reportValidity();
+      return;
+    }
+
+    if (!form.reportValidity()) {
+      event.preventDefault();
+      return;
+    }
+
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
+
+    const supportsRichUploadProgress =
+      typeof window.FormData !== "undefined" &&
+      typeof window.XMLHttpRequest !== "undefined" &&
+      "upload" in new XMLHttpRequest();
+
+    if (!supportsRichUploadProgress) {
+      event.preventDefault();
+      submitWithFallback();
+      return;
+    }
+
+    event.preventDefault();
+
+    const selectedFile = certificateInput.files && certificateInput.files[0];
+    const totalBytes = selectedFile ? selectedFile.size : 0;
+    const formData = new FormData(form);
+    const xhr = new XMLHttpRequest();
+
+    isSubmitting = true;
+    clearProgressError();
+    clearProcessingTimer();
+    showProgress();
+    setProgressState("");
+    setProgress(0);
+    setProgressCopy(
+      "Förbereder uppladdningen...",
+      "Startar överföringen till servern."
+    );
+    setSubmittingState(true);
+
+    xhr.open(form.method || "POST", form.action, true);
+    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+
+    xhr.upload.addEventListener("loadstart", () => {
+      setProgressCopy(
+        "Uppladdningen har startat.",
+        "Filen skickas nu till servern."
+      );
     });
-  }
+
+    xhr.upload.addEventListener("progress", (progressEvent) => {
+      if (!progressEvent.lengthComputable || !progressEvent.total) {
+        setProgressState("is-indeterminate");
+        setProgressCopy(
+          "Laddar upp filen...",
+          "Överföringen pågår. Vänta kvar på sidan."
+        );
+        return;
+      }
+
+      setProgressState("");
+      const percent = Math.min(
+        90,
+        Math.round((progressEvent.loaded / progressEvent.total) * 90)
+      );
+      setProgress(percent);
+      setProgressCopy(
+        "Laddar upp filen...",
+        `${formatFileSize(progressEvent.loaded)} av ${formatFileSize(
+          totalBytes || progressEvent.total
+        )} uppladdat.`
+      );
+    });
+
+    xhr.upload.addEventListener("load", () => {
+      startProcessingState();
+    });
+
+    xhr.addEventListener("load", () => {
+      clearProcessingTimer();
+
+      if (xhr.status >= 200 && xhr.status < 400) {
+        setProgressState("");
+        setProgress(100);
+        setProgressCopy(
+          "Intyget är klart.",
+          "Skickar dig vidare..."
+        );
+        window.setTimeout(() => {
+          window.location.assign(xhr.responseURL || fallbackRedirect);
+        }, 180);
+        return;
+      }
+
+      showProgressError(
+        "Uppladdningen kunde inte slutföras. Försök igen om en liten stund."
+      );
+    });
+
+    xhr.addEventListener("error", () => {
+      showProgressError(
+        "Det gick inte att ansluta till servern under uppladdningen. Försök igen."
+      );
+    });
+
+    xhr.addEventListener("abort", () => {
+      showProgressError("Uppladdningen avbröts innan den blev klar.");
+    });
+
+    xhr.send(formData);
+  });
 })();
 </script>
 {% endblock %}

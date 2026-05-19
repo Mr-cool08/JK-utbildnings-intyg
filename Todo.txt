@@ -7,6 +7,4 @@ Sök funktion, lista
 
 ta bort demo?
 
-Döpa om intyg till mina intyg
-
 Loading bar när man laddar upp intyg

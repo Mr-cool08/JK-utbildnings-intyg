@@ -55,7 +55,7 @@ def test_logged_in_user_nav_shows_user_actions_only(user_db):
 
     nav_links = _extract_nav_links(body)
 
-    assert ">Intyg<" in nav_links
+    assert ">Mina intyg<" in nav_links
     assert "Ladda upp intyg" in nav_links
     assert 'href="/dashboard/upload"' in nav_links
     assert 'href="/logout"' in nav_links
@@ -136,6 +136,10 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert "Dela markerade intyg" in body
     assert 'id="shareModal"' in body
     assert 'id="shareRecipientEmail"' in body
+    assert "Säker delning" in body
+    assert "Valda intyg" in body
+    assert "Intyget skickas som PDF-bilaga till mottagaren." in body
+    assert 'class="share-modal__summary-name"' in body
     assert "data-share-select" in body
     assert "Mina intyg" in body
     assert "Ladda upp intyg" in body
@@ -238,6 +242,10 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert 'id="certificate"' in body
     assert 'id="category"' in body
     assert 'id="note"' in body
+    assert 'id="userUploadForm"' in body
+    assert 'id="uploadProgress"' in body
+    assert 'id="uploadProgressBar"' in body
+    assert "Vi laddar upp ditt intyg" in body
     assert "Tillbaka till mina intyg" in body
     assert "Max 100 MB per uppladdning." in body
     assert 'data-max-bytes="104857600"' in body
