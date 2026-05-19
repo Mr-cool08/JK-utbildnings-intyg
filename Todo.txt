@@ -1,6 +1,12 @@
-Lägga till lite mer färger i paleten?
 
-Uppdatera företagssidan
-Sök funktion, lista
+kopplings förfrågan förtagsnamn istället än namn
 
-ta bort demo?
+ändra text i anteckngarna i för standard användare
+
+lägg till påminelse för att förnya intyg (företag, användare)
+
+
+
+ta bort demo
+
+
