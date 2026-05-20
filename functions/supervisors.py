@@ -244,6 +244,52 @@ def get_supervisor_name_by_hash(email_hash: str) -> Optional[str]:
     return row.name
 
 
+def _get_company_names_by_supervisor_hashes(
+    supervisor_email_hashes: List[str],
+) -> Dict[str, str]:
+    # Match supervisor e-mail hashes to company names when available.
+    unique_hashes = {
+        email_hash for email_hash in supervisor_email_hashes if _is_valid_hash(email_hash)
+    }
+    if not unique_hashes:
+        return {}
+
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            select(
+                company_users_table.c.email,
+                companies_table.c.name,
+                company_users_table.c.updated_at,
+                company_users_table.c.id,
+            )
+            .select_from(
+                company_users_table.join(
+                    companies_table,
+                    company_users_table.c.company_id == companies_table.c.id,
+                )
+            )
+            .where(company_users_table.c.role == "foretagskonto")
+            .order_by(
+                company_users_table.c.updated_at.desc(),
+                company_users_table.c.id.desc(),
+            )
+        ).fetchall()
+
+    company_names_by_hash: Dict[str, str] = {}
+    for row in rows:
+        try:
+            normalized_email = normalize_email(row.email)
+        except ValueError:
+            continue
+
+        email_hash = hash_value(normalized_email)
+        if email_hash not in unique_hashes or email_hash in company_names_by_hash:
+            continue
+        company_names_by_hash[email_hash] = row.name
+
+    return company_names_by_hash
+
+
 def get_supervisor_email_hash(email: str) -> str:
     # Return the hashed e-mail used for supervisor tables.
     normalized = normalize_email(email)
@@ -331,11 +377,20 @@ def list_user_supervisor_connections(personnummer_hash: str) -> List[Dict[str, s
                 )
             )
             .where(supervisor_connections_table.c.user_personnummer == personnummer_hash)
-            .order_by(supervisors_table.c.name.asc())
-        )
-        return [
-            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name} for row in rows
-        ]
+        ).fetchall()
+
+    company_names_by_hash = _get_company_names_by_supervisor_hashes(
+        [row.supervisor_email for row in rows]
+    )
+    connections = [
+        {
+            "supervisor_email": row.supervisor_email,
+            "supervisor_name": company_names_by_hash.get(row.supervisor_email) or row.name,
+        }
+        for row in rows
+    ]
+    connections.sort(key=lambda connection: connection["supervisor_name"].casefold())
+    return connections
 
 
 def list_user_link_requests(personnummer_hash: str) -> List[Dict[str, str]]:
@@ -356,11 +411,20 @@ def list_user_link_requests(personnummer_hash: str) -> List[Dict[str, str]]:
                 )
             )
             .where(supervisor_link_requests_table.c.user_personnummer == personnummer_hash)
-            .order_by(supervisors_table.c.name.asc())
-        )
-        return [
-            {"supervisor_email": row.supervisor_email, "supervisor_name": row.name} for row in rows
-        ]
+        ).fetchall()
+
+    company_names_by_hash = _get_company_names_by_supervisor_hashes(
+        [row.supervisor_email for row in rows]
+    )
+    requests = [
+        {
+            "supervisor_email": row.supervisor_email,
+            "supervisor_name": company_names_by_hash.get(row.supervisor_email) or row.name,
+        }
+        for row in rows
+    ]
+    requests.sort(key=lambda request: request["supervisor_name"].casefold())
+    return requests
 
 
 def create_supervisor_link_request(
