@@ -135,6 +135,33 @@
 </section>
 
 <section class="panel">
+    <h2>Komplettera hashad e-post</h2>
+    <p>Hämta konton och företagsreferenser som fortfarande har hashad e-post och ersätt dem med normaliserad e-post.</p>
+    <div class="button-row">
+        <button type="button" class="btn btn-secondary" id="refreshLegacyEmailHashes">Hämta hashade e-postreferenser</button>
+    </div>
+    <p id="legacyEmailMessage" class="message" aria-live="polite"></p>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Typ</th>
+                    <th>Konto eller referens</th>
+                    <th>Källor</th>
+                    <th>E-post</th>
+                    <th>Åtgärd</th>
+                </tr>
+            </thead>
+            <tbody id="legacyEmailHashBody">
+                <tr>
+                    <td colspan="5">Inga referenser hämtade.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
     <h2>Radera användarkonto</h2>
     <p>Välj ett konto i listan. Du kan ange e-post om du vill skicka en notifiering.</p>
     <form id="deleteAccountForm" class="stacked-form" method="post">

@@ -73,6 +73,19 @@ def normalize_email(email: str) -> str:
     return normalized
 
 
+def email_lookup_values(email: str) -> tuple[str, str]:
+    # Return new plaintext and legacy hash values for e-mail lookup.
+    normalized = normalize_email(email)
+    return normalized, hash_value(normalized)
+
+
+def normalize_email_reference(value: str) -> str:
+    # Normalize a stored e-mail reference while allowing legacy hash identifiers.
+    if _is_valid_hash(value):
+        return value
+    return normalize_email(value)
+
+
 def hash_password(password: str) -> str:
     # Hash a password with Werkzeug's PBKDF2 implementation.
     return generate_password_hash(password)

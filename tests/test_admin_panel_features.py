@@ -399,7 +399,146 @@ def test_admin_update_account_updates_record(empty_db):
         ).first()
         assert row is not None
         assert row.username == new_name
-        assert row.email == functions.hash_value(functions.normalize_email(new_email))
+        assert row.email == functions.normalize_email(new_email)
+
+
+def test_admin_legacy_email_hash_list_and_complete_standard(empty_db):
+    personnummer = "19900606-6789"
+    normalized_personnummer = functions.normalize_personnummer(personnummer)
+    personnummer_hash = functions.hash_value(normalized_personnummer)
+    email = "legacy-standard@example.com"
+    email_hash = functions.hash_value(functions.normalize_email(email))
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Legacy Standard",
+                email=email_hash,
+                password=functions.hash_password("StartLosen1!"),
+                personnummer=personnummer_hash,
+            )
+        )
+
+    with _admin_client() as client:
+        list_response = client.get("/admin/api/epost-hashar/lista")
+        complete_response = client.post(
+            "/admin/api/epost-hashar/komplettera",
+            json={
+                "reference_type": "standardkonto",
+                "email_hash": email_hash,
+                "personnummer_hash": personnummer_hash,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert list_response.status_code == 200
+    listed = list_response.get_json()["data"]["standard_accounts"]
+    assert any(entry["email_hash"] == email_hash for entry in listed)
+    assert complete_response.status_code == 200
+
+    with empty_db.connect() as conn:
+        row = conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == personnummer_hash
+            )
+        ).first()
+    assert row.email == functions.normalize_email(email)
+
+
+def test_admin_complete_legacy_supervisor_email_updates_references(empty_db):
+    email = "legacy-chef@example.com"
+    normalized_email = functions.normalize_email(email)
+    email_hash = functions.hash_value(normalized_email)
+    personnummer_hash = functions.hash_value("9001011234")
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                name="Legacy Chef",
+                email=email_hash,
+                password=functions.hash_password("StartLosen1!"),
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=email_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_link_requests_table.insert().values(
+                supervisor_email=email_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_password_resets_table.insert().values(
+                email=email_hash,
+                token_hash=functions.hash_value("token"),
+            )
+        )
+        conn.execute(
+            functions.application_requests_table.insert().values(
+                account_type="foretagskonto",
+                name="Legacy Chef",
+                email=email_hash,
+                orgnr_normalized="5569668337",
+                company_name="Legacy AB",
+            )
+        )
+        conn.execute(
+            functions.company_users_table.insert().values(
+                role="foretagskonto",
+                name="Legacy Chef",
+                email=email_hash,
+            )
+        )
+
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/epost-hashar/komplettera",
+            json={
+                "reference_type": "foretagskonto",
+                "email_hash": email_hash,
+                "email": email,
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 200
+    with empty_db.connect() as conn:
+        supervisor = conn.execute(functions.supervisors_table.select()).first()
+        connection = conn.execute(functions.supervisor_connections_table.select()).first()
+        link_request = conn.execute(functions.supervisor_link_requests_table.select()).first()
+        reset = conn.execute(functions.supervisor_password_resets_table.select()).first()
+        application = conn.execute(functions.application_requests_table.select()).first()
+        company_user = conn.execute(functions.company_users_table.select()).first()
+
+    assert supervisor.email == normalized_email
+    assert connection.supervisor_email == normalized_email
+    assert link_request.supervisor_email == normalized_email
+    assert reset.email == normalized_email
+    assert application.email == normalized_email
+    assert company_user.email == normalized_email
+
+
+def test_admin_complete_legacy_email_rejects_mismatch(empty_db):
+    email_hash = functions.hash_value("original@example.com")
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/epost-hashar/komplettera",
+            json={
+                "reference_type": "standardkonto",
+                "email_hash": email_hash,
+                "email": "annan@example.com",
+                "csrf_token": "test-token",
+            },
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "E-postadressen matchar inte den valda hashen."
 
 
 def test_admin_remove_supervisor_connection(empty_db):
@@ -740,9 +879,7 @@ def test_password_reset_token_lifecycle(empty_db):
     info = functions.get_password_reset(token)
     assert info is not None
     assert info["personnummer"] == pnr_hash
-    assert info["email"] == functions.hash_value(
-        functions.normalize_email(email)
-    )
+    assert info["email"] == functions.normalize_email(email)
     assert info["used_at"] is None
 
     assert functions.reset_password_with_token(token, "NyttLosen1!") is True
@@ -844,6 +981,8 @@ _ADMIN_PROTECTED_ENDPOINTS = [
     ("post", "/admin/api/radera-pdf", 403),
     ("post", "/admin/api/radera-konto", 403),
     ("get", "/admin/api/konton/lista", 403),
+    ("get", "/admin/api/epost-hashar/lista", 403),
+    ("post", "/admin/api/epost-hashar/komplettera", 403),
     ("post", "/admin/api/konton/uppdatera", 403),
     ("post", "/admin/api/konton/losenord-status", 403),
     ("post", "/admin/api/konton/skapa-losenordslank", 403),
@@ -886,7 +1025,7 @@ def _call_with_method(client, method, path):
 
 
 def test_admin_protected_endpoints_count():
-    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 52
+    assert len(_ADMIN_PROTECTED_ENDPOINTS) == 54
 
 
 @pytest.mark.parametrize("method,path,expected_status", _ADMIN_PROTECTED_ENDPOINTS)

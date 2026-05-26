@@ -152,7 +152,7 @@
                 <div class="pdf-details">
                     <strong>{{ connection.supervisor_name }}</strong>
                 </div>
-                <form method="post" action="{{ url_for('user_remove_supervisor_connection_route', supervisor_hash=connection.supervisor_email) }}" data-remove-connection>
+                <form method="post" action="{{ url_for('user_remove_supervisor_connection_by_id_route', connection_id=connection.connection_id) }}" data-remove-connection>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-danger">Ta bort koppling</button>
                 </form>

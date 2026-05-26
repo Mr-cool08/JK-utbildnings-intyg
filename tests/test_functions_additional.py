@@ -30,7 +30,7 @@ def test_admin_and_user_create_flow(empty_db, monkeypatch):
     with empty_db.connect() as conn:
         pending_row = conn.execute(functions.pending_users_table.select()).first()
     assert pending_row is not None
-    assert pending_row.email == functions.hash_value(email)
+    assert pending_row.email == functions.normalize_email(email)
     assert pending_row.username == username
 
     pnr_hash = functions.hash_value(functions.normalize_personnummer(personnummer))

@@ -31,9 +31,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
     assert result["company_name"] == "Testbolag AB"
     assert result["pending_supervisor_created"] is True
     assert result["supervisor_activation_required"] is True
-    assert result["supervisor_email_hash"] == functions.hash_value(
-        functions.normalize_email("applicant@example.com")
-    )
+    assert result["supervisor_email_hash"] == "applicant@example.com"
 
     with fresh_app_db.connect() as conn:
         company = conn.execute(functions.companies_table.select()).first()
@@ -50,9 +48,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
             functions.pending_supervisors_table.select()
         ).first()
         assert pending_supervisor is not None
-        assert pending_supervisor.email == functions.hash_value(
-            functions.normalize_email("applicant@example.com")
-        )
+        assert pending_supervisor.email == "applicant@example.com"
         assert pending_supervisor.name == "Test Företagskonto"
 
         application = conn.execute(

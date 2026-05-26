@@ -19,6 +19,9 @@
   const refreshAccountListBtn = document.getElementById('refreshAccountList');
   const updateAccountForm = document.getElementById('updateAccountForm');
   const updateAccountMessage = document.getElementById('updateAccountMessage');
+  const legacyEmailHashBody = document.getElementById('legacyEmailHashBody');
+  const legacyEmailMessage = document.getElementById('legacyEmailMessage');
+  const refreshLegacyEmailHashesBtn = document.getElementById('refreshLegacyEmailHashes');
   const passwordStatusForm = document.getElementById('passwordStatusForm');
   const passwordStatusMessage = document.getElementById('passwordStatusMessage');
   const sendCreateLinkBtn = document.getElementById('sendCreateLinkBtn');
@@ -153,6 +156,137 @@
     const hash = account.personnummer_hash || '';
     const shortHash = hash ? `${hash.slice(0, 10)}…` : 'okänd hash';
     return `${account.username || 'Okänt konto'} — ${status} (${shortHash})`;
+  }
+
+  function shortHash(value) {
+    return value ? `${value.slice(0, 10)}…` : 'saknas';
+  }
+
+  function formatLegacySources(sources) {
+    if (!sources || typeof sources !== 'object') return '';
+    return Object.entries(sources)
+      .map(([source, count]) => `${source}: ${count}`)
+      .join(', ');
+  }
+
+  function buildLegacyEmailRow(entry, type) {
+    const row = document.createElement('tr');
+    const labelCell = document.createElement('td');
+    labelCell.textContent = type === 'standardkonto' ? 'Standardkonto' : 'Företagskonto';
+
+    const referenceCell = document.createElement('td');
+    const title = entry.username || entry.name || 'Okänd referens';
+    const hash = entry.email_hash || '';
+    referenceCell.textContent = `${title} (${shortHash(hash)})`;
+
+    const sourcesCell = document.createElement('td');
+    sourcesCell.textContent = type === 'standardkonto'
+      ? (entry.status === 'pending' ? 'Väntande konto' : 'Aktivt konto')
+      : formatLegacySources(entry.sources);
+
+    const emailCell = document.createElement('td');
+    const emailInput = document.createElement('input');
+    emailInput.type = 'email';
+    emailInput.placeholder = 'namn@example.com';
+    emailInput.autocomplete = 'email';
+    emailInput.dataset.legacyEmailInput = 'true';
+    emailCell.appendChild(emailInput);
+
+    const actionCell = document.createElement('td');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-secondary';
+    button.textContent = 'Komplettera';
+    button.dataset.legacyEmailAction = 'complete';
+    button.dataset.referenceType = type;
+    button.dataset.emailHash = hash;
+    button.dataset.personnummerHash = entry.personnummer_hash || '';
+    actionCell.appendChild(button);
+
+    row.append(labelCell, referenceCell, sourcesCell, emailCell, actionCell);
+    return row;
+  }
+
+  function renderLegacyEmailReferences(data) {
+    if (!legacyEmailHashBody) return;
+    legacyEmailHashBody.replaceChildren();
+    const standardAccounts = Array.isArray(data?.standard_accounts)
+      ? data.standard_accounts
+      : [];
+    const supervisorReferences = Array.isArray(data?.supervisor_references)
+      ? data.supervisor_references
+      : [];
+    const rows = [
+      ...standardAccounts.map((entry) => buildLegacyEmailRow(entry, 'standardkonto')),
+      ...supervisorReferences.map((entry) => buildLegacyEmailRow(entry, 'foretagskonto')),
+    ];
+    if (!rows.length) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 5;
+      cell.textContent = 'Inga hashade e-postreferenser hittades.';
+      row.appendChild(cell);
+      legacyEmailHashBody.appendChild(row);
+      return;
+    }
+    rows.forEach((row) => legacyEmailHashBody.appendChild(row));
+  }
+
+  async function loadLegacyEmailReferences() {
+    if (!legacyEmailHashBody) return;
+    setMessageElement(legacyEmailMessage, 'Hämtar hashade e-postreferenser…', false);
+    try {
+      const res = await fetch('/admin/api/epost-hashar/lista');
+      const data = await parseJsonResponse(res, 'Hämtade hashade e-postreferenser');
+      if (!data) throw buildUnexpectedFormatError();
+      if (!res.ok) {
+        throw new Error(data.message || 'Kunde inte hämta hashade e-postreferenser.');
+      }
+      renderLegacyEmailReferences(data.data);
+      setMessageElement(legacyEmailMessage, 'Hashade e-postreferenser hämtade.', false);
+    } catch (err) {
+      setMessageElement(legacyEmailMessage, err.message, true);
+    }
+  }
+
+  async function completeLegacyEmailReference(button) {
+    const row = button.closest('tr');
+    const input = row ? row.querySelector('[data-legacy-email-input="true"]') : null;
+    const email = input ? input.value.trim() : '';
+    if (!email) {
+      setMessageElement(legacyEmailMessage, 'Ange e-postadressen.', true);
+      return;
+    }
+    setMessageElement(legacyEmailMessage, 'Kompletterar e-postadress…', false);
+    try {
+      const res = await fetch('/admin/api/epost-hashar/komplettera', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          reference_type: button.dataset.referenceType || '',
+          email_hash: button.dataset.emailHash || '',
+          personnummer_hash: button.dataset.personnummerHash || '',
+          email,
+          ...(csrfToken ? { csrf_token: csrfToken } : {}),
+        }),
+      });
+      const data = await parseJsonResponse(res, 'Kompletterade hashad e-post');
+      if (!data) throw buildUnexpectedFormatError();
+      if (!res.ok) {
+        throw new Error(data.message || 'Kunde inte komplettera e-postadressen.');
+      }
+      setMessageElement(
+        legacyEmailMessage,
+        data.message || 'E-postadressen har kompletterats.',
+        false,
+      );
+      loadLegacyEmailReferences();
+    } catch (err) {
+      setMessageElement(legacyEmailMessage, err.message, true);
+    }
   }
 
   async function loadAccountList() {
@@ -523,6 +657,20 @@
     });
   }
 
+  if (refreshLegacyEmailHashesBtn) {
+    refreshLegacyEmailHashesBtn.addEventListener('click', () => {
+      loadLegacyEmailReferences();
+    });
+  }
+
+  if (legacyEmailHashBody) {
+    legacyEmailHashBody.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-legacy-email-action="complete"]');
+      if (!button) return;
+      completeLegacyEmailReference(button);
+    });
+  }
+
   if (fillLastPersonnummerBtn) {
     fillLastPersonnummerBtn.addEventListener('click', () => {
       const personnummer = getLastPersonnummer();
@@ -565,6 +713,7 @@
         verifyCertificateMessage,
         deleteAccountMessage,
         updateAccountMessage,
+        legacyEmailMessage,
         passwordStatusMessage,
       ].forEach((element) => {
         if (element) {
@@ -576,5 +725,6 @@
   }
 
   loadAccountList();
+  loadLegacyEmailReferences();
 })();
 // # Copyright (c) Liam Suorsa and Mika Suorsa
