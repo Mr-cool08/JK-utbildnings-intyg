@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import app
 import functions
+import functions.users as users_module
 import pytest
 from course_categories import COURSE_CATEGORIES
 
@@ -444,6 +445,76 @@ def test_admin_legacy_email_hash_list_and_complete_standard(empty_db):
             )
         ).first()
     assert row.email == functions.normalize_email(email)
+
+
+def test_normalize_email_reference_accepts_spaced_uppercase_hash():
+    legacy_hash = "A" * 64
+
+    assert (
+        functions.normalize_email_reference(f" {legacy_hash}\n")
+        == legacy_hash.lower()
+    )
+
+
+def test_admin_update_user_account_rolls_back_when_org_request_update_fails(
+    empty_db,
+    monkeypatch,
+):
+    personnummer = "19900606-6789"
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(personnummer)
+    )
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Gammalt Namn",
+                email="gammal@example.com",
+                password=functions.hash_password("StartLosen1!"),
+                personnummer=personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.organization_link_requests_table.insert().values(
+                orgnr_normalized="5569668337",
+                user_personnummer=personnummer_hash,
+                user_name="Gammalt Namn",
+                user_email="gammal@example.com",
+            )
+        )
+
+    def _fail_contact_update(*_args, **_kwargs):
+        raise RuntimeError("kontaktuppdatering misslyckades")
+
+    monkeypatch.setattr(
+        users_module,
+        "update_organization_request_contact_details",
+        _fail_contact_update,
+    )
+
+    with pytest.raises(RuntimeError, match="kontaktuppdatering misslyckades"):
+        users_module.admin_update_user_account(
+            personnummer,
+            "ny@example.com",
+            "Nytt Namn",
+        )
+
+    with empty_db.connect() as conn:
+        user = conn.execute(
+            functions.users_table.select().where(
+                functions.users_table.c.personnummer == personnummer_hash
+            )
+        ).first()
+        organization_request = conn.execute(
+            functions.organization_link_requests_table.select().where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == personnummer_hash
+            )
+        ).first()
+
+    assert user.username == "Gammalt Namn"
+    assert user.email == "gammal@example.com"
+    assert organization_request.user_name == "Gammalt Namn"
+    assert organization_request.user_email == "gammal@example.com"
 
 
 def test_admin_complete_legacy_supervisor_email_updates_references(empty_db):

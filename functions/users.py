@@ -465,102 +465,91 @@ def list_legacy_email_references() -> dict[str, list[dict[str, Any]]]:
         sources[source] = sources.get(source, 0) + 1
 
     with get_engine().connect() as conn:
-        user_rows = conn.execute(
+        for row in conn.execute(
             select(
                 users_table.c.id,
                 users_table.c.username,
                 users_table.c.personnummer,
                 users_table.c.email,
             )
-        ).fetchall()
-        pending_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.email):
+                add_standard(
+                    users_table.name,
+                    "active",
+                    int(row.id),
+                    row.username,
+                    row.personnummer,
+                    row.email,
+                )
+        for row in conn.execute(
             select(
                 pending_users_table.c.id,
                 pending_users_table.c.username,
                 pending_users_table.c.personnummer,
                 pending_users_table.c.email,
             )
-        ).fetchall()
-        supervisor_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.email):
+                add_standard(
+                    pending_users_table.name,
+                    "pending",
+                    int(row.id),
+                    row.username,
+                    row.personnummer,
+                    row.email,
+                )
+        for row in conn.execute(
             select(supervisors_table.c.name, supervisors_table.c.email)
-        ).fetchall()
-        pending_supervisor_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.email):
+                add_supervisor(row.email, supervisors_table.name, row.name)
+        for row in conn.execute(
             select(pending_supervisors_table.c.name, pending_supervisors_table.c.email)
-        ).fetchall()
-        connection_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.email):
+                add_supervisor(row.email, pending_supervisors_table.name, row.name)
+        for row in conn.execute(
             select(supervisor_connections_table.c.supervisor_email)
-        ).fetchall()
-        link_request_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.supervisor_email):
+                add_supervisor(row.supervisor_email, supervisor_connections_table.name)
+        for row in conn.execute(
             select(supervisor_link_requests_table.c.supervisor_email)
-        ).fetchall()
-        supervisor_reset_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.supervisor_email):
+                add_supervisor(row.supervisor_email, supervisor_link_requests_table.name)
+        for row in conn.execute(
             select(supervisor_password_resets_table.c.email)
-        ).fetchall()
-        organization_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.email):
+                add_supervisor(row.email, supervisor_password_resets_table.name)
+        for row in conn.execute(
             select(organization_link_requests_table.c.handled_by_supervisor_email)
-        ).fetchall()
-        application_rows = conn.execute(
+        ):
+            if _is_legacy_email_hash(row.handled_by_supervisor_email):
+                add_supervisor(
+                    row.handled_by_supervisor_email,
+                    organization_link_requests_table.name,
+                )
+        for row in conn.execute(
             select(
                 application_requests_table.c.account_type,
                 application_requests_table.c.name,
                 application_requests_table.c.email,
             )
-        ).fetchall()
-        company_user_rows = conn.execute(
+        ):
+            if row.account_type == "foretagskonto" and _is_legacy_email_hash(row.email):
+                add_supervisor(row.email, application_requests_table.name, row.name)
+        for row in conn.execute(
             select(
                 company_users_table.c.role,
                 company_users_table.c.name,
                 company_users_table.c.email,
             )
-        ).fetchall()
-
-    for row in user_rows:
-        if _is_legacy_email_hash(row.email):
-            add_standard(
-                users_table.name,
-                "active",
-                int(row.id),
-                row.username,
-                row.personnummer,
-                row.email,
-            )
-    for row in pending_rows:
-        if _is_legacy_email_hash(row.email):
-            add_standard(
-                pending_users_table.name,
-                "pending",
-                int(row.id),
-                row.username,
-                row.personnummer,
-                row.email,
-            )
-    for row in supervisor_rows:
-        if _is_legacy_email_hash(row.email):
-            add_supervisor(row.email, supervisors_table.name, row.name)
-    for row in pending_supervisor_rows:
-        if _is_legacy_email_hash(row.email):
-            add_supervisor(row.email, pending_supervisors_table.name, row.name)
-    for row in connection_rows:
-        if _is_legacy_email_hash(row.supervisor_email):
-            add_supervisor(row.supervisor_email, supervisor_connections_table.name)
-    for row in link_request_rows:
-        if _is_legacy_email_hash(row.supervisor_email):
-            add_supervisor(row.supervisor_email, supervisor_link_requests_table.name)
-    for row in supervisor_reset_rows:
-        if _is_legacy_email_hash(row.email):
-            add_supervisor(row.email, supervisor_password_resets_table.name)
-    for row in organization_rows:
-        if _is_legacy_email_hash(row.handled_by_supervisor_email):
-            add_supervisor(
-                row.handled_by_supervisor_email,
-                organization_link_requests_table.name,
-            )
-    for row in application_rows:
-        if row.account_type == "foretagskonto" and _is_legacy_email_hash(row.email):
-            add_supervisor(row.email, application_requests_table.name, row.name)
-    for row in company_user_rows:
-        if row.role == "foretagskonto" and _is_legacy_email_hash(row.email):
-            add_supervisor(row.email, company_users_table.name, row.name)
+        ):
+            if row.role == "foretagskonto" and _is_legacy_email_hash(row.email):
+                add_supervisor(row.email, company_users_table.name, row.name)
 
     return {
         "standard_accounts": standard_accounts,
@@ -964,14 +953,15 @@ def admin_update_user_account(
             ).rowcount
             or 0
         )
+        summary["organization_link_requests"] = update_organization_request_contact_details(
+            pnr_hash,
+            username,
+            normalized_email,
+            conn=conn,
+        )
 
     logger.info(
         "Admin uppdaterade konto för %s",
         mask_hash(pnr_hash),
-    )
-    summary["organization_link_requests"] = update_organization_request_contact_details(
-        pnr_hash,
-        username,
-        normalized_email,
     )
     return True, summary, None

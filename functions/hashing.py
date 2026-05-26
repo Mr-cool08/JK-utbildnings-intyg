@@ -81,8 +81,11 @@ def email_lookup_values(email: str) -> tuple[str, str]:
 
 def normalize_email_reference(value: str) -> str:
     # Normalize a stored e-mail reference while allowing legacy hash identifiers.
-    if _is_valid_hash(value):
-        return value
+    if value is None:
+        return normalize_email(value)
+    value_str = value.strip().lower()
+    if _is_valid_hash(value_str):
+        return value_str
     return normalize_email(value)
 
 

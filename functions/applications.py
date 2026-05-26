@@ -415,13 +415,26 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             if existing_user or pending_user:
                 raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
             existing_email_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email.in_(email_values))
-            ).first()
-            pending_email = conn.execute(
-                select(pending_users_table.c.id).where(
-                    pending_users_table.c.email.in_(email_values)
+                select(users_table.c.id, users_table.c.personnummer).where(
+                    users_table.c.email.in_(email_values)
                 )
             ).first()
+            pending_email = conn.execute(
+                select(
+                    pending_users_table.c.id,
+                    pending_users_table.c.personnummer,
+                ).where(
+                    pending_users_table.c.email.in_(email_values),
+                )
+            ).first()
+            if (
+                existing_email_user
+                and existing_email_user.personnummer != stored_personnummer_hash
+            ) or (
+                pending_email
+                and pending_email.personnummer != stored_personnummer_hash
+            ):
+                raise ValueError("E-postadressen används redan för ett annat standardkonto.")
 
             if not existing_user and not existing_email_user:
                 if pending_user or pending_email:
@@ -646,7 +659,7 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
                 try:
                     supervisor_references = email_lookup_values(row.email)
                 except ValueError:
-                    continue
+                    supervisor_references = (row.email,)
                 for supervisor_reference in supervisor_references:
                     company_ids_by_supervisor_hash.setdefault(
                         supervisor_reference, set()

@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -29,10 +30,13 @@ from functions.hashing import (
     verify_password,
 )
 from functions.logging import configure_module_logger, mask_email_reference, mask_hash
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _email_reference_values(value: str) -> tuple[str, ...]:
@@ -285,6 +289,13 @@ def _get_company_names_by_supervisor_hashes(
     if not unique_references:
         return {}
 
+    reference_list = list(unique_references)
+    chunk_size = 500
+    email_filters = [
+        company_users_table.c.email.in_(reference_list[index : index + chunk_size])
+        for index in range(0, len(reference_list), chunk_size)
+    ]
+
     with get_engine().connect() as conn:
         rows = conn.execute(
             select(
@@ -299,7 +310,10 @@ def _get_company_names_by_supervisor_hashes(
                     company_users_table.c.company_id == companies_table.c.id,
                 )
             )
-            .where(company_users_table.c.role == "foretagskonto")
+            .where(
+                company_users_table.c.role == "foretagskonto",
+                or_(*email_filters),
+            )
             .order_by(
                 company_users_table.c.updated_at.desc(),
                 company_users_table.c.id.desc(),

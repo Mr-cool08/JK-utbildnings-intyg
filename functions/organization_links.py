@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import Connection, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -25,10 +26,13 @@ from functions.hashing import (
     validate_orgnr,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _email_reference_values(value: str) -> tuple[str, ...]:
@@ -365,17 +369,22 @@ def update_organization_request_contact_details(
     personnummer_hash: str,
     user_name: str,
     user_email: str,
+    conn: Connection | None = None,
 ) -> int:
     # Uppdatera namn och e-post i öppna org-förfrågningar för användaren.
     if not _is_valid_hash(personnummer_hash):
         return 0
     normalized_email = normalize_email(user_email)
-    with get_engine().begin() as conn:
-        result = conn.execute(
-            update(organization_link_requests_table)
-            .where(organization_link_requests_table.c.user_personnummer == personnummer_hash)
-            .values(user_name=user_name, user_email=normalized_email)
-        )
+    statement = (
+        update(organization_link_requests_table)
+        .where(organization_link_requests_table.c.user_personnummer == personnummer_hash)
+        .values(user_name=user_name, user_email=normalized_email)
+    )
+    if conn is not None:
+        result = conn.execute(statement)
+        return result.rowcount or 0
+    with get_engine().begin() as transaction_conn:
+        result = transaction_conn.execute(statement)
     return result.rowcount or 0
 
 
