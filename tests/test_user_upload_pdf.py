@@ -126,4 +126,4 @@ def test_user_upload_rejects_request_over_global_limit(user_db, monkeypatch):
         )
 
     assert response.status_code == 200
-    assert "Uppladdningen är för stor. Max 100 MB tillåts.".encode("utf-8") in response.data
+    assert "Uppladdningen är för stor. Max 50 MB tillåts.".encode("utf-8") in response.data

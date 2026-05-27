@@ -314,8 +314,8 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert 'id="uploadProgressBar"' in body
     assert "Vi laddar upp ditt intyg" in body
     assert "Tillbaka till mina intyg" in body
-    assert "Max 100 MB per uppladdning." in body
-    assert 'data-max-bytes="104857600"' in body
+    assert "Max 50 MB per uppladdning." in body
+    assert 'data-max-bytes="52428800"' in body
 
 
 def test_admin_upload_script_enforces_total_upload_limit():

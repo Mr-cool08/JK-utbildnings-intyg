@@ -152,8 +152,8 @@ CLIENT_LOG_TRUNCATION_LIMITS = {
     "details": 1000,
 }
 
-UPLOAD_MAX_MB = 100
-UPLOAD_MAX_BYTES = UPLOAD_MAX_MB * 1024 * 1024
+UPLOAD_MAX_MB = 50
+UPLOAD_MAX_BYTES = 52_428_800 
 
 # Gemensamma användarmeddelanden
 CSRF_EXPIRED_MESSAGE = "Formuläret är inte längre giltigt. Ladda om sidan och försök igen."
