@@ -15,7 +15,8 @@ from typing import Iterable, Mapping, Sequence, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
-_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_MAX_EMAIL_MATCH_LENGTH = 256
+_EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 _TZ_WARNING_STATE = threading.local()
 
@@ -144,7 +145,10 @@ _SENSITIVE_KEYS = {
 
 def _looks_like_email(value: str) -> bool:
     # Match simple plaintext e-mail addresses before masking them in logs.
-    return bool(_EMAIL_PATTERN.fullmatch(value.strip()))
+    candidate = value.strip()
+    if len(candidate) > _MAX_EMAIL_MATCH_LENGTH:
+        return False
+    return bool(_EMAIL_PATTERN.fullmatch(candidate))
 
 
 def mask_sensitive_data(data: Any) -> Any:

@@ -194,6 +194,12 @@ def test_mask_sensitive_data_keeps_non_email_strings_in_sequences():
     assert masked[3]["contact"] == "c***@example.com"
 
 
+def test_mask_sensitive_data_skips_overlong_email_candidates():
+    overlong_email = f"{'a' * 257}@example.com"
+
+    assert logging_utils.mask_sensitive_data(overlong_email) == overlong_email
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
 
