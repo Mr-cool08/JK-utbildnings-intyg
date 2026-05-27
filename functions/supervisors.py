@@ -323,7 +323,7 @@ def _get_company_names_by_supervisor_hashes(
     company_names_by_hash: Dict[str, str] = {}
     for row in rows:
         try:
-            lookup_values = email_lookup_values(row.email)
+            lookup_values = _email_reference_values(row.email)
         except ValueError:
             continue
 
@@ -810,7 +810,7 @@ def admin_delete_supervisor_account(
         company_ids = {row.company_id for row in rows if row.company_id is not None}
         for row in rows:
             try:
-                email_references.extend(email_lookup_values(row.email))
+                email_references.extend(_email_reference_values(row.email))
             except ValueError:
                 continue
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone, tzinfo
@@ -14,6 +15,7 @@ from typing import Iterable, Mapping, Sequence, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _TZ_WARNING_STATE = threading.local()
 
@@ -140,6 +142,11 @@ _SENSITIVE_KEYS = {
 }
 
 
+def _looks_like_email(value: str) -> bool:
+    # Match simple plaintext e-mail addresses before masking them in logs.
+    return bool(_EMAIL_PATTERN.fullmatch(value.strip()))
+
+
 def mask_sensitive_data(data: Any) -> Any:
     # Mask sensitive fields in dicts/lists to avoid leaking secrets to logs.
     if isinstance(data, Mapping):
@@ -152,8 +159,14 @@ def mask_sensitive_data(data: Any) -> Any:
                 masked[key] = mask_sensitive_data(value)
         return masked
     if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        return [mask_sensitive_data(item) for item in data]
-    if isinstance(data, str) and "@" in data:
+        masked_items: list[Any] = []
+        for item in data:
+            if isinstance(item, str):
+                masked_items.append(mask_email(item) if _looks_like_email(item) else item)
+            else:
+                masked_items.append(mask_sensitive_data(item))
+        return masked_items
+    if isinstance(data, str) and _looks_like_email(data):
         return mask_email(data)
     return data
 

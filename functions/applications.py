@@ -444,7 +444,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                         conn.execute(
                             insert(pending_users_table).values(
                                 username=application.name,
-                                email=hash_value(normalized_email),
+                                email=normalized_email,
                                 personnummer=stored_personnummer_hash,
                             )
                         )

@@ -94,6 +94,50 @@ def test_ensure_demo_data_is_idempotent(empty_db):
     assert pdf_count == len(functions.DEMO_PDF_DEFINITIONS)
 
 
+def test_ensure_demo_data_recovers_when_demo_email_conflicts(empty_db):
+    demo_personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    conflicting_personnummer_hash = functions.hash_value("9002021234")
+
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Gammal Demo",  # nosec - testdata
+                email="annan@example.com",
+                password=functions.hash_password("GammalDemo1!"),
+                personnummer=demo_personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Konflikt",  # nosec - testdata
+                email=functions.normalize_email(DEMO_PARAMS["user_email"]),
+                password=functions.hash_password("Konflikt1!"),
+                personnummer=conflicting_personnummer_hash,
+            )
+        )
+
+    functions.ensure_demo_data(**DEMO_PARAMS)
+
+    with empty_db.connect() as conn:
+        rows = conn.execute(
+            select(
+                functions.users_table.c.username,
+                functions.users_table.c.email,
+                functions.users_table.c.personnummer,
+            )
+        ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0].username == DEMO_PARAMS["user_name"]
+    assert rows[0].email == functions.normalize_email(DEMO_PARAMS["user_email"])
+    assert rows[0].personnummer == demo_personnummer_hash
+    assert functions.check_personnummer_password(
+        DEMO_PARAMS["user_personnummer"], DEMO_PARAMS["user_password"]
+    )
+
+
 def test_demo_menu_link_points_to_main_domain(monkeypatch):
     monkeypatch.setitem(app.app.config, "IS_DEMO", True)
     client = app.app.test_client()

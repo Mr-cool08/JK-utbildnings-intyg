@@ -456,6 +456,58 @@ def test_normalize_email_reference_accepts_spaced_uppercase_hash():
     )
 
 
+def test_update_organization_request_contact_details_only_updates_pending(empty_db):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900606-6789")
+    )
+
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.organization_link_requests_table.insert().values(
+                orgnr_normalized="5569668337",
+                user_personnummer=personnummer_hash,
+                user_name="Väntande Namn",
+                user_email="vantande@example.com",
+                status="pending",
+            )
+        )
+        conn.execute(
+            functions.organization_link_requests_table.insert().values(
+                orgnr_normalized="5569668345",
+                user_personnummer=personnummer_hash,
+                user_name="Hanterat Namn",
+                user_email="hanterat@example.com",
+                status="approved",
+                handled_by_supervisor_email="chef@example.com",
+            )
+        )
+
+    updated_rows = functions.update_organization_request_contact_details(
+        personnummer_hash,
+        "Nytt Namn",
+        "ny@example.com",
+    )
+
+    assert updated_rows == 1
+
+    with empty_db.connect() as conn:
+        rows = conn.execute(
+            functions.organization_link_requests_table.select()
+            .where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == personnummer_hash
+            )
+            .order_by(functions.organization_link_requests_table.c.id.asc())
+        ).fetchall()
+
+    assert rows[0].status == "pending"
+    assert rows[0].user_name == "Nytt Namn"
+    assert rows[0].user_email == "ny@example.com"
+    assert rows[1].status == "approved"
+    assert rows[1].user_name == "Hanterat Namn"
+    assert rows[1].user_email == "hanterat@example.com"
+
+
 def test_admin_update_user_account_rolls_back_when_org_request_update_fails(
     empty_db,
     monkeypatch,
@@ -935,6 +987,105 @@ def test_admin_delete_supervisor_account(empty_db):
         assert conn.execute(
             functions.companies_table.select().where(
                 functions.companies_table.c.id == company_id
+            )
+        ).first() is None
+
+
+def test_admin_delete_supervisor_account_handles_legacy_company_user_email(empty_db):
+    orgnr = "556966-8337"
+    normalized_orgnr = functions.validate_orgnr(orgnr)
+    supervisor_email = "legacy-radera@example.com"
+    supervisor_hash = functions.hash_value(functions.normalize_email(supervisor_email))
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19920202-3333")
+    )
+
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Legacy Radera AB",
+                orgnr=normalized_orgnr,
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Legacy Radera AB",
+                email=supervisor_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Legacy Radera AB",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            functions.pending_supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Legacy Radera AB",
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_link_requests_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisor_password_resets_table.insert().values(
+                email=supervisor_hash,
+                token_hash=functions.hash_value("legacy-reset-token"),
+            )
+        )
+
+    deleted, summary, returned_orgnr = functions.admin_delete_supervisor_account(orgnr)
+
+    assert deleted is True
+    assert returned_orgnr == normalized_orgnr
+    assert summary["company_users"] == 1
+    assert summary["supervisors"] == 1
+    assert summary["pending_supervisors"] == 1
+    assert summary["supervisor_connections"] == 1
+    assert summary["supervisor_link_requests"] == 1
+    assert summary["supervisor_password_resets"] == 1
+    assert summary["companies"] == 1
+
+    with empty_db.connect() as conn:
+        assert conn.execute(
+            functions.supervisors_table.select().where(
+                functions.supervisors_table.c.email == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.pending_supervisors_table.select().where(
+                functions.pending_supervisors_table.c.email == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_connections_table.select().where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_link_requests_table.select().where(
+                functions.supervisor_link_requests_table.c.supervisor_email
+                == supervisor_hash
+            )
+        ).first() is None
+        assert conn.execute(
+            functions.supervisor_password_resets_table.select().where(
+                functions.supervisor_password_resets_table.c.email
+                == supervisor_hash
             )
         ).first() is None
 

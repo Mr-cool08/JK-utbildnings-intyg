@@ -377,7 +377,10 @@ def update_organization_request_contact_details(
     normalized_email = normalize_email(user_email)
     statement = (
         update(organization_link_requests_table)
-        .where(organization_link_requests_table.c.user_personnummer == personnummer_hash)
+        .where(
+            organization_link_requests_table.c.user_personnummer == personnummer_hash,
+            organization_link_requests_table.c.status == "pending",
+        )
         .values(user_name=user_name, user_email=normalized_email)
     )
     if conn is not None:

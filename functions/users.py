@@ -158,6 +158,12 @@ def admin_create_user(email: str, username: str, personnummer: str) -> bool:
             if existing_user:
                 logger.warning("Attempt to recreate existing user for e-post")
                 return False
+            existing_user_personnummer = conn.execute(
+                select(users_table.c.id).where(users_table.c.personnummer == pnr_hash)
+            ).first()
+            if existing_user_personnummer:
+                logger.warning("Attempt to recreate existing user for hash %s", mask_hash(pnr_hash))
+                return False
             existing_pending_email = conn.execute(
                 select(pending_users_table.c.id).where(
                     pending_users_table.c.email.in_(email_values)

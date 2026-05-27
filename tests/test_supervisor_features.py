@@ -118,6 +118,67 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     assert "intyg.pdf" in body
 
 
+@pytest.mark.parametrize(
+    ("target_table", "fetcher"),
+    [
+        (
+            functions.supervisor_connections_table,
+            functions.list_user_supervisor_connections,
+        ),
+        (
+            functions.supervisor_link_requests_table,
+            functions.list_user_link_requests,
+        ),
+    ],
+)
+def test_supervisor_company_name_lookup_supports_legacy_hashes(
+    empty_db,
+    target_table,
+    fetcher,
+):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900101-1234")
+    )
+    supervisor_hash = functions.hash_value(
+        functions.normalize_email("legacy-chef@example.com")
+    )
+
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Legacy Bolag AB",
+                orgnr=functions.validate_orgnr("556966-8337"),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Legacy Bolag AB",
+                email=supervisor_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Kontaktperson",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            target_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    rows = fetcher(personnummer_hash)
+
+    assert len(rows) == 1
+    assert rows[0]["supervisor_email"] == supervisor_hash
+    assert rows[0]["supervisor_name"] == "Legacy Bolag AB"
+
+
 def test_supervisor_dashboard_has_user_list_and_search(supervisor_setup):
     client = _supervisor_client(
         supervisor_setup["email_hash"], supervisor_setup["name"]

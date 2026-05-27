@@ -159,9 +159,7 @@ def test_admin_approve_standard_application_creates_activation_link(
             functions.pending_users_table.select()
         ).first()
         assert pending_user is not None
-        assert pending_user.email == functions.hash_value(
-            functions.normalize_email('standard@example.com')
-        )
+        assert pending_user.email == functions.normalize_email('standard@example.com')
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select()
         ).fetchall()

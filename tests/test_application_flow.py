@@ -495,6 +495,7 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
 
         pending_user = conn.execute(functions.pending_users_table.select()).first()
         assert pending_user is not None
+        assert pending_user.email == functions.normalize_email("utan-orgnr@example.com")
         assert pending_user.personnummer == functions.hash_value("8801011234")
 
         companies = conn.execute(functions.companies_table.select()).fetchall()

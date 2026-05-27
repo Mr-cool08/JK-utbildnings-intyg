@@ -2,6 +2,7 @@
 import os
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 import werkzeug
@@ -26,6 +27,31 @@ from services.pdf_scanner import ScanVerdict  # noqa: E402
 
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
+
+
+def _uses_repo_shared_basetemp(config: pytest.Config) -> bool:
+    basetemp = getattr(config.option, "basetemp", None)
+    shared_basetemp = Path(config.rootpath) / ".pytest_tmp" / "run"
+    if not basetemp:
+        return True
+
+    configured_basetemp = Path(str(basetemp))
+    if not configured_basetemp.is_absolute():
+        configured_basetemp = Path(config.rootpath) / configured_basetemp
+    return configured_basetemp.resolve() == shared_basetemp.resolve()
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config: pytest.Config) -> None:
+    # Use a session-specific temp dir to avoid stale Windows locks between runs.
+    if not _uses_repo_shared_basetemp(config):
+        return
+
+    temp_root = Path(config.rootpath) / ".pytest_tmp"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    config.option.basetemp = os.fspath(
+        temp_root / f"run-{os.getpid()}-{uuid4().hex[:8]}"
+    )
 
 
 def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

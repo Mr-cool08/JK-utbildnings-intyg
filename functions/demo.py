@@ -29,7 +29,12 @@ from functions.hashing import (
 from functions.logging import configure_module_logger
 from functions.pdf_storage import _serialize_categories, store_pdf_blob
 from functions.supervisors import admin_link_supervisor_to_user, supervisor_activate_account
-from functions.users import admin_create_user, user_create_user, verify_certificate
+from functions.users import (
+    admin_create_user,
+    admin_delete_user_account_by_hash,
+    user_create_user,
+    verify_certificate,
+)
 from functions.applications import _ensure_company
 
 
@@ -46,6 +51,45 @@ def create_test_user() -> None:
         return
     pnr_hash = _hash_personnummer(personnummer)
     user_create_user("password", pnr_hash)
+
+
+def _remove_conflicting_demo_users(
+    *,
+    personnummer_hash: str,
+    email_values: tuple[str, str],
+) -> None:
+    # Rensa felaktiga konton som delar demo-e-post men tillhör en annan användare.
+    with get_engine().connect() as conn:
+        conflicting_hashes = {
+            row.personnummer
+            for row in conn.execute(
+                select(users_table.c.personnummer).where(
+                    users_table.c.email.in_(email_values),
+                    users_table.c.personnummer != personnummer_hash,
+                )
+            )
+        }
+        conflicting_hashes.update(
+            row.personnummer
+            for row in conn.execute(
+                select(pending_users_table.c.personnummer).where(
+                    pending_users_table.c.email.in_(email_values),
+                    pending_users_table.c.personnummer != personnummer_hash,
+                )
+            )
+        )
+
+    removed_conflicts = 0
+    for conflicting_hash in sorted(conflicting_hashes):
+        deleted, _, _ = admin_delete_user_account_by_hash(conflicting_hash)
+        if deleted:
+            removed_conflicts += 1
+
+    if removed_conflicts:
+        logger.warning(
+            "Demodata: tog bort %s konfliktande konto(n) för demoanvändarens e-post",
+            removed_conflicts,
+        )
 
 
 def ensure_demo_data(
@@ -87,6 +131,11 @@ def ensure_demo_data(
     pnr_hash = _hash_personnummer(normalized_pnr)
     user_email_values = email_lookup_values(normalized_user_email)
     supervisor_email_values = email_lookup_values(normalized_supervisor_email)
+
+    _remove_conflicting_demo_users(
+        personnummer_hash=pnr_hash,
+        email_values=user_email_values,
+    )
 
     engine = get_engine()
 
