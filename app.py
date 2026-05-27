@@ -44,6 +44,7 @@ from functions.logging import (
     configure_module_logger,
     configure_root_logging,
     mask_email,
+    mask_email_reference,
     mask_hash,
     mask_headers,
     mask_sensitive_data,
@@ -776,7 +777,10 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
 
 @app.route("/foretagskonto/skapa/<email_hash>", methods=["GET", "POST"])
 def supervisor_create(email_hash: str):
-    logger.info("Hanterar skapande av handledarkonto för hash %s", email_hash)
+    logger.info(
+        "Hanterar skapande av handledarkonto för e-postreferens %s",
+        mask_email_reference(email_hash),
+    )
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
@@ -806,12 +810,15 @@ def supervisor_create(email_hash: str):
                 ),
                 invalid=False,
             )
-        logger.info("Handledarkonto aktiverat för %s", email_hash)
+        logger.info("Handledarkonto aktiverat för %s", mask_email_reference(email_hash))
         return redirect(url_for("supervisor_login"))
 
     if functions.check_pending_supervisor_hash(email_hash):
         return render_template("create_supervisor.html", invalid=False)
-    logger.warning("Handledarhash %s hittades inte under aktivering", email_hash)
+    logger.warning(
+        "Handledarreferens %s hittades inte under aktivering",
+        mask_email_reference(email_hash),
+    )
     return render_template("create_supervisor.html", invalid=True)
 
 
@@ -892,7 +899,7 @@ def supervisor_login():
             session["supervisor_name"] = supervisor_name
         logger.info(
             "Supervisor %s loggade in för organisationsnummer %s",
-            mask_hash(email_hash),
+            mask_email_reference(email_hash),
             mask_hash(functions.hash_value(normalized_orgnr)),
         )
         return redirect(url_for("supervisor_dashboard"))
@@ -1182,7 +1189,11 @@ def supervisor_remove_connection_route(person_hash: str):
         return redirect(redirect_target)
 
     if functions.supervisor_remove_connection(email_hash, person_hash):
-        logger.info("Handledare %s tog bort åtkomst till %s", email_hash, person_hash)
+        logger.info(
+            "Handledare %s tog bort åtkomst till %s",
+            mask_email_reference(email_hash),
+            person_hash,
+        )
         flash("Kopplingen har tagits bort.", "success")
     else:
         flash("Kopplingen kunde inte tas bort.", "error")
@@ -1793,6 +1804,24 @@ def user_remove_supervisor_connection_route(supervisor_hash: str):
         flash("Inte inloggad.", "error")
         return redirect("/login")
     if functions.user_remove_supervisor_connection(personnummer_hash, supervisor_hash):
+        flash("Kopplingen har tagits bort.", "success")
+    else:
+        flash("Kopplingen kunde inte tas bort.", "error")
+    return redirect("/dashboard")
+
+
+@app.post("/dashboard/kopplingar/id/<int:connection_id>/ta-bort")
+def user_remove_supervisor_connection_by_id_route(connection_id: int):
+    if not session.get("user_logged_in"):
+        return redirect("/login")
+    if not validate_csrf_token(allow_if_absent=True):
+        flash("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.", "error")
+        return redirect("/dashboard")
+    personnummer_hash = session.get("personnummer")
+    if not personnummer_hash:
+        flash("Inte inloggad.", "error")
+        return redirect("/login")
+    if functions.user_remove_supervisor_connection_by_id(personnummer_hash, connection_id):
         flash("Kopplingen har tagits bort.", "success")
     else:
         flash("Kopplingen kunde inte tas bort.", "error")
@@ -2797,6 +2826,75 @@ def admin_list_accounts():  # pragma: no cover
     return jsonify({"status": "success", "data": accounts})
 
 
+@app.get("/admin/api/epost-hashar/lista")
+def admin_list_legacy_email_hashes():  # pragma: no cover
+    _require_admin()
+    references = functions.list_legacy_email_references()
+    return jsonify({"status": "success", "data": references})
+
+
+@app.post("/admin/api/epost-hashar/komplettera")
+def admin_complete_legacy_email_hash():  # pragma: no cover
+    admin_name = _require_admin()
+    if not validate_csrf_token():
+        return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
+    payload = request.get_json(silent=True) or {}
+    reference_type = (payload.get("reference_type") or "").strip()
+    email_hash = (payload.get("email_hash") or "").strip()
+    email = (payload.get("email") or "").strip()
+    personnummer_hash = (payload.get("personnummer_hash") or "").strip() or None
+    if not reference_type or not email_hash or not email:
+        return jsonify({"status": "error", "message": "Välj referens och ange e-post."}), 400
+
+    try:
+        success, summary, error = functions.complete_legacy_email_reference(
+            reference_type,
+            email_hash,
+            email,
+            personnummer_hash,
+        )
+    except ValueError:
+        return jsonify({"status": "error", "message": "Ogiltig e-postadress."}), 400
+
+    if not success:
+        messages = {
+            "invalid_hash": "Ogiltig e-postreferens.",
+            "invalid_personnummer": "Ogiltig personnummerreferens.",
+            "invalid_type": "Ogiltig referenstyp.",
+            "hash_mismatch": "E-postadressen matchar inte den valda hashen.",
+            "missing": "Referensen hittades inte.",
+            "email_in_use": "E-postadressen används redan av ett annat konto.",
+        }
+        status_code = 404 if error == "missing" else 409 if error == "email_in_use" else 400
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": messages.get(error or "", "Kunde inte komplettera e-post."),
+                }
+            ),
+            status_code,
+        )
+
+    summary = summary or {}
+    summary_details = ", ".join(f"{key}={value}" for key, value in summary.items())
+    functions.log_admin_action(
+        admin_name,
+        "kompletterade e-posthash",
+        (
+            f"typ={reference_type}, email_ref={mask_hash(email_hash)}, "
+            f"epost={mask_email(functions.normalize_email(email))}, {summary_details}"
+        ),
+    )
+    return jsonify(
+        {
+            "status": "success",
+            "message": "E-postadressen har kompletterats.",
+            "data": summary,
+        }
+    )
+
+
 @app.post("/admin/api/konton/uppdatera")
 def admin_update_account():  # pragma: no cover
     admin_name = _require_admin()
@@ -3236,18 +3334,29 @@ def admin_create_supervisor_route():  # pragma: no cover
     try:
         email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
-        logger.error("Misslyckades med att skicka skapandemejl för handledare till %s", email_hash)
+        logger.error(
+            "Misslyckades med att skicka skapandemejl för handledare till %s",
+            mask_email_reference(email_hash),
+        )
         return (
-            jsonify({"status": "error", "message": "Det gick inte att skicka inloggningslänken."}),
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Det gick inte att skicka inloggningslänken.",
+                }
+            ),
             500,
         )
-
     functions.log_admin_action(
         admin_name,
         "skapade företagskonto",
-        f"email_hash={email_hash}",
+        f"email_ref={mask_email_reference(email_hash)}",
     )
-    logger.info("Admin created supervisor %s", mask_hash(email_hash), extra={"admin": admin_name})
+    logger.info(
+        "Admin created supervisor %s",
+        mask_email_reference(email_hash),
+        extra={"admin": admin_name},
+    )
     return jsonify({"status": "success", "message": "Företagskonto skapat.", "link": link})
 
 
@@ -3305,11 +3414,14 @@ def admin_link_supervisor_route():  # pragma: no cover
     functions.log_admin_action(
         admin_name,
         "kopplade företagskonto",
-        f"orgnr={normalized_orgnr}, email_hash={email_hash}, personnummer_hash={personnummer_hash}",
+        (
+            f"orgnr={normalized_orgnr}, email_ref={mask_email_reference(email_hash)}, "
+            f"personnummer_hash={personnummer_hash}"
+        ),
     )
     logger.info(
         "Admin linked supervisor %s to user %s",
-        mask_hash(email_hash),
+        mask_email_reference(email_hash),
         mask_hash(personnummer_hash),
         extra={"admin": admin_name},
     )
@@ -3345,8 +3457,8 @@ def admin_supervisor_overview():  # pragma: no cover
     overview = functions.get_supervisor_overview(email_hash)
     if not overview:
         logger.debug(
-            "Admin supervisor_overview not found for email hash: %s",
-            email_hash,
+            "Admin supervisor_overview not found for email reference: %s",
+            mask_email_reference(email_hash),
             extra={"admin": admin_name},
         )
         return jsonify({"status": "error", "message": "Företagskontot hittades inte."}), 404
@@ -3354,11 +3466,11 @@ def admin_supervisor_overview():  # pragma: no cover
     functions.log_admin_action(
         admin_name,
         "visade företagskontoöversikt",
-        f"orgnr={details['orgnr']}, email_hash={email_hash}",
+        f"orgnr={details['orgnr']}, email_ref={mask_email_reference(email_hash)}",
     )
     logger.debug(
         "Admin supervisor_overview for %s with %d users",
-        mask_hash(email_hash),
+        mask_email_reference(email_hash),
         len(overview.get("users", [])),
         extra={"admin": admin_name},
     )
@@ -3404,7 +3516,11 @@ def admin_remove_supervisor_connection():  # pragma: no cover
     functions.log_admin_action(
         admin_name,
         "tog bort företagskoppling",
-        f"orgnr={details['orgnr']}, email_hash={details['email_hash']}, personnummer_hash={personnummer_hash}",
+        (
+            f"orgnr={details['orgnr']}, "
+            f"email_ref={mask_email_reference(details['email_hash'])}, "
+            f"personnummer_hash={personnummer_hash}"
+        ),
     )
     logger.info(
         "Admin removed supervisor connection for %s",
@@ -3466,10 +3582,13 @@ def admin_change_supervisor_connection():  # pragma: no cover
             message = "Det finns redan en koppling till det nya företagskontot."
         if not rollback_success:
             logger.error(
-                "Rollback misslyckades vid ändring av koppling: reason=%s, rollback_reason=%s, rollback_email_hash=%s",
+                (
+                    "Rollback misslyckades vid ändring av koppling: "
+                    "reason=%s, rollback_reason=%s, rollback_email_ref=%s"
+                ),
                 reason,
                 rollback_reason,
-                rollback_email_hash,
+                mask_email_reference(rollback_email_hash or ""),
             )
             return jsonify(
                 {
@@ -3484,7 +3603,8 @@ def admin_change_supervisor_connection():  # pragma: no cover
         "ändrade företagskoppling",
         (
             f"from_orgnr={from_details['orgnr']}, to_orgnr={to_details['orgnr']}, "
-            f"email_hash={email_hash}, personnummer_hash={personnummer_hash}"
+            f"email_ref={mask_email_reference(email_hash or '')}, "
+            f"personnummer_hash={personnummer_hash}"
         ),
     )
     logger.info(

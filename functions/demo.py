@@ -20,8 +20,8 @@ from functions.database import (
 )
 from functions.hashing import (
     _hash_personnummer,
+    email_lookup_values,
     hash_password,
-    hash_value,
     normalize_email,
     normalize_personnummer,
     validate_orgnr,
@@ -85,8 +85,8 @@ def ensure_demo_data(
         normalized_orgnr = None
 
     pnr_hash = _hash_personnummer(normalized_pnr)
-    user_email_hash = hash_value(normalized_user_email)
-    supervisor_email_hash = hash_value(normalized_supervisor_email)
+    user_email_values = email_lookup_values(normalized_user_email)
+    supervisor_email_values = email_lookup_values(normalized_supervisor_email)
 
     engine = get_engine()
 
@@ -102,7 +102,7 @@ def ensure_demo_data(
                 .where(users_table.c.personnummer == pnr_hash)
                 .values(
                     username=user_name,
-                    email=user_email_hash,
+                    email=normalized_user_email,
                     password=hash_password(user_password),
                 )
             )
@@ -113,12 +113,14 @@ def ensure_demo_data(
                 delete(pending_users_table).where(pending_users_table.c.personnummer == pnr_hash)
             )
             conn.execute(
-                delete(pending_users_table).where(pending_users_table.c.email == user_email_hash)
+                delete(pending_users_table).where(
+                    pending_users_table.c.email.in_(user_email_values)
+                )
             )
             conn.execute(
                 insert(pending_users_table).values(
                     username=user_name,
-                    email=user_email_hash,
+                    email=normalized_user_email,
                     personnummer=pnr_hash,
                 )
             )
@@ -136,12 +138,14 @@ def ensure_demo_data(
     supervisor_created = False
     with engine.begin() as conn:
         existing_supervisor = conn.execute(
-            select(supervisors_table.c.id).where(supervisors_table.c.email == supervisor_email_hash)
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email.in_(supervisor_email_values)
+            )
         ).first()
         if existing_supervisor:
             conn.execute(
                 update(supervisors_table)
-                .where(supervisors_table.c.email == supervisor_email_hash)
+                .where(supervisors_table.c.email.in_(supervisor_email_values))
                 .values(
                     name=supervisor_name,
                     password=hash_password(supervisor_password),
@@ -151,13 +155,13 @@ def ensure_demo_data(
         else:
             conn.execute(
                 delete(pending_supervisors_table).where(
-                    pending_supervisors_table.c.email == supervisor_email_hash
+                    pending_supervisors_table.c.email.in_(supervisor_email_values)
                 )
             )
             conn.execute(
                 insert(pending_supervisors_table).values(
                     name=supervisor_name,
-                    email=supervisor_email_hash,
+                    email=normalized_supervisor_email,
                 )
             )
             supervisor_created = True
@@ -165,7 +169,7 @@ def ensure_demo_data(
 
     if supervisor_created:
         try:
-            if supervisor_activate_account(supervisor_email_hash, supervisor_password):
+            if supervisor_activate_account(normalized_supervisor_email, supervisor_password):
                 logger.info("Demodata: demoföretagskonto aktiverat")
             else:
                 logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")

@@ -153,6 +153,8 @@ def mask_sensitive_data(data: Any) -> Any:
         return masked
     if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
         return [mask_sensitive_data(item) for item in data]
+    if isinstance(data, str) and "@" in data:
+        return mask_email(data)
     return data
 
 
@@ -310,3 +312,12 @@ def mask_email(value: str) -> str:
         return f"{MASK_PLACEHOLDER}@{domain}"
 
     return f"{local[0]}***@{domain}"
+
+
+def mask_email_reference(value: str) -> str:
+    # Mask values that may be either plaintext e-mail addresses or legacy hashes.
+    if not value:
+        return MASK_PLACEHOLDER
+    if "@" in value:
+        return mask_email(value)
+    return mask_hash(value)

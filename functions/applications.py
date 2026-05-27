@@ -19,6 +19,7 @@ from functions.database import (
     get_engine,
 )
 from functions.hashing import (
+    email_lookup_values,
     hash_value,
     normalize_email,
     normalize_personnummer,
@@ -400,7 +401,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
         if application.account_type == "standard":
             stored_personnummer_hash = (application.personnummer_hash or "").strip()
             user_personnummer_hash = stored_personnummer_hash
-            email_hash = hash_value(normalized_email)
+            email_values = email_lookup_values(normalized_email)
             existing_user = conn.execute(
                 select(users_table.c.id).where(
                     users_table.c.personnummer == stored_personnummer_hash
@@ -414,11 +415,26 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             if existing_user or pending_user:
                 raise ValueError("Det finns redan ett standardkonto med detta personnummer.")
             existing_email_user = conn.execute(
-                select(users_table.c.id).where(users_table.c.email == email_hash)
+                select(users_table.c.id, users_table.c.personnummer).where(
+                    users_table.c.email.in_(email_values)
+                )
             ).first()
             pending_email = conn.execute(
-                select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
+                select(
+                    pending_users_table.c.id,
+                    pending_users_table.c.personnummer,
+                ).where(
+                    pending_users_table.c.email.in_(email_values),
+                )
             ).first()
+            if (
+                existing_email_user
+                and existing_email_user.personnummer != stored_personnummer_hash
+            ) or (
+                pending_email
+                and pending_email.personnummer != stored_personnummer_hash
+            ):
+                raise ValueError("E-postadressen används redan för ett annat standardkonto.")
 
             if not existing_user and not existing_email_user:
                 if pending_user or pending_email:
@@ -428,7 +444,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                         conn.execute(
                             insert(pending_users_table).values(
                                 username=application.name,
-                                email=email_hash,
+                                email=hash_value(normalized_email),
                                 personnummer=stored_personnummer_hash,
                             )
                         )
@@ -440,24 +456,27 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     user_activation_required = True
 
         if application.account_type == "foretagskonto":
-            supervisor_email_hash = hash_value(normalized_email)
+            supervisor_email_values = email_lookup_values(normalized_email)
             existing_supervisor = conn.execute(
-                select(supervisors_table.c.id).where(
-                    supervisors_table.c.email == supervisor_email_hash
+                select(supervisors_table.c.email).where(
+                    supervisors_table.c.email.in_(supervisor_email_values)
                 )
             ).first()
             pending_row = conn.execute(
                 select(
                     pending_supervisors_table.c.id,
+                    pending_supervisors_table.c.email,
                     pending_supervisors_table.c.name,
-                ).where(pending_supervisors_table.c.email == supervisor_email_hash)
+                ).where(pending_supervisors_table.c.email.in_(supervisor_email_values))
             ).first()
 
             cleaned_name = (application.name or "").strip()
 
             if existing_supervisor:
+                supervisor_email_hash = existing_supervisor.email
                 supervisor_activation_required = False
             elif pending_row:
+                supervisor_email_hash = pending_row.email
                 supervisor_activation_required = True
                 if cleaned_name and pending_row.name != cleaned_name:
                     conn.execute(
@@ -468,10 +487,11 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
             else:
                 conn.execute(
                     insert(pending_supervisors_table).values(
-                        email=supervisor_email_hash,
+                        email=normalized_email,
                         name=cleaned_name,
                     )
                 )
+                supervisor_email_hash = normalized_email
                 pending_supervisor_created = True
                 supervisor_activation_required = True
 
@@ -637,12 +657,13 @@ def list_companies_for_invoicing() -> List[Dict[str, Any]]:
                 if row.company_id is None:
                     continue
                 try:
-                    supervisor_hash = hash_value(normalize_email(row.email))
+                    supervisor_references = email_lookup_values(row.email)
                 except ValueError:
-                    continue
-                company_ids_by_supervisor_hash.setdefault(supervisor_hash, set()).add(
-                    int(row.company_id)
-                )
+                    supervisor_references = (row.email,)
+                for supervisor_reference in supervisor_references:
+                    company_ids_by_supervisor_hash.setdefault(
+                        supervisor_reference, set()
+                    ).add(int(row.company_id))
 
             if company_ids_by_supervisor_hash:
                 connection_rows = conn.execute(
