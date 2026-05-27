@@ -1,19 +1,51 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Repo-struktur
 
-En enkel karta över projektet.
+Det här är den nuvarande huvudstrukturen i projektet.
 
-- `app.py`, `wsgi.py` – startar appen.
-- `functions/` – kärnlogik.
-- `templates/` – HTML-sidor.
-- `static/` – CSS, JS och bilder.
-- `tests/` – tester (pytest).
-- `docs/` – dokumentation.
-- `scripts/` – hjälpskript.
-- `deploy/` – filer för drift och infrastruktur.
-- `docker-compose.yml` – lokal Docker-utveckling.
-- `docker-compose.prod.yml` – produktion.
+## Roten
 
-Tips: Lägg ny dokumentation i `docs/` om den inte hör hemma i roten.
+- `app.py` - huvudapplikationen med routes, felhantering och appkonfiguration.
+- `wsgi.py` - WSGI-entrypoint för serverkörning.
+- `config_loader.py` - inläsning av miljövariabler och konfigurationsfiler.
+- `course_categories.py` - kategorier och etiketter för intyg.
+- `docker-compose.yml` - gemensam Compose-fil för lokal körning och serverdrift.
+- `Dockerfile` - image för huvudappen.
+- `entrypoint.sh` - startlogik i containern.
+- `.example.env` - rekommenderad grund för `.env`.
+- `README.md`, `tests.md`, `admin.md` - övergripande projekt- och användardokumentation.
+
+## Applikationskod
+
+- `functions/` - affärslogik för användare, admin, organisationer, databas, säkerhet, loggning, e-post och PDF-lagring.
+- `services/` - stödtjänster som serverövervakning, antivirusskript och hjälptjänster kring drift.
+- `status_service/` - separat Flask-app för statussidan.
+
+## Webbgränssnitt
+
+- `templates/` - Jinja-mallar för publika sidor, dashboard, adminpanel och företagskonton.
+- `static/` - CSS, JavaScript, bilder, `robots.txt` och `sitemap.xml`.
+
+## Drift och verktyg
+
+- `deploy/` - Traefik, MTA-STS, certifikatexempel, Fail2ban och rclone-relaterade filer.
+- `scripts/` - drift- och underhållsskript, bland annat `manage_compose.py` och `update_app.py`.
+
+## Test och dokumentation
+
+- `tests/` - pytest-svit för funktion, regression, säkerhet, UI, prestanda och drift.
+- `docs/` - teknisk dokumentation för utveckling, drift och säkerhet.
+- `.github/workflows/` - CI-, Docker- och säkerhetsworkflows.
+
+## Runtime-data
+
+- `instance/` - lokal runtime-data som SQLite-filer i test- eller utvecklingsmiljö.
+- `logs/` - loggfiler när appen eller tjänster körs lokalt.
+- `.pytest_tmp*` - temporära pytest-kataloger som skapas vid testkörning.
+
+## Extra noteringar
+
+- `admin.md` används inte bara som dokumentation i repot utan renderas också inne i adminpanelen via `/admin/guide`.
+- Projektet har i dagsläget ingen separat `docker-compose.prod.yml` i roten. Driftdokumentationen ska därför peka på `docker-compose.yml`.
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

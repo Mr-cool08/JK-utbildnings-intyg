@@ -1,47 +1,81 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
-# Adminpanelen (lättläst)
+# Adminpanelen
 
-Det här är en enkel guide för admin.
+Det här dokumentet beskriver adminpanelen utifrån dagens routes, mallar och API:er.
 
-## 1. Start
+## Översikt
 
-1. Logga in på admin.
-2. Välj rätt del i menyn.
+Adminpanelen består i huvudsak av följande sidor:
 
-## 2. Konton
+- `/admin` - startsida för admin
+- `/admin/guide` - renderar innehållet från `admin.md`
+- `/admin/konton` - kontohantering
+- `/admin/intyg` - uppladdade och kopplade intyg
+- `/admin/foretagskonto` - företagskonton och användarkopplingar
+- `/admin/ansokningar` - inkomna ansökningar
+- `/admin/fakturering` - översikt för faktureringsunderlag
+- `/admin/avancerat` - avancerad CRUD mot utvalda tabeller
 
-På sidan **Konton** kan du:
+## Ansökningar
 
-- skapa standardkonto
-- radera konto
-- skicka lösenordsåterställning
-- verifiera intyg
+Admin-API för ansökningar inkluderar bland annat:
 
-## 3. Intyg och PDF
+- `GET /admin/api/ansokningar`
+- `GET /admin/api/ansokningar/<id>`
+- `POST /admin/api/ansokningar/<id>/godkann`
+- `POST /admin/api/ansokningar/<id>/avslag`
 
-På sidan **Intyg** kan du:
+Godkännande kan skapa aktiveringslänk både för standardkonto och företagskonto.
 
-- visa användarens PDF:er
-- byta kategori
-- ta bort en PDF
+## Konton
 
-## 4. Företagskonton
+Kontohanteringen stödjer bland annat:
 
-På sidan **Företagskonton** kan du:
+- listning av aktiva och väntande konton
+- uppdatering av kontouppgifter
+- lösenordsstatus
+- skapande av länk för att skapa lösenord
+- återställning av lösenord
+- borttagning av konto
 
-- skapa företagskonto
-- koppla företag till användare
-- visa befintliga kopplingar
+Det finns även stöd för komplettering av äldre e-posthashar i admin-API:t.
 
-## 5. Ansökningar och fakturering
+## Intyg
 
-- **Ansökningar**: godkänn eller avslå.
-- **Fakturering**: se underlag för företag.
+Admin kan:
 
-## Kom ihåg
+- ladda upp flera PDF:er samtidigt
+- kräva kategori per uppladdning
+- uppdatera kategorier
+- ta bort felaktiga dokument
 
-- Kontrollera personnummer innan du sparar.
-- Kontrollera en extra gång innan du raderar.
-- Alla ändringar loggas.
+## Företagskonton
+
+Admin-API:t för företagskonton stödjer:
+
+- skapande av företagskonto
+- koppling mellan organisationsnummer och användare
+- översikt per organisationsnummer
+- borttagning eller byte av koppling
+- radering av företagskonto
+
+## Avancerat läge
+
+`/admin/avancerat` använder tabelladministration för utvalda tabeller och har endpoints för:
+
+- schema
+- listning av rader
+- skapande av rad
+- uppdatering av rad
+- radering av rad
+
+Det här läget är till för felsökning och kontrollerad administration, inte för vardaglig handläggning.
+
+## Säkerhet
+
+- Adminsidor kräver inloggning.
+- Flera POST- och PUT-anrop kräver CSRF-token.
+- Felaktiga eller obehöriga anrop loggas.
+- Guiden i `/admin/guide` läser från `admin.md`, så den filen är en del av det faktiska gränssnittet.
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

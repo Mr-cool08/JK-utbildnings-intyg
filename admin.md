@@ -1,53 +1,82 @@
 # Hur man administrerar systemet
 
-Den här sidan förklarar admin-jobbet med enkla steg.
+Den här guiden visas även inne i adminpanelen och beskriver de vanligaste arbetsstegen.
 
 ## Logga in
 
 1. Gå till `/admin`.
-2. Logga in med admin-uppgifter.
+2. Logga in med administratörens uppgifter.
+3. Välj rätt sektion i menyn innan du gör ändringar.
 
-## Vad du kan göra
+## Ansökningar
 
-### Ansökningar
-- Öppna sidan **Ansökningar**.
-- Godkänn eller avslå ansökningar.
+På sidan **Ansökningar** kan du:
 
-### Användare
-- Skapa konto.
-- Radera konto.
-- Skicka återställning av lösenord.
-- Verifiera intyg.
+- se inkomna ansökningar för både standardkonto och företagskonto
+- öppna detaljer för en enskild ansökan
+- godkänna ansökan och skicka aktiveringslänk
+- avslå ansökan med motivering
 
-### Intyg
-- Visa uppladdade PDF:er.
-- Ändra kategori.
-- Ta bort felaktig PDF.
+## Konton
 
-### Företagskonton
-- Skapa företagskonto.
-- Koppla företag till användare.
-- Visa kopplingar.
+På sidan **Konton** kan du:
 
-### Fakturering
-- Öppna sidan **Fakturering**.
-- Granska uppgifter för företagskonton.
+- se både aktiva och väntande konton
+- uppdatera kontouppgifter
+- skicka länk för att skapa lösenord till väntande konto
+- skicka återställning av lösenord till befintligt konto
+- radera konto när det behövs
+
+## Intyg
+
+På sidan **Intyg** kan du:
+
+- ladda upp ett eller flera intyg till användare
+- sätta eller ändra kategori på uppladdade PDF:er
+- ta bort felaktiga intyg
+- verifiera att rätt användare har rätt dokument
+
+## Företagskonton
+
+På sidan **Företagskonton** kan du:
+
+- skapa nytt företagskonto
+- koppla ett företagskonto till en användare
+- byta eller ta bort en befintlig koppling
+- se översikt för ett företagskonto
+- radera företagskonto när det inte längre ska finnas kvar
+
+## Fakturering
+
+På sidan **Fakturering** kan du:
+
+- se företag som har kopplade användare
+- granska underlag inför fakturering
+- jämföra företagsnamn, organisationsnummer och antal kopplingar
+
+## Avancerat
+
+På sidan **Avancerat** kan du:
+
+- se schema för vissa databastabeller
+- läsa rader direkt från adminverktyget
+- skapa, uppdatera och ta bort poster i stödtabeller
+
+Använd den här delen försiktigt. Om du är osäker ska du hellre pausa och be om hjälp.
 
 ## Säkerhet
 
-- Dela aldrig admin-lösenord.
-- Dela aldrig support-inloggning.
-- Rapportera misstänkt aktivitet direkt.
-- Försök inte reparera större driftfel själv om du inte är ansvarig.
+- Dela aldrig admin-lösenord eller återställningslänkar.
+- Kontrollera personnummer, e-post och organisationsnummer innan du sparar.
+- Var extra försiktig vid radering av konton, kopplingar och intyg.
+- Rapportera misstänkt aktivitet eller ovanliga fel direkt.
 
-## Felrapportering
+## Om något går fel
 
-Om något blir fel:
-
-1. Skriv ner vad som hände.
-2. Ta en skärmbild.
-3. Skriv tidpunkt.
-4. Skapa en issue i GitHub-projektet.
+1. Skriv ned vad du försökte göra.
+2. Notera tidpunkt och vilket konto eller vilken ansökan som berörs.
+3. Ta skärmbild om felet syns i gränssnittet.
+4. Skapa en issue eller kontakta ansvarig utvecklare.
 
 ## Snabblänkar
 

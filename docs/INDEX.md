@@ -1,27 +1,30 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Dokumentationsindex
 
-Här hittar du rätt dokument snabbt.
+Här hittar du rätt dokument utifrån vad du arbetar med.
 
 ## Kom igång
 
 - [README](../README.md)
 - [Utveckling](UTVECKLING.md)
-- [Adminpanel](ADMIN_PANEL.md)
+- [Repo-struktur](REPO_STRUCTURE.md)
+
+## Admin
+
+- [Adminguide som visas i appen](../admin.md)
+- [Adminpanel för utvecklare och drift](ADMIN_PANEL.md)
 
 ## Drift
 
 - [Deployment](DEPLOYMENT.md)
-- [Cloudflare](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
-- [Kritiska aviseringar](CRITICAL_EVENTS_NOTIFICATIONS.md)
+- [Publik drift med Cloudflare](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+- [Kritiska händelser och aviseringar](CRITICAL_EVENTS_NOTIFICATIONS.md)
 
-## Säkerhet
+## Säkerhet och kvalitet
 
-- [Sårbarhetsrapportering](SECURITY.md)
-- [CI-workflows](workflows.md)
-
-## Struktur
-
-- [Repo-struktur](REPO_STRUCTURE.md)
+- [Säkerhetsrapportering](SECURITY.md)
+- [Loggningsstilguide](loggningsstilguide.md)
+- [GitHub Actions och workflows](workflows.md)
+- [Testinventering](../tests.md)
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

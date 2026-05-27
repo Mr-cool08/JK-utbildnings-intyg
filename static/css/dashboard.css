@@ -705,8 +705,12 @@
 
 .dashboard-search input:focus,
 .dashboard-search input:focus-visible,
+.form-field input[type="date"]:focus,
+.form-field input[type="date"]:focus-visible,
 .form-field input[type="file"]:focus,
 .form-field input[type="file"]:focus-visible,
+.form-field input[type="number"]:focus,
+.form-field input[type="number"]:focus-visible,
 .form-field select:focus,
 .form-field select:focus-visible,
 .form-field textarea:focus,

@@ -1,103 +1,132 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Deployment
 
-En enkel guide för Docker-drift.
+Det här projektet använder i dagsläget **en gemensam `docker-compose.yml`** för både lokal körning och serverdrift.
 
-## Lokal utveckling med Docker
+## Förberedelser
+
+1. Kopiera `.example.env` till `.env`.
+2. Fyll i minst databas-, admin- och SMTP-inställningar.
+3. Kontrollera att certifikatvägar och domänvärden stämmer för servern.
+
+Viktiga variabler att gå igenom:
+
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `ADMIN_EMAIL`
+- `admin_username`, `admin_password`
+- `SECRET_KEY`, `HASH_SALT`
+- `ORIGIN_CERT_PATH`, `ORIGIN_KEY_PATH`
+- `TRUSTED_PROXY_COUNT`
+- `PUBLIC_NETWORK_NAME` om du återanvänder ett externt Docker-nätverk
+
+## Starta stacken
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.yml up -d --build
 ```
 
-Vanliga adresser:
-- App: `http://localhost:8080`
-- Demo: `http://localhost:8081`
-- Status: `http://localhost:8082`
+## Aktiva tjänster i nuvarande Compose
 
-## Produktion
+- `app` - huvudappen för `utbildningsintyg.se`
+- `app_demo` - demoapp
+- `status_page` - separat statussida
+- `traefik` - TLS-terminering och domänrouting
+- `postgres` - databasen
+- `postgres_backup` - återkommande databasbackup
+- `server_monitor` - övervakning, smoke-tester och resurslarm
+- `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
+- `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
+- `backup_cloud_sync` - valfri molnsynk via profilen `backup-cloud`
 
-```bash
-cp .example.env .env
-docker compose -f docker-compose.prod.yml up -d --build
-```
+## Portar och exponering
 
-Produktion använder bland annat:
-- Traefik
-- App
-- Demoapp
-- Statusservice
-- PostgreSQL
-- Backup-service
-- (valfritt) antivirus via security-profil
+Direkta host-portar i Compose:
 
-## Automatisk molnbackup till OneDrive eller Dropbox
+- `80:80` - huvudappen
+- `8000:80` - demoappen
+- `8080:80` - statussidan
+- `443:443` - Traefik för HTTPS
+- `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
+- `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
 
-Den inbyggda tjänsten `postgres_backup` skapar komprimerade databasbackuper i Docker-volymen `pgdata_backups`. Om du vill spara samma backup automatiskt till OneDrive eller Dropbox kan du aktivera den valfria Compose-profilen `backup-cloud`, som använder `rclone`. OneDrive- eller Dropbox-programmet behöver inte vara installerat på servern.
+För publik drift bör direktåtkomst till origin begränsas med brandvägg, särskilt om Cloudflare används framför servern.
 
-### Steg
+## Traefik och domäner
 
-1. Fyll i `.env` med OAuth-uppgifterna for den remote du vill anvanda.
-2. Satt foljande i `.env`:
+Traefik är konfigurerad för att routa minst följande domäner:
+
+- `utbildningsintyg.se`
+- `www.utbildningsintyg.se`
+- `demo.utbildningsintyg.se`
+- `status.utbildningsintyg.se`
+- `mta-sts.utbildningsintyg.se` för `/.well-known/mta-sts.txt`
+
+## PostgreSQL publik exponering
+
+Databasen är som standard endast bunden till loopback:
 
 ```env
-RCLONE_REMOTE=onedrive
-RCLONE_BACKUP_PATH=jk-utbildnings-intyg/postgres
-RCLONE_SYNC_INTERVAL_SECONDS=3600
-RCLONE_PRUNE_REMOTE=false
-RCLONE_ONEDRIVE_TOKEN='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"2026-01-01T00:00:00Z"}'
-RCLONE_ONEDRIVE_DRIVE_ID=din-drive-id
-RCLONE_ONEDRIVE_DRIVE_TYPE=personal
+POSTGRES_BIND_IP=127.0.0.1
+POSTGRES_PUBLIC_PORT=1543
 ```
 
-3. Starta tjansten:
+Om du måste exponera PostgreSQL utanför servern:
+
+```env
+POSTGRES_BIND_IP=0.0.0.0
+```
+
+Gör det bara tillsammans med brandvägg eller IP-allowlist.
+
+## Backup
+
+Lokal återkommande backup sköts av `postgres_backup`.
+
+Valfri molnsynk aktiveras med profil:
 
 ```bash
 docker compose --profile backup-cloud up -d backup_cloud_sync
 ```
 
-Det gar ocksa att anvanda `RCLONE_REMOTE=dropbox` och i stallet fylla i `RCLONE_DROPBOX_TOKEN` i `.env`.
+Relevanta miljövariabler:
 
-### Hur det fungerar
+- `RCLONE_REMOTE`
+- `RCLONE_BACKUP_PATH`
+- `RCLONE_SYNC_INTERVAL_SECONDS`
+- `RCLONE_PRUNE_REMOTE`
+- `RCLONE_ONEDRIVE_*`
+- `RCLONE_DROPBOX_*`
 
-- `postgres_backup` fortsatter att skapa `backup-*.sql.gz` lokalt.
-- `backup_cloud_sync` genererar en intern `rclone.conf` fran `.env` med remotes for bade `onedrive` och `dropbox`.
-- `backup_cloud_sync` kopierar filerna till `${RCLONE_REMOTE}:${RCLONE_BACKUP_PATH}`.
-- Om `RCLONE_PRUNE_REMOTE=true` rensas fjarrbackuper som ar aldre an `BACKUP_RETENTION_DAYS`.
+## Övervakning och aviseringar
 
-Observera: OneDrive och Dropbox anvander OAuth. Det betyder att du normalt sparar token/klientuppgifter i `.env`, inte ditt vanliga Microsoft- eller Dropbox-losenord.
+`server_monitor` använder bland annat:
 
-Det har upplagget gor att du fortfarande har en lokal backup aven om molnleverantoren tillfalligt inte gar att na.
+- `CRITICAL_ALERTS_EMAIL`
+- `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TIMEOUT`
+- `MONITOR_CHECK_INTERVAL_SECONDS`
+- `MONITOR_SMOKE_TEST_TARGETS`
 
-## PostgreSQL publik exponering
-
-I produktion är PostgreSQL som standard endast bunden lokalt via `127.0.0.1`.
-
-För att exponera PostgreSQL publikt, sätt i `.env`:
-
-- `POSTGRES_BIND_IP=0.0.0.0`
-- (valfritt) `POSTGRES_PUBLIC_PORT` för att byta extern port (default `1543`)
-
-Varning: detta exponerar databasen mot internet. Begränsa alltid åtkomst med brandvägg och/eller IP-allowlist.
-
-## Viktiga volymer
-
-- `env_data`
-- `app_logs`
-- `traefik_logs`
-- `pgdata`
-- `pgdata_backups`
+Den kan skicka larm för disk, RAM, CPU, smoke-tester och veckorapporter.
 
 ## Hjälpskript
 
-Starta lokal app + postgres:
+Compose-hantering:
 
 ```bash
-./scripts/start_postgres_stack.sh
+python scripts/manage_compose.py --action <stop|pull|up|cycle|git-pull|pytest|prune-volumes|system-df>
 ```
 
-## Cloudflare
+Uppdateringssekvens:
 
-För Cloudflare-guide, se:
-[PUBLIC_DEPLOYMENT_CLOUDFLARE.md](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+```bash
+python scripts/update_app.py
+```
+
+## Vid publik Cloudflare-drift
+
+Se även:
+
+- [PUBLIC_DEPLOYMENT_CLOUDFLARE.md](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+- [../deploy/mta-sts/README.md](../deploy/mta-sts/README.md)
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

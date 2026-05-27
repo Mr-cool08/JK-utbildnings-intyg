@@ -1,34 +1,74 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
-# Kritiska händelser och e-post
+# Kritiska händelser och aviseringar
 
-Systemet kan skicka e-post när allvarliga saker händer.
+Projektet har två huvudsakliga spår för e-postbaserade aviseringar: applikationshändelser och serverövervakning.
 
-## Exempel på händelser
+## 1. Applikationens kritiska händelser
 
-- Appen startar
-- Appen stängs ner
-- Krasch eller obehandlat fel
-- HTTP 500-fel
+Applikationen använder `functions/notifications/critical_events.py` för att skicka notifieringar om:
 
-## Konfiguration i `.env`
+- uppstart
+- omstart
+- krasch
+- obehandlade undantag
+- kritiska HTTP-fel
+- ERROR-loggar via e-posthandler med cooldown
+
+Primär mottagare styrs av:
 
 ```env
 ADMIN_EMAIL=admin@example.com
-APP_NAME=JK Utbildningsintyg
 ```
 
-SMTP måste också vara ifyllt (`smtp_server`, `smtp_user`, `smtp_password`, med flera).
+Flera mottagare kan anges kommaseparerat.
 
-## Kodplats
+## 2. Serverövervakning
 
-Logiken finns i:
-- `functions/notifications/critical_events.py`
+`services/server_monitor/monitor.py` sköter driftaviseringar för bland annat:
+
+- hög diskförbrukning
+- hög RAM-användning
+- hög CPU-användning
+- smoke-tester mot definierade URL:er
+- veckorapport för smoke-tester
+- nattlig ClamAV-rapport
+
+Viktiga variabler:
+
+```env
+CRITICAL_ALERTS_EMAIL=admin@example.com
+SMTP_SERVER=smtp.example.se
+SMTP_PORT=587
+SMTP_USER=anvandare@example.se
+SMTP_PASSWORD=hemligt
+SMTP_TIMEOUT=30
+MONITOR_CHECK_INTERVAL_SECONDS=60
+MONITOR_SMOKE_TEST_TARGETS=Huvudsidan=https://utbildningsintyg.se/health
+```
+
+Övervakaren stöder även äldre lowercase-varianter som fallback för SMTP-inställningar.
+
+## 3. E-posttjänster
+
+Kod som används för att bygga och skicka meddelanden finns främst här:
+
 - `functions/emails/service.py`
+- `functions/notifications/critical_events.py`
+- `services/server_monitor/monitor.py`
 
-## Test
+## 4. Vad som är bra att kontrollera i drift
 
-```bash
-pytest tests/test_critical_events.py
-```
+- Att `ADMIN_EMAIL` är satt.
+- Att SMTP fungerar både för appen och övervakaren.
+- Att `CRITICAL_ALERTS_EMAIL` är satt om serverövervakningen ska skicka larm.
+- Att smoke-tester pekar på stabila URL:er.
+
+## 5. Relevanta tester
+
+- `pytest tests/test_critical_events.py`
+- `pytest tests/test_error_notifications.py`
+- `pytest tests/test_email_env.py`
+- `pytest tests/test_server_monitor_smoke.py`
+- `pytest tests/test_server_monitor_config.py`
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->
