@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from calendar import monthrange
+from datetime import date, timedelta
 import atexit
 from functools import partial
 import importlib
@@ -170,6 +171,77 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     if cleaned in allowed:
         return cleaned
     return fallback
+
+
+def _add_months_to_date(base_date: date, months: int) -> date:
+    # Bevara dag i månaden när det går, annars använd månadens sista dag.
+    absolute_month = (base_date.year * 12) + (base_date.month - 1) + months
+    target_year, target_month_index = divmod(absolute_month, 12)
+    target_month = target_month_index + 1
+    target_day = min(base_date.day, monthrange(target_year, target_month)[1])
+    return date(target_year, target_month, target_day)
+
+
+def _parse_duration_expiry_value(raw_value: str, field_label: str, maximum: int) -> int:
+    cleaned = (raw_value or "").strip()
+    if not cleaned:
+        return 0
+    try:
+        parsed = int(cleaned)
+    except ValueError as exc:
+        raise ValueError(f"Ange ett giltigt antal {field_label}.") from exc
+    if parsed < 0:
+        raise ValueError(f"Antal {field_label} kan inte vara mindre än 0.")
+    if parsed > maximum:
+        raise ValueError(f"Antal {field_label} får vara högst {maximum}.")
+    return parsed
+
+
+def _resolve_certificate_expiry(
+    expiry_mode: str,
+    expiry_date_raw: str,
+    expiry_months_raw: str,
+    expiry_years_raw: str,
+    *,
+    today: date | None = None,
+) -> date | None:
+    today = today or date.today()
+    normalized_mode = (expiry_mode or "none").strip().lower()
+    if normalized_mode in {"", "none"}:
+        return None
+
+    if normalized_mode == "date":
+        cleaned_date = (expiry_date_raw or "").strip()
+        if not cleaned_date:
+            raise ValueError("Välj ett utgångsdatum.")
+        try:
+            expires_on = date.fromisoformat(cleaned_date)
+        except ValueError as exc:
+            raise ValueError("Välj ett giltigt utgångsdatum.") from exc
+        if expires_on < today:
+            raise ValueError("Utgångsdatum kan inte vara tidigare än idag.")
+        return expires_on
+
+    if normalized_mode in {"duration", "months", "years"}:
+        month_count = _parse_duration_expiry_value(
+            expiry_months_raw,
+            "månader",
+            1200,
+        )
+        year_count = _parse_duration_expiry_value(
+            expiry_years_raw,
+            "år",
+            100,
+        )
+        if normalized_mode == "months" and month_count == 0:
+            raise ValueError("Ange hur många månader intyget gäller.")
+        if normalized_mode == "years" and year_count == 0:
+            raise ValueError("Ange hur många år intyget gäller.")
+        if normalized_mode == "duration" and month_count == 0 and year_count == 0:
+            raise ValueError("Ange antal år, månader eller båda.")
+        return _add_months_to_date(today, month_count + (year_count * 12))
+
+    raise ValueError("Välj ett giltigt alternativ för utgångsdatum.")
 
 
 def _format_display_name(name: str | None) -> str:
@@ -1732,6 +1804,10 @@ def user_upload_pdf_route():
     uploaded_file = request.files.get("certificate")
     category = request.form.get("category", "")
     note = (request.form.get("note", "") or "").strip()
+    expiry_mode = request.form.get("expiry_mode", "none")
+    expiry_date_raw = request.form.get("expiry_date", "")
+    expiry_months_raw = request.form.get("expiry_months", "")
+    expiry_years_raw = request.form.get("expiry_years", "")
 
     if not uploaded_file or uploaded_file.filename == "":
         flash("Ingen fil vald.", "error")
@@ -1746,7 +1822,25 @@ def user_upload_pdf_route():
         return redirect("/dashboard")
 
     try:
-        pdf.save_pdf_for_user(personnummer, uploaded_file, [category], note=note, logger=logger)
+        expires_on = _resolve_certificate_expiry(
+            expiry_mode,
+            expiry_date_raw,
+            expiry_months_raw,
+            expiry_years_raw,
+        )
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect("/dashboard")
+
+    try:
+        pdf.save_pdf_for_user(
+            personnummer,
+            uploaded_file,
+            [category],
+            note=note,
+            expires_on=expires_on,
+            logger=logger,
+        )
     except ValueError as exc:
         flash(
             _safe_user_error(
@@ -1888,6 +1982,7 @@ def user_upload_page():
         csrf_token=csrf_token,
         user_name=_format_display_name(user_name),
         certificate_count=certificate_count,
+        today_iso=date.today().isoformat(),
         max_upload_mb=UPLOAD_MAX_MB,
         max_upload_bytes=UPLOAD_MAX_BYTES,
     )
@@ -2619,12 +2714,16 @@ def admin_user_overview():  # pragma: no cover
     overview = []
     for pdf in pdfs:
         uploaded_at = pdf.get("uploaded_at")
+        expires_on = pdf.get("expires_on")
         overview.append(
             {
                 "id": pdf["id"],
                 "filename": pdf["filename"],
                 "categories": pdf.get("categories") or [],
                 "category_labels": labels_for_slugs(pdf.get("categories") or []),
+                "expires_on": expires_on.isoformat()
+                if (expires_on and hasattr(expires_on, "isoformat"))
+                else None,
                 "uploaded_at": uploaded_at.isoformat()
                 if (uploaded_at and hasattr(uploaded_at, "isoformat"))
                 else None,

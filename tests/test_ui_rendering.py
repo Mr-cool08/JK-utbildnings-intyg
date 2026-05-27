@@ -309,6 +309,11 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert 'id="certificate"' in body
     assert 'id="category"' in body
     assert 'id="note"' in body
+    assert 'id="expiry_mode"' in body
+    assert 'id="expiry_date"' in body
+    assert 'id="expiry_months"' in body
+    assert 'id="expiry_years"' in body
+    assert "Antal år och månader från idag" in body
     assert 'id="userUploadForm"' in body
     assert 'id="uploadProgress"' in body
     assert 'id="uploadProgressBar"' in body

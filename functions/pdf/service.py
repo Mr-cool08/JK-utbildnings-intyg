@@ -1,6 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
+from datetime import date
 import io
 import logging
 import os
@@ -47,6 +48,7 @@ def save_pdf_for_user(
     file_storage,
     categories: Sequence[str],
     note: str = "",
+    expires_on: date | None = None,
     logger: logging.Logger | None = None,
 ):
     """Validera och spara PDF i databasen för angivet personnummer."""
@@ -97,12 +99,22 @@ def save_pdf_for_user(
     )
     if verdict.decision != "ALLOW":
         raise ValueError("PDF:en blockerades av säkerhetsskannern.")
+    if expires_on is not None and not isinstance(expires_on, date):
+        raise ValueError("Ogiltigt utgångsdatum.")
+
     pdf_id = functions.store_pdf_blob(
         pnr_hash,
         filename,
         content,
         selected_categories,
         note=note.strip(),
+        expires_on=expires_on,
     )
     logger.info("Sparade PDF för %s med id %s", mask_hash(pnr_hash), pdf_id)
-    return {"id": pdf_id, "filename": filename, "categories": selected_categories, "note": note.strip()}
+    return {
+        "id": pdf_id,
+        "filename": filename,
+        "categories": selected_categories,
+        "note": note.strip(),
+        "expires_on": expires_on,
+    }

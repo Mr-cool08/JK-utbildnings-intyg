@@ -187,6 +187,9 @@
                                                                 Okategoriserat
                                                             {% endif %}
                                                         </span>
+                                                        {% if pdf.expires_on %}
+                                                        <span class="pdf-note">Gäller till {{ pdf.expires_on }}</span>
+                                                        {% endif %}
                                                     </div>
                                                 </div>
 

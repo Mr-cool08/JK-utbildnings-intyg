@@ -12,6 +12,7 @@ from urllib.parse import quote_plus
 
 from sqlalchemy import (
     Column,
+    Date,
     DateTime,
     Index,
     Integer,
@@ -88,6 +89,7 @@ user_pdfs_table = Table(
     Column("content", LargeBinary, nullable=False),
     Column("categories", String, nullable=False, server_default=""),
     Column("note", String, nullable=False, server_default=""),
+    Column("expires_on", Date, nullable=True),
     Column(
         "uploaded_at",
         DateTime(timezone=True),
@@ -927,6 +929,15 @@ def _migration_0010_add_orgnr_to_users_and_org_requests(conn: Connection) -> Non
         )
 
 
+def _migration_0011_add_user_pdf_expires_on(conn: Connection) -> None:
+    # Lägg till valfritt utgångsdatum för intyg. Befintliga rader lämnas som NULL.
+    inspector = inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
+    if "expires_on" in columns:
+        return
+    conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN expires_on DATE"))
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -938,6 +949,7 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0008_company_users_email_role_unique", _migration_0008_company_users_email_role_unique),
     ("0009_add_user_pdf_note", _migration_0009_add_user_pdf_note),
     ("0010_add_orgnr_to_users_and_org_requests", _migration_0010_add_orgnr_to_users_and_org_requests),
+    ("0011_add_user_pdf_expires_on", _migration_0011_add_user_pdf_expires_on),
 ]
 
 
@@ -1184,6 +1196,8 @@ def create_database() -> None:
             )
         if "note" not in columns:
             conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN note TEXT DEFAULT '' NOT NULL"))
+        if "expires_on" not in columns:
+            conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN expires_on DATE"))
         existing_tables = set(inspector.get_table_names())
         for table in (
             password_resets_table,

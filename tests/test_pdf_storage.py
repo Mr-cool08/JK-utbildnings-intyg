@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -56,6 +56,26 @@ def test_get_pdf_metadata_returns_expected_information(empty_db):
     assert metadata["filename"] == "metadata.pdf"
     assert isinstance(metadata["uploaded_at"], datetime)
     assert metadata["categories"] == [COURSE_CATEGORIES[0][0]]
+    assert metadata["expires_on"] is None
+
+
+def test_get_pdf_metadata_returns_expiry_date_when_present(empty_db):
+    _ = empty_db
+
+    pnr_hash = _personnummer_hash("9001011234")
+    expires_on = date(2027, 5, 27)
+    pdf_id = functions.store_pdf_blob(
+        pnr_hash,
+        "expires.pdf",
+        b"%PDF-1.4 expires",
+        [COURSE_CATEGORIES[0][0]],
+        expires_on=expires_on,
+    )
+
+    metadata = functions.get_pdf_metadata(pnr_hash, pdf_id)
+
+    assert metadata is not None
+    assert metadata["expires_on"] == expires_on
 
 
 def test_get_pdf_metadata_handles_missing_entries(empty_db):
@@ -148,6 +168,7 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             "categories": ["truck", "hlr"],
             "uploaded_at": expected_uploaded_at,
             "note": "",
+            "expires_on": None,
         }
     ]
 

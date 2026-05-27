@@ -1,4 +1,5 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+from datetime import date
 import io
 
 import pytest
@@ -41,6 +42,35 @@ def test_save_pdf_for_user(empty_db):
     filename, decrypted = functions.get_pdf_content(personnummer_hash, row.id)
     assert filename == result["filename"]
     assert decrypted == pdf_bytes
+
+
+def test_save_pdf_for_user_stores_optional_expiry_date(empty_db):
+    pdf_bytes = b"%PDF-1.4 test"
+    file_storage = FileStorage(
+        stream=io.BytesIO(pdf_bytes),
+        filename="expires.pdf",
+        content_type="application/pdf",
+    )
+
+    category = COURSE_CATEGORIES[0][0]
+    expires_on = date(2027, 5, 27)
+    result = app.pdf.save_pdf_for_user(
+        "19900101-1234",
+        file_storage,
+        [category],
+        expires_on=expires_on,
+    )
+
+    with functions.get_engine().connect() as conn:
+        row = conn.execute(
+            functions.user_pdfs_table.select().where(
+                functions.user_pdfs_table.c.id == result["id"]
+            )
+        ).first()
+
+    assert row is not None
+    assert result["expires_on"] == expires_on
+    assert row.expires_on == expires_on
 
 
 def test_save_png_converts_to_pdf(empty_db):

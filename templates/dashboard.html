@@ -106,8 +106,15 @@
                                 <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
                                     {{ pdf.filename }}
                                 </a>
-                                {% if pdf.note %}
-                                <span class="pdf-note">{{ pdf.note }}</span>
+                                {% if pdf.note or pdf.expires_on %}
+                                <div class="pdf-meta">
+                                    {% if pdf.note %}
+                                    <span class="pdf-note">{{ pdf.note }}</span>
+                                    {% endif %}
+                                    {% if pdf.expires_on %}
+                                    <span class="pdf-note">Gäller till {{ pdf.expires_on }}</span>
+                                    {% endif %}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
