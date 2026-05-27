@@ -17,7 +17,7 @@ from smtplib import (
     SMTPServerDisconnected,
     SMTP_SSL,
 )
-from typing import Sequence
+from typing import Any, Sequence
 
 from config_loader import load_environment
 from functions.logging import configure_module_logger, mask_hash
@@ -433,6 +433,88 @@ def send_organization_link_rejected_email(to_email: str, company_name: str) -> N
         accent_color="#b91c1c",
     )
     send_email(to_email, subject, body)
+
+
+def send_certificate_expiry_summary_email(
+    to_email: str,
+    recipient_name: str,
+    expiring_certificates: Sequence[dict[str, str]],
+    *,
+    months: int = 6,
+) -> None:
+    """Skicka samlingsmejl om intyg som snart går ut till ett privatkonto."""
+
+    safe_name = escape((recipient_name or "").strip() or "där")
+    month_text = f"{months} månader" if months != 1 else "1 månad"
+    item_list = "".join(
+        (
+            "<li><strong>"
+            f"{escape(certificate.get('display_name', 'Intyg'))}"
+            "</strong> – går ut "
+            f"{escape(certificate.get('expires_on', 'okänt datum'))}</li>"
+        )
+        for certificate in expiring_certificates
+    )
+    content = (
+        f"<p>Hej {safe_name},</p>"
+        f"<p>Följande intyg har mindre än {month_text} kvar innan de går ut:</p>"
+        f"<ul>{item_list}</ul>"
+        "<p>Logga in för att se dina intyg:</p>"
+        f"{_render_action_button('https://utbildningsintyg.se/dashboard', 'Öppna dashboard')}"
+    )
+    body = format_email_html(
+        "Intyg som snart går ut",
+        content,
+        accent_color="#b45309",
+    )
+    send_email(to_email, "Intyg som snart går ut", body)
+
+
+def send_supervisor_expiry_summary_email(
+    to_email: str,
+    company_name: str,
+    expiring_by_user: Sequence[dict[str, Any]],
+    *,
+    months: int = 6,
+) -> None:
+    """Skicka samlingsmejl om intyg som snart går ut till ett företagskonto."""
+
+    safe_company = escape((company_name or "").strip() or "företagskontot")
+    month_text = f"{months} månader" if months != 1 else "1 månad"
+    user_sections = []
+    for user_entry in expiring_by_user:
+        safe_user_name = escape(str(user_entry.get("user_name", "Anslutet konto")))
+        certificates = user_entry.get("certificates", [])
+        certificate_list = "".join(
+            (
+                "<li><strong>"
+                f"{escape(certificate.get('display_name', 'Intyg'))}"
+                "</strong> – går ut "
+                f"{escape(certificate.get('expires_on', 'okänt datum'))}</li>"
+            )
+            for certificate in certificates
+        )
+        user_sections.append(
+            f"<p><strong>{safe_user_name}</strong></p><ul>{certificate_list}</ul>"
+        )
+
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Följande intyg för {safe_company} har mindre än {month_text} kvar innan de går ut:</p>"
+        f"{''.join(user_sections)}"
+        "<p>Logga in på företagskontot:</p>"
+        f"{_render_action_button('https://utbildningsintyg.se/foretagskonto', 'Öppna företagskonto')}"
+    )
+    body = format_email_html(
+        "Intyg för anslutna konton som snart går ut",
+        content,
+        accent_color="#0f766e",
+    )
+    send_email(
+        to_email,
+        "Intyg för anslutna konton som snart går ut",
+        body,
+    )
 
 
 def send_pdf_share_email(

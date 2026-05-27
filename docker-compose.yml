@@ -155,6 +155,29 @@ services:
     cpus: "0.40"
     pids_limit: 150
 
+  expiry_reminder:
+    build: .
+    command: ["python", "-m", "scripts.send_expiry_reminders"]
+    env_file:
+      - .env
+    environment:
+      LOG_DIR: /app/logs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-}
+    volumes:
+      - env_data:/config
+      - app_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - public_net
+      - db_net
+    restart: "no"
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.20"
+    pids_limit: 120
+
   status_page:
     build:
       context: .

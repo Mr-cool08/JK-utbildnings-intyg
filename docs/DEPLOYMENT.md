@@ -37,6 +37,23 @@ docker compose -f docker-compose.yml up -d --build
 - `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
 - `backup_cloud_sync` - valfri molnsynk via profilen `backup-cloud`
+- `expiry_reminder` - månatligt jobb för utgångspåminnelser
+
+## Månatliga utgångspåminnelser
+
+Tjänsten `expiry_reminder` kör bara `python -m scripts.send_expiry_reminders` och avslutas direkt när jobbet är klart.
+
+Kör manuellt:
+
+```bash
+docker compose -f docker-compose.yml run --rm expiry_reminder
+```
+
+Exempel på cron den första dagen varje månad klockan 07:00:
+
+```bash
+0 7 1 * * cd /path/till/projekt && docker compose -f docker-compose.yml run --rm expiry_reminder
+```
 
 ## Portar och exponering
 

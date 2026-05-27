@@ -136,6 +136,22 @@ def test_compose_runs_postgres_backup_script_with_bash():
     assert 'command: ["/bin/sh", "/scripts/postgres_backup.sh", "--loop"]' not in compose
 
 
+def test_compose_has_expiry_reminder_service_that_only_runs_script():
+    compose = _read(ROOT / "docker-compose.yml")
+    expiry_service_match = re.search(
+        r"(?ms)^  expiry_reminder:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+        compose,
+    )
+
+    assert expiry_service_match, "Expected expiry_reminder service in docker-compose.yml"
+    expiry_service = expiry_service_match.group(1)
+    assert 'command: ["python", "-m", "scripts.send_expiry_reminders"]' in expiry_service
+    assert "ports:" not in expiry_service
+    assert "expose:" not in expiry_service
+    assert "gunicorn" not in expiry_service
+    assert "entrypoint.sh" not in expiry_service
+
+
 def test_gitattributes_forces_lf_for_shell_scripts():
     gitattributes = _read(ROOT / ".gitattributes")
 
