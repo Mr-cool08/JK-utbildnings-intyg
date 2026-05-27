@@ -1611,16 +1611,26 @@ def login():
             session["username"] = functions.get_username_by_personnummer_hash(personnummer_hash)
             logger.info("Användare %s loggade in", mask_hash(personnummer_hash))
             return redirect("/dashboard")
+
+        error_message = "Ogiltiga inloggningsuppgifter"
+        if functions.check_pending_user(personnummer):
+            logger.warning(
+                "Inloggning nekades för ej verifierat konto %s",
+                mask_hash(personnummer_hash),
+            )
+            error_message = (
+                "Du behöver verifiera din e-postadress via länken i mejlet innan du kan logga in."
+            )
         else:
             logger.warning("Ogiltig inloggning för %s", mask_hash(personnummer_hash))
-            return (
-                render_template(
-                    "user_login.html",
-                    error="Ogiltiga inloggningsuppgifter",
-                    csrf_token=csrf_token,
-                ),
-                401,
-            )
+        return (
+            render_template(
+                "user_login.html",
+                error=error_message,
+                csrf_token=csrf_token,
+            ),
+            401,
+        )
     logger.debug("Renderar inloggningssida")
     return render_template("user_login.html", csrf_token=csrf_token)
 
