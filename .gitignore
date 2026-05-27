@@ -149,3 +149,4 @@ environment.toml
 .pytest_tmp/
 /.devcontainer/*
 /.codex/*
+lägg till epost till konton.txt
