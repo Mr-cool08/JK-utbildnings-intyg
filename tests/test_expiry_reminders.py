@@ -212,6 +212,24 @@ def _capture_error_logs(monkeypatch):
     return errors
 
 
+def _capture_admin_report_emails(monkeypatch):
+    admin_calls = []
+
+    def _fake_send_email(recipient, subject, body, attachments=None):
+        del attachments
+        admin_calls.append(
+            {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+            }
+        )
+
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
+    monkeypatch.setattr(expiry_reminders.email_service, "send_email", _fake_send_email)
+    return admin_calls
+
+
 def test_expiry_reminders_include_certificates_with_less_than_six_months_left(
     empty_db,
     monkeypatch,
@@ -451,6 +469,7 @@ def test_expiry_reminders_report_invalid_private_email_reference(empty_db, monke
     _set_reminder_config(monkeypatch, enabled=True)
     private_calls, supervisor_calls = _capture_email_calls(monkeypatch)
     errors = _capture_error_logs(monkeypatch)
+    admin_calls = _capture_admin_report_emails(monkeypatch)
     today = date(2026, 5, 27)
     personnummer_hash = _create_active_user_with_raw_email(
         empty_db,
@@ -476,6 +495,13 @@ def test_expiry_reminders_report_invalid_private_email_reference(empty_db, monke
     assert "Ogiltiga e-postadresser upptäcktes i utgångspåminnelsejobbet" in errors[0]
     assert "privatkonto" in errors[0]
     assert "f***@invalid" in errors[0]
+    assert len(admin_calls) == 1
+    assert admin_calls[0]["recipient"] == "admin@example.com"
+    assert "Manuell uppfoljning" in admin_calls[0]["subject"]
+    assert personnummer_hash in admin_calls[0]["body"]
+    assert "fel@invalid" in admin_calls[0]["body"]
+    assert "Felicia" in admin_calls[0]["body"]
+    assert "felaktig-epost.pdf" in admin_calls[0]["body"]
 
 
 def test_expiry_reminders_report_invalid_supervisor_email_reference(
@@ -583,6 +609,53 @@ def test_expiry_reminders_only_mark_month_after_all_recipients_succeed(
     assert result.failed_emails == 1
     assert row is not None
     assert row.last_expiry_reminder_month is None
+
+
+def test_expiry_reminders_send_admin_report_when_private_email_delivery_fails(
+    empty_db,
+    monkeypatch,
+):
+    _set_reminder_config(monkeypatch, enabled=True)
+    admin_calls = _capture_admin_report_emails(monkeypatch)
+    today = date(2026, 5, 27)
+    personnummer_hash = _create_active_user(
+        empty_db,
+        personnummer="19901212-1234",
+        email="nora@example.com",
+        username="Nora",
+    )
+    _store_certificate(
+        empty_db,
+        personnummer_hash=personnummer_hash,
+        filename="nora.pdf",
+        expires_on=date(2026, 8, 10),
+    )
+
+    def _failing_private_email(*_args, **_kwargs):
+        raise RuntimeError("smtp-fel")
+
+    monkeypatch.setattr(
+        expiry_reminders.email_service,
+        "send_certificate_expiry_summary_email",
+        _failing_private_email,
+    )
+    monkeypatch.setattr(
+        expiry_reminders.email_service,
+        "send_supervisor_expiry_summary_email",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = expiry_reminders.run_expiry_reminder_job(today=today, reminder_months=6)
+
+    assert result.failed_emails == 1
+    assert result.sent_private_emails == 0
+    assert len(admin_calls) == 1
+    assert admin_calls[0]["recipient"] == "admin@example.com"
+    assert "RuntimeError: smtp-fel" in admin_calls[0]["body"]
+    assert personnummer_hash in admin_calls[0]["body"]
+    assert "Nora" in admin_calls[0]["body"]
+    assert "nora@example.com" in admin_calls[0]["body"]
+    assert "nora.pdf" in admin_calls[0]["body"]
 
 
 # Copyright (c) Liam Suorsa and Mika Suorsa
