@@ -152,6 +152,28 @@ def _load_project_environment(root: Path) -> None:
             load_dotenv(env_path, override=False)
 
 
+def _build_pytest_environment(root: Path) -> dict[str, str]:
+    """Build a deterministic environment for pytest runs."""
+
+    log_dir = root / ".pytest_tmp" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "DATABASE_URL": "sqlite:///:memory:",
+            "DEV_MODE": "true",
+            "ENABLE_DEMO_MODE": "false",
+            "DISABLE_EMAILS": "true",
+            "LOG_FILE": os.fspath(log_dir / "pytest.log"),
+            "admin_username": "test_admin",
+            "admin_password": "test_password_123",
+            "secret_key": "test-secret-key",
+        }
+    )
+    return env
+
+
 def _get_expiry_reminder_cron_schedule() -> str:
     schedule = (
         os.getenv(
@@ -311,7 +333,7 @@ def main() -> None:
             _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
 
     # 8. run pytest
-    _run([*pytest_cmd], cwd=root)
+    _run([*pytest_cmd], cwd=root, env=_build_pytest_environment(root))
 
     # 8. stop containers
     _run(_compose_command("stop"), cwd=root, env=compose_env)

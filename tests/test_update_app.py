@@ -98,6 +98,23 @@ def test_build_venv_command_prefers_unix_layout_on_posix(tmp_path):
     assert Path(pip_cmd[0]).name == "pip" or Path(pip_cmd[0]).name == "pip.exe"
 
 
+def test_build_pytest_environment_overrides_conflicting_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
+    monkeypatch.setenv("DEV_MODE", "false")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.delenv("DISABLE_EMAILS", raising=False)
+
+    env = ua._build_pytest_environment(tmp_path)
+
+    assert env["DATABASE_URL"] == "sqlite:///:memory:"
+    assert env["DEV_MODE"] == "true"
+    assert env["ENABLE_DEMO_MODE"] == "false"
+    assert env["DISABLE_EMAILS"] == "true"
+    assert env["secret_key"] == "test-secret-key"
+    assert Path(env["LOG_FILE"]).parent == tmp_path / ".pytest_tmp" / "logs"
+    assert (tmp_path / ".pytest_tmp" / "logs").is_dir()
+
+
 def test_main_sequence_uses_production_compose(monkeypatch):
     calls = []
     _patch_main_runtime(monkeypatch, calls, venv_bin="Y")
@@ -120,6 +137,67 @@ def test_main_sequence_runs_expected_commands(monkeypatch):
     assert calls[0][0][:5] == ["docker", "compose", "-f", "docker-compose.yml", "ps"]
     assert any(c[0][0] == "git" for c in calls)
     assert any(c[0] and c[0][0] == "Y" for c in calls)
+
+
+def test_main_runs_pytest_with_deterministic_test_env(monkeypatch):
+    calls = []
+
+    def fake_run(cmd, check=True, **kwargs):
+        calls.append(
+            {
+                "cmd": list(cmd),
+                "cwd": kwargs.get("cwd"),
+                "env": kwargs.get("env"),
+            }
+        )
+        if list(cmd) == [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yml",
+            "config",
+            "--format",
+            "json",
+        ]:
+            services = {
+                "traefik": {},
+                "app": {},
+                "expiry_reminder": {},
+                "postgres": {},
+            }
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                json.dumps({"services": services}),
+                "",
+            )
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(ua, "_run", fake_run)
+    monkeypatch.setattr(ua, "_build_venv_command", lambda root, a, b: ["Y"])
+    monkeypatch.setattr(ua, "_find_requirements", lambda root: [])
+    monkeypatch.setattr(ua, "_run_os_upgrade_if_enabled", lambda: None)
+    monkeypatch.setattr(ua, "_ensure_expiry_reminder_cron", lambda root: None)
+    monkeypatch.setattr(
+        subprocess,
+        "Popen",
+        lambda *args, **kwargs: type(
+            "P", (), {"terminate": lambda self: None, "wait": lambda self: None}
+        )(),
+    )
+    monkeypatch.setattr(ua.time, "sleep", lambda *_: None)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
+    monkeypatch.setenv("DEV_MODE", "false")
+
+    ua.main()
+
+    pytest_call = next(call for call in calls if call["cmd"] == ["Y", "-n", "auto", "-q"])
+
+    assert pytest_call["env"] is not None
+    assert pytest_call["env"]["DATABASE_URL"] == "sqlite:///:memory:"
+    assert pytest_call["env"]["DEV_MODE"] == "true"
+    assert pytest_call["env"]["ENABLE_DEMO_MODE"] == "false"
+    assert pytest_call["env"]["DISABLE_EMAILS"] == "true"
 
 
 def test_main_runs_compose_up_without_scale_flags(monkeypatch):
