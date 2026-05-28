@@ -282,3 +282,90 @@ def test_send_email_message_masks_smtp_user_in_debug_log(monkeypatch):
     login_logs = [entry for entry in debug_messages if "SMTP inloggning lyckades" in entry]
     assert login_logs
     assert all("real.user@example.com" not in entry for entry in login_logs)
+
+
+def test_send_email_message_retries_connection_before_success(monkeypatch):
+    attempts = []
+    sleep_calls = []
+
+    class FlakySMTP:
+        def __init__(self, _server, _port, **_kwargs):
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise OSError("Try again")
+
+        def ehlo(self):
+            pass
+
+        def starttls(self, _context=None):
+            pass
+
+        def login(self, _user, _password):
+            pass
+
+        def send_message(self, _msg, from_addr=None, to_addrs=None):
+            return {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(email_service, "SMTP", FlakySMTP)
+    monkeypatch.setattr(email_service.time, "sleep", sleep_calls.append)
+
+    msg = EmailMessage()
+    msg["Subject"] = "Test"
+    msg["From"] = "from@example.com"
+    msg["To"] = "to@example.com"
+    msg.set_content("Hej")
+
+    settings = email_service.SMTPSettings(
+        server="smtp.example.com",
+        port=587,
+        user="real.user@example.com",
+        password="x",
+        timeout=10,
+        from_address="from@example.com",
+    )
+
+    email_service.send_email_message(msg, "to@example.com", settings)
+
+    assert len(attempts) == 3
+    assert sleep_calls == [1, 2]
+
+
+def test_send_email_message_raises_after_exhausted_connection_retries(monkeypatch):
+    attempts = []
+    sleep_calls = []
+
+    class FailingSMTP:
+        def __init__(self, _server, _port, **_kwargs):
+            attempts.append(1)
+            raise OSError("Try again")
+
+    monkeypatch.setattr(email_service, "SMTP", FailingSMTP)
+    monkeypatch.setattr(email_service.time, "sleep", sleep_calls.append)
+
+    msg = EmailMessage()
+    msg["Subject"] = "Test"
+    msg["From"] = "from@example.com"
+    msg["To"] = "to@example.com"
+    msg.set_content("Hej")
+
+    settings = email_service.SMTPSettings(
+        server="smtp.example.com",
+        port=587,
+        user="real.user@example.com",
+        password="x",
+        timeout=10,
+        from_address="from@example.com",
+    )
+
+    with pytest.raises(RuntimeError) as exc:
+        email_service.send_email_message(msg, "to@example.com", settings)
+
+    assert "ansluta till e-postservern" in str(exc.value)
+    assert len(attempts) == email_service.SMTP_CONNECT_MAX_ATTEMPTS
+    assert sleep_calls == [1, 2]

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import ssl
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email import policy
@@ -32,6 +33,7 @@ logger.setLevel(logging.INFO)
 load_environment()
 
 SUPPORT_EMAIL = "support@utbildningsintyg.se"
+SMTP_CONNECT_MAX_ATTEMPTS = 3
 
 
 @dataclass(frozen=True)
@@ -152,7 +154,7 @@ def send_email_message(
             settings.timeout,
         )
 
-        with open_smtp_connection(settings, context) as smtp:
+        with _open_smtp_connection_with_retries(settings, context) as smtp:
             _send_using_connection(smtp, use_ssl)
 
         logger.debug(
@@ -187,6 +189,34 @@ def open_smtp_connection(settings: SMTPSettings, context: ssl.SSLContext) -> SMT
         )
 
     return SMTP(settings.server, settings.port, timeout=settings.timeout)
+
+
+def _open_smtp_connection_with_retries(
+    settings: SMTPSettings, context: ssl.SSLContext
+) -> SMTP:
+    """Retry transient SMTP connection setup failures a few times."""
+
+    max_attempts = max(SMTP_CONNECT_MAX_ATTEMPTS, 1)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return open_smtp_connection(settings, context)
+        except OSError:
+            if attempt == max_attempts:
+                raise
+
+            wait_seconds = attempt
+            logger.warning(
+                "SMTP-anslutning till %s:%s misslyckades. "
+                "Försöker igen om %s sekund(er) (%s/%s).",
+                settings.server,
+                settings.port,
+                wait_seconds,
+                attempt,
+                max_attempts,
+            )
+            time.sleep(wait_seconds)
+
+    raise RuntimeError("SMTP-anslutning kunde inte initieras.")
 
 
 def should_disable_email_sending() -> bool:
