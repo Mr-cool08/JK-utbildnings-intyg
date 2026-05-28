@@ -139,6 +139,8 @@ Uppdateringssekvens:
 python scripts/update_app.py
 ```
 
+På Linux-servrar där `crontab` finns installerat säkerställer skriptet också att månadsjobbet för `expiry_reminder` finns inlagt en gång, utan dubbletter.
+
 ## Vid publik Cloudflare-drift
 
 Se även:

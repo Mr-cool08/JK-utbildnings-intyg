@@ -8,6 +8,7 @@ def _patch_main_runtime(
     monkeypatch,
     calls,
     venv_bin="X",
+    cron_marker=None,
 ):
     def fake_run(cmd, check=True, **kwargs):
         calls.append((list(cmd), kwargs.get("cwd")))
@@ -17,6 +18,14 @@ def _patch_main_runtime(
     monkeypatch.setattr(ua, "_build_venv_command", lambda root, a, b: [venv_bin])
     monkeypatch.setattr(ua, "_find_requirements", lambda root: [])
     monkeypatch.setattr(ua, "_run_os_upgrade_if_enabled", lambda: None)
+    if cron_marker is None:
+        monkeypatch.setattr(ua, "_ensure_expiry_reminder_cron", lambda root: None)
+    else:
+        monkeypatch.setattr(
+            ua,
+            "_ensure_expiry_reminder_cron",
+            lambda root: calls.append(([cron_marker], root)),
+        )
     monkeypatch.setattr(
         subprocess,
         "Popen",
@@ -102,3 +111,60 @@ def test_main_runs_compose_up_without_scale_flags(monkeypatch):
         calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
     )
     assert "--scale" not in up_command
+
+
+def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
+    installed_crontabs = []
+
+    def fake_run(cmd, check=False, **kwargs):
+        if list(cmd) == ["crontab", "-l"]:
+            return subprocess.CompletedProcess(cmd, 1, "", "no crontab for user")
+        if list(cmd) == ["crontab", "-"]:
+            installed_crontabs.append(kwargs["input"])
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        raise AssertionError(f"Oväntat kommando: {cmd}")
+
+    monkeypatch.setattr(ua.os, "name", "posix")
+    monkeypatch.setattr(ua, "_command_exists", lambda command: command == "crontab")
+    monkeypatch.setattr(ua.subprocess, "run", fake_run)
+
+    ua._ensure_expiry_reminder_cron(Path("/srv/jk utbildningsintyg"))
+
+    assert len(installed_crontabs) == 1
+    assert (
+        "0 7 1 * * cd '/srv/jk utbildningsintyg' && docker compose "
+        "-f docker-compose.yml run --rm expiry_reminder"
+    ) in installed_crontabs[0]
+    assert installed_crontabs[0].count(ua.EXPIRY_REMINDER_CRON_MARKER) == 1
+
+
+def test_ensure_expiry_reminder_cron_does_not_add_duplicate_entry(monkeypatch):
+    existing_cron = (
+        ua._build_expiry_reminder_cron_line(Path("/srv/jk-utbildnings-intyg")) + "\n"
+    )
+
+    def fake_run(cmd, check=False, **kwargs):
+        if list(cmd) == ["crontab", "-l"]:
+            return subprocess.CompletedProcess(cmd, 0, existing_cron, "")
+        if list(cmd) == ["crontab", "-"]:
+            raise AssertionError("Cron ska inte installeras en gång till.")
+        raise AssertionError(f"Oväntat kommando: {cmd}")
+
+    monkeypatch.setattr(ua.os, "name", "posix")
+    monkeypatch.setattr(ua, "_command_exists", lambda command: command == "crontab")
+    monkeypatch.setattr(ua.subprocess, "run", fake_run)
+
+    ua._ensure_expiry_reminder_cron(Path("/srv/jk-utbildnings-intyg"))
+
+
+def test_main_ensures_expiry_reminder_cron_after_compose_up(monkeypatch):
+    calls = []
+    _patch_main_runtime(monkeypatch, calls, venv_bin="Y", cron_marker="cron-ensure")
+
+    ua.main()
+
+    up_index = _index_of_command(
+        calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
+    )
+    cron_index = _index_of_command(calls, ["cron-ensure"])
+    assert cron_index == up_index + 1

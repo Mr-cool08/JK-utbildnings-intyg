@@ -127,5 +127,6 @@ python scripts/update_app.py
 ```
 
 Observera att `update_app.py` och `manage_compose.py` utgår från `docker-compose.yml`.
+På Linux-servrar där `crontab` finns installerat lägger `update_app.py` också in cron-raden för `expiry_reminder` om den saknas.
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

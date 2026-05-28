@@ -28,12 +28,17 @@ underlying exceptions such as ``subprocess.CalledProcessError`` and
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
+
+COMPOSE_FILE = "docker-compose.yml"
+EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
+EXPIRY_REMINDER_CRON_MARKER = "# jk-utbildnings-intyg expiry_reminder"
 
 
 # --- helpers ----------------------------------------------------------------
@@ -103,6 +108,65 @@ def _command_exists(command: str) -> bool:
     return shutil.which(command) is not None
 
 
+def _build_expiry_reminder_cron_line(root: Path) -> str:
+    project_root = shlex.quote(root.as_posix())
+    return (
+        f"{EXPIRY_REMINDER_CRON_SCHEDULE} cd {project_root} && docker compose "
+        f"-f {COMPOSE_FILE} run --rm expiry_reminder "
+        f"{EXPIRY_REMINDER_CRON_MARKER}"
+    )
+
+
+def _ensure_expiry_reminder_cron(root: Path) -> None:
+    if os.name == "nt":
+        print("Hoppar över cron för utgångspåminnelser: cron stöds inte på Windows.")
+        return
+
+    if not _command_exists("crontab"):
+        print(
+            "Hoppar över cron för utgångspåminnelser: crontab finns inte installerat."
+        )
+        return
+
+    result = subprocess.run(
+        ["crontab", "-l"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        current_crontab = result.stdout
+    elif result.returncode == 1 and not result.stdout.strip():
+        current_crontab = ""
+    else:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            result.args,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+
+    cron_line = _build_expiry_reminder_cron_line(root)
+    existing_lines = current_crontab.splitlines()
+    if any(
+        EXPIRY_REMINDER_CRON_MARKER in line or line.strip() == cron_line
+        for line in existing_lines
+    ):
+        print("Cron för utgångspåminnelser finns redan.")
+        return
+
+    updated_lines = [*existing_lines, cron_line]
+    updated_crontab = "\n".join(updated_lines).rstrip("\n") + "\n"
+    subprocess.run(
+        ["crontab", "-"],
+        check=True,
+        input=updated_crontab,
+        text=True,
+    )
+    print("Lade till cron för utgångspåminnelser.")
+
+
 def _os_upgrade_enabled() -> bool:
     raw = os.getenv("ENABLE_OS_UPGRADE") or os.getenv("CHECK_OS_UPDATES")
     if not raw:
@@ -157,8 +221,7 @@ def main() -> None:
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 
     def compose(*args: str) -> list[str]:
-        file = "docker-compose.yml"
-        return ["docker", "compose", "-f", file, *args]
+        return ["docker", "compose", "-f", COMPOSE_FILE, *args]
 
 
     # 1. container status
@@ -200,6 +263,7 @@ def main() -> None:
     # 9. rebuild & up without cache
     _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
     _run(compose("up", "-d"), cwd=root, env=compose_env)
+    _ensure_expiry_reminder_cron(root)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
