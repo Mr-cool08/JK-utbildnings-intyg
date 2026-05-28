@@ -4,6 +4,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import OperationalError
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -179,6 +180,8 @@ def test_create_database_retries_on_operational_error(monkeypatch):
     monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 

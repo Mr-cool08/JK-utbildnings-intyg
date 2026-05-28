@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, insert, inspect as sqlalchemy_inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import functions
@@ -97,6 +98,8 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     created_tables = []
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 
@@ -152,12 +155,67 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     assert any("ADD COLUMN note" in sql for sql in executed_sql)
     assert any("ADD COLUMN expires_on" in sql for sql in executed_sql)
     assert any("ADD COLUMN last_expiry_reminder_month" in sql for sql in executed_sql)
-    assert any("ADD COLUMN last_expiry_reminder_sent_at" in sql for sql in executed_sql)
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME"
+        in executed_sql
+    )
     assert set(created_tables) == {
         "password_resets",
         "supervisor_password_resets",
         "admin_audit_log",
     }
+
+
+def test_create_database_uses_postgres_timestamp_type_for_missing_sent_at(monkeypatch):
+    executed_sql = []
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, *_args, **_kwargs):
+            executed_sql.append(str(statement))
+            return None
+
+    class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "postgresql")
+
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module.metadata, "create_all", lambda _engine: None)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [
+                {"name": "categories"},
+                {"name": "note"},
+                {"name": "expires_on"},
+                {"name": "last_expiry_reminder_month"},
+            ],
+            get_table_names=lambda: [
+                functions.user_pdfs_table.name,
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
+
+    database_module.create_database()
+
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at "
+        "TIMESTAMP WITH TIME ZONE"
+    ) in executed_sql
 
 
 def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path):
@@ -174,6 +232,8 @@ def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path)
     monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 
@@ -669,6 +729,35 @@ def test_migration_0013_keeps_existing_certificates_without_sent_timestamp():
 
     assert row is not None
     assert row.last_expiry_reminder_sent_at is None
+
+
+def test_migration_0013_uses_postgres_timestamp_with_time_zone(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [{"name": "id"}, {"name": "expires_on"}]
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at "
+        "TIMESTAMP WITH TIME ZONE"
+    ) in executed_sql_texts
 
 
 def test_build_runtime_table_rejects_invalid_identifier():

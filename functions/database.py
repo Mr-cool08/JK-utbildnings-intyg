@@ -453,6 +453,11 @@ def _quote_sql_identifier(conn: Connection, value: str, label: str) -> str:
     return conn.dialect.identifier_preparer.quote(validated_value)
 
 
+def _compile_sql_type(conn: Connection, sqlalchemy_type: Any) -> str:
+    # Use the active SQLAlchemy dialect so raw ALTER TABLE statements get valid type names.
+    return str(sqlalchemy_type.compile(dialect=conn.dialect))
+
+
 def _build_runtime_table(
     table_name: str,
     columns: list[str],
@@ -955,7 +960,13 @@ def _migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn: Connection) 
     columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
     if "last_expiry_reminder_sent_at" in columns:
         return
-    conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME"))
+    datetime_type = _compile_sql_type(conn, DateTime(timezone=True))
+    conn.execute(
+        text(
+            "ALTER TABLE user_pdfs "
+            f"ADD COLUMN last_expiry_reminder_sent_at {datetime_type}"
+        )
+    )
 
 
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
@@ -1231,8 +1242,12 @@ def create_database() -> None:
                 text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_month TEXT")
             )
         if "last_expiry_reminder_sent_at" not in columns:
+            datetime_type = _compile_sql_type(conn, DateTime(timezone=True))
             conn.execute(
-                text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME")
+                text(
+                    "ALTER TABLE user_pdfs "
+                    f"ADD COLUMN last_expiry_reminder_sent_at {datetime_type}"
+                )
             )
         existing_tables = set(inspector.get_table_names())
         for table in (
