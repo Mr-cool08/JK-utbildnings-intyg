@@ -170,6 +170,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
+      - public_net
       - db_net
     restart: "no"
     mem_limit: 256m

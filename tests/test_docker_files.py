@@ -151,7 +151,7 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
     assert "gunicorn" not in expiry_service
     assert "entrypoint.sh" not in expiry_service
     assert "      - db_net" in expiry_service
-    assert "      - public_net" not in expiry_service
+    assert "      - public_net" in expiry_service
 
 
 def test_gitattributes_forces_lf_for_shell_scripts():
