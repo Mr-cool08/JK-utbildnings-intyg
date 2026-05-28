@@ -163,7 +163,7 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
 
     monkeypatch.setattr(ua, "_run", fake_run)
 
-    command = ua._build_compose_up_command(tmp_path, {"POSTGRES_PUBLIC_PORT": "15432"})
+    command = ua._build_compose_up_command(tmp_path, {"POSTGRES_PUBLIC_PORT": "1543"})
 
     assert command == [
         "docker",

@@ -90,7 +90,7 @@ def _compose_command(*args: str) -> list[str]:
     return ["docker", "compose", "-f", COMPOSE_FILE, *args]
 
 
-def _get_valid_postgres_public_port(default: str = "15432") -> str:
+def _get_valid_postgres_public_port(default: str = "1543") -> str:
     """Return a valid host port for the postgres compose mapping."""
 
     raw = os.getenv("POSTGRES_PUBLIC_PORT")
