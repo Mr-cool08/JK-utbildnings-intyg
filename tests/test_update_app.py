@@ -239,10 +239,7 @@ def test_ensure_expiry_reminder_cron_reads_schedule_from_project_env(
     ua._ensure_expiry_reminder_cron(tmp_path)
 
     assert len(installed_crontabs) == 1
-    assert (
-        f"30 6 * * * cd '{tmp_path.as_posix()}' && docker compose "
-        "-f docker-compose.yml run --rm expiry_reminder"
-    ) in installed_crontabs[0]
+    assert ua._build_expiry_reminder_cron_line(tmp_path) in installed_crontabs[0]
 
 
 def test_ensure_expiry_reminder_cron_does_not_add_duplicate_entry(monkeypatch):
