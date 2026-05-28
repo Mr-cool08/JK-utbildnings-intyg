@@ -108,12 +108,17 @@ def register_standard_account(
                 "handled_by_supervisor_email": None,
                 "handled_at": None,
             }
+            organization_request_insert_values = {
+                **organization_request_identity,
+                **organization_request_updates,
+                "created_at": func.now(),
+                "updated_at": func.now(),
+            }
             try:
                 with conn.begin_nested():
                     conn.execute(
                         insert(organization_link_requests_table).values(
-                            **organization_request_identity,
-                            **organization_request_updates,
+                            **organization_request_insert_values
                         )
                     )
             except IntegrityError:

@@ -593,6 +593,71 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
     ) in executed_sql_texts
 
 
+def test_migration_0014_postgres_repairs_org_request_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            sql = str(statement)
+            self.executed_sql.append((sql, parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.organization_link_requests_table.name],
+            get_columns=lambda _table_name: [
+                {"name": "status"},
+                {"name": "created_at"},
+                {"name": "updated_at"},
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0014_fix_organization_link_request_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE organization_link_requests SET status = 'pending' "
+        "WHERE status IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE organization_link_requests "
+        "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE organization_link_requests "
+        "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+        "WHERE updated_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN status SET DEFAULT 'pending'"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests "
+        "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests "
+        "ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN status SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN updated_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
 def test_migration_0011_keeps_existing_certificates_non_expiring():
     engine = create_engine("sqlite:///:memory:", future=True)
 

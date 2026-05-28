@@ -217,7 +217,7 @@ def test_list_pending_organization_link_requests_reports_account_statuses(empty_
     )
 
 
-def test_register_standard_account_sets_pending_status_without_db_default(empty_db):
+def test_register_standard_account_sets_org_request_fields_without_db_defaults(empty_db):
     normalized_orgnr = functions.validate_orgnr("556966-8337")
 
     with empty_db.begin() as conn:
@@ -233,8 +233,8 @@ def test_register_standard_account_sets_pending_status_without_db_default(empty_
                     user_email TEXT NOT NULL,
                     status TEXT NOT NULL,
                     handled_by_supervisor_email TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
                     handled_at DATETIME,
                     CONSTRAINT uq_organization_link_requests_pair
                         UNIQUE (orgnr_normalized, user_personnummer)
@@ -261,6 +261,8 @@ def test_register_standard_account_sets_pending_status_without_db_default(empty_
     assert request_row is not None
     assert request_row.status == "pending"
     assert request_row.user_email == "status.person@example.com"
+    assert request_row.created_at is not None
+    assert request_row.updated_at is not None
 
 
 def test_register_standard_account_recovers_after_duplicate_org_request(

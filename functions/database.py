@@ -969,6 +969,118 @@ def _migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn: Connection) 
     )
 
 
+def _migration_0014_fix_organization_link_request_defaults(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if organization_link_requests_table.name not in existing_tables:
+        return
+
+    columns = {
+        column["name"] for column in inspector.get_columns(organization_link_requests_table.name)
+    }
+    required_columns = {"status", "created_at", "updated_at"}
+    if not required_columns.issubset(columns):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET status = 'pending' "
+                "WHERE status IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+                "WHERE created_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, organization_link_requests_table.name, "tabellnamn"
+        )
+        quoted_status = _quote_sql_identifier(conn, "status", "kolumnnamn")
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+        quoted_updated_at = _quote_sql_identifier(conn, "updated_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_status} = 'pending' "
+                f"WHERE {quoted_status} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = COALESCE("
+                f"{quoted_created_at}, {quoted_updated_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_updated_at} = COALESCE("
+                f"{quoted_updated_at}, {quoted_created_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_updated_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_status} SET DEFAULT 'pending'"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_status} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stÃ¶der inte dialekten '{dialect}'. LÃ¤gg till hantering eller kÃ¶r via Alembic."
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -988,6 +1100,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0013_add_user_pdf_last_expiry_reminder_sent_at",
         _migration_0013_add_user_pdf_last_expiry_reminder_sent_at,
+    ),
+    (
+        "0014_fix_organization_link_request_defaults",
+        _migration_0014_fix_organization_link_request_defaults,
     ),
 ]
 
