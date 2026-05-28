@@ -921,6 +921,92 @@ def test_migration_0013_uses_postgres_timestamp_with_time_zone(monkeypatch):
     ) in executed_sql_texts
 
 
+def test_migration_0015_backfills_sqlite_uploaded_at():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE user_pdfs (
+                    id INTEGER PRIMARY KEY,
+                    personnummer TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    content BLOB NOT NULL,
+                    categories TEXT DEFAULT '' NOT NULL,
+                    uploaded_at DATETIME,
+                    note TEXT DEFAULT '' NOT NULL,
+                    expires_on DATE,
+                    last_expiry_reminder_month TEXT,
+                    last_expiry_reminder_sent_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO user_pdfs (
+                    personnummer,
+                    filename,
+                    content,
+                    categories,
+                    uploaded_at,
+                    note
+                ) VALUES (
+                    'hash',
+                    'existing.pdf',
+                    x'25504446',
+                    'truck',
+                    NULL,
+                    ''
+                )
+                """
+            )
+        )
+
+        database_module._migration_0015_fix_user_pdf_uploaded_at_defaults(conn)
+
+        row = conn.execute(text("SELECT uploaded_at FROM user_pdfs")).first()
+
+    assert row is not None
+    assert row.uploaded_at is not None
+
+
+def test_migration_0015_fixes_postgres_uploaded_at_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.user_pdfs_table.name],
+            get_columns=lambda _table_name: [{"name": "uploaded_at"}],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0015_fix_user_pdf_uploaded_at_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE user_pdfs SET uploaded_at = CURRENT_TIMESTAMP "
+        "WHERE uploaded_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE user_pdfs ALTER COLUMN uploaded_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert "ALTER TABLE user_pdfs ALTER COLUMN uploaded_at SET NOT NULL" in executed_sql_texts
+
+
 def test_build_runtime_table_rejects_invalid_identifier():
     with pytest.raises(ValueError, match="Ogiltig SQL-identifierare"):
         database_module._build_runtime_table("users;DROP TABLE users", ["orgnr_normalized"])

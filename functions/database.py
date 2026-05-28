@@ -1081,6 +1081,57 @@ def _migration_0014_fix_organization_link_request_defaults(conn: Connection) -> 
     )
 
 
+def _migration_0015_fix_user_pdf_uploaded_at_defaults(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if user_pdfs_table.name not in existing_tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns(user_pdfs_table.name)}
+    if "uploaded_at" not in columns:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE user_pdfs "
+                "SET uploaded_at = CURRENT_TIMESTAMP "
+                "WHERE uploaded_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(conn, user_pdfs_table.name, "tabellnamn")
+        quoted_uploaded_at = _quote_sql_identifier(conn, "uploaded_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_uploaded_at} = CURRENT_TIMESTAMP "
+                f"WHERE {quoted_uploaded_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_uploaded_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_uploaded_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stÃƒÂ¶der inte dialekten '{dialect}'. LÃƒÂ¤gg till hantering eller kÃƒÂ¶r via Alembic."
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1104,6 +1155,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0014_fix_organization_link_request_defaults",
         _migration_0014_fix_organization_link_request_defaults,
+    ),
+    (
+        "0015_fix_user_pdf_uploaded_at_defaults",
+        _migration_0015_fix_user_pdf_uploaded_at_defaults,
     ),
 ]
 

@@ -7,6 +7,7 @@ from datetime import date, datetime
 from types import SimpleNamespace
 
 from sqlalchemy import select
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import OperationalError
 
 import functions
@@ -186,3 +187,31 @@ def test_count_user_pdfs_counts_only_matching_owner(empty_db):
     assert functions.count_user_pdfs(primary_hash) == 2
     assert functions.count_user_pdfs(other_hash) == 1
     assert functions.count_user_pdfs("invalid-hash") == 0
+
+
+def test_store_pdf_blob_sets_uploaded_at_in_insert(monkeypatch):
+    pnr_hash = _personnummer_hash("9001011234")
+    captured = {}
+
+    class _FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement):
+            compiled = statement.compile(dialect=sqlite.dialect())
+            captured["sql"] = str(compiled)
+            return SimpleNamespace(inserted_primary_key=[11])
+
+    class _FakeEngine:
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(functions.pdf_storage, "get_engine", lambda: _FakeEngine())
+
+    pdf_id = functions.store_pdf_blob(pnr_hash, "timed.pdf", b"%PDF-1.4 timed", [])
+
+    assert pdf_id == 11
+    assert "uploaded_at" in captured["sql"]
