@@ -980,7 +980,7 @@ def run_migrations(engine: Engine) -> None:
             if version in applied_versions:
                 continue
             migration_fn(conn)
-            conn.execute(insert(schema_migrations_table).values(version=version))
+            conn.execute(insert(schema_migrations_table).values(version=version, applied_at=func.now()))
 
 
 _ENGINE: Optional[Engine] = None
