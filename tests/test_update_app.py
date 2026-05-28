@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 
@@ -9,9 +10,29 @@ def _patch_main_runtime(
     calls,
     venv_bin="X",
     cron_marker=None,
+    compose_services=None,
 ):
+    if compose_services is None:
+        compose_services = (
+            "traefik",
+            "app",
+            "expiry_reminder",
+            "postgres",
+        )
+
     def fake_run(cmd, check=True, **kwargs):
         calls.append((list(cmd), kwargs.get("cwd")))
+        if list(cmd) == [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yml",
+            "config",
+            "--format",
+            "json",
+        ]:
+            services = {service_name: {} for service_name in compose_services}
+            return subprocess.CompletedProcess(cmd, 0, json.dumps({"services": services}), "")
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(ua, "_run", fake_run)
@@ -113,6 +134,50 @@ def test_main_runs_compose_up_without_scale_flags(monkeypatch):
     assert "--scale" not in up_command
 
 
+def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path):
+    def fake_run(cmd, check=True, **kwargs):
+        assert list(cmd) == [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yml",
+            "config",
+            "--format",
+            "json",
+        ]
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            json.dumps(
+                {
+                    "services": {
+                        "traefik": {},
+                        "app": {},
+                        "expiry_reminder": {},
+                        "postgres": {},
+                    }
+                }
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(ua, "_run", fake_run)
+
+    command = ua._build_compose_up_command(tmp_path, {"POSTGRES_PUBLIC_PORT": "15432"})
+
+    assert command == [
+        "docker",
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "up",
+        "-d",
+        "traefik",
+        "app",
+        "postgres",
+    ]
+
+
 def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
     installed_crontabs = []
 
@@ -164,7 +229,18 @@ def test_main_ensures_expiry_reminder_cron_after_compose_up(monkeypatch):
     ua.main()
 
     up_index = _index_of_command(
-        calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
+        calls,
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yml",
+            "up",
+            "-d",
+            "traefik",
+            "app",
+            "postgres",
+        ],
     )
     cron_index = _index_of_command(calls, ["cron-ensure"])
     assert cron_index == up_index + 1

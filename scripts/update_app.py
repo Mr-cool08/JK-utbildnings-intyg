@@ -27,6 +27,7 @@ underlying exceptions such as ``subprocess.CalledProcessError`` and
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import shutil
@@ -37,6 +38,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 COMPOSE_FILE = "docker-compose.yml"
+COMPOSE_UP_EXCLUDED_SERVICES = frozenset({"expiry_reminder"})
 EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
 EXPIRY_REMINDER_CRON_MARKER = "# jk-utbildnings-intyg expiry_reminder"
 
@@ -73,11 +75,17 @@ def _find_requirements(root: Path) -> List[Path]:
     return sorted(reqs)
 
 
-def _run(cmd: Iterable[str], **kwargs) -> None:
+def _run(cmd: Iterable[str], **kwargs) -> subprocess.CompletedProcess:
     """Run a command and raise on failure."""
 
     print("$", " ".join(cmd))
-    subprocess.run(list(cmd), check=True, **kwargs)
+    return subprocess.run(list(cmd), check=True, **kwargs)
+
+
+def _compose_command(*args: str) -> list[str]:
+    """Build a docker compose command for the main compose file."""
+
+    return ["docker", "compose", "-f", COMPOSE_FILE, *args]
 
 
 def _get_valid_postgres_public_port(default: str = "15432") -> str:
@@ -106,6 +114,33 @@ def _get_valid_postgres_public_port(default: str = "15432") -> str:
 
 def _command_exists(command: str) -> bool:
     return shutil.which(command) is not None
+
+
+def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[str]:
+    """Build a compose up command that excludes one-shot reminder services."""
+
+    result = _run(
+        _compose_command("config", "--format", "json"),
+        cwd=root,
+        env=compose_env,
+        capture_output=True,
+        text=True,
+    )
+    output = (result.stdout or "").strip()
+    if not output:
+        raise RuntimeError("Kunde inte lasa docker compose-konfigurationen.")
+
+    config = json.loads(output)
+    services = list((config.get("services") or {}).keys())
+    filtered_services = [
+        service
+        for service in services
+        if service not in COMPOSE_UP_EXCLUDED_SERVICES
+    ]
+    if not filtered_services:
+        raise RuntimeError("Inga docker compose-tjanster kunde startas.")
+
+    return _compose_command("up", "-d", *filtered_services)
 
 
 def _build_expiry_reminder_cron_line(root: Path) -> str:
@@ -220,12 +255,9 @@ def main() -> None:
     compose_env = os.environ.copy()
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 
-    def compose(*args: str) -> list[str]:
-        return ["docker", "compose", "-f", COMPOSE_FILE, *args]
-
 
     # 1. container status
-    _run(compose("ps", "--all"), cwd=root, env=compose_env)
+    _run(_compose_command("ps", "--all"), cwd=root, env=compose_env)
 
 
     # 3. wait and optionally update OS packages
@@ -255,14 +287,14 @@ def main() -> None:
     _run([*pytest_cmd], cwd=root)
 
     # 8. stop containers
-    _run(compose("stop"), cwd=root, env=compose_env)
+    _run(_compose_command("stop"), cwd=root, env=compose_env)
 
     # 8.5 pull images
-    _run(compose("pull"), cwd=root, env=compose_env)
+    _run(_compose_command("pull"), cwd=root, env=compose_env)
 
     # 9. rebuild & up without cache
-    _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
-    _run(compose("up", "-d"), cwd=root, env=compose_env)
+    _run(_compose_command("build", "--no-cache"), cwd=root, env=compose_env)
+    _run(_build_compose_up_command(root, compose_env), cwd=root, env=compose_env)
     _ensure_expiry_reminder_cron(root)
 
     # 13. show stats for 60 seconds

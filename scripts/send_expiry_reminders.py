@@ -14,7 +14,7 @@ from course_categories import labels_for_slugs
 from functions import company_users_table, companies_table, supervisor_connections_table
 from functions import create_database, get_engine, user_pdfs_table, users_table
 from functions.emails import service as email_service
-from functions.hashing import _is_valid_hash, email_lookup_values, normalize_email
+from functions.hashing import _is_valid_hash, email_lookup_values
 from functions.logging import bootstrap_logging, mask_email_reference, mask_hash
 
 
@@ -36,6 +36,13 @@ class ReminderJobResult:
     @property
     def had_failures(self) -> bool:
         return self.failed_emails > 0
+
+
+@dataclass(frozen=True)
+class InvalidEmailReference:
+    recipient_type: str
+    email_reference: str
+    reason: str
 
 
 def _add_months_to_date(base_date: date, months: int) -> date:
@@ -87,9 +94,24 @@ def _normalize_delivery_email(email_reference: str | None) -> str | None:
     if not normalized_reference or _is_valid_hash(normalized_reference):
         return None
     try:
-        return normalize_email(normalized_reference)
+        return email_service.normalize_valid_email(normalized_reference)
     except ValueError:
         return None
+
+
+def _get_invalid_email_reason(email_reference: str | None) -> str | None:
+    if not email_reference:
+        return None
+
+    normalized_reference = email_reference.strip().lower()
+    if not normalized_reference or _is_valid_hash(normalized_reference):
+        return None
+
+    try:
+        email_service.normalize_valid_email(normalized_reference)
+    except ValueError as exc:
+        return str(exc)
+    return None
 
 
 def _iter_email_reference_values(email_reference: str | None) -> tuple[str, ...]:
@@ -100,7 +122,59 @@ def _iter_email_reference_values(email_reference: str | None) -> tuple[str, ...]
         return tuple()
     if _is_valid_hash(normalized_reference):
         return (normalized_reference,)
-    return email_lookup_values(normalized_reference)
+    try:
+        normalized_email = email_service.normalize_valid_email(normalized_reference)
+    except ValueError:
+        return tuple()
+    return email_lookup_values(normalized_email)
+
+
+def _record_invalid_email_reference(
+    invalid_references: dict[tuple[str, str], InvalidEmailReference],
+    recipient_type: str,
+    email_reference: str | None,
+) -> None:
+    reason = _get_invalid_email_reason(email_reference)
+    if not reason or not email_reference:
+        return
+
+    normalized_reference = email_reference.strip().lower()
+    invalid_references[(recipient_type, normalized_reference)] = InvalidEmailReference(
+        recipient_type=recipient_type,
+        email_reference=normalized_reference,
+        reason=reason,
+    )
+
+
+def _log_invalid_email_references(
+    invalid_references: dict[tuple[str, str], InvalidEmailReference],
+) -> None:
+    if not invalid_references:
+        return
+
+    recipient_labels = {
+        "private": "privatkonto",
+        "supervisor": "företagskonto",
+    }
+    summary_lines = []
+    for invalid_reference in sorted(
+        invalid_references.values(),
+        key=lambda item: (item.recipient_type, item.email_reference),
+    ):
+        recipient_label = recipient_labels.get(
+            invalid_reference.recipient_type,
+            invalid_reference.recipient_type,
+        )
+        summary_lines.append(
+            f"- {recipient_label}: "
+            f"{mask_email_reference(invalid_reference.email_reference)} "
+            f"({invalid_reference.reason})"
+        )
+
+    logger.error(
+        "Ogiltiga e-postadresser upptäcktes i utgångspåminnelsejobbet:\n%s",
+        "\n".join(summary_lines),
+    )
 
 
 def _fetch_expiring_certificate_rows(today: date, cutoff_date: date) -> tuple[list, int]:
@@ -308,6 +382,7 @@ def run_expiry_reminder_job(
     supervisor_batches: dict[str, dict[str, object]] = {}
     unresolved_private_tokens: set[str] = set()
     unresolved_supervisor_tokens: set[str] = set()
+    invalid_email_references: dict[tuple[str, str], InvalidEmailReference] = {}
 
     for row in expiring_rows:
         certificate_summary = {
@@ -331,6 +406,11 @@ def run_expiry_reminder_job(
             batch["certificates"].append(certificate_summary)
         else:
             unresolved_private_tokens.add(private_token)
+            _record_invalid_email_reference(
+                invalid_email_references,
+                "private",
+                row.email,
+            )
 
         for supervisor_reference in sorted(connections_by_owner.get(row.personnummer, set())):
             supervisor_token = f"supervisor:{supervisor_reference}"
@@ -341,6 +421,15 @@ def run_expiry_reminder_job(
             )
             if not company_recipient or not company_recipient["resolved_email"]:
                 unresolved_supervisor_tokens.add(supervisor_token)
+                _record_invalid_email_reference(
+                    invalid_email_references,
+                    "supervisor",
+                    (
+                        company_recipient["email_reference"]
+                        if company_recipient
+                        else supervisor_reference
+                    ),
+                )
                 continue
 
             batch = supervisor_batches.setdefault(
@@ -375,6 +464,8 @@ def run_expiry_reminder_job(
             "Hoppade över företagskonto utan leveransbar e-post (%s)",
             mask_email_reference(supervisor_reference),
         )
+
+    _log_invalid_email_references(invalid_email_references)
 
     if not private_batches and not supervisor_batches:
         logger.info("Inga leveransbara mottagare hittades")
