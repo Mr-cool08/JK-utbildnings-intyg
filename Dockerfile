@@ -12,7 +12,8 @@ WORKDIR /app
 
 # Kopiera beroenden först (bättre cache)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir gunicorn
 
 # Kopiera projektet
