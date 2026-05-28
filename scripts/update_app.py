@@ -37,9 +37,11 @@ import time
 from pathlib import Path
 from typing import Iterable, List
 
+from dotenv import load_dotenv
+
 COMPOSE_FILE = "docker-compose.yml"
 COMPOSE_UP_EXCLUDED_SERVICES = frozenset({"expiry_reminder"})
-EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
+DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
 EXPIRY_REMINDER_CRON_MARKER = "# jk-utbildnings-intyg expiry_reminder"
 
 
@@ -143,16 +145,40 @@ def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[s
     return _compose_command("up", "-d", *filtered_services)
 
 
+def _load_project_environment(root: Path) -> None:
+    env_paths = ("/config/.env", os.path.join(str(root), ".env"))
+    for env_path in env_paths:
+        if os.path.isfile(env_path):
+            load_dotenv(env_path, override=False)
+
+
+def _get_expiry_reminder_cron_schedule() -> str:
+    schedule = (
+        os.getenv(
+            "CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE",
+            DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE,
+        ).strip()
+        or DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE
+    )
+    if len(schedule.split()) != 5:
+        raise ValueError(
+            "CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE måste vara ett cron-uttryck med fem fält."
+        )
+    return schedule
+
+
 def _build_expiry_reminder_cron_line(root: Path) -> str:
     project_root = shlex.quote(root.as_posix())
+    schedule = _get_expiry_reminder_cron_schedule()
     return (
-        f"{EXPIRY_REMINDER_CRON_SCHEDULE} cd {project_root} && docker compose "
+        f"{schedule} cd {project_root} && docker compose "
         f"-f {COMPOSE_FILE} run --rm expiry_reminder "
         f"{EXPIRY_REMINDER_CRON_MARKER}"
     )
 
 
 def _ensure_expiry_reminder_cron(root: Path) -> None:
+    _load_project_environment(root)
     if os.name == "nt":
         print("Hoppar över cron för utgångspåminnelser: cron stöds inte på Windows.")
         return
@@ -252,6 +278,7 @@ def _run_os_upgrade_if_enabled() -> None:
 # --- workflow ---------------------------------------------------------------
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
+    _load_project_environment(root)
     compose_env = os.environ.copy()
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 

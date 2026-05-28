@@ -91,6 +91,7 @@ user_pdfs_table = Table(
     Column("note", String, nullable=False, server_default=""),
     Column("expires_on", Date, nullable=True),
     Column("last_expiry_reminder_month", String, nullable=True),
+    Column("last_expiry_reminder_sent_at", DateTime(timezone=True), nullable=True),
     Column(
         "uploaded_at",
         DateTime(timezone=True),
@@ -948,6 +949,15 @@ def _migration_0012_add_user_pdf_last_expiry_reminder_month(conn: Connection) ->
     conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_month TEXT"))
 
 
+def _migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn: Connection) -> None:
+    # Lägg till tidsstämpel för senast lyckade utgångspåminnelse.
+    inspector = inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
+    if "last_expiry_reminder_sent_at" in columns:
+        return
+    conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME"))
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -963,6 +973,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0012_add_user_pdf_last_expiry_reminder_month",
         _migration_0012_add_user_pdf_last_expiry_reminder_month,
+    ),
+    (
+        "0013_add_user_pdf_last_expiry_reminder_sent_at",
+        _migration_0013_add_user_pdf_last_expiry_reminder_sent_at,
     ),
 ]
 
@@ -1215,6 +1229,10 @@ def create_database() -> None:
         if "last_expiry_reminder_month" not in columns:
             conn.execute(
                 text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_month TEXT")
+            )
+        if "last_expiry_reminder_sent_at" not in columns:
+            conn.execute(
+                text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME")
             )
         existing_tables = set(inspector.get_table_names())
         for table in (

@@ -178,6 +178,16 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
     ]
 
 
+def test_build_expiry_reminder_cron_line_uses_env_schedule(monkeypatch):
+    monkeypatch.setenv("CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE", "15 */6 * * *")
+
+    cron_line = ua._build_expiry_reminder_cron_line(Path("/srv/jk-utbildnings-intyg"))
+
+    assert cron_line.startswith(
+        "15 */6 * * * cd /srv/jk-utbildnings-intyg && docker compose "
+    )
+
+
 def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
     installed_crontabs = []
 
@@ -201,6 +211,38 @@ def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
         "-f docker-compose.yml run --rm expiry_reminder"
     ) in installed_crontabs[0]
     assert installed_crontabs[0].count(ua.EXPIRY_REMINDER_CRON_MARKER) == 1
+
+
+def test_ensure_expiry_reminder_cron_reads_schedule_from_project_env(
+    monkeypatch,
+    tmp_path,
+):
+    installed_crontabs = []
+    monkeypatch.delenv("CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE", raising=False)
+    (tmp_path / ".env").write_text(
+        "CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE=30 6 * * *\n",
+        encoding="utf-8",
+    )
+
+    def fake_run(cmd, check=False, **kwargs):
+        if list(cmd) == ["crontab", "-l"]:
+            return subprocess.CompletedProcess(cmd, 1, "", "no crontab for user")
+        if list(cmd) == ["crontab", "-"]:
+            installed_crontabs.append(kwargs["input"])
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        raise AssertionError(f"Oväntat kommando: {cmd}")
+
+    monkeypatch.setattr(ua.os, "name", "posix")
+    monkeypatch.setattr(ua, "_command_exists", lambda command: command == "crontab")
+    monkeypatch.setattr(ua.subprocess, "run", fake_run)
+
+    ua._ensure_expiry_reminder_cron(tmp_path)
+
+    assert len(installed_crontabs) == 1
+    assert (
+        f"30 6 * * * cd '{tmp_path.as_posix()}' && docker compose "
+        "-f docker-compose.yml run --rm expiry_reminder"
+    ) in installed_crontabs[0]
 
 
 def test_ensure_expiry_reminder_cron_does_not_add_duplicate_entry(monkeypatch):

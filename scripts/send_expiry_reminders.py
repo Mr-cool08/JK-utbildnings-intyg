@@ -4,7 +4,7 @@ from __future__ import annotations
 from calendar import monthrange
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 import os
 
@@ -16,7 +16,7 @@ from functions import company_users_table, companies_table, supervisor_connectio
 from functions import create_database, get_engine, user_pdfs_table, users_table
 from functions.emails import service as email_service
 from functions.hashing import _is_valid_hash, email_lookup_values
-from functions.logging import bootstrap_logging, mask_email_reference, mask_hash
+from functions.logging import bootstrap_logging, mask_email, mask_email_reference, mask_hash
 
 
 load_environment()
@@ -33,6 +33,7 @@ class ReminderJobResult:
     failed_emails: int
     unresolved_private_recipients: int
     unresolved_supervisor_recipients: int
+    skipped_duplicate_guard: int = 0
 
     @property
     def had_failures(self) -> bool:
@@ -81,6 +82,24 @@ def _get_reminder_months() -> int:
     if months <= 0:
         raise ValueError("CERTIFICATE_EXPIRY_REMINDER_MONTHS måste vara större än 0.")
     return months
+
+
+def _get_duplicate_guard_minutes() -> int:
+    raw_value = (
+        os.getenv("CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES", "60").strip()
+        or "60"
+    )
+    try:
+        minutes = int(raw_value)
+    except ValueError as exc:
+        raise ValueError(
+            "CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES måste vara ett heltal."
+        ) from exc
+    if minutes < 0:
+        raise ValueError(
+            "CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES får inte vara negativ."
+        )
+    return minutes
 
 
 def _deserialize_categories(raw_value: str | None) -> list[str]:
@@ -194,6 +213,25 @@ def _normalize_reference_key(value: str | None) -> str | None:
     return normalized or None
 
 
+def _iter_reference_lookup_keys(reference: str | None) -> tuple[str, ...]:
+    normalized_keys = []
+    seen: set[str] = set()
+    candidates = []
+
+    normalized_reference = _normalize_reference_key(reference)
+    if normalized_reference is not None:
+        candidates.append(normalized_reference)
+    candidates.extend(_iter_email_reference_values(reference))
+
+    for candidate in candidates:
+        normalized_candidate = _normalize_reference_key(candidate)
+        if normalized_candidate is None or normalized_candidate in seen:
+            continue
+        seen.add(normalized_candidate)
+        normalized_keys.append(normalized_candidate)
+    return tuple(normalized_keys)
+
+
 def _normalize_admin_recipients() -> list[str]:
     raw_value = os.getenv("ADMIN_EMAIL", "")
     recipients = []
@@ -206,7 +244,7 @@ def _normalize_admin_recipients() -> list[str]:
         except ValueError:
             logger.warning(
                 "ADMIN_EMAIL innehaller en ogiltig adress som hoppas over: %s",
-                normalized_candidate,
+                mask_email(normalized_candidate),
             )
     return recipients
 
@@ -238,10 +276,42 @@ def _format_certificate_rows_for_admin(rows: list) -> list[dict[str, str]]:
                 "last_expiry_reminder_month": _format_value_for_admin(
                     row.last_expiry_reminder_month
                 ),
+                "last_expiry_reminder_sent_at": _format_value_for_admin(
+                    row.last_expiry_reminder_sent_at
+                ),
                 "note": _format_value_for_admin(row.note),
             }
         )
     return formatted_rows
+
+
+def _normalize_reminder_timestamp(value: object | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _was_recently_reminded(
+    last_sent_at: object | None,
+    *,
+    now: datetime,
+    duplicate_guard_window: timedelta,
+) -> bool:
+    if duplicate_guard_window <= timedelta(0):
+        return False
+    normalized_timestamp = _normalize_reminder_timestamp(last_sent_at)
+    if normalized_timestamp is None:
+        return False
+    return normalized_timestamp > now - duplicate_guard_window
 
 
 def _build_private_issue_reason(email_reference: str | None) -> str:
@@ -405,6 +475,8 @@ def _render_admin_certificate_list(certificates: list[dict[str, str]]) -> str:
             f"<strong>Uppladdad:</strong> {escape(certificate['uploaded_at'])} | "
             f"<strong>last_expiry_reminder_month:</strong> "
             f"{escape(certificate['last_expiry_reminder_month'])} | "
+            f"<strong>last_expiry_reminder_sent_at:</strong> "
+            f"{escape(certificate['last_expiry_reminder_sent_at'])} | "
             f"<strong>Anteckning:</strong> {escape(certificate['note'])}"
             "</li>"
         )
@@ -562,7 +634,13 @@ def _send_admin_issue_report(
             )
 
 
-def _fetch_expiring_certificate_rows(today: date, cutoff_date: date) -> tuple[list, int]:
+def _fetch_expiring_certificate_rows(
+    today: date,
+    cutoff_date: date,
+    *,
+    now: datetime,
+    duplicate_guard_window: timedelta,
+) -> tuple[list, int, int]:
     current_month = _current_reminder_month(today)
     query = (
         select(
@@ -573,6 +651,7 @@ def _fetch_expiring_certificate_rows(today: date, cutoff_date: date) -> tuple[li
             user_pdfs_table.c.expires_on,
             user_pdfs_table.c.uploaded_at,
             user_pdfs_table.c.last_expiry_reminder_month,
+            user_pdfs_table.c.last_expiry_reminder_sent_at,
             user_pdfs_table.c.note,
             users_table.c.username,
             users_table.c.email,
@@ -600,12 +679,20 @@ def _fetch_expiring_certificate_rows(today: date, cutoff_date: date) -> tuple[li
 
     eligible_rows = []
     skipped_current_month = 0
+    skipped_duplicate_guard = 0
     for row in rows:
         if row.last_expiry_reminder_month == current_month:
             skipped_current_month += 1
             continue
+        if _was_recently_reminded(
+            row.last_expiry_reminder_sent_at,
+            now=now,
+            duplicate_guard_window=duplicate_guard_window,
+        ):
+            skipped_duplicate_guard += 1
+            continue
         eligible_rows.append(row)
-    return eligible_rows, skipped_current_month
+    return eligible_rows, skipped_current_month, skipped_duplicate_guard
 
 
 def _fetch_connection_rows(personnummer_hashes: set[str]) -> list:
@@ -625,10 +712,7 @@ def _fetch_company_rows(supervisor_references: set[str]) -> list:
 
     lookup_references: set[str] = set()
     for reference in supervisor_references:
-        normalized_reference = _normalize_reference_key(reference)
-        if normalized_reference:
-            lookup_references.add(normalized_reference)
-        lookup_references.update(_iter_email_reference_values(reference))
+        lookup_references.update(_iter_reference_lookup_keys(reference))
 
     if not lookup_references:
         return []
@@ -680,6 +764,33 @@ def _index_company_rows(company_rows: list) -> dict[str, dict[str, str | None]]:
     return indexed
 
 
+def _build_company_rows_by_reference(
+    supervisor_references: set[str],
+    company_rows: list,
+) -> dict[str, object]:
+    rows_by_reference = {
+        normalized_reference: row
+        for row in company_rows
+        for normalized_reference in _iter_reference_lookup_keys(row.email)
+        if normalized_reference is not None
+    }
+
+    for supervisor_reference in supervisor_references:
+        normalized_supervisor_reference = _normalize_reference_key(supervisor_reference)
+        if (
+            normalized_supervisor_reference is None
+            or normalized_supervisor_reference in rows_by_reference
+        ):
+            continue
+        for lookup_key in _iter_reference_lookup_keys(supervisor_reference):
+            company_row = rows_by_reference.get(lookup_key)
+            if company_row is None:
+                continue
+            rows_by_reference[normalized_supervisor_reference] = company_row
+            break
+    return rows_by_reference
+
+
 def _resolve_company_recipient(
     supervisor_reference: str,
     indexed_company_rows: dict[str, dict[str, str | None]],
@@ -723,7 +834,11 @@ def _sort_supervisor_user_groups(
     return sorted(user_groups, key=lambda entry: str(entry["user_name"]).casefold())
 
 
-def _update_last_reminder_month(pdf_ids: list[int], current_month: str) -> int:
+def _update_last_reminder_month(
+    pdf_ids: list[int],
+    current_month: str,
+    sent_at: datetime,
+) -> int:
     if not pdf_ids:
         return 0
 
@@ -735,7 +850,10 @@ def _update_last_reminder_month(pdf_ids: list[int], current_month: str) -> int:
             result = conn.execute(
                 update(user_pdfs_table)
                 .where(user_pdfs_table.c.id.in_(tuple(chunk)))
-                .values(last_expiry_reminder_month=current_month)
+                .values(
+                    last_expiry_reminder_month=current_month,
+                    last_expiry_reminder_sent_at=sent_at,
+                )
             )
             updated_count += int(result.rowcount or 0)
     return updated_count
@@ -745,6 +863,8 @@ def run_expiry_reminder_job(
     *,
     today: date | None = None,
     reminder_months: int | None = None,
+    duplicate_guard_minutes: int | None = None,
+    now: datetime | None = None,
 ) -> ReminderJobResult:
     if not _reminders_enabled():
         logger.info("Utgångspåminnelser är avstängda. Avslutar utan utskick.")
@@ -752,22 +872,39 @@ def run_expiry_reminder_job(
 
     today = today or date.today()
     reminder_months = reminder_months if reminder_months is not None else _get_reminder_months()
+    duplicate_guard_minutes = (
+        duplicate_guard_minutes
+        if duplicate_guard_minutes is not None
+        else _get_duplicate_guard_minutes()
+    )
+    now = now or datetime.now(timezone.utc)
+    duplicate_guard_window = timedelta(minutes=duplicate_guard_minutes)
     cutoff_date = _add_months_to_date(today, reminder_months)
     current_month = _current_reminder_month(today)
 
     logger.info("Startar kontroll av intyg som snart går ut")
 
-    expiring_rows, skipped_current_month = _fetch_expiring_certificate_rows(today, cutoff_date)
+    expiring_rows, skipped_current_month, skipped_duplicate_guard = _fetch_expiring_certificate_rows(
+        today,
+        cutoff_date,
+        now=now,
+        duplicate_guard_window=duplicate_guard_window,
+    )
     if skipped_current_month:
         logger.info(
             "Hoppade över intyg som redan påmints denna månad: %s",
             skipped_current_month,
         )
+    if skipped_duplicate_guard:
+        logger.info(
+            "Hoppade över intyg som påmints för nyligen enligt dublettskyddet: %s",
+            skipped_duplicate_guard,
+        )
 
     if not expiring_rows:
         logger.info("Inga intyg behöver påminnas")
         logger.info("Utgångspåminnelsejobb klart")
-        return ReminderJobResult(0, skipped_current_month, 0, 0, 0, 0, 0, 0)
+        return ReminderJobResult(0, skipped_current_month, 0, 0, 0, 0, 0, 0, skipped_duplicate_guard)
 
     owner_hashes = {row.personnummer for row in expiring_rows}
     expiring_rows_by_owner: dict[str, list] = defaultdict(list)
@@ -784,12 +921,10 @@ def run_expiry_reminder_job(
 
     company_rows = _fetch_company_rows(supervisor_references)
     indexed_company_rows = _index_company_rows(company_rows)
-    company_rows_by_reference = {
-        normalized_reference: row
-        for row in company_rows
-        for normalized_reference in [_normalize_reference_key(row.email)]
-        if normalized_reference is not None
-    }
+    company_rows_by_reference = _build_company_rows_by_reference(
+        supervisor_references,
+        company_rows,
+    )
 
     intended_tokens_by_pdf: dict[int, set[str]] = defaultdict(set)
     private_batches: dict[str, dict[str, object]] = {}
@@ -932,6 +1067,7 @@ def run_expiry_reminder_job(
             0,
             len(unresolved_private_tokens),
             len(unresolved_supervisor_tokens),
+            skipped_duplicate_guard,
         )
 
     success_tokens: set[str] = set()
@@ -1002,7 +1138,11 @@ def run_expiry_reminder_job(
         for pdf_id, intended_tokens in intended_tokens_by_pdf.items()
         if intended_tokens and intended_tokens.issubset(success_tokens)
     ]
-    updated_certificates = _update_last_reminder_month(successful_pdf_ids, current_month)
+    updated_certificates = _update_last_reminder_month(
+        successful_pdf_ids,
+        current_month,
+        now,
+    )
     _send_admin_issue_report(
         admin_issues,
         today=today,
@@ -1025,6 +1165,7 @@ def run_expiry_reminder_job(
         failed_emails,
         len(unresolved_private_tokens),
         len(unresolved_supervisor_tokens),
+        skipped_duplicate_guard,
     )
 
 
@@ -1035,12 +1176,16 @@ def main() -> int:
 
     try:
         reminder_months = _get_reminder_months()
+        duplicate_guard_minutes = _get_duplicate_guard_minutes()
     except ValueError as exc:
         logger.error("Ogiltig konfiguration för utgångspåminnelser: %s", str(exc))
         return 1
 
     create_database()
-    result = run_expiry_reminder_job(reminder_months=reminder_months)
+    result = run_expiry_reminder_job(
+        reminder_months=reminder_months,
+        duplicate_guard_minutes=duplicate_guard_minutes,
+    )
     return 1 if result.had_failures else 0
 
 

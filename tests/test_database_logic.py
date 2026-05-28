@@ -152,6 +152,7 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     assert any("ADD COLUMN note" in sql for sql in executed_sql)
     assert any("ADD COLUMN expires_on" in sql for sql in executed_sql)
     assert any("ADD COLUMN last_expiry_reminder_month" in sql for sql in executed_sql)
+    assert any("ADD COLUMN last_expiry_reminder_sent_at" in sql for sql in executed_sql)
     assert set(created_tables) == {
         "password_resets",
         "supervisor_password_resets",
@@ -614,6 +615,60 @@ def test_migration_0012_keeps_existing_certificates_without_reminder_marker():
 
     assert row is not None
     assert row.last_expiry_reminder_month is None
+
+
+def test_migration_0013_keeps_existing_certificates_without_sent_timestamp():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE user_pdfs (
+                    id INTEGER PRIMARY KEY,
+                    personnummer TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    content BLOB NOT NULL,
+                    categories TEXT DEFAULT '' NOT NULL,
+                    note TEXT DEFAULT '' NOT NULL,
+                    expires_on DATE,
+                    last_expiry_reminder_month TEXT,
+                    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO user_pdfs (
+                    personnummer,
+                    filename,
+                    content,
+                    categories,
+                    note,
+                    expires_on,
+                    last_expiry_reminder_month
+                ) VALUES (
+                    'hash',
+                    'existing.pdf',
+                    x'25504446',
+                    'truck',
+                    '',
+                    '2026-08-10',
+                    '2026-05'
+                )
+                """
+            )
+        )
+        database_module._migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn)
+
+        row = conn.execute(
+            text("SELECT last_expiry_reminder_sent_at FROM user_pdfs")
+        ).first()
+
+    assert row is not None
+    assert row.last_expiry_reminder_sent_at is None
 
 
 def test_build_runtime_table_rejects_invalid_identifier():

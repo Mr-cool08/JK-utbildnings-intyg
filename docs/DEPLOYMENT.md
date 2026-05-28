@@ -36,11 +36,20 @@ docker compose -f docker-compose.yml up -d --build
 - `server_monitor` - övervakning, smoke-tester och resurslarm
 - `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
-- `expiry_reminder` - månatligt jobb för utgångspåminnelser
+- `expiry_reminder` - schemalagt jobb för utgångspåminnelser
 
-## Månatliga utgångspåminnelser
+## Utgångspåminnelser
 
 Tjänsten `expiry_reminder` kör bara `python -m scripts.send_expiry_reminders` och avslutas direkt när jobbet är klart.
+
+Schema och dublettskydd styrs via miljövariabler:
+
+```env
+CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE=0 7 1 * *
+CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES=60
+```
+
+`update_app.py` läser `CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE` från projektets `.env` när cron-raden skapas på Linux-servrar.
 
 Kör manuellt:
 

@@ -1,8 +1,9 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
+import pytest
 from sqlalchemy import select, update
 
 from course_categories import COURSE_CATEGORIES
@@ -26,6 +27,13 @@ def test_reminders_enabled_accepts_uppercase_value(monkeypatch):
     monkeypatch.setenv("CERTIFICATE_EXPIRY_REMINDERS_ENABLED", " True ")
 
     assert expiry_reminders._reminders_enabled() is True
+
+
+def test_duplicate_guard_minutes_rejects_negative_value(monkeypatch):
+    monkeypatch.setenv("CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES", "-1")
+
+    with pytest.raises(ValueError, match="får inte vara negativ"):
+        expiry_reminders._get_duplicate_guard_minutes()
 
 
 def _create_active_user(
@@ -146,6 +154,7 @@ def _store_certificate(
     expires_on: date | None,
     categories: list[str] | None = None,
     last_reminder_month: str | None = None,
+    last_reminder_sent_at: datetime | None = None,
 ) -> int:
     pdf_id = functions.store_pdf_blob(
         personnummer_hash,
@@ -154,12 +163,15 @@ def _store_certificate(
         categories or [],
         expires_on=expires_on,
     )
-    if last_reminder_month is not None:
+    if last_reminder_month is not None or last_reminder_sent_at is not None:
         with empty_db.begin() as conn:
             conn.execute(
                 update(functions.user_pdfs_table)
                 .where(functions.user_pdfs_table.c.id == pdf_id)
-                .values(last_expiry_reminder_month=last_reminder_month)
+                .values(
+                    last_expiry_reminder_month=last_reminder_month,
+                    last_expiry_reminder_sent_at=last_reminder_sent_at,
+                )
             )
     return pdf_id
 
@@ -210,6 +222,17 @@ def _capture_error_logs(monkeypatch):
 
     monkeypatch.setattr(expiry_reminders.logger, "error", _fake_error)
     return errors
+
+
+def _capture_warning_logs(monkeypatch):
+    warnings = []
+
+    def _fake_warning(message, *args, **kwargs):
+        del kwargs
+        warnings.append(message % args if args else message)
+
+    monkeypatch.setattr(expiry_reminders.logger, "warning", _fake_warning)
+    return warnings
 
 
 def _capture_admin_report_emails(monkeypatch):
@@ -341,6 +364,40 @@ def test_expiry_reminders_do_not_repeat_same_certificate_in_same_month(
     assert private_calls == []
 
 
+def test_expiry_reminders_skip_recently_sent_certificates_with_duplicate_guard(
+    empty_db,
+    monkeypatch,
+):
+    _set_reminder_config(monkeypatch, enabled=True)
+    private_calls, _ = _capture_email_calls(monkeypatch)
+    today = date(2026, 5, 27)
+    now = datetime(2026, 5, 27, 9, 0, tzinfo=timezone.utc)
+    personnummer_hash = _create_active_user(
+        empty_db,
+        personnummer="19900405-1234",
+        email="elin@example.com",
+        username="Elin",
+    )
+    _store_certificate(
+        empty_db,
+        personnummer_hash=personnummer_hash,
+        filename="nyss-pamind.pdf",
+        expires_on=date(2026, 8, 10),
+        last_reminder_sent_at=now - timedelta(minutes=30),
+    )
+
+    result = expiry_reminders.run_expiry_reminder_job(
+        today=today,
+        reminder_months=6,
+        duplicate_guard_minutes=60,
+        now=now,
+    )
+
+    assert result.candidate_certificates == 0
+    assert result.skipped_duplicate_guard == 1
+    assert private_calls == []
+
+
 def test_expiry_reminders_send_single_private_summary_email(empty_db, monkeypatch):
     _set_reminder_config(monkeypatch, enabled=True)
     private_calls, _ = _capture_email_calls(monkeypatch)
@@ -375,11 +432,13 @@ def test_expiry_reminders_send_single_private_summary_email(empty_db, monkeypatc
             select(
                 functions.user_pdfs_table.c.id,
                 functions.user_pdfs_table.c.last_expiry_reminder_month,
+                functions.user_pdfs_table.c.last_expiry_reminder_sent_at,
             ).where(functions.user_pdfs_table.c.id.in_((first_pdf_id, second_pdf_id)))
         ).fetchall()
 
     assert {row.id for row in rows} == {first_pdf_id, second_pdf_id}
     assert {row.last_expiry_reminder_month for row in rows} == {"2026-05"}
+    assert all(row.last_expiry_reminder_sent_at is not None for row in rows)
 
 
 def test_expiry_reminders_send_single_company_summary_email_for_connected_users(
@@ -549,6 +608,19 @@ def test_expiry_reminders_report_invalid_supervisor_email_reference(
     assert "b***@invalid" in errors[0]
 
 
+def test_normalize_admin_recipients_masks_invalid_logged_addresses(monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com, felicia@invalid")
+    warnings = _capture_warning_logs(monkeypatch)
+
+    recipients = expiry_reminders._normalize_admin_recipients()
+
+    assert recipients == ["admin@example.com"]
+    assert warnings == [
+        "ADMIN_EMAIL innehaller en ogiltig adress som hoppas over: f***@invalid"
+    ]
+    assert "felicia@invalid" not in warnings[0]
+
+
 def test_expiry_reminders_only_mark_month_after_all_recipients_succeed(
     empty_db,
     monkeypatch,
@@ -609,6 +681,62 @@ def test_expiry_reminders_only_mark_month_after_all_recipients_succeed(
     assert result.failed_emails == 1
     assert row is not None
     assert row.last_expiry_reminder_month is None
+
+
+def test_expiry_reminders_admin_report_resolves_hashed_company_email_lookup(
+    empty_db,
+    monkeypatch,
+):
+    _set_reminder_config(monkeypatch, enabled=True)
+    admin_calls = _capture_admin_report_emails(monkeypatch)
+    today = date(2026, 5, 27)
+    personnummer_hash = _create_active_user(
+        empty_db,
+        personnummer="19900606-1234",
+        email="tove@example.com",
+        username="Tove",
+    )
+    supervisor_reference = "hashbolag@example.com"
+    company_email = _create_company_account_with_raw_email(
+        empty_db,
+        email=functions.hash_value(supervisor_reference),
+        company_name="Hashbolag AB",
+    )
+    _connect_company_account(
+        empty_db,
+        supervisor_reference=supervisor_reference,
+        personnummer_hash=personnummer_hash,
+    )
+    _store_certificate(
+        empty_db,
+        personnummer_hash=personnummer_hash,
+        filename="hashbolag.pdf",
+        expires_on=date(2026, 8, 10),
+    )
+
+    monkeypatch.setattr(
+        expiry_reminders.email_service,
+        "send_certificate_expiry_summary_email",
+        lambda *_args, **_kwargs: None,
+    )
+
+    def _failing_supervisor_email(*_args, **_kwargs):
+        raise RuntimeError("smtp-fel")
+
+    monkeypatch.setattr(
+        expiry_reminders.email_service,
+        "send_supervisor_expiry_summary_email",
+        _failing_supervisor_email,
+    )
+
+    result = expiry_reminders.run_expiry_reminder_job(today=today, reminder_months=6)
+
+    assert result.failed_emails == 1
+    assert result.sent_supervisor_emails == 0
+    assert len(admin_calls) == 1
+    assert "Hashbolag AB" in admin_calls[0]["body"]
+    assert company_email in admin_calls[0]["body"]
+    assert "kunde inte hittas" not in admin_calls[0]["body"]
 
 
 def test_expiry_reminders_send_admin_report_when_private_email_delivery_fails(
