@@ -1306,6 +1306,59 @@ def get_engine() -> Engine:
     return _ENGINE
 
 
+def _sync_postgres_primary_key_sequences(conn: Connection) -> None:
+    # Synka PostgreSQL-sekvenser med högsta befintliga primärnyckelvärdet.
+    if conn.dialect.name != "postgresql":
+        return
+
+    for table in metadata.sorted_tables:
+        primary_key_columns = list(table.primary_key.columns)
+        if len(primary_key_columns) != 1:
+            continue
+
+        primary_key_column = primary_key_columns[0]
+        if not isinstance(primary_key_column.type, Integer):
+            continue
+
+        if not SQL_IDENTIFIER_RE.match(table.name) or not SQL_IDENTIFIER_RE.match(
+            primary_key_column.name
+        ):
+            logger.warning(
+                "Hoppar över sekvenssynk för ogiltig identifierare: %s.%s",
+                table.name,
+                primary_key_column.name,
+            )
+            continue
+
+        sequence_result = conn.execute(
+            select(func.pg_get_serial_sequence(table.name, primary_key_column.name))
+        )
+        if sequence_result is None or not hasattr(sequence_result, "scalar_one_or_none"):
+            continue
+
+        sequence_name = sequence_result.scalar_one_or_none()
+        if not sequence_name:
+            continue
+
+        max_result = conn.execute(select(func.max(primary_key_column)))
+        if max_result is None or not hasattr(max_result, "scalar_one_or_none"):
+            continue
+
+        max_primary_key = max_result.scalar_one_or_none()
+        synchronized_value = int(max_primary_key) if max_primary_key is not None else 1
+        has_existing_rows = max_primary_key is not None
+
+        conn.execute(select(func.setval(sequence_name, synchronized_value, has_existing_rows)))
+        logger.debug(
+            "Synkroniserade PostgreSQL-sekvens %s för %s.%s till %s (has_rows=%s)",
+            sequence_name,
+            table.name,
+            primary_key_column.name,
+            synchronized_value,
+            has_existing_rows,
+        )
+
+
 def create_database() -> None:
     # Create required tables if they do not exist.
     attempts = int(os.getenv("DATABASE_INIT_MAX_ATTEMPTS", "5"))
@@ -1373,6 +1426,7 @@ def create_database() -> None:
         ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
+        _sync_postgres_primary_key_sequences(conn)
     logger.info("Databasen har initialiserats")
 
 

@@ -1852,7 +1852,7 @@ def user_upload_pdf_route():
         )
         return redirect("/dashboard")
     except Exception:
-        logger.error("Kunde inte spara intyg för användare")
+        logger.exception("Kunde inte spara intyg för användare")
         flash("Ett fel inträffade när intyget skulle sparas.", "error")
         return redirect("/dashboard")
 

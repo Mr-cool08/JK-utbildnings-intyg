@@ -218,6 +218,102 @@ def test_create_database_uses_postgres_timestamp_type_for_missing_sent_at(monkey
     ) in executed_sql
 
 
+def test_sync_postgres_primary_key_sequences_realigns_known_sequences():
+    executed_statements = []
+
+    class _Result:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def execute(self, statement, *_args, **_kwargs):
+            compiled = statement.compile(dialect=postgresql.dialect())
+            sql = str(compiled)
+            params = compiled.params
+            executed_statements.append((sql, params))
+
+            if "pg_get_serial_sequence" in sql and "user_pdfs" in params.values():
+                return _Result("public.user_pdfs_id_seq")
+            if "max(user_pdfs.id)" in sql:
+                return _Result(17)
+            if "pg_get_serial_sequence" in sql:
+                return _Result(None)
+            return _Result(None)
+
+    database_module._sync_postgres_primary_key_sequences(_FakeConn())
+
+    assert any(
+        "pg_get_serial_sequence" in sql and "user_pdfs" in params.values()
+        for sql, params in executed_statements
+    )
+    assert any(
+        "setval" in sql
+        and "public.user_pdfs_id_seq" in params.values()
+        and 17 in params.values()
+        and True in params.values()
+        for sql, params in executed_statements
+    )
+
+
+def test_create_database_syncs_postgres_primary_key_sequences(monkeypatch):
+    sync_calls = []
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
+    class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "postgresql")
+
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module.metadata, "create_all", lambda _engine: None)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [
+                {"name": "categories"},
+                {"name": "note"},
+                {"name": "expires_on"},
+                {"name": "last_expiry_reminder_month"},
+                {"name": "last_expiry_reminder_sent_at"},
+            ],
+            get_table_names=lambda: [
+                functions.user_pdfs_table.name,
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        database_module,
+        "_sync_postgres_primary_key_sequences",
+        lambda conn: sync_calls.append(conn.dialect.name),
+    )
+
+    database_module.create_database()
+
+    assert sync_calls == ["postgresql"]
+
+
 def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_INIT_MAX_ATTEMPTS", "2")
     monkeypatch.setenv("DEV_MODE", "true")
