@@ -150,6 +150,8 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
     assert "expose:" not in expiry_service
     assert "gunicorn" not in expiry_service
     assert "entrypoint.sh" not in expiry_service
+    assert "      - db_net" in expiry_service
+    assert "      - public_net" not in expiry_service
 
 
 def test_gitattributes_forces_lf_for_shell_scripts():
@@ -188,6 +190,16 @@ def test_example_env_does_not_document_rclone_backup_settings():
 
 def test_rclone_sync_script_has_been_removed():
     assert not (ROOT / "scripts" / "backup" / "rclone_sync.sh").exists()
+
+
+def test_docs_do_not_reference_removed_rclone_compose_setup():
+    readme = _read(ROOT / "README.md")
+    deployment = _read(ROOT / "docs" / "DEPLOYMENT.md")
+
+    for content in (readme, deployment):
+        assert "backup_cloud_sync" not in content
+        assert "backup-cloud" not in content
+        assert "RCLONE_" not in content
 
 
 def test_entrypoint_runs_gunicorn_only():

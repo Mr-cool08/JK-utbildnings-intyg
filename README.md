@@ -106,25 +106,12 @@ VSCODE_BIND_IP=127.0.0.1
 
 Containern monterar hela projektet till `/workspace`. Sätt bara `VSCODE_BIND_IP=0.0.0.0` om åtkomsten skyddas på annat sätt.
 
-### Molnbackup med rclone
+### Backup
 
-`postgres_backup` skapar lokala `.sql.gz`-backuper. Om du även vill synka dem till OneDrive eller Dropbox kan du aktivera den valfria tjänsten `backup_cloud_sync`.
+`postgres_backup` skapar lokala `.sql.gz`-backuper enligt aktuell Compose-konfiguration.
 
-```env
-RCLONE_REMOTE=onedrive
-RCLONE_BACKUP_PATH=jk-utbildnings-intyg/postgres
-RCLONE_SYNC_INTERVAL_SECONDS=3600
-RCLONE_PRUNE_REMOTE=false
-RCLONE_ONEDRIVE_TOKEN='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"2026-01-01T00:00:00Z"}'
-RCLONE_ONEDRIVE_DRIVE_ID=din-drive-id
-RCLONE_ONEDRIVE_DRIVE_TYPE=personal
-```
-
-```bash
-docker compose --profile backup-cloud up -d backup_cloud_sync
-```
-
-Tjänsten genererar själv sin `rclone.conf` från miljövariablerna i containern.
+Tidigare dokumentation för separat molnsynk är legacy och gäller inte längre för nuvarande `docker-compose.yml`.
+Om molnsynk behövs måste den sättas upp utanför den här Compose-konfigurationen.
 
 ## Kvalitetskontroller
 

@@ -1950,7 +1950,8 @@ small.hint {
 .pricing-table td {
     padding: 0.95rem 1rem;
     text-align: left;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    word-break: normal;
     width: 50%;
 }
 

@@ -36,7 +36,6 @@ docker compose -f docker-compose.yml up -d --build
 - `server_monitor` - övervakning, smoke-tester och resurslarm
 - `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
-- `backup_cloud_sync` - valfri molnsynk via profilen `backup-cloud`
 - `expiry_reminder` - månatligt jobb för utgångspåminnelser
 
 ## Månatliga utgångspåminnelser
@@ -99,20 +98,8 @@ Gör det bara tillsammans med brandvägg eller IP-allowlist.
 
 Lokal återkommande backup sköts av `postgres_backup`.
 
-Valfri molnsynk aktiveras med profil:
-
-```bash
-docker compose --profile backup-cloud up -d backup_cloud_sync
-```
-
-Relevanta miljövariabler:
-
-- `RCLONE_REMOTE`
-- `RCLONE_BACKUP_PATH`
-- `RCLONE_SYNC_INTERVAL_SECONDS`
-- `RCLONE_PRUNE_REMOTE`
-- `RCLONE_ONEDRIVE_*`
-- `RCLONE_DROPBOX_*`
+Tidigare dokumentation för separat molnsynk är legacy och gäller inte längre för nuvarande `docker-compose.yml`.
+Om molnsynk behövs måste den sättas upp utanför den här Compose-konfigurationen.
 
 ## Övervakning och aviseringar
 

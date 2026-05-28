@@ -18,6 +18,7 @@ from smtplib import (
     SMTP_SSL,
 )
 from typing import Any, Sequence
+from urllib.parse import urljoin
 
 from config_loader import load_environment
 from functions.logging import configure_module_logger, mask_hash
@@ -152,44 +153,7 @@ def send_email_message(
         )
 
         with open_smtp_connection(settings, context) as smtp:
-            if hasattr(smtp, "ehlo"):
-                smtp.ehlo()
-
-            if not use_ssl:
-                try:
-                    from inspect import signature
-
-                    if "context" in signature(smtp.starttls).parameters:
-                        smtp.starttls(context=context)
-                        logger.debug("SMTP STARTTLS initierad med kontext")
-                    else:
-                        smtp.starttls()
-                        logger.debug("SMTP STARTTLS initierad utan kontext")
-                except (TypeError, ValueError):
-                    smtp.starttls()
-                    logger.debug("SMTP STARTTLS initierad (fallback)")
-
-                if hasattr(smtp, "ehlo"):
-                    smtp.ehlo()
-
-            smtp.login(settings.user, settings.password)
-            logger.debug("SMTP inloggning lyckades för %s", masked_user)
-
-            if hasattr(smtp, "send_message"):
-                refused = smtp.send_message(
-                    msg,
-                    from_addr=settings.from_address,
-                    to_addrs=[normalized_recipient],
-                )
-            else:
-                refused = smtp.sendmail(
-                    settings.from_address, [normalized_recipient], msg.as_string()
-                )
-
-            logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
-            if refused:
-                logger.error("SMTP server refused recipients: %s", recipient_mask)
-                raise RuntimeError("E-postservern accepterade inte mottagaren.")
+            _send_using_connection(smtp, use_ssl)
 
         logger.debug(
             "Meddelande-ID för utskick till %s: %s",
@@ -343,6 +307,12 @@ def _render_action_button(url: str, label: str) -> str:
     )
 
 
+def _build_app_url(path: str) -> str:
+    base_url = (os.getenv("BASE_URL") or "").strip() or "https://utbildningsintyg.se"
+    normalized_base_url = f"{base_url.rstrip('/')}/"
+    return urljoin(normalized_base_url, path.lstrip("/"))
+
+
 def send_creation_email(to_email: str, link: str) -> None:
     """Send an account creation email containing ``link``."""
 
@@ -460,7 +430,7 @@ def send_certificate_expiry_summary_email(
         f"<p>Följande intyg har mindre än {month_text} kvar innan de går ut:</p>"
         f"<ul>{item_list}</ul>"
         "<p>Logga in för att se dina intyg:</p>"
-        f"{_render_action_button('https://utbildningsintyg.se/dashboard', 'Öppna dashboard')}"
+        f"{_render_action_button(_build_app_url('/dashboard'), 'Öppna dashboard')}"
     )
     body = format_email_html(
         "Intyg som snart går ut",
@@ -503,7 +473,7 @@ def send_supervisor_expiry_summary_email(
         f"<p>Följande intyg för {safe_company} har mindre än {month_text} kvar innan de går ut:</p>"
         f"{''.join(user_sections)}"
         "<p>Logga in på företagskontot:</p>"
-        f"{_render_action_button('https://utbildningsintyg.se/foretagskonto', 'Öppna företagskonto')}"
+        f"{_render_action_button(_build_app_url('/foretagskonto'), 'Öppna företagskonto')}"
     )
     body = format_email_html(
         "Intyg för anslutna konton som snart går ut",

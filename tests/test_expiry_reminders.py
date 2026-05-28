@@ -22,6 +22,12 @@ def _personnummer_hash(personnummer: str) -> str:
     return functions.hash_value(functions.normalize_personnummer(personnummer))
 
 
+def test_reminders_enabled_accepts_uppercase_value(monkeypatch):
+    monkeypatch.setenv("CERTIFICATE_EXPIRY_REMINDERS_ENABLED", " True ")
+
+    assert expiry_reminders._reminders_enabled() is True
+
+
 def _create_active_user(
     empty_db,
     *,

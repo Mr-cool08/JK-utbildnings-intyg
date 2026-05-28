@@ -51,7 +51,7 @@ def _current_reminder_month(today: date) -> str:
 
 
 def _reminders_enabled() -> bool:
-    return os.getenv("CERTIFICATE_EXPIRY_REMINDERS_ENABLED", "").strip() == "true"
+    return os.getenv("CERTIFICATE_EXPIRY_REMINDERS_ENABLED", "").strip().lower() == "true"
 
 
 def _get_reminder_months() -> int:

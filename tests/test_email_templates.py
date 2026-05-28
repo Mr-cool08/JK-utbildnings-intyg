@@ -62,6 +62,7 @@ def test_send_organization_link_rejected_email(monkeypatch):
 
 def test_send_certificate_expiry_summary_email(monkeypatch):
     captured = _capture_send_email(monkeypatch)
+    monkeypatch.setenv("BASE_URL", "https://staging.utbildningsintyg.se")
 
     email_service.send_certificate_expiry_summary_email(
         "test@example.com",
@@ -86,11 +87,12 @@ def test_send_certificate_expiry_summary_email(monkeypatch):
     assert "Hej Anna" in normalized_body
     assert "Truckkort" in normalized_body
     assert "2026-08-10" in normalized_body
-    assert "https://utbildningsintyg.se/dashboard" in normalized_body
+    assert "https://staging.utbildningsintyg.se/dashboard" in normalized_body
 
 
 def test_send_supervisor_expiry_summary_email(monkeypatch):
     captured = _capture_send_email(monkeypatch)
+    monkeypatch.setenv("BASE_URL", "https://staging.utbildningsintyg.se")
 
     email_service.send_supervisor_expiry_summary_email(
         "foretag@example.com",
@@ -116,7 +118,7 @@ def test_send_supervisor_expiry_summary_email(monkeypatch):
     assert "AT&amp;T AB" in normalized_body
     assert "Anna Andersson" in normalized_body
     assert "Truckkort" in normalized_body
-    assert "https://utbildningsintyg.se/foretagskonto" in normalized_body
+    assert "https://staging.utbildningsintyg.se/foretagskonto" in normalized_body
 
 
 def test_send_email_skips_when_disable_emails_enabled(monkeypatch):
