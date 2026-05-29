@@ -228,6 +228,9 @@ def test_sync_postgres_primary_key_sequences_realigns_known_sequences():
         def scalar_one_or_none(self):
             return self.value
 
+        def one_or_none(self):
+            return self.value
+
     class _FakeConn:
         dialect = postgresql.dialect()
 
@@ -237,16 +240,21 @@ def test_sync_postgres_primary_key_sequences_realigns_known_sequences():
             params = compiled.params
             executed_statements.append((sql, params))
 
+            if "pg_advisory_xact_lock" in sql:
+                return _Result(None)
             if "pg_get_serial_sequence" in sql and "user_pdfs" in params.values():
                 return _Result("public.user_pdfs_id_seq")
             if "max(user_pdfs.id)" in sql:
                 return _Result(17)
+            if "SELECT last_value, is_called FROM public.user_pdfs_id_seq" in sql:
+                return _Result((21, True))
             if "pg_get_serial_sequence" in sql:
                 return _Result(None)
             return _Result(None)
 
     database_module._sync_postgres_primary_key_sequences(_FakeConn())
 
+    assert any("pg_advisory_xact_lock" in sql for sql, _params in executed_statements)
     assert any(
         "pg_get_serial_sequence" in sql and "user_pdfs" in params.values()
         for sql, params in executed_statements
@@ -254,7 +262,7 @@ def test_sync_postgres_primary_key_sequences_realigns_known_sequences():
     assert any(
         "setval" in sql
         and "public.user_pdfs_id_seq" in params.values()
-        and 17 in params.values()
+        and 21 in params.values()
         and True in params.values()
         for sql, params in executed_statements
     )

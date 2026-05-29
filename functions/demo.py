@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -28,6 +29,7 @@ from functions.hashing import (
 )
 from functions.logging import configure_module_logger
 from functions.pdf_storage import _serialize_categories, store_pdf_blob
+from functions.requests import as_bool
 from functions.supervisors import admin_link_supervisor_to_user, supervisor_activate_account
 from functions.users import (
     admin_create_user,
@@ -39,7 +41,9 @@ from functions.applications import _ensure_company
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def create_test_user() -> None:

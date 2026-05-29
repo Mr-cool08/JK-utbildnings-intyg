@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, or_, select, update
+from sqlalchemy import delete, insert, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -340,8 +340,8 @@ def _get_company_names_by_supervisor_hashes(
 
 def get_supervisor_email_hash(email: str) -> str:
     # Return the e-mail reference used for supervisor tables.
-    normalized, legacy_hash = email_lookup_values(email)
-    email_values = (normalized, legacy_hash)
+    email_values = email_lookup_values(email)
+    normalized = email_values[0]
     with get_engine().connect() as conn:
         row = conn.execute(
             select(supervisors_table.c.email).where(supervisors_table.c.email.in_(email_values))

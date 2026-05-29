@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Connection, case, func, insert, select, update
@@ -26,10 +27,13 @@ from functions.hashing import (
     validate_orgnr,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Optional[str]:

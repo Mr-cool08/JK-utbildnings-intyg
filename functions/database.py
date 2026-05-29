@@ -453,6 +453,13 @@ def _quote_sql_identifier(conn: Connection, value: str, label: str) -> str:
     return conn.dialect.identifier_preparer.quote(validated_value)
 
 
+def _quote_sql_path(conn: Connection, value: str, label: str) -> str:
+    return ".".join(
+        _quote_sql_identifier(conn, part, f"{label}-del")
+        for part in value.split(".")
+    )
+
+
 def _compile_sql_type(conn: Connection, sqlalchemy_type: Any) -> str:
     # Use the active SQLAlchemy dialect so raw ALTER TABLE statements get valid type names.
     return str(sqlalchemy_type.compile(dialect=conn.dialect))
@@ -1482,6 +1489,16 @@ def _sync_postgres_primary_key_sequences(conn: Connection) -> None:
     if conn.dialect.name != "postgresql":
         return
 
+    # Serialisera synken inom transaktionen så att parallella körningar inte
+    # kan flytta en sekvens bakåt mellan MAX(id)- och setval-anrop.
+    conn.execute(
+        select(
+            func.pg_advisory_xact_lock(
+                func.hashtext("jk_utbildnings_intyg:pk_sequence_sync")
+            )
+        )
+    )
+
     for table in metadata.sorted_tables:
         primary_key_columns = list(table.primary_key.columns)
         if len(primary_key_columns) != 1:
@@ -1511,13 +1528,37 @@ def _sync_postgres_primary_key_sequences(conn: Connection) -> None:
         if not sequence_name:
             continue
 
+        try:
+            quoted_sequence_name = _quote_sql_path(conn, sequence_name, "sekvensnamn")
+        except ValueError:
+            logger.warning(
+                "Hoppar över sekvenssynk för ogiltigt sekvensnamn: %s",
+                sequence_name,
+            )
+            continue
+
         max_result = conn.execute(select(func.max(primary_key_column)))
         if max_result is None or not hasattr(max_result, "scalar_one_or_none"):
             continue
 
         max_primary_key = max_result.scalar_one_or_none()
-        synchronized_value = int(max_primary_key) if max_primary_key is not None else 1
-        has_existing_rows = max_primary_key is not None
+        sequence_state_result = conn.execute(
+            text(f"SELECT last_value, is_called FROM {quoted_sequence_name}")
+        )
+        if sequence_state_result is None or not hasattr(
+            sequence_state_result, "one_or_none"
+        ):
+            continue
+
+        sequence_state = sequence_state_result.one_or_none()
+        if sequence_state is None:
+            continue
+
+        current_sequence_value = int(sequence_state[0])
+        sequence_has_been_called = bool(sequence_state[1])
+        max_primary_key_value = int(max_primary_key) if max_primary_key is not None else 0
+        synchronized_value = max(max_primary_key_value, current_sequence_value)
+        has_existing_rows = max_primary_key is not None or sequence_has_been_called
 
         conn.execute(select(func.setval(sequence_name, synchronized_value, has_existing_rows)))
         logger.debug(

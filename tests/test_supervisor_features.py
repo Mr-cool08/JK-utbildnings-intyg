@@ -90,9 +90,15 @@ def test_supervisor_activation_flow(empty_db):
     name = "Företagskonto"
     assert functions.admin_create_supervisor(email, name)
     email_hash = functions.get_supervisor_email_hash(email)
+    normalized_email = functions.normalize_email(email)
     with empty_db.connect() as conn:
-        pending_supervisor = conn.execute(functions.pending_supervisors_table.select()).first()
-    assert pending_supervisor.email == functions.normalize_email(email)
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select().where(
+                functions.pending_supervisors_table.c.email == normalized_email
+            )
+        ).first()
+    assert pending_supervisor is not None
+    assert pending_supervisor.email == normalized_email
     assert functions.check_pending_supervisor_hash(email_hash)
     with pytest.raises(ValueError):
         functions.supervisor_activate_account(email_hash, "kort")

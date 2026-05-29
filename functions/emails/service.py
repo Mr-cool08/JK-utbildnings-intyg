@@ -457,7 +457,7 @@ def send_certificate_expiry_summary_email(
     )
     content = (
         f"<p>Hej {safe_name},</p>"
-        f"<p>Följande intyg har mindre än {month_text} kvar innan de går ut:</p>"
+        f"<p>Följande intyg förfaller inom kort:</p>"
         f"<ul>{item_list}</ul>"
         "<p>Logga in för att se dina intyg:</p>"
         f"{_render_action_button(_build_app_url('/dashboard'), 'Öppna dashboard')}"
@@ -490,7 +490,7 @@ def send_supervisor_expiry_summary_email(
                 "<li><strong>"
                 f"{escape(certificate.get('display_name', 'Intyg'))}"
                 "</strong> – går ut "
-                f"{escape(certificate.get('expires_on', 'okänt datum'))}</li>"
+                f"<div style='color:red'>{escape(certificate.get('expires_on', 'okänt datum'))}</div></li>"
             )
             for certificate in certificates
         )
@@ -500,7 +500,7 @@ def send_supervisor_expiry_summary_email(
 
     content = (
         "<p>Hej,</p>"
-        f"<p>Följande intyg för {safe_company} har mindre än {month_text} kvar innan de går ut:</p>"
+        f"<p>Följande intyg för {safe_company} förfaller inom kort:</p>"
         f"{''.join(user_sections)}"
         "<p>Logga in på företagskontot:</p>"
         f"{_render_action_button(_build_app_url('/foretagskonto'), 'Öppna företagskonto')}"

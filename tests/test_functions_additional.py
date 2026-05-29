@@ -1,4 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+import importlib
+import logging
 import os
 import sys
 from types import SimpleNamespace
@@ -11,6 +13,46 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import functions  # noqa: E402
 import functions.database as database_module  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "functions.applications",
+        "functions.demo",
+        "functions.password_resets",
+        "functions.users",
+    ],
+)
+def test_module_logger_uses_dev_mode_for_debug(monkeypatch, module_name):
+    module = importlib.import_module(module_name)
+    original_level = module.logger.level
+    original_dev_mode = os.getenv("DEV_MODE")
+    original_log_level = os.getenv("LOG_LEVEL")
+
+    try:
+        module.logger.setLevel(logging.INFO)
+
+        monkeypatch.setenv("DEV_MODE", "false")
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+        reloaded = importlib.reload(module)
+        assert reloaded.logger.level == logging.INFO
+
+        reloaded.logger.setLevel(logging.INFO)
+        monkeypatch.setenv("DEV_MODE", "true")
+        reloaded = importlib.reload(reloaded)
+        assert reloaded.logger.level == logging.DEBUG
+    finally:
+        if original_dev_mode is None:
+            monkeypatch.delenv("DEV_MODE", raising=False)
+        else:
+            monkeypatch.setenv("DEV_MODE", original_dev_mode)
+        if original_log_level is None:
+            monkeypatch.delenv("LOG_LEVEL", raising=False)
+        else:
+            monkeypatch.setenv("LOG_LEVEL", original_log_level)
+        module.logger.setLevel(original_level)
+        importlib.reload(module)
 
 
 def test_normalize_personnummer():

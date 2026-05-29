@@ -2945,9 +2945,13 @@ def admin_list_legacy_email_hashes():  # pragma: no cover
 @app.post("/admin/api/epost-hashar/komplettera")
 def admin_complete_legacy_email_hash():  # pragma: no cover
     admin_name = _require_admin()
+    payload = request.get_json(silent=True)
+    if payload is None:
+        payload = {}
+    elif not isinstance(payload, dict):
+        return jsonify({"status": "error", "message": "Ogiltig begäran."}), 400
     if not validate_csrf_token():
         return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
-    payload = request.get_json(silent=True) or {}
     reference_type = (payload.get("reference_type") or "").strip()
     email_hash = (payload.get("email_hash") or "").strip()
     email = (payload.get("email") or "").strip()
