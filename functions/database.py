@@ -1132,6 +1132,110 @@ def _migration_0015_fix_user_pdf_uploaded_at_defaults(conn: Connection) -> None:
     )
 
 
+def _migration_0016_remove_standard_from_company_users(conn: Connection) -> None:
+    # Ta bort "standard"-rader från company_users. De hör hemma i users-tabellen istället.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    result = conn.execute(
+        text(
+            "DELETE FROM company_users "
+            "WHERE role = 'standard'"
+        )
+    )
+    deleted_count = result.rowcount or 0
+    if deleted_count > 0:
+        logger.info(
+            "Migrering 0016: Tog bort %d 'standard'-rader från company_users",
+            deleted_count,
+        )
+
+
+def _migration_0017_fix_schema_migrations_duplicate_ids(conn: Connection) -> None:
+    # Fixa duplicate ID:er i schema_migrations från migrering 11-15 som fick samma ID som 1-5.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if schema_migrations_table.name not in existing_tables:
+        return
+
+    # Hämta migrerings-versioner med fel ID:er
+    duplicate_versions = {
+        "0011_add_user_pdf_expires_on": 11,
+        "0012_add_user_pdf_last_expiry_reminder_month": 12,
+        "0013_add_user_pdf_last_expiry_reminder_sent_at": 13,
+        "0014_fix_organization_link_request_defaults": 14,
+        "0015_fix_user_pdf_uploaded_at_defaults": 15,
+    }
+
+    for version_name, correct_id in duplicate_versions.items():
+        # Kontrollera om denna version existerar med fel ID
+        existing_row = conn.execute(
+            select(schema_migrations_table.c.id).where(
+                schema_migrations_table.c.version == version_name
+            )
+        ).scalar_one_or_none()
+
+        if existing_row is None:
+            continue
+
+        if existing_row == correct_id:
+            # Redan korrekt
+            continue
+
+        # Uppdatera ID:n till det korrekta värdet
+        conn.execute(
+            text(
+                f"UPDATE schema_migrations SET id = :correct_id "
+                f"WHERE version = :version_name"
+            ),
+            {"correct_id": correct_id, "version_name": version_name},
+        )
+        logger.info(
+            "Migrering 0017: Fixade ID för '%s' från %s till %s",
+            version_name,
+            existing_row,
+            correct_id,
+        )
+
+
+def _migration_0018_fix_supervisor_password_resets_created_at(conn: Connection) -> None:
+    # Fixa DEFAULT för created_at i supervisor_password_resets. Måste vara explicit på PostgreSQL.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_password_resets_table.name not in existing_tables:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, supervisor_password_resets_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0018 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1159,6 +1263,18 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0015_fix_user_pdf_uploaded_at_defaults",
         _migration_0015_fix_user_pdf_uploaded_at_defaults,
+    ),
+    (
+        "0016_remove_standard_from_company_users",
+        _migration_0016_remove_standard_from_company_users,
+    ),
+    (
+        "0017_fix_schema_migrations_duplicate_ids",
+        _migration_0017_fix_schema_migrations_duplicate_ids,
+    ),
+    (
+        "0018_fix_supervisor_password_resets_created_at",
+        _migration_0018_fix_supervisor_password_resets_created_at,
     ),
 ]
 
