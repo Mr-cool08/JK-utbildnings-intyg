@@ -149,6 +149,103 @@ def test_create_application_request_handles_legacy_table_without_defaults(fresh_
     assert application.updated_at is not None
 
 
+def test_application_approval_handles_legacy_tables_without_timestamp_defaults(
+    fresh_app_db,
+):
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE company_users"))
+        conn.execute(text("DROP TABLE pending_supervisors"))
+        conn.execute(text("DROP TABLE companies"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE companies (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    orgnr VARCHAR NOT NULL UNIQUE,
+                    invoice_address TEXT,
+                    invoice_contact TEXT,
+                    invoice_reference TEXT,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE company_users (
+                    id INTEGER PRIMARY KEY,
+                    company_id INTEGER,
+                    role VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    created_via_application_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    UNIQUE(email, role)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_supervisors (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL UNIQUE,
+                    activation_token VARCHAR,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    application_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Legacy Foretagskonto",
+        email="legacy-approval@example.com",
+        orgnr="5569668337",
+        company_name="Legacy Approval AB",
+        comment="Legacy schema without timestamp defaults.",
+        invoice_address="Legacygatan 1",
+        invoice_contact="Legacy Contact",
+        invoice_reference="Legacy-Ref",
+    )
+
+    result = functions.approve_application_request(application_id, "admin")
+
+    assert result["company_created"] is True
+    assert result["account_type"] == "foretagskonto"
+
+    with fresh_app_db.connect() as conn:
+        company = conn.execute(functions.companies_table.select()).first()
+        assert company is not None
+        assert company.created_at is not None
+        assert company.updated_at is not None
+
+        user = conn.execute(functions.company_users_table.select()).first()
+        assert user is not None
+        assert user.created_at is not None
+        assert user.updated_at is not None
+
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).first()
+        assert pending_supervisor is not None
+        assert pending_supervisor.created_at is not None
+
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        assert application is not None
+        assert application.status == "approved"
+
+
 def test_approval_reuses_existing_company(fresh_app_db):
     foretagskonto_id = functions.create_application_request(
         account_type="foretagskonto",
