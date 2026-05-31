@@ -2363,6 +2363,96 @@ def admin_company_accounts():  # pragma: no cover
     return render_template("admin_company_accounts.html", csrf_token=csrf_token)
 
 
+def _send_application_approval_emails(
+    application_id: int, result: dict[str, Any]
+) -> dict[str, str]:
+    payload: dict[str, str] = {"message": "Ansökan godkänd."}
+    email_warnings: list[str] = []
+
+    if result.get("user_activation_required") and result.get("user_personnummer_hash"):
+        link = url_for(
+            "create_user",
+            pnr_hash=result["user_personnummer_hash"],
+            _external=True,
+        )
+        try:
+            email_service.send_creation_email(result["email"], link)
+            payload["message"] = (
+                "Ansökan godkänd. Aktiveringsmejl skickat till standardkontot."
+            )
+            payload["access_link"] = link
+            payload["access_link_label"] = "Aktiveringslänk"
+            payload["access_link_type"] = "activation"
+            payload["creation_link"] = link
+        except Exception:
+            logger.exception(
+                "Misslyckades att skicka aktiveringslänk till sökande för ansökan %s",
+                application_id,
+            )
+            email_warnings.append("Aktiveringslänken till sökande kunde inte skickas.")
+
+    if result.get("account_type") == "foretagskonto":
+        supervisor_email = result.get("supervisor_email") or result.get("email")
+        if result.get("supervisor_activation_required") and supervisor_email:
+            try:
+                activation_token = functions.ensure_pending_supervisor_activation_token(
+                    supervisor_email
+                )
+                link = url_for(
+                    "supervisor_create",
+                    activation_token=activation_token,
+                    _external=True,
+                )
+                email_service.send_creation_email(supervisor_email, link)
+                payload["message"] = (
+                    "Ansökan godkänd. Aktiveringsmejl skickat till företagskontot."
+                )
+                payload["access_link"] = link
+                payload["access_link_label"] = "Aktiveringslänk"
+                payload["access_link_type"] = "activation"
+                payload["creation_link"] = link
+            except Exception:
+                logger.exception(
+                    "Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)",
+                    application_id,
+                )
+                email_warnings.append(
+                    "Aktiveringslänken till företagskontot kunde inte skickas."
+                )
+        elif supervisor_email:
+            try:
+                reset_token = functions.create_supervisor_password_reset_token(
+                    supervisor_email
+                )
+                link = url_for(
+                    "supervisor_password_reset",
+                    token=reset_token,
+                    _external=True,
+                )
+                email_service.send_password_reset_email(supervisor_email, link)
+                payload["message"] = (
+                    "Ansökan godkänd. Företagskontot finns redan och ett åtkomstmejl "
+                    "har skickats."
+                )
+                payload["access_link"] = link
+                payload["access_link_label"] = "Återställningslänk"
+                payload["access_link_type"] = "password_reset"
+            except Exception:
+                logger.exception(
+                    "Misslyckades att skicka åtkomstmejl till aktivt företagskonto "
+                    "för ansökan %s",
+                    application_id,
+                )
+                email_warnings.append(
+                    "Åtkomstmejlet till företagskontot kunde inte skickas."
+                )
+
+    if email_warnings:
+        payload["email_warning"] = " ".join(email_warnings)
+
+    return payload
+
+
 @app.route("/admin/ansokningar", methods=["GET", "POST"])
 def admin_applications():  # pragma: no cover
     if not session.get("admin_logged_in"):
@@ -2380,9 +2470,26 @@ def admin_applications():  # pragma: no cover
         if not application_id:
             return jsonify({"status": "error", "message": "Ansökans ID saknas."}), 400
         if application_status == "approved":
-            functions.approve_application_request(int(application_id), "admin")
+            result = functions.approve_application_request(int(application_id), "admin")
+            email_result = _send_application_approval_emails(
+                int(application_id), result
+            )
             logger.debug("Ansökan har godkänts, lyckat")
-            return jsonify({"status": "success", "message": "Ansökan har godkänts."})
+            payload: dict[str, str] = {
+                "status": "success",
+                "message": email_result["message"],
+            }
+            for key in (
+                "email_warning",
+                "creation_link",
+                "access_link",
+                "access_link_label",
+                "access_link_type",
+            ):
+                value = email_result.get(key)
+                if value:
+                    payload[key] = value
+            return jsonify(payload)
         elif application_status == "rejected":
             functions.reject_application_request(int(application_id), "admin")
             logger.debug("Ansökan har avslagits, lyckat")
@@ -2562,50 +2669,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             },
         )
 
-    email_warnings: list[str] = []
-
-    creation_link: str | None = None  # <- samlad länk för svaret
-
-    # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
-    if result.get("user_activation_required") and result.get("user_personnummer_hash"):
-        link = url_for(
-            "create_user",
-            pnr_hash=result["user_personnummer_hash"],
-            _external=True,
-        )
-        try:
-            email_service.send_creation_email(result["email"], link)
-            creation_link = link  # <- spara till payload
-        except Exception:
-            logger.error(
-                "Misslyckades att skicka aktiveringslänk till sökande för ansökan %s",
-                application_id,
-            )
-            email_warnings.append("Aktiveringslänken till sökande kunde inte skickas.")
-
-    # 3) Aktiveringslänk till SUPERVISOR (företagskonto)
-    if result.get("supervisor_activation_required") and result.get("supervisor_email"):
-        supervisor_email = result.get("supervisor_email") or result["email"]
-        try:
-            activation_token = functions.ensure_pending_supervisor_activation_token(
-                supervisor_email
-            )
-            link = url_for(
-                "supervisor_create",
-                activation_token=activation_token,
-                _external=True,
-            )
-            email_service.send_creation_email(supervisor_email, link)
-            if creation_link is None:
-                creation_link = link  # <- använd denna om ingen tidigare satt
-        except Exception:
-            logger.error(
-                "Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)",
-                application_id,
-            )
-            email_warnings.append(
-                "Aktiveringslänken till handledare/supervisor kunde inte skickas."
-            )
+    email_result = _send_application_approval_emails(application_id, result)
 
     masked_email = mask_hash(functions.hash_value(result["email"]))
     functions.log_admin_action(
@@ -2614,11 +2678,21 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         f"application_id={application_id}, email={masked_email}",
     )
 
-    payload: dict[str, Any] = {"status": "success", "data": result}
-    if email_warnings:
-        payload["email_warning"] = " ".join(email_warnings)
-    if creation_link:
-        payload["creation_link"] = creation_link  # <- TOPP-NIVÅ, uppfyller testet
+    payload: dict[str, Any] = {
+        "status": "success",
+        "data": result,
+        "message": email_result["message"],
+    }
+    for key in (
+        "email_warning",
+        "creation_link",
+        "access_link",
+        "access_link_label",
+        "access_link_type",
+    ):
+        value = email_result.get(key)
+        if value:
+            payload[key] = value
 
     return jsonify(payload)
 
