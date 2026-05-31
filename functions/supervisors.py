@@ -6,7 +6,7 @@ import os
 import secrets
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, or_, select, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -84,6 +84,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                     email=normalized_email,
                     name=name,
                     activation_token=_new_activation_token(),
+                    created_at=func.now(),
                 )
             )
     except IntegrityError:
@@ -194,6 +195,7 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
                     email=row.email,
                     name=row.name,
                     password=hash_password(password),
+                    created_at=func.now(),
                 )
             )
     except IntegrityError:

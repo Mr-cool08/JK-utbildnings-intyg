@@ -3,6 +3,7 @@ import os
 import sys
 
 import pytest
+from sqlalchemy import text
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -110,6 +111,47 @@ def test_supervisor_activation_flow(empty_db):
     assert not functions.check_pending_supervisor_hash(email_hash)
     assert functions.get_pending_supervisor_email_by_token(activation_token) is None
     assert functions.supervisor_exists(email)
+
+
+def test_supervisor_activation_handles_legacy_supervisors_table_without_defaults(
+    empty_db,
+):
+    email = "legacy-supervisor@example.com"
+    name = "Legacy Chef"
+    normalized_email = functions.normalize_email(email)
+
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE supervisors"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE supervisors (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL UNIQUE,
+                    password VARCHAR NOT NULL,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    assert functions.admin_create_supervisor(email, name)
+    activation_token = functions.ensure_pending_supervisor_activation_token(email)
+
+    assert activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
+    assert functions.supervisor_activate_account(email, "LångtLösen123")
+
+    with empty_db.connect() as conn:
+        supervisor = conn.execute(
+            functions.supervisors_table.select().where(
+                functions.supervisors_table.c.email == normalized_email
+            )
+        ).first()
+
+    assert supervisor is not None
+    assert supervisor.created_at is not None
 
 
 def test_pending_supervisor_activation_token_backfills_missing_value(empty_db):

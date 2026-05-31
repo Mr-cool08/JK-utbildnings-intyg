@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from functions.database import (
@@ -215,6 +215,7 @@ def ensure_demo_data(
                 insert(pending_supervisors_table).values(
                     name=supervisor_name,
                     email=normalized_supervisor_email,
+                    created_at=func.now(),
                 )
             )
             supervisor_created = True
