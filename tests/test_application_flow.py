@@ -1,5 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import pytest
+from sqlalchemy import text
 
 import functions
 
@@ -92,6 +93,60 @@ def test_application_rejection_stores_reason(fresh_app_db):
         ).first()
         assert application.status == "rejected"
         assert application.reviewed_by == "admin"
+
+
+def test_create_application_request_handles_legacy_table_without_defaults(fresh_app_db):
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE application_requests"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE application_requests (
+                    id INTEGER PRIMARY KEY,
+                    account_type VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    orgnr_normalized VARCHAR NOT NULL,
+                    company_name VARCHAR NOT NULL,
+                    invoice_address TEXT,
+                    invoice_contact TEXT,
+                    invoice_reference TEXT,
+                    comment TEXT,
+                    personnummer_hash TEXT,
+                    status VARCHAR NOT NULL,
+                    reviewed_by VARCHAR,
+                    reviewed_at DATETIME,
+                    decision_reason VARCHAR,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    application_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Legacy Företagskonto",
+        email="legacy@example.com",
+        orgnr="5569668337",
+        company_name="Legacybolaget AB",
+        comment="Saknar databasdefaultvärden.",
+        invoice_address="Legacygatan 1",
+        invoice_contact="Legacy Kontakt",
+        invoice_reference="Legacy-Ref",
+    )
+
+    with fresh_app_db.connect() as conn:
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+
+    assert application is not None
+    assert application.status == "pending"
+    assert application.created_at is not None
+    assert application.updated_at is not None
 
 
 def test_approval_reuses_existing_company(fresh_app_db):

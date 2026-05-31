@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, or_, select
+from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -37,6 +38,10 @@ logger = configure_module_logger(__name__)
 DEV_MODE = as_bool(os.getenv("DEV_MODE"))
 if DEV_MODE:
     logger.setLevel(logging.DEBUG)
+
+
+def _new_activation_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def _email_reference_values(value: str) -> tuple[str, ...]:
@@ -78,6 +83,7 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 insert(pending_supervisors_table).values(
                     email=normalized_email,
                     name=name,
+                    activation_token=_new_activation_token(),
                 )
             )
     except IntegrityError:
@@ -89,6 +95,46 @@ def admin_create_supervisor(email: str, name: str) -> bool:
 
     logger.info("Pending supervisor created for %s", mask_email_reference(normalized_email))
     return True
+
+
+def ensure_pending_supervisor_activation_token(email: str) -> str:
+    normalized_email = normalize_email(email)
+    email_values = email_lookup_values(normalized_email)
+
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(
+                pending_supervisors_table.c.id,
+                pending_supervisors_table.c.activation_token,
+            ).where(pending_supervisors_table.c.email.in_(email_values))
+        ).first()
+        if not row:
+            raise ValueError("Företagskontot väntar inte på aktivering.")
+        if row.activation_token:
+            return row.activation_token
+
+        activation_token = _new_activation_token()
+        conn.execute(
+            update(pending_supervisors_table)
+            .where(pending_supervisors_table.c.id == row.id)
+            .values(activation_token=activation_token)
+        )
+
+    return activation_token
+
+
+def get_pending_supervisor_email_by_token(activation_token: str) -> Optional[str]:
+    token = (activation_token or "").strip()
+    if not token:
+        return None
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(pending_supervisors_table.c.email).where(
+                pending_supervisors_table.c.activation_token == token
+            )
+        ).first()
+    return row.email if row else None
 
 
 def check_pending_supervisor_hash(email_hash: str) -> bool:

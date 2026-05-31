@@ -97,6 +97,13 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert creation_sent['email'] == 'foretagskonto@example.com'
     assert 'creation_link' in payload
     assert creation_sent['link'] == payload['creation_link']
+    assert "/foretagskonto/skapa/" in creation_sent['link']
+    assert "foretagskonto@example.com" not in creation_sent['link']
+    activation_token = creation_sent['link'].rstrip('/').split('/')[-1]
+    assert (
+        functions.get_pending_supervisor_email_by_token(activation_token)
+        == 'foretagskonto@example.com'
+    )
 
     with empty_db.connect() as conn:
         application = conn.execute(

@@ -91,6 +91,7 @@ def test_supervisor_activation_flow(empty_db):
     assert functions.admin_create_supervisor(email, name)
     email_hash = functions.get_supervisor_email_hash(email)
     normalized_email = functions.normalize_email(email)
+    activation_token = functions.ensure_pending_supervisor_activation_token(email)
     with empty_db.connect() as conn:
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select().where(
@@ -99,12 +100,34 @@ def test_supervisor_activation_flow(empty_db):
         ).first()
     assert pending_supervisor is not None
     assert pending_supervisor.email == normalized_email
+    assert pending_supervisor.activation_token == activation_token
+    assert "@" not in activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
     assert functions.check_pending_supervisor_hash(email_hash)
     with pytest.raises(ValueError):
         functions.supervisor_activate_account(email_hash, "kort")
     assert functions.supervisor_activate_account(email_hash, "LångtLösen123")
     assert not functions.check_pending_supervisor_hash(email_hash)
+    assert functions.get_pending_supervisor_email_by_token(activation_token) is None
     assert functions.supervisor_exists(email)
+
+
+def test_pending_supervisor_activation_token_backfills_missing_value(empty_db):
+    normalized_email = functions.normalize_email("legacy@example.com")
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.pending_supervisors_table.insert().values(
+                email=normalized_email,
+                name="Legacy",
+                activation_token=None,
+            )
+        )
+
+    activation_token = functions.ensure_pending_supervisor_activation_token(normalized_email)
+
+    assert activation_token
+    assert "@" not in activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
 
 
 def test_get_supervisor_login_details_for_orgnr(supervisor_setup):
@@ -640,6 +663,11 @@ def test_admin_create_supervisor_api(empty_db, monkeypatch):
     assert data["status"] == "success"
     assert "link" in data
     assert sent["email"] == "chef@example.com"
+    assert sent["link"] == data["link"]
+    assert "/foretagskonto/skapa/" in sent["link"]
+    assert "chef@example.com" not in sent["link"]
+    activation_token = sent["link"].rstrip("/").split("/")[-1]
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == "chef@example.com"
 
 
 def test_admin_link_supervisor_api(supervisor_setup):

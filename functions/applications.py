@@ -248,6 +248,9 @@ def create_application_request(
                 invoice_contact=cleaned_invoice_contact,
                 invoice_reference=cleaned_invoice_reference,
                 personnummer_hash=personnummer_hash,
+                status="pending",
+                created_at=func.now(),
+                updated_at=func.now(),
             )
         )
         if (

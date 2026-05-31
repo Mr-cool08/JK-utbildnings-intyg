@@ -847,12 +847,9 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     abort(404, description="Standardkonto hittades inte")
 
 
-@app.route("/foretagskonto/skapa/<email_hash>", methods=["GET", "POST"])
-def supervisor_create(email_hash: str):
-    logger.info(
-        "Hanterar skapande av handledarkonto för e-postreferens %s",
-        mask_email_reference(email_hash),
-    )
+@app.route("/foretagskonto/skapa/<activation_token>", methods=["GET", "POST"])
+def supervisor_create(activation_token: str):
+    pending_email = functions.get_pending_supervisor_email_by_token(activation_token)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
@@ -862,8 +859,10 @@ def supervisor_create(email_hash: str):
                 error="Lösenorden måste matcha.",
                 invalid=False,
             )
+        if not pending_email:
+            return render_template("create_supervisor.html", invalid=True)
         try:
-            if not functions.supervisor_activate_account(email_hash, password):
+            if not functions.supervisor_activate_account(pending_email, password):
                 return render_template(
                     "create_supervisor.html",
                     error="Kontot kunde inte aktiveras. Kontrollera att länken är giltig.",
@@ -882,15 +881,12 @@ def supervisor_create(email_hash: str):
                 ),
                 invalid=False,
             )
-        logger.info("Handledarkonto aktiverat för %s", mask_email_reference(email_hash))
+        logger.info("Handledarkonto aktiverat för %s", mask_email_reference(pending_email))
         return redirect(url_for("supervisor_login"))
 
-    if functions.check_pending_supervisor_hash(email_hash):
+    if pending_email:
         return render_template("create_supervisor.html", invalid=False)
-    logger.warning(
-        "Handledarreferens %s hittades inte under aktivering",
-        mask_email_reference(email_hash),
-    )
+    logger.warning("Handledarens aktiveringslänk hittades inte eller har förbrukats")
     return render_template("create_supervisor.html", invalid=True)
 
 
@@ -1551,8 +1547,8 @@ def apply_foretagskonto():
                         message = str(exc)
                         form_errors.append(message)
                         _flag_application_field_error(message, field_errors)
-                    except Exception as exc:  # pragma: no cover - defensiv loggning
-                        logger.error("Kunde inte spara ansökan")
+                    except Exception:  # pragma: no cover - defensiv loggning
+                        logger.exception("Kunde inte spara ansökan")
                         form_errors.append(
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
@@ -2588,12 +2584,17 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             email_warnings.append("Aktiveringslänken till sökande kunde inte skickas.")
 
     # 3) Aktiveringslänk till SUPERVISOR (företagskonto)
-    if result.get("supervisor_activation_required") and result.get("supervisor_email_hash"):
-        link = url_for(
-            "supervisor_create", email_hash=result["supervisor_email_hash"], _external=True
-        )
+    if result.get("supervisor_activation_required") and result.get("supervisor_email"):
         supervisor_email = result.get("supervisor_email") or result["email"]
         try:
+            activation_token = functions.ensure_pending_supervisor_activation_token(
+                supervisor_email
+            )
+            link = url_for(
+                "supervisor_create",
+                activation_token=activation_token,
+                _external=True,
+            )
             email_service.send_creation_email(supervisor_email, link)
             if creation_link is None:
                 creation_link = link  # <- använd denna om ingen tidigare satt
@@ -3441,15 +3442,31 @@ def admin_create_supervisor_route():  # pragma: no cover
             409,
         )
 
-    email_hash = functions.get_supervisor_email_hash(normalized_email)
-    link = url_for("supervisor_create", email_hash=email_hash, _external=True)
+    try:
+        activation_token = functions.ensure_pending_supervisor_activation_token(normalized_email)
+    except ValueError:
+        logger.error(
+            "Misslyckades med att skapa aktiveringslänk för handledare %s",
+            mask_email_reference(normalized_email),
+        )
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Det gick inte att skapa inloggningslänken.",
+                }
+            ),
+            500,
+        )
+
+    link = url_for("supervisor_create", activation_token=activation_token, _external=True)
 
     try:
         email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
         logger.error(
             "Misslyckades med att skicka skapandemejl för handledare till %s",
-            mask_email_reference(email_hash),
+            mask_email_reference(normalized_email),
         )
         return (
             jsonify(
@@ -3463,11 +3480,11 @@ def admin_create_supervisor_route():  # pragma: no cover
     functions.log_admin_action(
         admin_name,
         "skapade företagskonto",
-        f"email_ref={mask_email_reference(email_hash)}",
+        f"email_ref={mask_email_reference(normalized_email)}",
     )
     logger.info(
         "Admin created supervisor %s",
-        mask_email_reference(email_hash),
+        mask_email_reference(normalized_email),
         extra={"admin": admin_name},
     )
     return jsonify({"status": "success", "message": "Företagskonto skapat.", "link": link})

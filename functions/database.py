@@ -5,6 +5,7 @@ import importlib.util
 import logging
 import os
 import re
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -106,6 +107,7 @@ pending_supervisors_table = Table(
     Column("id", Integer, primary_key=True),
     Column("name", String, nullable=False),
     Column("email", String, nullable=False, unique=True),
+    Column("activation_token", String, nullable=True, index=True),
     Column(
         "created_at",
         DateTime(timezone=True),
@@ -1243,6 +1245,36 @@ def _migration_0018_fix_supervisor_password_resets_created_at(conn: Connection) 
     )
 
 
+def _migration_0019_add_pending_supervisor_activation_token(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if pending_supervisors_table.name not in existing_tables:
+        return
+
+    _add_column_if_missing(conn, pending_supervisors_table.name, "activation_token", "TEXT")
+    _ensure_index(
+        conn,
+        pending_supervisors_table.name,
+        "ix_pending_supervisors_activation_token",
+        ["activation_token"],
+    )
+
+    rows = conn.execute(
+        select(
+            pending_supervisors_table.c.id,
+            pending_supervisors_table.c.activation_token,
+        )
+    ).fetchall()
+    for row in rows:
+        if row.activation_token:
+            continue
+        conn.execute(
+            pending_supervisors_table.update()
+            .where(pending_supervisors_table.c.id == row.id)
+            .values(activation_token=secrets.token_urlsafe(32))
+        )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1282,6 +1314,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0018_fix_supervisor_password_resets_created_at",
         _migration_0018_fix_supervisor_password_resets_created_at,
+    ),
+    (
+        "0019_add_pending_supervisor_activation_token",
+        _migration_0019_add_pending_supervisor_activation_token,
     ),
 ]
 
