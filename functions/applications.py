@@ -458,6 +458,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                                 username=application.name,
                                 email=normalized_email,
                                 personnummer=stored_personnummer_hash,
+                                orgnr_normalized="",
                             )
                         )
                     except IntegrityError:

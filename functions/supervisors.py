@@ -669,6 +669,7 @@ def user_accept_link_request(personnummer_hash: str, supervisor_email_hash: str)
                 insert(supervisor_connections_table).values(
                     supervisor_email=request_row.supervisor_email,
                     user_personnummer=personnummer_hash,
+                    created_at=func.now(),
                 )
             )
 
@@ -762,6 +763,7 @@ def admin_link_supervisor_to_user(
             insert(supervisor_connections_table).values(
                 supervisor_email=email_hash,
                 user_personnummer=pnr_hash,
+                created_at=func.now(),
             )
         )
         conn.execute(

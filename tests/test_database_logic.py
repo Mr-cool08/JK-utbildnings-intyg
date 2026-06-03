@@ -697,6 +697,253 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
     ) in executed_sql_texts
 
 
+def test_migration_0020_sqlite_restores_orgnr_defaults():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO pending_users (
+                    username,
+                    email,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Pending Person',
+                    'pending@example.com',
+                    'pending-pnr',
+                    ''
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (
+                    username,
+                    email,
+                    password,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Active Person',
+                    'active@example.com',
+                    'hashed-password',
+                    'active-pnr',
+                    ''
+                )
+                """
+            )
+        )
+
+        database_module._migration_0020_fix_orgnr_column_defaults(conn)
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO pending_users (username, email, personnummer)
+                VALUES ('Ny Pending', 'ny-pending@example.com', 'ny-pending-pnr')
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (username, email, password, personnummer)
+                VALUES (
+                    'Ny Aktiv',
+                    'ny-aktiv@example.com',
+                    'hashed-password',
+                    'ny-aktiv-pnr'
+                )
+                """
+            )
+        )
+
+        pending_orgnr = conn.execute(
+            text(
+                """
+                SELECT orgnr_normalized FROM pending_users
+                WHERE personnummer = 'ny-pending-pnr'
+                """
+            )
+        ).scalar_one()
+        user_orgnr = conn.execute(
+            text(
+                """
+                SELECT orgnr_normalized FROM users
+                WHERE personnummer = 'ny-aktiv-pnr'
+                """
+            )
+        ).scalar_one()
+
+    assert pending_orgnr == ""
+    assert user_orgnr == ""
+
+
+def test_migration_0020_postgres_restores_orgnr_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [
+                functions.pending_users_table.name,
+                functions.users_table.name,
+            ],
+            get_columns=lambda _table_name: [
+                {
+                    "name": "orgnr_normalized",
+                    "nullable": False,
+                    "default": None,
+                }
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0020_fix_orgnr_column_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "ALTER TABLE pending_users ALTER COLUMN orgnr_normalized SET DEFAULT ''"
+        in executed_sql_texts
+    )
+    assert (
+        "ALTER TABLE users ALTER COLUMN orgnr_normalized SET DEFAULT ''"
+        in executed_sql_texts
+    )
+
+
+def test_migration_0021_postgres_repairs_company_user_timestamps(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.company_users_table.name],
+            get_columns=lambda _table_name: [
+                {"name": "created_at"},
+                {"name": "updated_at"},
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0021_fix_company_users_timestamp_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE company_users "
+        "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE company_users "
+        "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+        "WHERE updated_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN updated_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
+def test_migration_0022_postgres_repairs_supervisor_connection_created_at(
+    monkeypatch,
+):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.supervisor_connections_table.name],
+            get_columns=lambda _table_name: [{"name": "created_at"}],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0022_fix_supervisor_connections_created_at_default(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE supervisor_connections "
+        "SET created_at = CURRENT_TIMESTAMP "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE supervisor_connections "
+        "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE supervisor_connections ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
 def test_migration_0014_postgres_repairs_org_request_defaults(monkeypatch):
     class _FakeConn:
         dialect = postgresql.dialect()

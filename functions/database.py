@@ -645,15 +645,21 @@ def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
     )
     inspector = inspect(conn)
     column = next(
-        (item for item in inspector.get_columns(table_name) if item["name"] == "orgnr_normalized"),
+        (
+            item
+            for item in inspector.get_columns(table_name)
+            if item["name"] == "orgnr_normalized"
+        ),
         None,
     )
-    if not column or column.get("nullable", True) is False:
+    if not column:
         return
 
     dialect = conn.dialect.name
     if dialect == "sqlite":
-        _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
+        default = str(column.get("default") or "").strip()
+        if column.get("nullable", True) is not False or default not in {"''", '""'}:
+            _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
         return
 
     if dialect.startswith("postgresql"):
@@ -661,6 +667,14 @@ def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
         quoted_column_name = _quote_sql_identifier(
             conn, "orgnr_normalized", "kolumnnamn"
         )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_column_name} SET DEFAULT ''"
+            )
+        )
+        if column.get("nullable", True) is False:
+            return
         conn.execute(
             DDL(
                 f"ALTER TABLE {quoted_table_name} "
@@ -1275,6 +1289,162 @@ def _migration_0019_add_pending_supervisor_activation_token(conn: Connection) ->
         )
 
 
+def _migration_0020_fix_orgnr_column_defaults(conn: Connection) -> None:
+    # Säkra defaultvärden för äldre databaser där kolumnen redan fanns utan default.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    for table_name in (pending_users_table.name, users_table.name):
+        if table_name not in existing_tables:
+            continue
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "orgnr_normalized" not in columns:
+            continue
+        _ensure_orgnr_column_not_null(conn, table_name)
+
+
+def _migration_0021_fix_company_users_timestamp_defaults(conn: Connection) -> None:
+    # Fixa DEFAULT för tidsstämplar i company_users efter import av äldre scheman.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns(company_users_table.name)}
+    required_columns = {"created_at", "updated_at"}
+    if not required_columns.issubset(columns):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE company_users "
+                "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+                "WHERE created_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE company_users "
+                "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, company_users_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+        quoted_updated_at = _quote_sql_identifier(conn, "updated_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = COALESCE("
+                f"{quoted_created_at}, {quoted_updated_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_updated_at} = COALESCE("
+                f"{quoted_updated_at}, {quoted_created_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_updated_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0021 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
+def _migration_0022_fix_supervisor_connections_created_at_default(
+    conn: Connection,
+) -> None:
+    # Fixa DEFAULT för created_at i supervisor_connections efter import av äldre scheman.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_connections_table.name not in existing_tables:
+        return
+
+    columns = {
+        column["name"]
+        for column in inspector.get_columns(supervisor_connections_table.name)
+    }
+    if "created_at" not in columns:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE supervisor_connections "
+                "SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, supervisor_connections_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = CURRENT_TIMESTAMP "
+                f"WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0022 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1318,6 +1488,18 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0019_add_pending_supervisor_activation_token",
         _migration_0019_add_pending_supervisor_activation_token,
+    ),
+    (
+        "0020_fix_orgnr_column_defaults",
+        _migration_0020_fix_orgnr_column_defaults,
+    ),
+    (
+        "0021_fix_company_users_timestamp_defaults",
+        _migration_0021_fix_company_users_timestamp_defaults,
+    ),
+    (
+        "0022_fix_supervisor_connections_created_at_default",
+        _migration_0022_fix_supervisor_connections_created_at_default,
     ),
 ]
 

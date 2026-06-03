@@ -659,6 +659,48 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
         assert pending_supervisor == []
 
 
+def test_standard_application_approval_handles_pending_users_without_orgnr_default(
+    fresh_app_db,
+):
+    application_id = functions.create_application_request(
+        account_type="standard",
+        name="Legacy Standard",
+        email="legacy-standard@example.com",
+        orgnr="",
+        company_name="",
+        comment=None,
+        invoice_address=None,
+        invoice_contact=None,
+        invoice_reference=None,
+        personnummer="8802021234",
+    )
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE pending_users"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    personnummer VARCHAR NOT NULL UNIQUE,
+                    orgnr_normalized VARCHAR NOT NULL
+                )
+                """
+            )
+        )
+
+    result = functions.approve_application_request(application_id, "admin")
+
+    assert result["user_activation_required"] is True
+    with fresh_app_db.connect() as conn:
+        pending_user = conn.execute(functions.pending_users_table.select()).first()
+
+    assert pending_user is not None
+    assert pending_user.email == "legacy-standard@example.com"
+    assert pending_user.orgnr_normalized == ""
+
+
 def test_standard_application_rejects_orgnr(fresh_app_db):
     with pytest.raises(
         ValueError,

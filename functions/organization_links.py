@@ -283,6 +283,7 @@ def approve_organization_link_request(
                 insert(supervisor_connections_table).values(
                     supervisor_email=supervisor_email_reference,
                     user_personnummer=request_row.user_personnummer,
+                    created_at=func.now(),
                 )
             )
 

@@ -175,6 +175,7 @@ def ensure_demo_data(
                     username=user_name,
                     email=normalized_user_email,
                     personnummer=pnr_hash,
+                    orgnr_normalized="",
                 )
             )
             user_created = True
@@ -271,6 +272,7 @@ def ensure_demo_data(
                             role="foretagskonto",
                             name=supervisor_name,
                             email=normalized_supervisor_email,
+                            updated_at=func.now(),
                         )
                     )
                     logger.info(
@@ -284,6 +286,8 @@ def ensure_demo_data(
                             role="foretagskonto",
                             name=supervisor_name,
                             email=normalized_supervisor_email,
+                            created_at=func.now(),
+                            updated_at=func.now(),
                         )
                     )
                     logger.info(
