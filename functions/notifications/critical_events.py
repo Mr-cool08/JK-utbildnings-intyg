@@ -51,6 +51,8 @@ class EmailErrorHandler(logging.Handler):
             # Only handle ERROR level logs (not CRITICAL - those are handled separately)
             if record.levelno != logging.ERROR:
                 return
+            if getattr(record, "skip_error_email", False):
+                return
             if not _should_send_error_email(record):
                 return
             if getattr(record, "_email_error_handler_sent", False):

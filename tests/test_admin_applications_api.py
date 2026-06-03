@@ -97,6 +97,13 @@ def test_admin_approve_application_api(empty_db, monkeypatch):
     assert creation_sent['email'] == 'foretagskonto@example.com'
     assert 'creation_link' in payload
     assert creation_sent['link'] == payload['creation_link']
+    assert "/foretagskonto/skapa/" in creation_sent['link']
+    assert "foretagskonto@example.com" not in creation_sent['link']
+    activation_token = creation_sent['link'].rstrip('/').split('/')[-1]
+    assert (
+        functions.get_pending_supervisor_email_by_token(activation_token)
+        == 'foretagskonto@example.com'
+    )
 
     with empty_db.connect() as conn:
         application = conn.execute(
@@ -159,15 +166,123 @@ def test_admin_approve_standard_application_creates_activation_link(
             functions.pending_users_table.select()
         ).first()
         assert pending_user is not None
-        assert pending_user.email == functions.hash_value(
-            functions.normalize_email('standard@example.com')
-        )
+        assert pending_user.email == functions.normalize_email('standard@example.com')
         pending_supervisor = conn.execute(
             functions.pending_supervisors_table.select()
         ).fetchall()
         assert pending_supervisor == []
 
 
+
+
+def test_admin_approve_application_form_post_sends_activation_email(
+    empty_db, monkeypatch
+):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    creation_sent: dict[str, str] = {}
+
+    monkeypatch.setattr(
+        app.email_service,
+        'send_creation_email',
+        lambda email, link: creation_sent.update({'email': email, 'link': link}),
+    )
+
+    application_id = functions.create_application_request(
+        'foretagskonto',
+        'Formulär Företagskonto',
+        'formular@example.com',
+        '5569668337',
+        'Formulärbolaget',
+        'Kommentar',
+        'Adress 1',
+        'Kontaktperson',
+        'Ref-FORM',
+    )
+
+    response = client.post(
+        '/admin/ansokningar',
+        data={
+            'application_id': str(application_id),
+            'application_status': 'approved',
+            'csrf_token': 'test-csrf',
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['status'] == 'success'
+    assert payload['message'] == (
+        'Ansökan godkänd. Aktiveringsmejl skickat till företagskontot.'
+    )
+    assert creation_sent['email'] == 'formular@example.com'
+    assert payload['creation_link'] == creation_sent['link']
+    assert payload['access_link'] == creation_sent['link']
+    assert payload['access_link_type'] == 'activation'
+
+
+def test_admin_approve_application_api_sends_access_email_for_active_supervisor(
+    empty_db, monkeypatch
+):
+    client = app.app.test_client()
+    _admin_session(client)
+
+    normalized_email = functions.normalize_email('foretagskonto@example.com')
+    assert functions.admin_create_supervisor(normalized_email, 'Aktivt Företagskonto')
+    assert functions.supervisor_activate_account(normalized_email, 'StarktLosen123')
+
+    creation_sent = {'called': False}
+    reset_sent: dict[str, str] = {}
+
+    monkeypatch.setattr(
+        app.email_service,
+        'send_creation_email',
+        lambda _email, _link: creation_sent.update({'called': True}),
+    )
+    monkeypatch.setattr(
+        app.email_service,
+        'send_password_reset_email',
+        lambda email, link: reset_sent.update({'email': email, 'link': link}),
+    )
+
+    application_id = functions.create_application_request(
+        'foretagskonto',
+        'Redan Aktivt Företagskonto',
+        normalized_email,
+        '5569668337',
+        'Handledarbolaget',
+        'Behöver åtkomst',
+        'Adress 2',
+        'Kontaktperson 2',
+        'Ref-AKTIV',
+    )
+
+    response = client.post(
+        f'/admin/api/ansokningar/{application_id}/godkann',
+        json={'csrf_token': 'test-csrf'},
+        headers={'X-CSRF-Token': 'test-csrf'},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['status'] == 'success'
+    assert payload['message'] == (
+        'Ansökan godkänd. Företagskontot finns redan och ett åtkomstmejl har skickats.'
+    )
+    assert payload['data']['account_type'] == 'foretagskonto'
+    assert payload['data']['supervisor_activation_required'] is False
+    assert creation_sent['called'] is False
+    assert reset_sent['email'] == normalized_email
+    assert payload['access_link'] == reset_sent['link']
+    assert payload['access_link_type'] == 'password_reset'
+    assert payload['access_link_label'] == 'Återställningslänk'
+    assert 'creation_link' not in payload
+
+    reset_token = reset_sent['link'].rstrip('/').split('/')[-1]
+    reset_info = functions.get_supervisor_password_reset(reset_token)
+    assert reset_info is not None
+    assert reset_info['email'] == normalized_email
 
 
 def test_admin_approve_application_validation_error_returns_400(empty_db, monkeypatch):

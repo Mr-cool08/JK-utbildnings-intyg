@@ -60,6 +60,67 @@ def test_send_organization_link_rejected_email(monkeypatch):
     assert "AT&amp;T AB" in captured["body"]
 
 
+def test_send_certificate_expiry_summary_email(monkeypatch):
+    captured = _capture_send_email(monkeypatch)
+    monkeypatch.setenv("BASE_URL", "https://staging.utbildningsintyg.se")
+
+    email_service.send_certificate_expiry_summary_email(
+        "test@example.com",
+        "Anna",
+        [
+            {
+                "display_name": "Truckkort",
+                "expires_on": "2026-08-10",
+            },
+            {
+                "display_name": "HLR",
+                "expires_on": "2026-09-15",
+            },
+        ],
+        months=6,
+    )
+
+    normalized_body = " ".join(captured["body"].split())
+
+    assert captured["recipient"] == "test@example.com"
+    assert captured["subject"] == "Intyg som snart går ut"
+    assert "Hej Anna" in normalized_body
+    assert "Truckkort" in normalized_body
+    assert "2026-08-10" in normalized_body
+    assert "https://staging.utbildningsintyg.se/dashboard" in normalized_body
+
+
+def test_send_supervisor_expiry_summary_email(monkeypatch):
+    captured = _capture_send_email(monkeypatch)
+    monkeypatch.setenv("BASE_URL", "https://staging.utbildningsintyg.se")
+
+    email_service.send_supervisor_expiry_summary_email(
+        "foretag@example.com",
+        "AT&T AB",
+        [
+            {
+                "user_name": "Anna Andersson",
+                "certificates": [
+                    {
+                        "display_name": "Truckkort",
+                        "expires_on": "2026-08-10",
+                    }
+                ],
+            }
+        ],
+        months=6,
+    )
+
+    normalized_body = " ".join(captured["body"].split())
+
+    assert captured["recipient"] == "foretag@example.com"
+    assert captured["subject"] == "Intyg för anslutna konton som snart går ut"
+    assert "AT&amp;T AB" in normalized_body
+    assert "Anna Andersson" in normalized_body
+    assert "Truckkort" in normalized_body
+    assert "https://staging.utbildningsintyg.se/foretagskonto" in normalized_body
+
+
 def test_send_email_skips_when_disable_emails_enabled(monkeypatch):
     monkeypatch.setenv("DISABLE_EMAILS", "true")
 

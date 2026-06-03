@@ -14,6 +14,7 @@ RUN apk update \
         zlib zlib-dev \
         libffi libffi-dev \
         libjpeg-turbo-dev \
+    && python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r /app/requirements.txt \
     && apk del build-base zlib-dev libffi-dev
 

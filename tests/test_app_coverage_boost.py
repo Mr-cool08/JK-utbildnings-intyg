@@ -96,6 +96,12 @@ def test_supervisor_create_branches(monkeypatch, client):
     )
     assert "matcha" in resp_mismatch.text
 
+    monkeypatch.setattr(
+        app.functions,
+        "get_pending_supervisor_email_by_token",
+        lambda value: None if value == "absent" else "chef@example.com",
+    )
+
     # Aktivering misslyckas.
     monkeypatch.setattr(app.functions, "supervisor_activate_account", lambda *_: False)
     resp_failed = client.post(
@@ -113,12 +119,10 @@ def test_supervisor_create_branches(monkeypatch, client):
     assert "kunde inte aktiveras" in resp_error.text
 
     # Ingen ansökan hittas.
-    monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda *_: False)
     resp_invalid = client.get("/foretagskonto/skapa/absent")
     assert resp_invalid.status_code == 200
 
     # Lyckad aktivering leder till redirect.
-    monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda value: True)
     monkeypatch.setattr(app.functions, "supervisor_activate_account", lambda *_: True)
     resp_success = client.post(
         "/foretagskonto/skapa/ok",

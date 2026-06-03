@@ -1,6 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import pytest
 import app
+import functions
 
 
 def _login(client, personnummer: str, password: str):
@@ -27,6 +28,25 @@ def test_login_failure(user_db):
     with app.app.test_client() as client:
         response = _login(client, "9001011234", "wrong")
         assert response.status_code == 401
+
+
+def test_login_pending_user_shows_email_verification_message(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.pending_users_table.insert().values(
+                username="Test",
+                email=functions.normalize_email("test@example.com"),
+                personnummer=functions.hash_value(functions.normalize_personnummer("9001011234")),
+                orgnr_normalized="",
+            )
+        )
+
+    with app.app.test_client() as client:
+        response = _login(client, "9001011234", "secret")
+        assert response.status_code == 401
+        body = response.get_data(as_text=True)
+        assert "verifiera din e-postadress" in body
+        assert "innan du kan logga in" in body
 
 
 def test_login_requires_csrf(user_db):

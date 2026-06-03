@@ -53,6 +53,33 @@ def test_admin_create_user_duplicate(empty_db):
     assert not functions.admin_create_user("exist@example.com", "Existing", "19900101-1234")
 
 
+def test_admin_create_user_rejects_existing_personnummer(empty_db):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900101-1234")
+    )
+
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Existing Personnummer",
+                email=functions.hash_value("aktiv@example.com"),
+                password=functions.hash_password("secret"),
+                personnummer=personnummer_hash,
+            )
+        )
+
+    assert not functions.admin_create_user(
+        "annan@example.com",
+        "Ny Pending",
+        "19900101-1234",
+    )
+
+    with empty_db.connect() as conn:
+        pending_rows = conn.execute(functions.pending_users_table.select()).fetchall()
+
+    assert pending_rows == []
+
+
 def test_check_personnummer_password(empty_db):
     with empty_db.begin() as conn:
         conn.execute(

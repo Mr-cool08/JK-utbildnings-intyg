@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -18,16 +19,20 @@ from functions.database import (
 )
 from functions.hashing import (
     _hash_personnummer,
+    email_lookup_values,
     hash_password,
     hash_value,
     normalize_email,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 from functions.users import verify_certificate
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _hash_token(token: str) -> str:
@@ -38,7 +43,7 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
     # Skapa ett återställningstoken för en användare.
     personnummer_hash = _hash_personnummer(personnummer)
     normalized_email = normalize_email(email)
-    email_hash = hash_value(normalized_email)
+    email_values = email_lookup_values(normalized_email)
 
     with get_engine().begin() as conn:
         row = conn.execute(
@@ -50,13 +55,13 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
                     pending_users_table.c.personnummer == personnummer_hash
                 )
             ).first()
-            if pending and pending.email == email_hash:
+            if pending and pending.email in email_values:
                 logger.warning(
                     "Kunde inte skapa återställningstoken för %s: kontot är inte aktiverat",
                     mask_hash(personnummer_hash),
                 )
                 raise ValueError("Kontot är inte aktiverat ännu.")
-        if not row or row.email != email_hash:
+        if not row or row.email not in email_values:
             logger.warning(
                 "Kunde inte skapa återställningstoken för %s: uppgifter matchar inte",
                 mask_hash(personnummer_hash),
@@ -68,7 +73,7 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
         conn.execute(
             insert(password_resets_table).values(
                 personnummer=personnummer_hash,
-                email=email_hash,
+                email=normalized_email,
                 token_hash=token_hash,
             )
         )
@@ -80,16 +85,16 @@ def create_password_reset_token(personnummer: str, email: str) -> str:
 def create_supervisor_password_reset_token(email: str) -> str:
     # Skapa ett återställningstoken för ett företagskonto.
     normalized_email = normalize_email(email)
-    email_hash = hash_value(normalized_email)
+    email_values = email_lookup_values(normalized_email)
 
     with get_engine().begin() as conn:
         row = conn.execute(
-            select(supervisors_table.c.email).where(supervisors_table.c.email == email_hash)
+            select(supervisors_table.c.email).where(supervisors_table.c.email.in_(email_values))
         ).first()
         if not row:
             logger.warning(
                 "Kunde inte skapa återställningstoken för företagskonto %s: saknas",
-                mask_hash(email_hash),
+                mask_hash(email_values[1]),
             )
             raise ValueError("Angiven e-post matchar inget aktivt företagskonto.")
 
@@ -97,14 +102,14 @@ def create_supervisor_password_reset_token(email: str) -> str:
         token_hash = _hash_token(token)
         conn.execute(
             insert(supervisor_password_resets_table).values(
-                email=email_hash,
+                email=row.email,
                 token_hash=token_hash,
             )
         )
 
     logger.info(
         "Skapade återställningstoken för företagskonto %s",
-        mask_hash(email_hash),
+        mask_hash(email_values[1]),
     )
     return token
 

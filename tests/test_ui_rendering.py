@@ -193,14 +193,31 @@ def test_dashboard_hides_search_when_user_has_five_or_fewer_certificates(user_db
 
 def test_dashboard_shows_company_connection_without_details_panel(user_db):
     personnummer_hash = functions.hash_value("9001011234")
-    supervisor_hash = functions.hash_value("foretag@example.com")
+    supervisor_email = "foretag@example.com"
+    supervisor_hash = functions.get_supervisor_email_hash(supervisor_email)
+    supervisor_name = "Anna Ansvarig"
+    company_name = "Byggstyrka AB"
 
     with user_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name=company_name,
+                orgnr=functions.validate_orgnr("5569668337"),
+            )
+        ).inserted_primary_key[0]
         conn.execute(
             functions.supervisors_table.insert().values(
-                name="Handledarbolaget",
+                name=supervisor_name,
                 email=supervisor_hash,
                 password=functions.hash_password("super-secret-1"),
+            )
+        )
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name=supervisor_name,
+                email=supervisor_email,
             )
         )
         conn.execute(
@@ -217,9 +234,59 @@ def test_dashboard_shows_company_connection_without_details_panel(user_db):
         body = response.get_data(as_text=True)
 
     assert "Företagskoppling" in body
-    assert "Handledarbolaget" in body
+    assert company_name in body
+    assert supervisor_name not in body
+    assert supervisor_email not in body
     assert "Ta bort koppling" in body
     assert '<details class="dashboard-secondary">' not in body
+
+
+def test_dashboard_shows_company_name_in_pending_link_request(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    supervisor_email = "pending@example.com"
+    supervisor_hash = functions.get_supervisor_email_hash(supervisor_email)
+    supervisor_name = "Bengt Chef"
+    company_name = "Montagepartner AB"
+
+    with user_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name=company_name,
+                orgnr=functions.validate_orgnr("5569668337"),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                name=supervisor_name,
+                email=supervisor_hash,
+                password=functions.hash_password("super-secret-2"),
+            )
+        )
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name=supervisor_name,
+                email=supervisor_email,
+            )
+        )
+        conn.execute(
+            functions.supervisor_link_requests_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Kopplingsf" in body
+    assert company_name in body
+    assert supervisor_name not in body
+    assert "Vill koppla ditt konto" in body
 
 
 def test_upload_page_requires_login(empty_db):
@@ -242,13 +309,18 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert 'id="certificate"' in body
     assert 'id="category"' in body
     assert 'id="note"' in body
+    assert 'id="expiry_mode"' in body
+    assert 'id="expiry_date"' in body
+    assert 'id="expiry_months"' in body
+    assert 'id="expiry_years"' in body
+    assert "Antal år och månader från idag" in body
     assert 'id="userUploadForm"' in body
     assert 'id="uploadProgress"' in body
     assert 'id="uploadProgressBar"' in body
     assert "Vi laddar upp ditt intyg" in body
     assert "Tillbaka till mina intyg" in body
-    assert "Max 100 MB per uppladdning." in body
-    assert 'data-max-bytes="104857600"' in body
+    assert "Max 50 MB per uppladdning." in body
+    assert 'data-max-bytes="52428800"' in body
 
 
 def test_admin_upload_script_enforces_total_upload_limit():

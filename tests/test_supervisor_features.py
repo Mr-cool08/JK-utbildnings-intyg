@@ -3,6 +3,7 @@ import os
 import sys
 
 import pytest
+from sqlalchemy import text
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -90,12 +91,85 @@ def test_supervisor_activation_flow(empty_db):
     name = "Företagskonto"
     assert functions.admin_create_supervisor(email, name)
     email_hash = functions.get_supervisor_email_hash(email)
+    normalized_email = functions.normalize_email(email)
+    activation_token = functions.ensure_pending_supervisor_activation_token(email)
+    with empty_db.connect() as conn:
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select().where(
+                functions.pending_supervisors_table.c.email == normalized_email
+            )
+        ).first()
+    assert pending_supervisor is not None
+    assert pending_supervisor.email == normalized_email
+    assert pending_supervisor.activation_token == activation_token
+    assert "@" not in activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
     assert functions.check_pending_supervisor_hash(email_hash)
     with pytest.raises(ValueError):
         functions.supervisor_activate_account(email_hash, "kort")
     assert functions.supervisor_activate_account(email_hash, "LångtLösen123")
     assert not functions.check_pending_supervisor_hash(email_hash)
+    assert functions.get_pending_supervisor_email_by_token(activation_token) is None
     assert functions.supervisor_exists(email)
+
+
+def test_supervisor_activation_handles_legacy_supervisors_table_without_defaults(
+    empty_db,
+):
+    email = "legacy-supervisor@example.com"
+    name = "Legacy Chef"
+    normalized_email = functions.normalize_email(email)
+
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE supervisors"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE supervisors (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL UNIQUE,
+                    password VARCHAR NOT NULL,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    assert functions.admin_create_supervisor(email, name)
+    activation_token = functions.ensure_pending_supervisor_activation_token(email)
+
+    assert activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
+    assert functions.supervisor_activate_account(email, "LångtLösen123")
+
+    with empty_db.connect() as conn:
+        supervisor = conn.execute(
+            functions.supervisors_table.select().where(
+                functions.supervisors_table.c.email == normalized_email
+            )
+        ).first()
+
+    assert supervisor is not None
+    assert supervisor.created_at is not None
+
+
+def test_pending_supervisor_activation_token_backfills_missing_value(empty_db):
+    normalized_email = functions.normalize_email("legacy@example.com")
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.pending_supervisors_table.insert().values(
+                email=normalized_email,
+                name="Legacy",
+                activation_token=None,
+            )
+        )
+
+    activation_token = functions.ensure_pending_supervisor_activation_token(normalized_email)
+
+    assert activation_token
+    assert "@" not in activation_token
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == normalized_email
 
 
 def test_get_supervisor_login_details_for_orgnr(supervisor_setup):
@@ -113,6 +187,67 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     body = response.get_data(as_text=True)
     assert supervisor_setup["user_name"] in body
     assert "intyg.pdf" in body
+
+
+@pytest.mark.parametrize(
+    ("target_table", "fetcher"),
+    [
+        (
+            functions.supervisor_connections_table,
+            functions.list_user_supervisor_connections,
+        ),
+        (
+            functions.supervisor_link_requests_table,
+            functions.list_user_link_requests,
+        ),
+    ],
+)
+def test_supervisor_company_name_lookup_supports_legacy_hashes(
+    empty_db,
+    target_table,
+    fetcher,
+):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("19900101-1234")
+    )
+    supervisor_hash = functions.hash_value(
+        functions.normalize_email("legacy-chef@example.com")
+    )
+
+    with empty_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Legacy Bolag AB",
+                orgnr=functions.validate_orgnr("556966-8337"),
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Legacy Bolag AB",
+                email=supervisor_hash,
+            )
+        )
+        conn.execute(
+            functions.supervisors_table.insert().values(
+                email=supervisor_hash,
+                name="Kontaktperson",
+                password=functions.hash_password("Losen123!"),
+            )
+        )
+        conn.execute(
+            target_table.insert().values(
+                supervisor_email=supervisor_hash,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    rows = fetcher(personnummer_hash)
+
+    assert len(rows) == 1
+    assert rows[0]["supervisor_email"] == supervisor_hash
+    assert rows[0]["supervisor_name"] == "Legacy Bolag AB"
 
 
 def test_supervisor_dashboard_has_user_list_and_search(supervisor_setup):
@@ -570,6 +705,11 @@ def test_admin_create_supervisor_api(empty_db, monkeypatch):
     assert data["status"] == "success"
     assert "link" in data
     assert sent["email"] == "chef@example.com"
+    assert sent["link"] == data["link"]
+    assert "/foretagskonto/skapa/" in sent["link"]
+    assert "chef@example.com" not in sent["link"]
+    activation_token = sent["link"].rstrip("/").split("/")[-1]
+    assert functions.get_pending_supervisor_email_by_token(activation_token) == "chef@example.com"
 
 
 def test_admin_link_supervisor_api(supervisor_setup):

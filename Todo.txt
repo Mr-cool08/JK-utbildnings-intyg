@@ -1,12 +1,6 @@
-
-kopplings förfrågan förtagsnamn istället än namn
-
 ändra text i anteckngarna i för standard användare
 
-lägg till påminelse för att förnya intyg (företag, användare)
 
 
 
-ta bort demo
-
-
+ta bort demo?

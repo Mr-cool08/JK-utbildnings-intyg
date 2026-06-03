@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from functions.database import (
@@ -20,21 +21,29 @@ from functions.database import (
 )
 from functions.hashing import (
     _hash_personnummer,
+    email_lookup_values,
     hash_password,
-    hash_value,
     normalize_email,
     normalize_personnummer,
     validate_orgnr,
 )
 from functions.logging import configure_module_logger
 from functions.pdf_storage import _serialize_categories, store_pdf_blob
+from functions.requests import as_bool
 from functions.supervisors import admin_link_supervisor_to_user, supervisor_activate_account
-from functions.users import admin_create_user, user_create_user, verify_certificate
+from functions.users import (
+    admin_create_user,
+    admin_delete_user_account_by_hash,
+    user_create_user,
+    verify_certificate,
+)
 from functions.applications import _ensure_company
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def create_test_user() -> None:
@@ -46,6 +55,45 @@ def create_test_user() -> None:
         return
     pnr_hash = _hash_personnummer(personnummer)
     user_create_user("password", pnr_hash)
+
+
+def _remove_conflicting_demo_users(
+    *,
+    personnummer_hash: str,
+    email_values: tuple[str, str],
+) -> None:
+    # Rensa felaktiga konton som delar demo-e-post men tillhör en annan användare.
+    with get_engine().connect() as conn:
+        conflicting_hashes = {
+            row.personnummer
+            for row in conn.execute(
+                select(users_table.c.personnummer).where(
+                    users_table.c.email.in_(email_values),
+                    users_table.c.personnummer != personnummer_hash,
+                )
+            )
+        }
+        conflicting_hashes.update(
+            row.personnummer
+            for row in conn.execute(
+                select(pending_users_table.c.personnummer).where(
+                    pending_users_table.c.email.in_(email_values),
+                    pending_users_table.c.personnummer != personnummer_hash,
+                )
+            )
+        )
+
+    removed_conflicts = 0
+    for conflicting_hash in sorted(conflicting_hashes):
+        deleted, _, _ = admin_delete_user_account_by_hash(conflicting_hash)
+        if deleted:
+            removed_conflicts += 1
+
+    if removed_conflicts:
+        logger.warning(
+            "Demodata: tog bort %s konfliktande konto(n) för demoanvändarens e-post",
+            removed_conflicts,
+        )
 
 
 def ensure_demo_data(
@@ -85,8 +133,13 @@ def ensure_demo_data(
         normalized_orgnr = None
 
     pnr_hash = _hash_personnummer(normalized_pnr)
-    user_email_hash = hash_value(normalized_user_email)
-    supervisor_email_hash = hash_value(normalized_supervisor_email)
+    user_email_values = email_lookup_values(normalized_user_email)
+    supervisor_email_values = email_lookup_values(normalized_supervisor_email)
+
+    _remove_conflicting_demo_users(
+        personnummer_hash=pnr_hash,
+        email_values=user_email_values,
+    )
 
     engine = get_engine()
 
@@ -102,7 +155,7 @@ def ensure_demo_data(
                 .where(users_table.c.personnummer == pnr_hash)
                 .values(
                     username=user_name,
-                    email=user_email_hash,
+                    email=normalized_user_email,
                     password=hash_password(user_password),
                 )
             )
@@ -113,13 +166,16 @@ def ensure_demo_data(
                 delete(pending_users_table).where(pending_users_table.c.personnummer == pnr_hash)
             )
             conn.execute(
-                delete(pending_users_table).where(pending_users_table.c.email == user_email_hash)
+                delete(pending_users_table).where(
+                    pending_users_table.c.email.in_(user_email_values)
+                )
             )
             conn.execute(
                 insert(pending_users_table).values(
                     username=user_name,
-                    email=user_email_hash,
+                    email=normalized_user_email,
                     personnummer=pnr_hash,
+                    orgnr_normalized="",
                 )
             )
             user_created = True
@@ -136,12 +192,14 @@ def ensure_demo_data(
     supervisor_created = False
     with engine.begin() as conn:
         existing_supervisor = conn.execute(
-            select(supervisors_table.c.id).where(supervisors_table.c.email == supervisor_email_hash)
+            select(supervisors_table.c.id).where(
+                supervisors_table.c.email.in_(supervisor_email_values)
+            )
         ).first()
         if existing_supervisor:
             conn.execute(
                 update(supervisors_table)
-                .where(supervisors_table.c.email == supervisor_email_hash)
+                .where(supervisors_table.c.email.in_(supervisor_email_values))
                 .values(
                     name=supervisor_name,
                     password=hash_password(supervisor_password),
@@ -151,13 +209,14 @@ def ensure_demo_data(
         else:
             conn.execute(
                 delete(pending_supervisors_table).where(
-                    pending_supervisors_table.c.email == supervisor_email_hash
+                    pending_supervisors_table.c.email.in_(supervisor_email_values)
                 )
             )
             conn.execute(
                 insert(pending_supervisors_table).values(
                     name=supervisor_name,
-                    email=supervisor_email_hash,
+                    email=normalized_supervisor_email,
+                    created_at=func.now(),
                 )
             )
             supervisor_created = True
@@ -165,7 +224,7 @@ def ensure_demo_data(
 
     if supervisor_created:
         try:
-            if supervisor_activate_account(supervisor_email_hash, supervisor_password):
+            if supervisor_activate_account(normalized_supervisor_email, supervisor_password):
                 logger.info("Demodata: demoföretagskonto aktiverat")
             else:
                 logger.warning("Demodata: demoföretagskonto kunde inte aktiveras")
@@ -213,6 +272,7 @@ def ensure_demo_data(
                             role="foretagskonto",
                             name=supervisor_name,
                             email=normalized_supervisor_email,
+                            updated_at=func.now(),
                         )
                     )
                     logger.info(
@@ -226,6 +286,8 @@ def ensure_demo_data(
                             role="foretagskonto",
                             name=supervisor_name,
                             email=normalized_supervisor_email,
+                            created_at=func.now(),
+                            updated_at=func.now(),
                         )
                     )
                     logger.info(

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import app
 import functions
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 
 DEMO_PARAMS = dict(
@@ -70,6 +70,113 @@ def test_ensure_demo_data_creates_accounts(empty_db):
         assert stored[filename] == (demo_dir / filename).read_bytes()
 
 
+def test_ensure_demo_data_handles_pending_users_without_orgnr_default(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE pending_users"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    personnummer VARCHAR NOT NULL UNIQUE,
+                    orgnr_normalized VARCHAR NOT NULL
+                )
+                """
+            )
+        )
+
+    functions.ensure_demo_data(**DEMO_PARAMS)
+
+    with empty_db.connect() as conn:
+        user = conn.execute(
+            select(functions.users_table).where(
+                functions.users_table.c.personnummer
+                == functions.hash_value(
+                    functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+                )
+            )
+        ).first()
+
+    assert user is not None
+    assert user.orgnr_normalized == ""
+
+
+def test_ensure_demo_data_handles_company_users_without_timestamp_defaults(empty_db):
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE company_users"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE company_users (
+                    id INTEGER PRIMARY KEY,
+                    company_id INTEGER,
+                    role VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    created_via_application_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    UNIQUE (email, role)
+                )
+                """
+            )
+        )
+
+    functions.ensure_demo_data(**DEMO_PARAMS)
+
+    with empty_db.connect() as conn:
+        company_user = conn.execute(
+            select(functions.company_users_table).where(
+                functions.company_users_table.c.email
+                == functions.normalize_email(DEMO_PARAMS["supervisor_email"]),
+                functions.company_users_table.c.role == "foretagskonto",
+            )
+        ).first()
+
+    assert company_user is not None
+    assert company_user.created_at is not None
+    assert company_user.updated_at is not None
+
+
+def test_ensure_demo_data_handles_supervisor_connections_without_timestamp_default(
+    empty_db,
+):
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE supervisor_connections"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE supervisor_connections (
+                    id INTEGER PRIMARY KEY,
+                    supervisor_email VARCHAR NOT NULL,
+                    user_personnummer VARCHAR NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    UNIQUE (supervisor_email, user_personnummer)
+                )
+                """
+            )
+        )
+
+    functions.ensure_demo_data(**DEMO_PARAMS)
+
+    with empty_db.connect() as conn:
+        connection = conn.execute(
+            select(functions.supervisor_connections_table).where(
+                functions.supervisor_connections_table.c.supervisor_email
+                == functions.normalize_email(DEMO_PARAMS["supervisor_email"]),
+                functions.supervisor_connections_table.c.user_personnummer
+                == functions.hash_value(
+                    functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+                ),
+            )
+        ).first()
+
+    assert connection is not None
+    assert connection.created_at is not None
+
+
 def test_ensure_demo_data_is_idempotent(empty_db):
     functions.ensure_demo_data(**DEMO_PARAMS)
     functions.ensure_demo_data(**DEMO_PARAMS)
@@ -92,6 +199,50 @@ def test_ensure_demo_data_is_idempotent(empty_db):
     assert supervisor_count == 1
     assert connection_count == 1
     assert pdf_count == len(functions.DEMO_PDF_DEFINITIONS)
+
+
+def test_ensure_demo_data_recovers_when_demo_email_conflicts(empty_db):
+    demo_personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    conflicting_personnummer_hash = functions.hash_value("9002021234")
+
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Gammal Demo",  # nosec - testdata
+                email="annan@example.com",
+                password=functions.hash_password("GammalDemo1!"),
+                personnummer=demo_personnummer_hash,
+            )
+        )
+        conn.execute(
+            functions.users_table.insert().values(
+                username="Konflikt",  # nosec - testdata
+                email=functions.normalize_email(DEMO_PARAMS["user_email"]),
+                password=functions.hash_password("Konflikt1!"),
+                personnummer=conflicting_personnummer_hash,
+            )
+        )
+
+    functions.ensure_demo_data(**DEMO_PARAMS)
+
+    with empty_db.connect() as conn:
+        rows = conn.execute(
+            select(
+                functions.users_table.c.username,
+                functions.users_table.c.email,
+                functions.users_table.c.personnummer,
+            )
+        ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0].username == DEMO_PARAMS["user_name"]
+    assert rows[0].email == functions.normalize_email(DEMO_PARAMS["user_email"])
+    assert rows[0].personnummer == demo_personnummer_hash
+    assert functions.check_personnummer_password(
+        DEMO_PARAMS["user_personnummer"], DEMO_PARAMS["user_password"]
+    )
 
 
 def test_demo_menu_link_points_to_main_domain(monkeypatch):

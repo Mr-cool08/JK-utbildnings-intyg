@@ -1,103 +1,147 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 # Deployment
 
-En enkel guide för Docker-drift.
+Det här projektet använder i dagsläget **en gemensam `docker-compose.yml`** för både lokal körning och serverdrift.
 
-## Lokal utveckling med Docker
+## Förberedelser
+
+1. Kopiera `.example.env` till `.env`.
+2. Fyll i minst databas-, admin- och SMTP-inställningar.
+3. Kontrollera att certifikatvägar och domänvärden stämmer för servern.
+
+Viktiga variabler att gå igenom:
+
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `ADMIN_EMAIL`
+- `admin_username`, `admin_password`
+- `SECRET_KEY`, `HASH_SALT`
+- `ORIGIN_CERT_PATH`, `ORIGIN_KEY_PATH`
+- `TRUSTED_PROXY_COUNT`
+- `PUBLIC_NETWORK_NAME` om du återanvänder ett externt Docker-nätverk
+
+## Starta stacken
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.yml up -d --build
 ```
 
-Vanliga adresser:
-- App: `http://localhost:8080`
-- Demo: `http://localhost:8081`
-- Status: `http://localhost:8082`
+## Aktiva tjänster i nuvarande Compose
 
-## Produktion
+- `app` - huvudappen för `utbildningsintyg.se`
+- `app_demo` - demoapp
+- `status_page` - separat statussida
+- `traefik` - TLS-terminering och domänrouting
+- `postgres` - databasen
+- `postgres_backup` - återkommande databasbackup
+- `server_monitor` - övervakning, smoke-tester och resurslarm
+- `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
+- `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
+- `expiry_reminder` - schemalagt jobb för utgångspåminnelser
 
-```bash
-cp .example.env .env
-docker compose -f docker-compose.prod.yml up -d --build
-```
+## Utgångspåminnelser
 
-Produktion använder bland annat:
-- Traefik
-- App
-- Demoapp
-- Statusservice
-- PostgreSQL
-- Backup-service
-- (valfritt) antivirus via security-profil
+Tjänsten `expiry_reminder` kör bara `python -m scripts.send_expiry_reminders` och avslutas direkt när jobbet är klart.
 
-## Automatisk molnbackup till OneDrive eller Dropbox
-
-Den inbyggda tjänsten `postgres_backup` skapar komprimerade databasbackuper i Docker-volymen `pgdata_backups`. Om du vill spara samma backup automatiskt till OneDrive eller Dropbox kan du aktivera den valfria Compose-profilen `backup-cloud`, som använder `rclone`. OneDrive- eller Dropbox-programmet behöver inte vara installerat på servern.
-
-### Steg
-
-1. Fyll i `.env` med OAuth-uppgifterna for den remote du vill anvanda.
-2. Satt foljande i `.env`:
+Schema och dublettskydd styrs via miljövariabler:
 
 ```env
-RCLONE_REMOTE=onedrive
-RCLONE_BACKUP_PATH=jk-utbildnings-intyg/postgres
-RCLONE_SYNC_INTERVAL_SECONDS=3600
-RCLONE_PRUNE_REMOTE=false
-RCLONE_ONEDRIVE_TOKEN='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"2026-01-01T00:00:00Z"}'
-RCLONE_ONEDRIVE_DRIVE_ID=din-drive-id
-RCLONE_ONEDRIVE_DRIVE_TYPE=personal
+CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE=0 7 1 * *
+CERTIFICATE_EXPIRY_REMINDER_DUPLICATE_GUARD_MINUTES=60
 ```
 
-3. Starta tjansten:
+`update_app.py` läser `CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE` från projektets `.env` när cron-raden skapas på Linux-servrar.
+
+Kör manuellt:
 
 ```bash
-docker compose --profile backup-cloud up -d backup_cloud_sync
+docker compose -f docker-compose.yml run --rm expiry_reminder
 ```
 
-Det gar ocksa att anvanda `RCLONE_REMOTE=dropbox` och i stallet fylla i `RCLONE_DROPBOX_TOKEN` i `.env`.
+Exempel på cron den första dagen varje månad klockan 07:00:
 
-### Hur det fungerar
+```bash
+0 7 1 * * cd /path/till/projekt && docker compose -f docker-compose.yml run --rm expiry_reminder
+```
 
-- `postgres_backup` fortsatter att skapa `backup-*.sql.gz` lokalt.
-- `backup_cloud_sync` genererar en intern `rclone.conf` fran `.env` med remotes for bade `onedrive` och `dropbox`.
-- `backup_cloud_sync` kopierar filerna till `${RCLONE_REMOTE}:${RCLONE_BACKUP_PATH}`.
-- Om `RCLONE_PRUNE_REMOTE=true` rensas fjarrbackuper som ar aldre an `BACKUP_RETENTION_DAYS`.
+## Portar och exponering
 
-Observera: OneDrive och Dropbox anvander OAuth. Det betyder att du normalt sparar token/klientuppgifter i `.env`, inte ditt vanliga Microsoft- eller Dropbox-losenord.
+Direkta host-portar i Compose:
 
-Det har upplagget gor att du fortfarande har en lokal backup aven om molnleverantoren tillfalligt inte gar att na.
+- `80:80` - huvudappen
+- `8000:80` - demoappen
+- `8080:80` - statussidan
+- `443:443` - Traefik för HTTPS
+- `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
+- `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
+
+För publik drift bör direktåtkomst till origin begränsas med brandvägg, särskilt om Cloudflare används framför servern.
+
+## Traefik och domäner
+
+Traefik är konfigurerad för att routa minst följande domäner:
+
+- `utbildningsintyg.se`
+- `www.utbildningsintyg.se`
+- `demo.utbildningsintyg.se`
+- `status.utbildningsintyg.se`
+- `mta-sts.utbildningsintyg.se` för `/.well-known/mta-sts.txt`
 
 ## PostgreSQL publik exponering
 
-I produktion är PostgreSQL som standard endast bunden lokalt via `127.0.0.1`.
+Databasen är som standard endast bunden till loopback:
 
-För att exponera PostgreSQL publikt, sätt i `.env`:
+```env
+POSTGRES_BIND_IP=127.0.0.1
+POSTGRES_PUBLIC_PORT=1543
+```
 
-- `POSTGRES_BIND_IP=0.0.0.0`
-- (valfritt) `POSTGRES_PUBLIC_PORT` för att byta extern port (default `1543`)
+Om du måste exponera PostgreSQL utanför servern:
 
-Varning: detta exponerar databasen mot internet. Begränsa alltid åtkomst med brandvägg och/eller IP-allowlist.
+```env
+POSTGRES_BIND_IP=0.0.0.0
+```
 
-## Viktiga volymer
+Gör det bara tillsammans med brandvägg eller IP-allowlist.
 
-- `env_data`
-- `app_logs`
-- `traefik_logs`
-- `pgdata`
-- `pgdata_backups`
+## Backup
+
+Lokal återkommande backup sköts av `postgres_backup`.
+
+Tidigare dokumentation för separat molnsynk är legacy och gäller inte längre för nuvarande `docker-compose.yml`.
+Om molnsynk behövs måste den sättas upp utanför den här Compose-konfigurationen.
+
+## Övervakning och aviseringar
+
+`server_monitor` använder bland annat:
+
+- `CRITICAL_ALERTS_EMAIL`
+- `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TIMEOUT`
+- `MONITOR_CHECK_INTERVAL_SECONDS`
+- `MONITOR_SMOKE_TEST_TARGETS`
+
+Den kan skicka larm för disk, RAM, CPU, smoke-tester och veckorapporter.
 
 ## Hjälpskript
 
-Starta lokal app + postgres:
+Compose-hantering:
 
 ```bash
-./scripts/start_postgres_stack.sh
+python scripts/manage_compose.py --action <stop|pull|up|cycle|git-pull|pytest|prune-volumes|system-df>
 ```
 
-## Cloudflare
+Uppdateringssekvens:
 
-För Cloudflare-guide, se:
-[PUBLIC_DEPLOYMENT_CLOUDFLARE.md](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+```bash
+python scripts/update_app.py
+```
+
+På Linux-servrar där `crontab` finns installerat säkerställer skriptet också att månadsjobbet för `expiry_reminder` finns inlagt en gång, utan dubbletter.
+
+## Vid publik Cloudflare-drift
+
+Se även:
+
+- [PUBLIC_DEPLOYMENT_CLOUDFLARE.md](PUBLIC_DEPLOYMENT_CLOUDFLARE.md)
+- [../deploy/mta-sts/README.md](../deploy/mta-sts/README.md)
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

@@ -183,6 +183,23 @@ def test_configure_root_logging_adds_console_when_only_file_handler_exists(monke
         root_logger.setLevel(original_level)
 
 
+def test_mask_sensitive_data_keeps_non_email_strings_in_sequences():
+    masked = logging_utils.mask_sensitive_data(
+        ["user@example.com", "order@home", 42, {"contact": "chef@example.com"}]
+    )
+
+    assert masked[0] == "u***@example.com"
+    assert masked[1] == "order@home"
+    assert masked[2] == 42
+    assert masked[3]["contact"] == "c***@example.com"
+
+
+def test_mask_sensitive_data_skips_overlong_email_candidates():
+    overlong_email = f"{'a' * 257}@example.com"
+
+    assert logging_utils.mask_sensitive_data(overlong_email) == overlong_email
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
 

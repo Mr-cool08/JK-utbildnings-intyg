@@ -512,6 +512,8 @@
 }
 
 .form-field input[type="file"],
+.form-field input[type="date"],
+.form-field input[type="number"],
 .form-field select,
 .form-field textarea,
 .share-form input {
@@ -530,6 +532,21 @@
 
 .form-field input[type="file"] {
     padding: 0.75rem 0.85rem;
+}
+
+.pdf-meta {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.expiry-duration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 1rem;
+}
+
+.form-field--compact {
+    gap: 0.55rem;
 }
 
 .form-field textarea {
@@ -688,8 +705,12 @@
 
 .dashboard-search input:focus,
 .dashboard-search input:focus-visible,
+.form-field input[type="date"]:focus,
+.form-field input[type="date"]:focus-visible,
 .form-field input[type="file"]:focus,
 .form-field input[type="file"]:focus-visible,
+.form-field input[type="number"]:focus,
+.form-field input[type="number"]:focus-visible,
 .form-field select:focus,
 .form-field select:focus-visible,
 .form-field textarea:focus,

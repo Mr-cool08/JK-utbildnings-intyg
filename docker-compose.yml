@@ -155,6 +155,29 @@ services:
     cpus: "0.40"
     pids_limit: 150
 
+  expiry_reminder:
+    build: .
+    command: ["python", "-m", "scripts.send_expiry_reminders"]
+    env_file:
+      - .env
+    environment:
+      LOG_DIR: /app/logs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-}
+    volumes:
+      - env_data:/config
+      - app_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - public_net
+      - db_net
+    restart: "no"
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.20"
+    pids_limit: 120
+
   status_page:
     build:
       context: .
@@ -289,44 +312,6 @@ services:
     command: ["bash", "/scripts/postgres_backup.sh", "--loop"]
     networks:
       - db_net
-    restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: "0.10"
-    pids_limit: 50
-
-  backup_cloud_sync:
-    image: rclone/rclone:1.69
-    profiles:
-      - backup-cloud
-    depends_on:
-      postgres_backup:
-        condition: service_started
-    environment:
-      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
-      RCLONE_BACKUP_PATH: ${RCLONE_BACKUP_PATH:-jk-utbildnings-intyg/postgres}
-      RCLONE_SYNC_INTERVAL_SECONDS: ${RCLONE_SYNC_INTERVAL_SECONDS:-3600}
-      RCLONE_PRUNE_REMOTE: ${RCLONE_PRUNE_REMOTE:-false}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
-      RCLONE_CONFIG_FILE: /tmp/rclone/rclone.conf
-      BACKUP_SOURCE_DIR: /backups
-      RCLONE_ONEDRIVE_CLIENT_ID: ${RCLONE_ONEDRIVE_CLIENT_ID:-}
-      RCLONE_ONEDRIVE_CLIENT_SECRET: ${RCLONE_ONEDRIVE_CLIENT_SECRET:-}
-      RCLONE_ONEDRIVE_TOKEN: ${RCLONE_ONEDRIVE_TOKEN:-}
-      RCLONE_ONEDRIVE_DRIVE_ID: ${RCLONE_ONEDRIVE_DRIVE_ID:-}
-      RCLONE_ONEDRIVE_DRIVE_TYPE: ${RCLONE_ONEDRIVE_DRIVE_TYPE:-}
-      RCLONE_ONEDRIVE_REGION: ${RCLONE_ONEDRIVE_REGION:-global}
-      RCLONE_DROPBOX_CLIENT_ID: ${RCLONE_DROPBOX_CLIENT_ID:-}
-      RCLONE_DROPBOX_CLIENT_SECRET: ${RCLONE_DROPBOX_CLIENT_SECRET:-}
-      RCLONE_DROPBOX_TOKEN: ${RCLONE_DROPBOX_TOKEN:-}
-      RCLONE_DROPBOX_AUTH_URL: ${RCLONE_DROPBOX_AUTH_URL:-}
-      RCLONE_DROPBOX_TOKEN_URL: ${RCLONE_DROPBOX_TOKEN_URL:-}
-    volumes:
-      - pgdata_backups:/backups:ro
-      - ./scripts/backup:/scripts:ro
-    command: ["sh", "/scripts/rclone_sync.sh", "--loop"]
-    networks:
-      - public_net
     restart: unless-stopped
     mem_limit: 128m
     memswap_limit: 128m

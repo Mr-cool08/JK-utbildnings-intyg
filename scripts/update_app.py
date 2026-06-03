@@ -27,13 +27,22 @@ underlying exceptions such as ``subprocess.CalledProcessError`` and
 
 from __future__ import annotations
 
+import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Iterable, List
+
+from dotenv import load_dotenv
+
+COMPOSE_FILE = "docker-compose.yml"
+COMPOSE_UP_EXCLUDED_SERVICES = frozenset({"expiry_reminder"})
+DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
+EXPIRY_REMINDER_CRON_MARKER = "# jk-utbildnings-intyg expiry_reminder"
 
 
 # --- helpers ----------------------------------------------------------------
@@ -68,14 +77,20 @@ def _find_requirements(root: Path) -> List[Path]:
     return sorted(reqs)
 
 
-def _run(cmd: Iterable[str], **kwargs) -> None:
+def _run(cmd: Iterable[str], **kwargs) -> subprocess.CompletedProcess:
     """Run a command and raise on failure."""
 
     print("$", " ".join(cmd))
-    subprocess.run(list(cmd), check=True, **kwargs)
+    return subprocess.run(list(cmd), check=True, **kwargs)
 
 
-def _get_valid_postgres_public_port(default: str = "15432") -> str:
+def _compose_command(*args: str) -> list[str]:
+    """Build a docker compose command for the main compose file."""
+
+    return ["docker", "compose", "-f", COMPOSE_FILE, *args]
+
+
+def _get_valid_postgres_public_port(default: str = "1543") -> str:
     """Return a valid host port for the postgres compose mapping."""
 
     raw = os.getenv("POSTGRES_PUBLIC_PORT")
@@ -101,6 +116,138 @@ def _get_valid_postgres_public_port(default: str = "15432") -> str:
 
 def _command_exists(command: str) -> bool:
     return shutil.which(command) is not None
+
+
+def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[str]:
+    """Build a compose up command that excludes one-shot reminder services."""
+
+    result = _run(
+        _compose_command("config", "--format", "json"),
+        cwd=root,
+        env=compose_env,
+        capture_output=True,
+        text=True,
+    )
+    output = (result.stdout or "").strip()
+    if not output:
+        raise RuntimeError("Kunde inte lasa docker compose-konfigurationen.")
+
+    config = json.loads(output)
+    services = list((config.get("services") or {}).keys())
+    filtered_services = [
+        service
+        for service in services
+        if service not in COMPOSE_UP_EXCLUDED_SERVICES
+    ]
+    if not filtered_services:
+        raise RuntimeError("Inga docker compose-tjanster kunde startas.")
+
+    return _compose_command("up", "-d", *filtered_services)
+
+
+def _load_project_environment(root: Path) -> None:
+    env_paths = ("/config/.env", os.path.join(str(root), ".env"))
+    for env_path in env_paths:
+        if os.path.isfile(env_path):
+            load_dotenv(env_path, override=False)
+
+
+def _build_pytest_environment(root: Path) -> dict[str, str]:
+    """Build a deterministic environment for pytest runs."""
+
+    log_dir = root / ".pytest_tmp" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "DATABASE_URL": "sqlite:///:memory:",
+            "DEV_MODE": "true",
+            "ENABLE_DEMO_MODE": "false",
+            "DISABLE_EMAILS": "true",
+            "LOG_FILE": os.fspath(log_dir / "pytest.log"),
+            "admin_username": "test_admin",
+            "admin_password": "test_password_123",
+            "secret_key": "test-secret-key",
+        }
+    )
+    return env
+
+
+def _get_expiry_reminder_cron_schedule() -> str:
+    schedule = (
+        os.getenv(
+            "CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE",
+            DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE,
+        ).strip()
+        or DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE
+    )
+    if len(schedule.split()) != 5:
+        raise ValueError(
+            "CERTIFICATE_EXPIRY_REMINDER_CRON_SCHEDULE måste vara ett cron-uttryck med fem fält."
+        )
+    return schedule
+
+
+def _build_expiry_reminder_cron_line(root: Path) -> str:
+    project_root = shlex.quote(root.as_posix())
+    schedule = _get_expiry_reminder_cron_schedule()
+    return (
+        f"{schedule} cd {project_root} && docker compose "
+        f"-f {COMPOSE_FILE} run --rm expiry_reminder "
+        f"{EXPIRY_REMINDER_CRON_MARKER}"
+    )
+
+
+def _ensure_expiry_reminder_cron(root: Path) -> None:
+    _load_project_environment(root)
+    if os.name == "nt":
+        print("Hoppar över cron för utgångspåminnelser: cron stöds inte på Windows.")
+        return
+
+    if not _command_exists("crontab"):
+        print(
+            "Hoppar över cron för utgångspåminnelser: crontab finns inte installerat."
+        )
+        return
+
+    result = subprocess.run(
+        ["crontab", "-l"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        current_crontab = result.stdout
+    elif result.returncode == 1 and not result.stdout.strip():
+        current_crontab = ""
+    else:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            result.args,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+
+    cron_line = _build_expiry_reminder_cron_line(root)
+    existing_lines = current_crontab.splitlines()
+    if any(
+        EXPIRY_REMINDER_CRON_MARKER in line or line.strip() == cron_line
+        for line in existing_lines
+    ):
+        print("Cron för utgångspåminnelser finns redan.")
+        return
+
+    updated_lines = [*existing_lines, cron_line]
+    updated_crontab = "\n".join(updated_lines).rstrip("\n") + "\n"
+    subprocess.run(
+        ["crontab", "-"],
+        check=True,
+        input=updated_crontab,
+        text=True,
+    )
+    print("Lade till cron för utgångspåminnelser.")
 
 
 def _os_upgrade_enabled() -> bool:
@@ -153,16 +300,13 @@ def _run_os_upgrade_if_enabled() -> None:
 # --- workflow ---------------------------------------------------------------
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
+    _load_project_environment(root)
     compose_env = os.environ.copy()
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
 
-    def compose(*args: str) -> list[str]:
-        file = "docker-compose.yml"
-        return ["docker", "compose", "-f", file, *args]
-
 
     # 1. container status
-    _run(compose("ps", "--all"), cwd=root, env=compose_env)
+    _run(_compose_command("ps", "--all"), cwd=root, env=compose_env)
 
 
     # 3. wait and optionally update OS packages
@@ -189,17 +333,18 @@ def main() -> None:
             _run([*pip_cmd, "install", "-r", str(r)], cwd=root)
 
     # 8. run pytest
-    _run([*pytest_cmd], cwd=root)
+    _run([*pytest_cmd], cwd=root, env=_build_pytest_environment(root))
 
     # 8. stop containers
-    _run(compose("stop"), cwd=root, env=compose_env)
+    _run(_compose_command("stop"), cwd=root, env=compose_env)
 
     # 8.5 pull images
-    _run(compose("pull"), cwd=root, env=compose_env)
+    _run(_compose_command("pull"), cwd=root, env=compose_env)
 
     # 9. rebuild & up without cache
-    _run(compose("build", "--no-cache"), cwd=root, env=compose_env)
-    _run(compose("up", "-d"), cwd=root, env=compose_env)
+    _run(_compose_command("build", "--no-cache"), cwd=root, env=compose_env)
+    _run(_build_compose_up_command(root, compose_env), cwd=root, env=compose_env)
+    _ensure_expiry_reminder_cron(root)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)

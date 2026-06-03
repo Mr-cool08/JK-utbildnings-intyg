@@ -1,5 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import pytest
+from sqlalchemy import text
 
 import functions
 
@@ -31,9 +32,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
     assert result["company_name"] == "Testbolag AB"
     assert result["pending_supervisor_created"] is True
     assert result["supervisor_activation_required"] is True
-    assert result["supervisor_email_hash"] == functions.hash_value(
-        functions.normalize_email("applicant@example.com")
-    )
+    assert result["supervisor_email_hash"] == "applicant@example.com"
 
     with fresh_app_db.connect() as conn:
         company = conn.execute(functions.companies_table.select()).first()
@@ -50,9 +49,7 @@ def test_application_approval_creates_company_and_user(fresh_app_db):
             functions.pending_supervisors_table.select()
         ).first()
         assert pending_supervisor is not None
-        assert pending_supervisor.email == functions.hash_value(
-            functions.normalize_email("applicant@example.com")
-        )
+        assert pending_supervisor.email == "applicant@example.com"
         assert pending_supervisor.name == "Test Företagskonto"
 
         application = conn.execute(
@@ -96,6 +93,157 @@ def test_application_rejection_stores_reason(fresh_app_db):
         ).first()
         assert application.status == "rejected"
         assert application.reviewed_by == "admin"
+
+
+def test_create_application_request_handles_legacy_table_without_defaults(fresh_app_db):
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE application_requests"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE application_requests (
+                    id INTEGER PRIMARY KEY,
+                    account_type VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    orgnr_normalized VARCHAR NOT NULL,
+                    company_name VARCHAR NOT NULL,
+                    invoice_address TEXT,
+                    invoice_contact TEXT,
+                    invoice_reference TEXT,
+                    comment TEXT,
+                    personnummer_hash TEXT,
+                    status VARCHAR NOT NULL,
+                    reviewed_by VARCHAR,
+                    reviewed_at DATETIME,
+                    decision_reason VARCHAR,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    application_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Legacy Företagskonto",
+        email="legacy@example.com",
+        orgnr="5569668337",
+        company_name="Legacybolaget AB",
+        comment="Saknar databasdefaultvärden.",
+        invoice_address="Legacygatan 1",
+        invoice_contact="Legacy Kontakt",
+        invoice_reference="Legacy-Ref",
+    )
+
+    with fresh_app_db.connect() as conn:
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+
+    assert application is not None
+    assert application.status == "pending"
+    assert application.created_at is not None
+    assert application.updated_at is not None
+
+
+def test_application_approval_handles_legacy_tables_without_timestamp_defaults(
+    fresh_app_db,
+):
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE company_users"))
+        conn.execute(text("DROP TABLE pending_supervisors"))
+        conn.execute(text("DROP TABLE companies"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE companies (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    orgnr VARCHAR NOT NULL UNIQUE,
+                    invoice_address TEXT,
+                    invoice_contact TEXT,
+                    invoice_reference TEXT,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE company_users (
+                    id INTEGER PRIMARY KEY,
+                    company_id INTEGER,
+                    role VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    created_via_application_id INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    UNIQUE(email, role)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_supervisors (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL UNIQUE,
+                    activation_token VARCHAR,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    application_id = functions.create_application_request(
+        account_type="foretagskonto",
+        name="Legacy Foretagskonto",
+        email="legacy-approval@example.com",
+        orgnr="5569668337",
+        company_name="Legacy Approval AB",
+        comment="Legacy schema without timestamp defaults.",
+        invoice_address="Legacygatan 1",
+        invoice_contact="Legacy Contact",
+        invoice_reference="Legacy-Ref",
+    )
+
+    result = functions.approve_application_request(application_id, "admin")
+
+    assert result["company_created"] is True
+    assert result["account_type"] == "foretagskonto"
+
+    with fresh_app_db.connect() as conn:
+        company = conn.execute(functions.companies_table.select()).first()
+        assert company is not None
+        assert company.created_at is not None
+        assert company.updated_at is not None
+
+        user = conn.execute(functions.company_users_table.select()).first()
+        assert user is not None
+        assert user.created_at is not None
+        assert user.updated_at is not None
+
+        pending_supervisor = conn.execute(
+            functions.pending_supervisors_table.select()
+        ).first()
+        assert pending_supervisor is not None
+        assert pending_supervisor.created_at is not None
+
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        assert application is not None
+        assert application.status == "approved"
 
 
 def test_approval_reuses_existing_company(fresh_app_db):
@@ -374,6 +522,93 @@ def test_list_companies_for_invoicing_counts_connected_users(fresh_app_db):
     assert companies[0]["user_count"] == 2
 
 
+def test_list_companies_for_invoicing_counts_legacy_supervisor_reference(fresh_app_db):
+    legacy_reference = functions.hash_value("legacy-supervisor@example.com")
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer("9012311234")
+    )
+    with fresh_app_db.begin() as conn:
+        company_id = conn.execute(
+            functions.companies_table.insert().values(
+                name="Legacybolag AB",
+                orgnr="5569668337",
+            )
+        ).inserted_primary_key[0]
+        conn.execute(
+            functions.company_users_table.insert().values(
+                company_id=company_id,
+                role="foretagskonto",
+                name="Legacy Chef",
+                email=legacy_reference,
+            )
+        )
+        conn.execute(
+            functions.supervisor_connections_table.insert().values(
+                supervisor_email=legacy_reference,
+                user_personnummer=personnummer_hash,
+            )
+        )
+
+    companies = functions.list_companies_for_invoicing()
+
+    assert len(companies) == 1
+    assert companies[0]["user_count"] == 1
+
+
+@pytest.mark.parametrize("existing_table", ["users", "pending_users"])
+def test_standard_application_approval_rejects_email_for_other_personnummer(
+    fresh_app_db,
+    existing_table,
+):
+    email = "conflict@example.com"
+    existing_personnummer_hash = functions.hash_value("9001011234")
+    application_id = functions.create_application_request(
+        account_type="standard",
+        name="Ny Användare",
+        email=email,
+        orgnr="",
+        company_name="",
+        comment=None,
+        personnummer="9201011234",
+    )
+    with fresh_app_db.begin() as conn:
+        if existing_table == "users":
+            conn.execute(
+                functions.users_table.insert().values(
+                    username="Befintlig",
+                    email=email,
+                    password=functions.hash_password("StartLosen1!"),
+                    personnummer=existing_personnummer_hash,
+                )
+            )
+        else:
+            conn.execute(
+                functions.pending_users_table.insert().values(
+                    username="Befintlig",
+                    email=email,
+                    personnummer=existing_personnummer_hash,
+                )
+            )
+
+    with pytest.raises(ValueError, match="E-postadressen används redan"):
+        functions.approve_application_request(application_id, "admin")
+
+    with fresh_app_db.connect() as conn:
+        application = conn.execute(
+            functions.application_requests_table.select().where(
+                functions.application_requests_table.c.id == application_id
+            )
+        ).first()
+        company_user = conn.execute(
+            functions.company_users_table.select().where(
+                functions.company_users_table.c.email == email
+            )
+        ).first()
+
+    assert application.status == "pending"
+    assert company_user is None
+
+
 def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
     application_id = functions.create_application_request(
         account_type="standard",
@@ -412,6 +647,7 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
 
         pending_user = conn.execute(functions.pending_users_table.select()).first()
         assert pending_user is not None
+        assert pending_user.email == functions.normalize_email("utan-orgnr@example.com")
         assert pending_user.personnummer == functions.hash_value("8801011234")
 
         companies = conn.execute(functions.companies_table.select()).fetchall()
@@ -421,6 +657,48 @@ def test_standard_application_without_orgnr_can_be_godkannas(fresh_app_db):
             functions.pending_supervisors_table.select()
         ).fetchall()
         assert pending_supervisor == []
+
+
+def test_standard_application_approval_handles_pending_users_without_orgnr_default(
+    fresh_app_db,
+):
+    application_id = functions.create_application_request(
+        account_type="standard",
+        name="Legacy Standard",
+        email="legacy-standard@example.com",
+        orgnr="",
+        company_name="",
+        comment=None,
+        invoice_address=None,
+        invoice_contact=None,
+        invoice_reference=None,
+        personnummer="8802021234",
+    )
+    with fresh_app_db.begin() as conn:
+        conn.execute(text("DROP TABLE pending_users"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username VARCHAR NOT NULL,
+                    email VARCHAR NOT NULL,
+                    personnummer VARCHAR NOT NULL UNIQUE,
+                    orgnr_normalized VARCHAR NOT NULL
+                )
+                """
+            )
+        )
+
+    result = functions.approve_application_request(application_id, "admin")
+
+    assert result["user_activation_required"] is True
+    with fresh_app_db.connect() as conn:
+        pending_user = conn.execute(functions.pending_users_table.select()).first()
+
+    assert pending_user is not None
+    assert pending_user.email == "legacy-standard@example.com"
+    assert pending_user.orgnr_normalized == ""
 
 
 def test_standard_application_rejects_orgnr(fresh_app_db):

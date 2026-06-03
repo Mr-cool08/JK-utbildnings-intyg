@@ -1,58 +1,86 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
-# Publik drift med Cloudflare (enkel guide)
+# Publik drift med Cloudflare
 
-Den här guiden är för produktion med Cloudflare framför appen.
+Den här guiden gäller nuvarande projektupplägg där `docker-compose.yml` används även för serverdrift.
 
-## 1. Förbered
+## Förberedelser
 
-- Du behöver en server med Docker.
-- Du behöver en domän i Cloudflare.
-- Du behöver en `.env`-fil.
+- Du behöver en server med Docker och Docker Compose.
+- Du behöver en domän som hanteras i Cloudflare.
+- Du behöver en färdig `.env` med korrekta certifikat- och proxyinställningar.
 
-## 2. DNS i Cloudflare
+## Rekommenderade miljövariabler
 
-Skapa poster för dina domäner och aktivera proxy (orange moln).
-
-## 3. TLS
-
-- Skapa Origin CA-certifikat i Cloudflare.
-- Lägg certifikat och nyckel på servern.
-- Sätt sökvägar i `.env`:
-  - `ORIGIN_CERT_PATH`
-  - `ORIGIN_KEY_PATH`
-
-Sätt SSL-läge i Cloudflare till **Full (strict)**.
-
-## 4. Starta produktion
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
+```env
+ORIGIN_CERT_PATH=/etc/ssl/cloudflare/origin.crt
+ORIGIN_KEY_PATH=/etc/ssl/cloudflare/origin.key
+TRUSTED_PROXY_COUNT=1
+PREFERRED_URL_SCHEME=https
+SESSION_COOKIE_SECURE=true
 ```
 
-## 5. Skydda origin
+`TRUSTED_PROXY_COUNT=1` matchar att Traefik är den betrodda proxyn framför Flask.
 
-Begränsa inkommande trafik så bara Cloudflare får nå webbportar.
+## DNS-poster i Cloudflare
 
-Script finns här:
+Skapa och proxya de domäner som används i Compose:
+
+- `utbildningsintyg.se`
+- `www.utbildningsintyg.se`
+- `demo.utbildningsintyg.se`
+- `status.utbildningsintyg.se`
+- `mta-sts.utbildningsintyg.se`
+
+Aktivera proxyn i Cloudflare där det är relevant.
+
+## TLS
+
+1. Skapa ett Cloudflare Origin CA-certifikat.
+2. Lägg certifikat och nyckel på servern.
+3. Peka `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` mot filerna.
+4. Sätt SSL-läget i Cloudflare till **Full (strict)**.
+
+## Starta tjänsterna
 
 ```bash
-sudo bash scripts/firewall/cloudflare-ufw.sh --apply
+docker compose -f docker-compose.yml up -d --build
 ```
 
-Testa först:
+## Skydda origin-servern
+
+Även om projektet publicerar vissa host-portar direkt bör publik trafik styras via Cloudflare och filtreras i brandvägg.
+
+Brandväggsskript finns här:
 
 ```bash
 sudo bash scripts/firewall/cloudflare-ufw.sh --dry-run
 ```
 
-## 6. Verifiera
-
-Kontrollera att domänen svarar via Cloudflare:
-
 ```bash
-curl -I https://DIN_DOMAN
+sudo bash scripts/firewall/cloudflare-ufw.sh --apply
 ```
 
-Du ska se headers som `server: cloudflare`.
+## Verifiera
+
+Kontrollera att Cloudflare ligger framför tjänsten:
+
+```bash
+curl -I https://utbildningsintyg.se
+```
+
+Du ska normalt se headers som pekar på Cloudflare.
+
+Verifiera även MTA-STS:
+
+```bash
+curl -I https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt
+```
+
+## Vanliga fallgropar
+
+- Fel certifikatvägar i `.env`
+- Glömt att proxya `mta-sts`-subdomänen
+- Brandväggen släpper fortfarande igenom direkt trafik till origin
+- Felaktigt `TRUSTED_PROXY_COUNT`, vilket kan ge fel klient-IP eller felaktiga redirects
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

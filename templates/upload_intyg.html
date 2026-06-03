@@ -53,6 +53,55 @@
                 <label for="note">Anteckning</label>
                 <textarea id="note" name="note" maxlength="300" rows="4" placeholder="Valfritt"></textarea>
             </div>
+            <div class="form-field">
+                <label for="expiry_mode">Utgångsdatum</label>
+                <select id="expiry_mode" name="expiry_mode" data-expiry-mode>
+                    <option value="none" selected>Ingen utgångstid (Ingen påminelse)</option>
+                    <option value="date">Exakt datum</option>
+                    <option value="duration">Antal år och månader från idag</option>
+                </select>
+                <p class="form-help">Valfritt. Lämna som ingen utgångstid om intyget inte ska löpa ut.</p>
+            </div>
+            <div class="form-field" data-expiry-field="date" hidden>
+                <label for="expiry_date">Datum då intyget går ut</label>
+                <input
+                    type="date"
+                    id="expiry_date"
+                    name="expiry_date"
+                    min="{{ today_iso }}"
+                >
+            </div>
+            <div class="form-field" data-expiry-field="duration" hidden>
+                <div class="expiry-duration-grid">
+                    <div class="form-field form-field--compact">
+                        <label for="expiry_years">År</label>
+                        <input
+                            type="number"
+                            id="expiry_years"
+                            name="expiry_years"
+                            min="0"
+                            max="100"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="2"
+                        >
+                    </div>
+                    <div class="form-field form-field--compact">
+                        <label for="expiry_months">Månader</label>
+                        <input
+                            type="number"
+                            id="expiry_months"
+                            name="expiry_months"
+                            min="0"
+                            max="1200"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="6"
+                        >
+                    </div>
+                </div>
+                <p class="form-help">Ange år, månader eller båda.</p>
+            </div>
             <div class="upload-actions">
                 <button type="submit" class="btn" id="uploadSubmitButton">
                     <span id="uploadSubmitLabel">Ladda upp intyg</span>
@@ -99,6 +148,20 @@
 (() => {
   const form = document.getElementById("userUploadForm");
   const certificateInput = document.getElementById("certificate");
+  const expiryModeSelect = document.getElementById("expiry_mode");
+  const expiryFields = {
+    date: {
+      container: form && form.querySelector('[data-expiry-field="date"]'),
+      inputs: [document.getElementById("expiry_date")],
+    },
+    duration: {
+      container: form && form.querySelector('[data-expiry-field="duration"]'),
+      inputs: [
+        document.getElementById("expiry_years"),
+        document.getElementById("expiry_months"),
+      ],
+    },
+  };
   if (!form || !certificateInput) {
     return;
   }
@@ -122,6 +185,26 @@
 
   let isSubmitting = false;
   let processingTimer = null;
+
+  function setExpiryMode(mode) {
+    Object.entries(expiryFields).forEach(([fieldMode, fieldState]) => {
+      if (!fieldState.container) {
+        return;
+      }
+
+      const isActive = mode === fieldMode;
+      fieldState.container.hidden = !isActive;
+      fieldState.inputs.forEach((input) => {
+        if (!input) {
+          return;
+        }
+        input.disabled = !isActive;
+        if (!isActive) {
+          input.value = "";
+        }
+      });
+    });
+  }
 
   function validateSelectedFile() {
     const selectedFile = certificateInput.files && certificateInput.files[0];
@@ -293,6 +376,13 @@
       certificateInput.reportValidity();
     }
   });
+
+  if (expiryModeSelect) {
+    setExpiryMode(expiryModeSelect.value);
+    expiryModeSelect.addEventListener("change", () => {
+      setExpiryMode(expiryModeSelect.value);
+    });
+  }
 
   form.addEventListener("submit", (event) => {
     validateSelectedFile();

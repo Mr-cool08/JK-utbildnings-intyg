@@ -244,7 +244,7 @@ def test_admin_upload_rejects_request_over_global_limit(empty_db, monkeypatch):
     assert response.status_code == 413
     payload = response.get_json()
     assert payload["status"] == "error"
-    assert payload["message"] == "Uppladdningen är för stor. Max 100 MB tillåts."
+    assert payload["message"] == "Uppladdningen är för stor. Max 50 MB tillåts."
 
 
 

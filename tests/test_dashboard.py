@@ -1,4 +1,6 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+from datetime import date
+
 from flask import get_flashed_messages
 
 import app
@@ -69,6 +71,37 @@ def test_dashboard_capitalizes_first_letter_of_forename_and_surname(user_db):
         )
         response = client.get("/dashboard")
         assert b"Hej Anna Andersson!" in response.data
+
+
+def test_dashboard_shows_certificate_expiry_date(user_db):
+    engine = user_db
+    own_hash = functions.hash_value("9001011234")
+
+    with engine.begin() as conn:
+        conn.execute(
+            functions.user_pdfs_table.insert().values(
+                personnummer=own_hash,
+                filename="expires.pdf",
+                content=b"%PDF-1.4 own",
+                categories=COURSE_CATEGORIES[0][0],
+                expires_on=date(2027, 5, 27),
+            )
+        )
+
+    with app.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        client.post(
+            "/login",
+            data={
+                "personnummer": "9001011234",
+                "password": "secret",
+                "csrf_token": "test-token",
+            },
+        )
+        response = client.get("/dashboard")
+
+    assert b"G\xc3\xa4ller till 2027-05-27" in response.data
 
 
 def test_upload_page_formats_logged_in_user_name(user_db):

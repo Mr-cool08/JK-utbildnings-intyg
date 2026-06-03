@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import Connection, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -17,16 +18,28 @@ from functions.database import (
 )
 from functions.hashing import (
     _is_valid_hash,
+    email_lookup_values,
     hash_value,
     normalize_email,
+    normalize_email_reference,
     normalize_personnummer,
     validate_orgnr,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
+
+
+def _email_reference_values(value: str) -> tuple[str, ...]:
+    reference = normalize_email_reference(value)
+    if _is_valid_hash(reference):
+        return (reference,)
+    return email_lookup_values(reference)
 
 
 def register_standard_account(
@@ -45,7 +58,7 @@ def register_standard_account(
     normalized_email = normalize_email(email)
     normalized_personnummer = normalize_personnummer(personnummer)
     normalized_orgnr = validate_orgnr(orgnr) if (orgnr or "").strip() else ""
-    email_hash = hash_value(normalized_email)
+    email_values = email_lookup_values(normalized_email)
     personnummer_hash = hash_value(normalized_personnummer)
 
     result: dict[str, Any] = {}
@@ -63,10 +76,10 @@ def register_standard_account(
             raise ValueError("Det finns redan ett privatkonto med detta personnummer.")
 
         existing_user_by_email = conn.execute(
-            select(users_table.c.id).where(users_table.c.email == email_hash)
+            select(users_table.c.id).where(users_table.c.email.in_(email_values))
         ).first()
         existing_pending_by_email = conn.execute(
-            select(pending_users_table.c.id).where(pending_users_table.c.email == email_hash)
+            select(pending_users_table.c.id).where(pending_users_table.c.email.in_(email_values))
         ).first()
         if existing_user_by_email or existing_pending_by_email:
             raise ValueError("E-postadressen används redan för ett befintligt konto.")
@@ -75,7 +88,7 @@ def register_standard_account(
             conn.execute(
                 insert(pending_users_table).values(
                     username=cleaned_name,
-                    email=email_hash,
+                    email=normalized_email,
                     personnummer=personnummer_hash,
                     orgnr_normalized=normalized_orgnr,
                 )
@@ -84,31 +97,42 @@ def register_standard_account(
             raise ValueError("Kontot kunde inte skapas just nu. Försök igen senare.") from exc
 
         if normalized_orgnr:
+            organization_request_identity = {
+                "orgnr_normalized": normalized_orgnr,
+                "user_personnummer": personnummer_hash,
+            }
+            organization_request_updates = {
+                "user_name": cleaned_name,
+                "user_email": normalized_email,
+                "status": "pending",
+                "handled_by_supervisor_email": None,
+                "handled_at": None,
+            }
+            organization_request_insert_values = {
+                **organization_request_identity,
+                **organization_request_updates,
+                "created_at": func.now(),
+                "updated_at": func.now(),
+            }
             try:
-                conn.execute(
-                    insert(organization_link_requests_table).values(
-                        orgnr_normalized=normalized_orgnr,
-                        user_personnummer=personnummer_hash,
-                        user_name=cleaned_name,
-                        user_email=normalized_email,
+                with conn.begin_nested():
+                    conn.execute(
+                        insert(organization_link_requests_table).values(
+                            **organization_request_insert_values
+                        )
                     )
-                )
             except IntegrityError:
-                conn.execute(
+                update_result = conn.execute(
                     update(organization_link_requests_table)
                     .where(
                         organization_link_requests_table.c.orgnr_normalized == normalized_orgnr,
                         organization_link_requests_table.c.user_personnummer
                         == personnummer_hash,
                     )
-                    .values(
-                        user_name=cleaned_name,
-                        user_email=normalized_email,
-                        status="pending",
-                        handled_by_supervisor_email=None,
-                        handled_at=None,
-                    )
+                    .values(**organization_request_updates)
                 )
+                if update_result.rowcount == 0:
+                    raise
 
         result = {
             "email": normalized_email,
@@ -211,7 +235,10 @@ def approve_organization_link_request(
     orgnr: str,
 ) -> tuple[bool, dict[str, str] | None, str]:
     # Godkänn en org-förfrågan och skapa kopplingen direkt.
-    if not _is_valid_hash(supervisor_email_hash):
+    try:
+        supervisor_email_reference = normalize_email_reference(supervisor_email_hash)
+        supervisor_email_values = _email_reference_values(supervisor_email_reference)
+    except ValueError:
         return False, None, "invalid_supervisor"
 
     normalized_orgnr = validate_orgnr(orgnr)
@@ -247,15 +274,16 @@ def approve_organization_link_request(
 
         existing_connection = conn.execute(
             select(supervisor_connections_table.c.id).where(
-                supervisor_connections_table.c.supervisor_email == supervisor_email_hash,
+                supervisor_connections_table.c.supervisor_email.in_(supervisor_email_values),
                 supervisor_connections_table.c.user_personnummer == request_row.user_personnummer,
             )
         ).first()
         if not existing_connection:
             conn.execute(
                 insert(supervisor_connections_table).values(
-                    supervisor_email=supervisor_email_hash,
+                    supervisor_email=supervisor_email_reference,
                     user_personnummer=request_row.user_personnummer,
+                    created_at=func.now(),
                 )
             )
 
@@ -264,7 +292,7 @@ def approve_organization_link_request(
             .where(organization_link_requests_table.c.id == request_row.id)
             .values(
                 status="approved",
-                handled_by_supervisor_email=supervisor_email_hash,
+                handled_by_supervisor_email=supervisor_email_reference,
                 handled_at=func.now(),
             )
         )
@@ -288,7 +316,9 @@ def reject_organization_link_request(
     orgnr: str,
 ) -> tuple[bool, dict[str, str] | None, str]:
     # Avslå en org-förfrågan.
-    if not _is_valid_hash(supervisor_email_hash):
+    try:
+        supervisor_email_reference = normalize_email_reference(supervisor_email_hash)
+    except ValueError:
         return False, None, "invalid_supervisor"
 
     normalized_orgnr = validate_orgnr(orgnr)
@@ -316,7 +346,7 @@ def reject_organization_link_request(
             .where(organization_link_requests_table.c.id == request_row.id)
             .values(
                 status="rejected",
-                handled_by_supervisor_email=supervisor_email_hash,
+                handled_by_supervisor_email=supervisor_email_reference,
                 handled_at=func.now(),
             )
         )
@@ -351,17 +381,25 @@ def update_organization_request_contact_details(
     personnummer_hash: str,
     user_name: str,
     user_email: str,
+    conn: Connection | None = None,
 ) -> int:
     # Uppdatera namn och e-post i öppna org-förfrågningar för användaren.
     if not _is_valid_hash(personnummer_hash):
         return 0
     normalized_email = normalize_email(user_email)
-    with get_engine().begin() as conn:
-        result = conn.execute(
-            update(organization_link_requests_table)
-            .where(organization_link_requests_table.c.user_personnummer == personnummer_hash)
-            .values(user_name=user_name, user_email=normalized_email)
+    statement = (
+        update(organization_link_requests_table)
+        .where(
+            organization_link_requests_table.c.user_personnummer == personnummer_hash,
+            organization_link_requests_table.c.status == "pending",
         )
+        .values(user_name=user_name, user_email=normalized_email)
+    )
+    if conn is not None:
+        result = conn.execute(statement)
+        return result.rowcount or 0
+    with get_engine().begin() as transaction_conn:
+        result = transaction_conn.execute(statement)
     return result.rowcount or 0
 
 

@@ -1,6 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
+from datetime import date
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -88,6 +89,7 @@ def store_pdf_blob(
     content: bytes,
     categories: Sequence[str] | None = None,
     note: str = "",
+    expires_on: date | None = None,
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
     with get_engine().begin() as conn:
@@ -97,7 +99,9 @@ def store_pdf_blob(
                 filename=filename,
                 content=content,
                 categories=_serialize_categories(categories),
+                uploaded_at=func.now(),
                 note=note,
+                expires_on=expires_on,
             )
         )
         pdf_id = result.inserted_primary_key[0]
@@ -123,6 +127,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
             user_pdfs_table.c.categories,
             user_pdfs_table.c.uploaded_at,
             user_pdfs_table.c.note,
+            user_pdfs_table.c.expires_on,
         )
         .where(user_pdfs_table.c.personnummer == personnummer_hash)
         .order_by(
@@ -142,6 +147,7 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
                         "categories": _deserialize_categories(row.categories),
                         "uploaded_at": row.uploaded_at,
                         "note": getattr(row, "note", "") or "",
+                        "expires_on": getattr(row, "expires_on", None),
                     }
                     for row in rows
                 ]
@@ -198,6 +204,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
                 user_pdfs_table.c.categories,
                 user_pdfs_table.c.uploaded_at,
                 user_pdfs_table.c.note,
+                user_pdfs_table.c.expires_on,
             ).where(
                 user_pdfs_table.c.personnummer == personnummer_hash,
                 user_pdfs_table.c.id == pdf_id,
@@ -211,6 +218,7 @@ def get_pdf_metadata(personnummer_hash: str, pdf_id: int) -> Optional[Dict[str, 
         "categories": _deserialize_categories(row.categories),
         "uploaded_at": row.uploaded_at,
         "note": getattr(row, "note", "") or "",
+        "expires_on": getattr(row, "expires_on", None),
     }
 
 

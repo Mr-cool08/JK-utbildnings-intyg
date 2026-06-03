@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import ssl
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email import policy
@@ -17,7 +18,8 @@ from smtplib import (
     SMTPServerDisconnected,
     SMTP_SSL,
 )
-from typing import Sequence
+from typing import Any, Sequence
+from urllib.parse import urljoin
 
 from config_loader import load_environment
 from functions.logging import configure_module_logger, mask_hash
@@ -31,6 +33,7 @@ logger.setLevel(logging.INFO)
 load_environment()
 
 SUPPORT_EMAIL = "support@utbildningsintyg.se"
+SMTP_CONNECT_MAX_ATTEMPTS = 3
 
 
 @dataclass(frozen=True)
@@ -151,45 +154,8 @@ def send_email_message(
             settings.timeout,
         )
 
-        with open_smtp_connection(settings, context) as smtp:
-            if hasattr(smtp, "ehlo"):
-                smtp.ehlo()
-
-            if not use_ssl:
-                try:
-                    from inspect import signature
-
-                    if "context" in signature(smtp.starttls).parameters:
-                        smtp.starttls(context=context)
-                        logger.debug("SMTP STARTTLS initierad med kontext")
-                    else:
-                        smtp.starttls()
-                        logger.debug("SMTP STARTTLS initierad utan kontext")
-                except (TypeError, ValueError):
-                    smtp.starttls()
-                    logger.debug("SMTP STARTTLS initierad (fallback)")
-
-                if hasattr(smtp, "ehlo"):
-                    smtp.ehlo()
-
-            smtp.login(settings.user, settings.password)
-            logger.debug("SMTP inloggning lyckades för %s", masked_user)
-
-            if hasattr(smtp, "send_message"):
-                refused = smtp.send_message(
-                    msg,
-                    from_addr=settings.from_address,
-                    to_addrs=[normalized_recipient],
-                )
-            else:
-                refused = smtp.sendmail(
-                    settings.from_address, [normalized_recipient], msg.as_string()
-                )
-
-            logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
-            if refused:
-                logger.error("SMTP server refused recipients: %s", recipient_mask)
-                raise RuntimeError("E-postservern accepterade inte mottagaren.")
+        with _open_smtp_connection_with_retries(settings, context) as smtp:
+            _send_using_connection(smtp, use_ssl)
 
         logger.debug(
             "Meddelande-ID för utskick till %s: %s",
@@ -223,6 +189,34 @@ def open_smtp_connection(settings: SMTPSettings, context: ssl.SSLContext) -> SMT
         )
 
     return SMTP(settings.server, settings.port, timeout=settings.timeout)
+
+
+def _open_smtp_connection_with_retries(
+    settings: SMTPSettings, context: ssl.SSLContext
+) -> SMTP:
+    """Retry transient SMTP connection setup failures a few times."""
+
+    max_attempts = max(SMTP_CONNECT_MAX_ATTEMPTS, 1)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return open_smtp_connection(settings, context)
+        except OSError:
+            if attempt == max_attempts:
+                raise
+
+            wait_seconds = attempt
+            logger.warning(
+                "SMTP-anslutning till %s:%s misslyckades. "
+                "Försöker igen om %s sekund(er) (%s/%s).",
+                settings.server,
+                settings.port,
+                wait_seconds,
+                attempt,
+                max_attempts,
+            )
+            time.sleep(wait_seconds)
+
+    raise RuntimeError("SMTP-anslutning kunde inte initieras.")
 
 
 def should_disable_email_sending() -> bool:
@@ -343,6 +337,12 @@ def _render_action_button(url: str, label: str) -> str:
     )
 
 
+def _build_app_url(path: str) -> str:
+    base_url = (os.getenv("BASE_URL") or "").strip() or "https://utbildningsintyg.se"
+    normalized_base_url = f"{base_url.rstrip('/')}/"
+    return urljoin(normalized_base_url, path.lstrip("/"))
+
+
 def send_creation_email(to_email: str, link: str) -> None:
     """Send an account creation email containing ``link``."""
 
@@ -433,6 +433,88 @@ def send_organization_link_rejected_email(to_email: str, company_name: str) -> N
         accent_color="#b91c1c",
     )
     send_email(to_email, subject, body)
+
+
+def send_certificate_expiry_summary_email(
+    to_email: str,
+    recipient_name: str,
+    expiring_certificates: Sequence[dict[str, str]],
+    *,
+    months: int = 6,
+) -> None:
+    """Skicka samlingsmejl om intyg som snart går ut till ett privatkonto."""
+
+    safe_name = escape((recipient_name or "").strip() or "där")
+    month_text = f"{months} månader" if months != 1 else "1 månad"
+    item_list = "".join(
+        (
+            "<li><strong>"
+            f"{escape(certificate.get('display_name', 'Intyg'))}"
+            "</strong> – går ut "
+            f"{escape(certificate.get('expires_on', 'okänt datum'))}</li>"
+        )
+        for certificate in expiring_certificates
+    )
+    content = (
+        f"<p>Hej {safe_name},</p>"
+        f"<p>Följande intyg förfaller inom kort:</p>"
+        f"<ul>{item_list}</ul>"
+        "<p>Logga in för att se dina intyg:</p>"
+        f"{_render_action_button(_build_app_url('/dashboard'), 'Öppna dashboard')}"
+    )
+    body = format_email_html(
+        "Intyg som snart går ut",
+        content,
+        accent_color="#b45309",
+    )
+    send_email(to_email, "Intyg som snart går ut", body)
+
+
+def send_supervisor_expiry_summary_email(
+    to_email: str,
+    company_name: str,
+    expiring_by_user: Sequence[dict[str, Any]],
+    *,
+    months: int = 6,
+) -> None:
+    """Skicka samlingsmejl om intyg som snart går ut till ett företagskonto."""
+
+    safe_company = escape((company_name or "").strip() or "företagskontot")
+    month_text = f"{months} månader" if months != 1 else "1 månad"
+    user_sections = []
+    for user_entry in expiring_by_user:
+        safe_user_name = escape(str(user_entry.get("user_name", "Anslutet konto")))
+        certificates = user_entry.get("certificates", [])
+        certificate_list = "".join(
+            (
+                "<li><strong>"
+                f"{escape(certificate.get('display_name', 'Intyg'))}"
+                "</strong> – går ut "
+                f"<div style='color:red'>{escape(certificate.get('expires_on', 'okänt datum'))}</div></li>"
+            )
+            for certificate in certificates
+        )
+        user_sections.append(
+            f"<p><strong>{safe_user_name}</strong></p><ul>{certificate_list}</ul>"
+        )
+
+    content = (
+        "<p>Hej,</p>"
+        f"<p>Följande intyg för {safe_company} förfaller inom kort:</p>"
+        f"{''.join(user_sections)}"
+        "<p>Logga in på företagskontot:</p>"
+        f"{_render_action_button(_build_app_url('/foretagskonto'), 'Öppna företagskonto')}"
+    )
+    body = format_email_html(
+        "Intyg för anslutna konton som snart går ut",
+        content,
+        accent_color="#0f766e",
+    )
+    send_email(
+        to_email,
+        "Intyg för anslutna konton som snart går ut",
+        body,
+    )
 
 
 def send_pdf_share_email(

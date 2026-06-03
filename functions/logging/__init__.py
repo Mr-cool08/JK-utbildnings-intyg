@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone, tzinfo
@@ -14,6 +15,8 @@ from typing import Iterable, Mapping, Sequence, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MASK_PLACEHOLDER = "***"
+_MAX_EMAIL_MATCH_LENGTH = 256
+_EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 _TZ_WARNING_STATE = threading.local()
 
@@ -140,6 +143,14 @@ _SENSITIVE_KEYS = {
 }
 
 
+def _looks_like_email(value: str) -> bool:
+    # Match simple plaintext e-mail addresses before masking them in logs.
+    candidate = value.strip()
+    if len(candidate) > _MAX_EMAIL_MATCH_LENGTH:
+        return False
+    return bool(_EMAIL_PATTERN.fullmatch(candidate))
+
+
 def mask_sensitive_data(data: Any) -> Any:
     # Mask sensitive fields in dicts/lists to avoid leaking secrets to logs.
     if isinstance(data, Mapping):
@@ -152,7 +163,15 @@ def mask_sensitive_data(data: Any) -> Any:
                 masked[key] = mask_sensitive_data(value)
         return masked
     if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        return [mask_sensitive_data(item) for item in data]
+        masked_items: list[Any] = []
+        for item in data:
+            if isinstance(item, str):
+                masked_items.append(mask_email(item) if _looks_like_email(item) else item)
+            else:
+                masked_items.append(mask_sensitive_data(item))
+        return masked_items
+    if isinstance(data, str) and _looks_like_email(data):
+        return mask_email(data)
     return data
 
 
@@ -310,3 +329,12 @@ def mask_email(value: str) -> str:
         return f"{MASK_PLACEHOLDER}@{domain}"
 
     return f"{local[0]}***@{domain}"
+
+
+def mask_email_reference(value: str) -> str:
+    # Mask values that may be either plaintext e-mail addresses or legacy hashes.
+    if not value:
+        return MASK_PLACEHOLDER
+    if "@" in value:
+        return mask_email(value)
+    return mask_hash(value)
