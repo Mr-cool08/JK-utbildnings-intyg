@@ -19,7 +19,6 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 - `functions/` - affärslogik för användare, admin, organisationer, databas, säkerhet, loggning, e-post och PDF-lagring.
 - `services/` - stödtjänster som serverövervakning, antivirusskript och hjälptjänster kring drift.
-- `status_service/` - separat Flask-app för statussidan.
 
 ## Webbgränssnitt
 

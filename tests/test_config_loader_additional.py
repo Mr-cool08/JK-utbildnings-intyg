@@ -69,9 +69,8 @@ def test_load_environment_uses_fallback_when_missing(monkeypatch, tmp_path) -> N
     assert fake_loader.call_args_list == [call(override=False)]
 
 
-def test_load_environment_does_not_override_demo_mode(monkeypatch) -> None:
+def test_load_environment_does_not_override_existing_dev_mode(monkeypatch) -> None:
     monkeypatch.setenv("DEV_MODE", "true")
-    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
 
     fake_loader: Mock = Mock()
     monkeypatch.setattr(config_loader, "load_dotenv", fake_loader)
@@ -79,4 +78,4 @@ def test_load_environment_does_not_override_demo_mode(monkeypatch) -> None:
 
     config_loader.load_environment()
 
-    assert "ENABLE_DEMO_MODE" not in os.environ
+    assert os.environ["DEV_MODE"] == "true"

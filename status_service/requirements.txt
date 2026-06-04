@@ -1,8 +1,0 @@
-# Copyright (c) Liam Suorsa and Mika Suorsa
-Flask
-psycopg2-binary
-gunicorn
-psutil
-python-dotenv
-SQLAlchemy
-Werkzeug

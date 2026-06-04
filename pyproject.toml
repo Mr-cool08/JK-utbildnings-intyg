@@ -26,7 +26,6 @@ files = [
   "app.py",
   "functions",
   "services",
-  "status_service",
 ]
 
 disable_error_code = [

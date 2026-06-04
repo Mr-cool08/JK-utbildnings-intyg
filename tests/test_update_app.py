@@ -101,14 +101,12 @@ def test_build_venv_command_prefers_unix_layout_on_posix(tmp_path):
 def test_build_pytest_environment_overrides_conflicting_env(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@postgres:5432/testdb")
     monkeypatch.setenv("DEV_MODE", "false")
-    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
     monkeypatch.delenv("DISABLE_EMAILS", raising=False)
 
     env = ua._build_pytest_environment(tmp_path)
 
     assert env["DATABASE_URL"] == "sqlite:///:memory:"
     assert env["DEV_MODE"] == "true"
-    assert env["ENABLE_DEMO_MODE"] == "false"
     assert env["DISABLE_EMAILS"] == "true"
     assert env["secret_key"] == "test-secret-key"
     assert Path(env["LOG_FILE"]).parent == tmp_path / ".pytest_tmp" / "logs"
@@ -196,7 +194,6 @@ def test_main_runs_pytest_with_deterministic_test_env(monkeypatch):
     assert pytest_call["env"] is not None
     assert pytest_call["env"]["DATABASE_URL"] == "sqlite:///:memory:"
     assert pytest_call["env"]["DEV_MODE"] == "true"
-    assert pytest_call["env"]["ENABLE_DEMO_MODE"] == "false"
     assert pytest_call["env"]["DISABLE_EMAILS"] == "true"
 
 

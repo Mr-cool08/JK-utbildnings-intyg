@@ -163,7 +163,6 @@ def _build_pytest_environment(root: Path) -> dict[str, str]:
         {
             "DATABASE_URL": "sqlite:///:memory:",
             "DEV_MODE": "true",
-            "ENABLE_DEMO_MODE": "false",
             "DISABLE_EMAILS": "true",
             "LOG_FILE": os.fspath(log_dir / "pytest.log"),
             "admin_username": "test_admin",

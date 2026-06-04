@@ -44,18 +44,17 @@ python app.py
 
 Om du följer `.example.env` blir adressen normalt `http://localhost:8080`.
 
-## Demo-läge
+## DEV_MODE
 
-`DEV_MODE` och `ENABLE_DEMO_MODE` är separata:
+`DEV_MODE` styr utvecklingsläget:
 
 - `DEV_MODE=true` aktiverar utvecklingsloggning och debug-vänligt beteende.
-- `ENABLE_DEMO_MODE=true` fyller applikationen med demodata.
+- `DEV_MODE=false` ska användas i produktion.
 
 Exempel:
 
 ```env
 DEV_MODE=true
-ENABLE_DEMO_MODE=true
 ```
 
 ## Docker-utveckling
@@ -69,8 +68,6 @@ docker compose up --build
 Viktiga lokala adresser:
 
 - Huvudapp: `http://localhost`
-- Demo: `http://localhost:8000`
-- Statussida: `http://localhost:8080`
 - VS Code i webbläsaren: `http://localhost:8083` när `DEV_MODE=true`
 
 ## VS Code-container i webbläsaren
@@ -103,7 +100,7 @@ pytest
 Typkontroll:
 
 ```bash
-mypy app.py functions services status_service
+mypy app.py functions services
 ```
 
 Säkerhetsskanning:

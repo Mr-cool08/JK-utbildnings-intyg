@@ -18,7 +18,6 @@ def _force_test_environment() -> None:
     os.environ["admin_password"] = "test_password_123"
     os.environ["secret_key"] = "test-secret-key"
     os.environ["DEV_MODE"] = "true"
-    os.environ["ENABLE_DEMO_MODE"] = "false"
     os.environ["DISABLE_EMAILS"] = "true"
 
 
