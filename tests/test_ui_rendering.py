@@ -76,13 +76,13 @@ def test_standardkonto_form_contains_expected_ui_fields(empty_db):
     assert 'id="personnummer"' in body
     assert 'inputmode="numeric"' in body
     assert 'placeholder="ÅÅMMDDXXXX"' in body
-    assert 'id="orgnr"' in body
-    assert 'placeholder="5569668337"' in body
+    assert 'id="orgnr"' not in body
     assert 'id="terms_confirmed"' in body
     assert 'href="/villkor"' in body
     assert 'href="/gdpr"' in body
     assert "form_error_highlight.js" in body
     assert "Skapar konto" in body
+    assert "verifieringsmejl" in body
 
 
 def test_foretagskonto_form_contains_invoice_section_and_required_fields(empty_db):

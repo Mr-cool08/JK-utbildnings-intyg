@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Kontrollera din e-post – Utbildningsintyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Verifiera ditt privatkonto via länken i mejlet innan du loggar in.">
+{% endblock %}
+{% block content %}
+<section class="apply-hero" aria-labelledby="verification-title">
+    <div class="apply-hero-content">
+        <div class="apply-intro">
+            <h1 id="verification-title">Kontrollera din e-post</h1>
+            <p>Ditt privatkonto är nästan klart. Vi har skickat ett verifieringsmejl till adressen du angav.</p>
+        </div>
+
+        <div class="form-card">
+            <div class="message success" role="status">
+                Verifiera kontot genom att öppna länken i mejlet. Där skapar du också ditt lösenord.
+            </div>
+            <p>Du behöver slutföra verifieringen innan du kan logga in.</p>
+            <p>Hittar du inte mejlet? Kontrollera skräpposten eller prova att skapa kontot igen om du råkade skriva fel e-postadress.</p>
+
+            <div class="cta-actions">
+                <a class="btn" href="{{ url_for('login') }}">Fortsätt till inloggning</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

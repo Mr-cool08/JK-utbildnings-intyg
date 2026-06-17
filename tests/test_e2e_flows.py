@@ -74,15 +74,14 @@ def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monke
             "name": "E2E Standard",
             "email": "e2e.standard@example.com",
             "personnummer": "9001011234",
-            "orgnr": "5569668337",
             "terms_confirmed": "1",
         },
         follow_redirects=True,
     )
     assert apply_response.status_code == 200
     apply_body = apply_response.get_data(as_text=True)
-    assert "Kontot är skapat." in apply_body
-    assert "Privatinloggning" in apply_body
+    assert "Kontrollera din e-post" in apply_body
+    assert "Fortsätt till inloggning" in apply_body
 
     with empty_db.connect() as conn:
         pending_user = conn.execute(
@@ -94,7 +93,7 @@ def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monke
         application = conn.execute(functions.application_requests_table.select()).fetchall()
 
     assert pending_user is not None
-    assert pending_user.orgnr_normalized == "5569668337"
+    assert pending_user.orgnr_normalized == ""
     assert application == []
 
     activation_path = urlparse(sent["link"]).path
