@@ -2014,14 +2014,11 @@ def user_update_pdf_route(pdf_id: int):
             expiry_years_raw,
         )
     except ValueError as exc:
+        current_app.logger.info("PDF metadata update validation failed: %s", exc)
         return (
             jsonify(
                 {
-                    "fel": _safe_user_error(
-                        str(exc),
-                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
-                        "Intyget kunde inte uppdateras. Kontrollera uppgifterna och försök igen.",
-                    )
+                    "fel": "Intyget kunde inte uppdateras. Kontrollera uppgifterna och försök igen."
                 }
             ),
             400,
