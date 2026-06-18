@@ -220,6 +220,7 @@ def _resolve_certificate_expiry(
     expiry_months_raw: str,
     expiry_years_raw: str,
     *,
+    current_expires_on: date | None = None,
     today: date | None = None,
 ) -> date | None:
     today = today or date.today()
@@ -235,6 +236,8 @@ def _resolve_certificate_expiry(
             expires_on = date.fromisoformat(cleaned_date)
         except ValueError as exc:
             raise ValueError("Välj ett giltigt utgångsdatum.") from exc
+        if current_expires_on is not None and expires_on == current_expires_on:
+            return expires_on
         if expires_on < today:
             raise ValueError("Utgångsdatum kan inte vara tidigare än idag.")
         return expires_on
@@ -259,6 +262,16 @@ def _resolve_certificate_expiry(
         return _add_months_to_date(today, month_count + (year_count * 12))
 
     raise ValueError("Välj ett giltigt alternativ för utgångsdatum.")
+
+
+def _coerce_text_payload_value(value: Any, field_label: str, *, default: str = "") -> str:
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    raise ValueError(f"{field_label} måste anges som text.")
 
 
 def _format_display_name(name: str | None) -> str:
@@ -1991,19 +2004,39 @@ def user_update_pdf_route(pdf_id: int):
     personnummer = session.get("personnummer_raw")
     if not personnummer:
         return jsonify({"fel": "Kunde inte identifiera användaren. Logga in igen."}), 400
+    personnummer_hash = functions.hash_value(personnummer)
 
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         return jsonify({"fel": "Ogiltig begäran."}), 400
 
-    note = (payload.get("note", "") or "").strip()
-    expiry_mode = payload.get("expiry_mode", "none")
-    expiry_date_raw = payload.get("expiry_date", "")
-    expiry_months_raw = payload.get("expiry_months", "")
-    expiry_years_raw = payload.get("expiry_years", "")
+    try:
+        note = _coerce_text_payload_value(payload.get("note", ""), "Anteckningen").strip()
+        expiry_mode = _coerce_text_payload_value(
+            payload.get("expiry_mode", "none"),
+            "Val för utgångsdatum",
+            default="none",
+        ).strip()
+        expiry_date_raw = _coerce_text_payload_value(
+            payload.get("expiry_date", ""),
+            "Utgångsdatum",
+        ).strip()
+        expiry_months_raw = _coerce_text_payload_value(
+            payload.get("expiry_months", ""),
+            "Antal månader",
+        ).strip()
+        expiry_years_raw = _coerce_text_payload_value(
+            payload.get("expiry_years", ""),
+            "Antal år",
+        ).strip()
+    except ValueError as exc:
+        return jsonify({"fel": str(exc)}), 400
 
     if len(note) > 300:
         return jsonify({"fel": "Anteckningen får vara högst 300 tecken."}), 400
+
+    current_pdf = functions.get_pdf_metadata(personnummer_hash, pdf_id)
+    current_expires_on = current_pdf.get("expires_on") if current_pdf else None
 
     try:
         filename = pdf.build_editable_pdf_filename(payload.get("filename", ""))
@@ -2012,17 +2045,11 @@ def user_update_pdf_route(pdf_id: int):
             expiry_date_raw,
             expiry_months_raw,
             expiry_years_raw,
+            current_expires_on=current_expires_on,
         )
     except ValueError as exc:
         current_app.logger.info("PDF metadata update validation failed: %s", exc)
-        return (
-            jsonify(
-                {
-                    "fel": "Intyget kunde inte uppdateras. Kontrollera uppgifterna och försök igen."
-                }
-            ),
-            400,
-        )
+        return jsonify({"fel": str(exc)}), 400
 
     try:
         updated = functions.update_user_pdf_metadata(

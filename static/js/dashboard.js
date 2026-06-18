@@ -414,7 +414,8 @@
         return;
       }
 
-      const updateUrl = activePdfItem.dataset.updateUrl || '';
+      const pdfItemToUpdate = activePdfItem;
+      const updateUrl = pdfItemToUpdate.dataset.updateUrl || '';
       if (!updateUrl) {
         setFeedback('Det gick inte att identifiera intyget.', 'error');
         return;
@@ -461,7 +462,7 @@
           return;
         }
 
-        updatePdfItemView(activePdfItem, data.data || {});
+        updatePdfItemView(pdfItemToUpdate, data.data || {});
         refreshDashboardSearch();
         closeEditModal();
       } catch (error) {

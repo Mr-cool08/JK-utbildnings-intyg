@@ -1,5 +1,5 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
-from datetime import date
+from datetime import date, timedelta
 import io
 
 import app
@@ -23,6 +23,10 @@ def _login_user_and_get_csrf(client):
 
     with client.session_transaction() as session_data:
         return session_data.get("csrf_token")
+
+
+def _future_expiry_date() -> date:
+    return date.today() + timedelta(days=365 * 3)
 
 
 def test_user_can_upload_pdf_from_dashboard(user_db):
@@ -79,6 +83,7 @@ def test_user_can_upload_pdf_from_dashboard(user_db):
 
 def test_user_can_upload_pdf_with_exact_expiry_date(user_db):
     pdf_bytes = b"%PDF-1.4 via upload"
+    future_expiry = _future_expiry_date()
 
     with app.app.test_client() as client:
         with client.session_transaction() as session_data:
@@ -104,7 +109,7 @@ def test_user_can_upload_pdf_with_exact_expiry_date(user_db):
                 "certificate": (io.BytesIO(pdf_bytes), "intyg.pdf"),
                 "csrf_token": csrf_token,
                 "expiry_mode": "date",
-                "expiry_date": "2027-05-27",
+                "expiry_date": future_expiry.isoformat(),
             },
             content_type="multipart/form-data",
             follow_redirects=True,
@@ -121,7 +126,7 @@ def test_user_can_upload_pdf_with_exact_expiry_date(user_db):
         ).first()
 
     assert row is not None
-    assert row.expires_on == date(2027, 5, 27)
+    assert row.expires_on == future_expiry
 
 
 def test_user_upload_rejects_too_long_note(user_db):
@@ -252,6 +257,7 @@ def test_user_upload_rejects_request_over_global_limit(user_db, monkeypatch):
 def test_user_can_update_pdf_metadata_from_dashboard(user_db):
     personnummer_hash = functions.hash_value("9001011234")
     pdf_content = b"%PDF-1.4 redigera"
+    future_expiry = _future_expiry_date()
     pdf_id = functions.store_pdf_blob(
         personnummer_hash,
         "1717171717_gammalt_intyg.pdf",
@@ -269,7 +275,7 @@ def test_user_can_update_pdf_metadata_from_dashboard(user_db):
                 "filename": "Nytt intyg.pdf",
                 "note": "Uppdaterad anteckning",
                 "expiry_mode": "date",
-                "expiry_date": "2027-05-27",
+                "expiry_date": future_expiry.isoformat(),
                 "expiry_years": "",
                 "expiry_months": "",
             },
@@ -282,7 +288,7 @@ def test_user_can_update_pdf_metadata_from_dashboard(user_db):
     assert data["meddelande"] == "Intyget har uppdaterats."
     assert data["data"]["filename"] == "Nytt_intyg.pdf"
     assert data["data"]["note"] == "Uppdaterad anteckning"
-    assert data["data"]["expires_on"] == "2027-05-27"
+    assert data["data"]["expires_on"] == future_expiry.isoformat()
 
     with functions.get_engine().connect() as conn:
         row = conn.execute(
@@ -292,7 +298,7 @@ def test_user_can_update_pdf_metadata_from_dashboard(user_db):
     assert row is not None
     assert row.filename == "Nytt_intyg.pdf"
     assert row.note == "Uppdaterad anteckning"
-    assert row.expires_on == date(2027, 5, 27)
+    assert row.expires_on == future_expiry
 
     filename, stored_content = functions.get_pdf_content(personnummer_hash, pdf_id)
     assert filename == "Nytt_intyg.pdf"
@@ -302,13 +308,14 @@ def test_user_can_update_pdf_metadata_from_dashboard(user_db):
 
 def test_user_can_clear_pdf_expiry_date_from_dashboard(user_db):
     personnummer_hash = functions.hash_value("9001011234")
+    future_expiry = _future_expiry_date()
     pdf_id = functions.store_pdf_blob(
         personnummer_hash,
         "expires.pdf",
         b"%PDF-1.4 expires",
         [COURSE_CATEGORIES[0][0]],
         note="Behåll anteckning",
-        expires_on=date(2027, 5, 27),
+        expires_on=future_expiry,
     )
 
     with app.app.test_client() as client:
@@ -338,6 +345,47 @@ def test_user_can_clear_pdf_expiry_date_from_dashboard(user_db):
 
     assert row is not None
     assert row.expires_on is None
+
+
+def test_user_can_update_pdf_metadata_with_unchanged_expired_date(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    expired_date = date.today() - timedelta(days=30)
+    pdf_id = functions.store_pdf_blob(
+        personnummer_hash,
+        "utgatt.pdf",
+        b"%PDF-1.4 expired",
+        [COURSE_CATEGORIES[0][0]],
+        note="Gammal anteckning",
+        expires_on=expired_date,
+    )
+
+    with app.app.test_client() as client:
+        csrf_token = _login_user_and_get_csrf(client)
+
+        response = client.post(
+            f"/dashboard/intyg/{pdf_id}/uppdatera",
+            json={
+                "csrf_token": csrf_token,
+                "filename": "utgatt.pdf",
+                "note": "Ny anteckning",
+                "expiry_mode": "date",
+                "expiry_date": expired_date.isoformat(),
+                "expiry_years": "",
+                "expiry_months": "",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["expires_on"] == expired_date.isoformat()
+
+    with functions.get_engine().connect() as conn:
+        row = conn.execute(
+            functions.user_pdfs_table.select().where(functions.user_pdfs_table.c.id == pdf_id)
+        ).first()
+
+    assert row is not None
+    assert row.note == "Ny anteckning"
+    assert row.expires_on == expired_date
 
 
 def test_user_update_pdf_rejects_invalid_filename(user_db):
@@ -396,6 +444,43 @@ def test_user_update_pdf_rejects_too_long_note(user_db):
 
     assert response.status_code == 400
     assert response.get_json()["fel"] == "Anteckningen får vara högst 300 tecken."
+
+
+def test_user_update_pdf_rejects_non_string_metadata_fields(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    pdf_id = functions.store_pdf_blob(
+        personnummer_hash,
+        "gammalt.pdf",
+        b"%PDF-1.4 invalid-types",
+        [COURSE_CATEGORIES[0][0]],
+    )
+    invalid_fields = (
+        ("note", ["inte text"], "Anteckningen måste anges som text."),
+        ("expiry_date", ["2029-06-17"], "Utgångsdatum måste anges som text."),
+        ("expiry_months", ["3"], "Antal månader måste anges som text."),
+        ("expiry_years", ["1"], "Antal år måste anges som text."),
+    )
+
+    with app.app.test_client() as client:
+        csrf_token = _login_user_and_get_csrf(client)
+
+        for field_name, field_value, expected_error in invalid_fields:
+            response = client.post(
+                f"/dashboard/intyg/{pdf_id}/uppdatera",
+                json={
+                    "csrf_token": csrf_token,
+                    "filename": "gammalt.pdf",
+                    "note": "",
+                    "expiry_mode": "none",
+                    "expiry_date": "",
+                    "expiry_years": "",
+                    "expiry_months": "",
+                    field_name: field_value,
+                },
+            )
+
+            assert response.status_code == 400
+            assert response.get_json()["fel"] == expected_error
 
 
 def test_user_update_pdf_rejects_past_expiry_date(user_db):

@@ -19,7 +19,8 @@ from services.pdf_scanner import ScanVerdict, scan_pdf_bytes
 
 ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
 EDITABLE_PDF_NAME_MAX_LENGTH = 120
-LEGACY_PDF_FILENAME_PATTERN = re.compile(r"^(?P<timestamp>\d{10,})_(?P<name>.+)$")
+LEGACY_PDF_FILENAME_PATTERN = re.compile(r"^(?P<timestamp>\d{10})_(?P<name>.+)$")
+LEGACY_PDF_TIMESTAMP_MIN = 946684800
 
 
 def _convert_image_to_pdf(file_storage) -> bytes:
@@ -46,12 +47,20 @@ def _build_pdf_filename(file_storage, normalized_pnr: str) -> str:
     return f"{int(time.time())}_{name}.pdf"
 
 
+def _is_legacy_pdf_timestamp(raw_timestamp: str) -> bool:
+    try:
+        timestamp = int(raw_timestamp)
+    except (TypeError, ValueError):
+        return False
+    return LEGACY_PDF_TIMESTAMP_MIN <= timestamp <= int(time.time())
+
+
 def extract_editable_pdf_name(filename: str) -> str:
     """Returnera ett användarvänligt namn för redigering av sparade PDF:er."""
 
     stem, _extension = os.path.splitext((filename or "").strip())
     legacy_match = LEGACY_PDF_FILENAME_PATTERN.match(stem)
-    if legacy_match:
+    if legacy_match and _is_legacy_pdf_timestamp(legacy_match.group("timestamp")):
         legacy_name = legacy_match.group("name").strip("._- ")
         if legacy_name:
             return legacy_name

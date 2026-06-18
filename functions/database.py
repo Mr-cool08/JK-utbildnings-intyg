@@ -1238,7 +1238,7 @@ def _migration_0017_fix_schema_migrations_duplicate_ids(conn: Connection) -> Non
             update,
         )
         logger.info(
-            "Migrering 0017: Parkerade ID f?r '%s' fr?n %s till %s",
+            "Migrering 0017: Parkerade ID för '%s' från %s till %s",
             update["version_name"],
             update["old_id"],
             update["temporary_id"],
@@ -1253,7 +1253,7 @@ def _migration_0017_fix_schema_migrations_duplicate_ids(conn: Connection) -> Non
             update,
         )
         logger.info(
-            "Migrering 0017: Fixade ID f?r '%s' fr?n %s till %s",
+            "Migrering 0017: Fixade ID för '%s' från %s till %s",
             update["version_name"],
             update["old_id"],
             update["correct_id"],
