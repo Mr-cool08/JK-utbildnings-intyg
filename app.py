@@ -1275,14 +1275,12 @@ def _handle_standard_account_registration():
         "name": False,
         "email": False,
         "personnummer": False,
-        "orgnr": False,
         "terms_confirmed": False,
     }
     form_data = {
         "name": "",
         "email": "",
         "personnummer": "",
-        "orgnr": "",
         "terms_confirmed": "",
     }
     status_code = 200
@@ -1328,18 +1326,13 @@ def _handle_standard_account_registration():
                             form_data["name"],
                             form_data["email"],
                             form_data["personnummer"],
-                            form_data.get("orgnr"),
                             before_commit=_send_creation_email_before_commit,
                         )
                         logger.info(
                             "Nytt privatkonto registrerat f\u00f6r %s",
                             mask_hash(functions.hash_value(form_data["email"].lower())),
                         )
-                        flash(
-                            "Kontot \u00e4r skapat. Kontrollera din e-post och skapa ditt l\u00f6senord innan du loggar in.",
-                            "success",
-                        )
-                        return redirect(url_for("login"))
+                        return redirect(url_for("standard_account_registered"))
                     except ValueError as exc:
                         message = str(exc)
                         form_errors.append(message)
@@ -1375,6 +1368,13 @@ def apply_standardkonto():
     """Visa och hantera ansökan för standardkonto."""
 
     return _handle_standard_account_registration()
+
+
+@app.route("/ansok/standardkonto/klart", methods=["GET"])
+def standard_account_registered():
+    """Visa bekräftelse efter skapad standardkontoansökan."""
+
+    return render_template("standard_account_registered.html")
 
 
 @app.route("/ansok/foretagskonto", methods=["GET", "POST"])

@@ -20,7 +20,7 @@ def test_apply_landing_has_links(empty_db):
 
 
 @pytest.mark.allow_public_rate_limited
-def test_user_account_registration_creates_pending_user_and_org_request(
+def test_user_account_registration_ignores_orgnr_and_requires_email_verification(
     empty_db, monkeypatch
 ):
     sent = {}
@@ -48,24 +48,19 @@ def test_user_account_registration_creates_pending_user_and_org_request(
         )
         assert response.status_code == 200
         body = response.data.decode("utf-8")
-        assert "Kontot är skapat." in body
-        assert "skapa ditt lösenord innan du loggar in" in body
-        assert "Privatinloggning" in body
+        assert "Kontrollera din e-post" in body
+        assert "Verifiera kontot genom att öppna länken i mejlet." in body
+        assert "Fortsätt till inloggning" in body
 
     with empty_db.connect() as conn:
         pending_users = conn.execute(functions.pending_users_table.select()).fetchall()
         assert len(pending_users) == 1
         pending_user = pending_users[0]
         assert pending_user.username == "Anna Användare"
-        assert pending_user.orgnr_normalized == "5569668337"
+        assert pending_user.orgnr_normalized == ""
 
         org_requests = conn.execute(functions.organization_link_requests_table.select()).fetchall()
-        assert len(org_requests) == 1
-        org_request = org_requests[0]
-        assert org_request.orgnr_normalized == "5569668337"
-        assert org_request.user_name == "Anna Användare"
-        assert org_request.user_email == "anna@example.com"
-        assert org_request.status == "pending"
+        assert org_requests == []
 
         applications = conn.execute(functions.application_requests_table.select()).fetchall()
         assert applications == []
@@ -95,7 +90,7 @@ def test_user_account_registration_without_orgnr_only_creates_pending_user(
             follow_redirects=False,
         )
         assert response.status_code == 302
-        assert response.headers["Location"].endswith("/login")
+        assert response.headers["Location"].endswith("/ansok/standardkonto/klart")
 
     with empty_db.connect() as conn:
         pending_user = conn.execute(functions.pending_users_table.select()).first()
@@ -128,7 +123,6 @@ def test_user_account_registration_rolls_back_when_activation_email_fails(
                 "name": "Anna Användare",
                 "email": "anna@example.com",
                 "personnummer": "9001011234",
-                "orgnr": "556966-8337",
                 "terms_confirmed": "1",
             },
             follow_redirects=True,
@@ -154,19 +148,19 @@ def test_user_account_registration_rolls_back_when_activation_email_fails(
                 "name": "Anna Användare",
                 "email": "anna@example.com",
                 "personnummer": "9001011234",
-                "orgnr": "556966-8337",
                 "terms_confirmed": "1",
             },
             follow_redirects=False,
         )
         assert retry_response.status_code == 302
-        assert retry_response.headers["Location"].endswith("/login")
+        assert retry_response.headers["Location"].endswith("/ansok/standardkonto/klart")
 
     with empty_db.connect() as conn:
         pending_user = conn.execute(functions.pending_users_table.select()).first()
         org_request = conn.execute(functions.organization_link_requests_table.select()).first()
         assert pending_user is not None
-        assert org_request is not None
+        assert pending_user.orgnr_normalized == ""
+        assert org_request is None
 
 
 @pytest.mark.allow_public_rate_limited
@@ -226,6 +220,18 @@ def test_user_account_registration_requires_terms_confirmation(empty_db):
     with empty_db.connect() as conn:
         pending_users = conn.execute(functions.pending_users_table.select()).fetchall()
         assert pending_users == []
+
+
+def test_standard_account_registered_page_renders_continue_button(empty_db):
+    with _client() as client:
+        response = client.get("/ansok/standardkonto/klart")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert "Kontrollera din e-post" in body
+    assert "Verifiera kontot genom att öppna länken i mejlet." in body
+    assert 'href="/login"' in body
+    assert "Fortsätt till inloggning" in body
 
 
 def test_public_organization_search_shows_active_user_count_and_company_name(empty_db):

@@ -10,7 +10,7 @@
 
         <div class="apply-intro" data-motion-child>
             <h1 id="apply-title">Skapa privatkonto</h1>
-            <p>Fyll i dina uppgifter. Vi skickar en länk via e-post där du själv skapar ditt lösenord.</p>
+            <p>Fyll i dina uppgifter. När formuläret har skickats får du ett verifieringsmejl med en länk där du bekräftar kontot och skapar ditt lösenord.</p>
         </div>
 
         <form method="post" class="apply-form" novalidate data-motion-child>
@@ -71,25 +71,6 @@
                 <p class="field-error-message" id="personnummer-error">Ange ett giltigt personnummer i formatet ÅÅMMDDXXXX.</p>
             {% endif %}
 
-            {% set orgnr_error = field_errors.get('orgnr') %}
-            <label for="orgnr">Organisationsnummer <span class="optional">(valfritt)</span></label>
-            <input
-                id="orgnr"
-                name="orgnr"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9\s-]{10,13}"
-                value="{{ form_data.orgnr }}"
-                placeholder="5569668337"
-                class="{% if orgnr_error %}input-error{% endif %}"
-                aria-invalid="{{ 'true' if orgnr_error else 'false' }}"
-                aria-describedby="orgnr-hint{% if orgnr_error %} orgnr-error{% endif %}"
-            >
-            <small class="hint" id="orgnr-hint">Ange organisationsnummer om du vill koppla kontot till en organisation senare.</small>
-            {% if orgnr_error %}
-                <p class="field-error-message" id="orgnr-error">Kontrollera organisationsnumret och försök igen.</p>
-            {% endif %}
-
             {% set terms_error = field_errors.get('terms_confirmed') %}
             <div class="form-consent">
                 <input
@@ -116,23 +97,23 @@
 <section class="apply-info" aria-labelledby="info-title" data-motion="section">
     <h2 id="info-title">Så fungerar det</h2>
     <p class="apply-price">Privatkonto är gratis.</p>
-    <p>Om du anger ett organisationsnummer sparas det på ditt konto. Finns ett företagskonto redan skickas en kopplingsförfrågan dit. Finns det inget företagskonto ännu blir förfrågan synlig när ett sådant konto skapas senare.</p>
+    <p>När formuläret skickas skapar vi ett väntande konto och skickar direkt ett verifieringsmejl. Kontot blir klart först när du öppnar länken i mejlet och väljer ditt lösenord.</p>
 </section>
 
 <section class="apply-steps" aria-labelledby="steps-title" data-motion="section">
     <h2 id="steps-title">Nästa steg</h2>
     <ol class="apply-step-list" data-motion-group="apply-steps">
         <li data-motion-child>
-            <h3>Skapa konto</h3>
+            <h3>Skicka registreringen</h3>
             <p>Vi sparar dina uppgifter direkt när formuläret skickas in.</p>
         </li>
         <li data-motion-child>
-            <h3>Skapa lösenord</h3>
-            <p>Du får ett mejl med en länk där du väljer ditt lösenord själv.</p>
+            <h3>Verifiera din e-post</h3>
+            <p>Du får ett verifieringsmejl med en länk som du behöver öppna.</p>
         </li>
         <li data-motion-child>
-            <h3>Logga in</h3>
-            <p>När lösenordet är skapat skickas du vidare till inloggningen för privatkonto.</p>
+            <h3>Skapa lösenord och logga in</h3>
+            <p>När kontot är verifierat väljer du ditt lösenord och kan sedan logga in på privatkontot.</p>
         </li>
     </ol>
 </section>
