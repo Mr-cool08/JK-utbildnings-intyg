@@ -35,7 +35,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
   enable_demo_mode="$(printf '%s' "${enable_demo_mode}" | tr '[:upper:]' '[:lower:]')"
 
   case "${enable_local_db}:${enable_demo_mode}" in
-    1:*|true:*|on:*|yes:*|ja:*|sant:*|*:1|*:true|*:on|*:yes|*:ja|*:sant)
+    true:*|*:1|*:true|*:on|*:yes|*:ja|*:sant)
       local_db_path="${LOCAL_TEST_DB_PATH:-instance/test.db}"
       if [ "${local_db_path}" = ":memory:" ]; then
         export DATABASE_URL="sqlite:///:memory:"

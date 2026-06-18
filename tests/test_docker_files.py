@@ -224,6 +224,32 @@ def test_entrypoint_runs_gunicorn_only():
     assert nginx_start_pattern.search(entrypoint) is None
 
 
+def test_entrypoint_requires_explicit_true_for_dev_mode():
+    entrypoint = _read(ROOT / "entrypoint.sh")
+    local_database_case = re.search(
+        r'case "\$\{enable_local_db\}:\$\{enable_demo_mode\}" in\s+([^)]+)\)',
+        entrypoint,
+    )
+
+    assert local_database_case is not None
+    dev_mode_patterns = [
+        pattern
+        for pattern in local_database_case.group(1).split("|")
+        if pattern.endswith(":*")
+    ]
+    assert dev_mode_patterns == ["true:*"]
+
+
+def test_compose_assigns_explicit_traefik_logs_volume_name():
+    compose = _read(ROOT / "docker-compose.yml")
+
+    assert (
+        "  traefik_logs:\n"
+        "    name: jk-utbildnings-intyg_traefik_logs\n"
+        in compose
+    )
+
+
 def test_dockerfile_installs_openssl():
     dockerfile = _read(ROOT / "Dockerfile")
     # Någon apk-add rad måste innehålla tini och curl
