@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Connection, case, func, insert, select, update
@@ -26,10 +27,13 @@ from functions.hashing import (
     validate_orgnr,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _clean_optional_text(value: Optional[str], max_length: int = 2000) -> Optional[str]:
@@ -56,7 +60,7 @@ def _ensure_company(
 
     existing = conn.execute(select(companies_table).where(companies_table.c.orgnr == orgnr)).first()
     if existing:
-        updates: Dict[str, str] = {}
+        updates: Dict[str, Any] = {}
         existing_name = existing.name
         if cleaned_name and existing_name != cleaned_name:
             updates["name"] = cleaned_name
@@ -70,6 +74,7 @@ def _ensure_company(
         ):
             updates["invoice_reference"] = cleaned_invoice_reference
         if updates:
+            updates["updated_at"] = func.now()
             conn.execute(
                 update(companies_table).where(companies_table.c.id == existing.id).values(**updates)
             )
@@ -87,6 +92,8 @@ def _ensure_company(
             invoice_address=cleaned_invoice_address or None,
             invoice_contact=cleaned_invoice_contact or None,
             invoice_reference=cleaned_invoice_reference or None,
+            created_at=func.now(),
+            updated_at=func.now(),
         )
     )
     if (
@@ -244,6 +251,9 @@ def create_application_request(
                 invoice_contact=cleaned_invoice_contact,
                 invoice_reference=cleaned_invoice_reference,
                 personnummer_hash=personnummer_hash,
+                status="pending",
+                created_at=func.now(),
+                updated_at=func.now(),
             )
         )
         if (
@@ -386,6 +396,8 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     name=application.name,
                     email=normalized_email,
                     created_via_application_id=application.id,
+                    created_at=func.now(),
+                    updated_at=func.now(),
                 )
             )
         except IntegrityError as exc:
@@ -446,6 +458,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                                 username=application.name,
                                 email=normalized_email,
                                 personnummer=stored_personnummer_hash,
+                                orgnr_normalized="",
                             )
                         )
                     except IntegrityError:
@@ -489,6 +502,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                     insert(pending_supervisors_table).values(
                         email=normalized_email,
                         name=cleaned_name,
+                        created_at=func.now(),
                     )
                 )
                 supervisor_email_hash = normalized_email
@@ -503,6 +517,7 @@ def approve_application_request(application_id: int, reviewer: str) -> Dict[str,
                 reviewed_by=normalized_reviewer,
                 reviewed_at=func.now(),
                 decision_reason=None,
+                updated_at=func.now(),
             )
         )
 
@@ -581,6 +596,7 @@ def reject_application_request(
                 reviewed_by=normalized_reviewer,
                 reviewed_at=func.now(),
                 decision_reason=decision_reason,
+                updated_at=func.now(),
             )
         )
 

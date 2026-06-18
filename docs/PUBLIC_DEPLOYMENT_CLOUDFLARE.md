@@ -27,8 +27,6 @@ Skapa och proxya de domäner som används i Compose:
 
 - `utbildningsintyg.se`
 - `www.utbildningsintyg.se`
-- `demo.utbildningsintyg.se`
-- `status.utbildningsintyg.se`
 - `mta-sts.utbildningsintyg.se`
 
 Aktivera proxyn i Cloudflare där det är relevant.

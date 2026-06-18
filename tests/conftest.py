@@ -9,18 +9,25 @@ import werkzeug
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("admin_username", "test_admin")
-os.environ.setdefault("admin_password", "test_password_123")
-os.environ.setdefault("secret_key", "test-secret-key")
-os.environ.setdefault("DEV_MODE", "true")
-if os.environ.get("DEV_MODE", "false").lower() == "true":
-    os.environ.setdefault("DISABLE_EMAILS", "true")
+
+def _force_test_environment() -> None:
+    # Force a hermetic pytest configuration even when the caller has already
+    # loaded a .env file into the process environment.
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+    os.environ["admin_username"] = "test_admin"
+    os.environ["admin_password"] = "test_password_123"
+    os.environ["secret_key"] = "test-secret-key"
+    os.environ["DEV_MODE"] = "true"
+    os.environ["DISABLE_EMAILS"] = "true"
+
+
+_force_test_environment()
+
 # Ensure tests keep log output inside the workspace to avoid temp-dir permission issues.
 _test_log_dir = Path(__file__).resolve().parents[1] / ".pytest_tmp" / "logs"
 _test_log_dir.mkdir(parents=True, exist_ok=True)
 _test_log_file = os.fspath(_test_log_dir / "pytest.log")
-os.environ.setdefault("LOG_FILE", _test_log_file)
+os.environ["LOG_FILE"] = _test_log_file
 import app  # noqa: E402
 import functions  # noqa: E402
 from services.pdf_scanner import ScanVerdict  # noqa: E402

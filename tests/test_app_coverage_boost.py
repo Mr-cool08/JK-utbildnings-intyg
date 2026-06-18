@@ -16,39 +16,6 @@ def client(monkeypatch, tmp_path):
     return app.app.test_client()
 
 
-def test_start_demo_reset_scheduler(monkeypatch):
-    calls = []
-    captured_target = {}
-
-    class FakeThread:
-        def __init__(self, target, daemon, name):
-            captured_target["target"] = target
-            self.daemon = daemon
-            self.name = name
-            self.started = False
-
-        def start(self):
-            self.started = True
-
-    monkeypatch.setattr(app.threading, "Thread", FakeThread)
-    monkeypatch.setattr(app.functions, "reset_demo_database", lambda defaults: calls.append(defaults))
-
-    demo_defaults = {"user_email": "demo@example.com"}
-    app._start_demo_reset_scheduler(app.app, demo_defaults)
-
-    assert captured_target["target"]
-    # Kör loopen en gång och avbryt via SystemExit.
-    monkeypatch.setattr(app.time, "sleep", lambda _seconds: (_ for _ in ()).throw(SystemExit()))
-    with pytest.raises(SystemExit):
-        captured_target["target"]()
-    assert calls == [demo_defaults]
-
-    # Hantera fel vid återställning.
-    monkeypatch.setattr(app.functions, "reset_demo_database", lambda _defaults: (_ for _ in ()).throw(RuntimeError("fail")))
-    with pytest.raises(SystemExit):
-        captured_target["target"]()
-
-
 def test_create_user_routes(monkeypatch, client):
     monkeypatch.setattr(app.functions, "user_create_user", lambda password, pnr_hash: True)
     monkeypatch.setattr(app.functions, "check_pending_user_hash", lambda value: value == "known")
@@ -96,6 +63,12 @@ def test_supervisor_create_branches(monkeypatch, client):
     )
     assert "matcha" in resp_mismatch.text
 
+    monkeypatch.setattr(
+        app.functions,
+        "get_pending_supervisor_email_by_token",
+        lambda value: None if value == "absent" else "chef@example.com",
+    )
+
     # Aktivering misslyckas.
     monkeypatch.setattr(app.functions, "supervisor_activate_account", lambda *_: False)
     resp_failed = client.post(
@@ -113,12 +86,10 @@ def test_supervisor_create_branches(monkeypatch, client):
     assert "kunde inte aktiveras" in resp_error.text
 
     # Ingen ansökan hittas.
-    monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda *_: False)
     resp_invalid = client.get("/foretagskonto/skapa/absent")
     assert resp_invalid.status_code == 200
 
     # Lyckad aktivering leder till redirect.
-    monkeypatch.setattr(app.functions, "check_pending_supervisor_hash", lambda value: True)
     monkeypatch.setattr(app.functions, "supervisor_activate_account", lambda *_: True)
     resp_success = client.post(
         "/foretagskonto/skapa/ok",

@@ -97,31 +97,42 @@ def register_standard_account(
             raise ValueError("Kontot kunde inte skapas just nu. Försök igen senare.") from exc
 
         if normalized_orgnr:
+            organization_request_identity = {
+                "orgnr_normalized": normalized_orgnr,
+                "user_personnummer": personnummer_hash,
+            }
+            organization_request_updates = {
+                "user_name": cleaned_name,
+                "user_email": normalized_email,
+                "status": "pending",
+                "handled_by_supervisor_email": None,
+                "handled_at": None,
+            }
+            organization_request_insert_values = {
+                **organization_request_identity,
+                **organization_request_updates,
+                "created_at": func.now(),
+                "updated_at": func.now(),
+            }
             try:
-                conn.execute(
-                    insert(organization_link_requests_table).values(
-                        orgnr_normalized=normalized_orgnr,
-                        user_personnummer=personnummer_hash,
-                        user_name=cleaned_name,
-                        user_email=normalized_email,
+                with conn.begin_nested():
+                    conn.execute(
+                        insert(organization_link_requests_table).values(
+                            **organization_request_insert_values
+                        )
                     )
-                )
             except IntegrityError:
-                conn.execute(
+                update_result = conn.execute(
                     update(organization_link_requests_table)
                     .where(
                         organization_link_requests_table.c.orgnr_normalized == normalized_orgnr,
                         organization_link_requests_table.c.user_personnummer
                         == personnummer_hash,
                     )
-                    .values(
-                        user_name=cleaned_name,
-                        user_email=normalized_email,
-                        status="pending",
-                        handled_by_supervisor_email=None,
-                        handled_at=None,
-                    )
+                    .values(**organization_request_updates)
                 )
+                if update_result.rowcount == 0:
+                    raise
 
         result = {
             "email": normalized_email,
@@ -272,6 +283,7 @@ def approve_organization_link_request(
                 insert(supervisor_connections_table).values(
                     supervisor_email=supervisor_email_reference,
                     user_personnummer=request_row.user_personnummer,
+                    created_at=func.now(),
                 )
             )
 

@@ -14,7 +14,6 @@ import os
 import secrets
 import sys
 from pathlib import Path
-import threading
 import time
 from typing import Any, Callable, Sequence
 import json
@@ -473,47 +472,6 @@ def _enable_debug_mode(app: Flask) -> None:
 
     functions.logger.debug("Utvecklingsläge är aktiverat")
     logger.debug("Utvecklingsläge är aktiverat")
-    # Skapa testanvändare endast i debug-läge
-    functions.create_test_user()
-    logger.debug("Utvecklingsläge är aktiverat, testanvändare skapad")
-
-
-def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
-    # Start a bakgrundstråd som återställer demodatabasen var femte minut.
-    interval_seconds = 10 * 60
-
-    # Lock to prevent concurrent database access during reset
-    reset_lock = threading.Lock()
-
-    # Store as app config so error handlers can check reset status
-    app.config["DEMO_RESET_LOCK"] = reset_lock
-
-    def _reset_loop() -> None:
-        logger.info("Bakgrundsjobb för demoreset startat")
-        while True:
-            # Only run reset if no other thread is actively using it
-            if reset_lock.acquire(blocking=False):
-                try:
-                    with app.app_context():
-                        logger.info("Bakgrundsjobb kör demoreset")
-                        if functions.reset_demo_database(demo_defaults):
-                            logger.info("Demoreset slutfördes framgångsrikt")
-                        else:
-                            logger.warning("Demoreset returnerade falskt")
-                except Exception as exc:
-                    logger.error("Automatisk demoreset misslyckades: %s", exc)
-                finally:
-                    reset_lock.release()
-            else:
-                logger.debug("Demoreset hoppad över - låst för närvarande")
-
-            time.sleep(interval_seconds)
-
-    thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
-    thread.start()
-    logger.info("Bakgrundstråd startad: %s", thread.name)
-
-
 def _is_pytest_running() -> bool:
     return "PYTEST_CURRENT_TEST" in os.environ or any("pytest" in arg for arg in sys.argv)
 
@@ -547,6 +505,7 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = UPLOAD_MAX_BYTES
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
+    app.config["DEV_MODE"] = dev_mode
     app.config["DEBUG"] = debug_mode
     if not dev_mode:
         root_logger = logging.getLogger()
@@ -557,47 +516,6 @@ def create_app() -> Flask:
         functions.logger.setLevel(logging.INFO)
 
     logger.debug("Utvecklingsläge: %s", debug_mode)
-
-    demo_defaults = {
-        "user_email": os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
-        "user_name": os.getenv("DEMO_USER_NAME", "Demoanvändare"),
-        "user_personnummer": os.getenv("DEMO_USER_PERSONNUMMER", "199001011234"),
-        "user_password": os.getenv("DEMO_USER_PASSWORD", "DemoLösenord1!"),
-        "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.foretagskonto@example.com"),
-        "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demoföretagskonto"),
-        "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoForetagskonto1!"),
-        "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5569668337"),
-    }
-
-    app.config["IS_DEMO"] = as_bool(os.getenv("ENABLE_DEMO_MODE"))
-    app.config["DEMO_SITE_URL"] = os.getenv("DEMO_SITE_URL", "").strip()
-    app.config["DEMO_CREDENTIALS"] = {
-        "user_personnummer": demo_defaults["user_personnummer"],
-        "user_password": demo_defaults["user_password"],
-        "supervisor_email": demo_defaults["supervisor_email"],
-        "supervisor_orgnr": demo_defaults["supervisor_orgnr"],
-        "supervisor_password": demo_defaults["supervisor_password"],
-    }
-    app.config["DEMO_DEFAULTS"] = demo_defaults
-
-    should_seed_demo_accounts = app.config["IS_DEMO"] or dev_mode
-    if should_seed_demo_accounts:
-        if app.config["IS_DEMO"]:
-            logger.info("Demoläge aktiverat – initierar exempeldata")
-        else:
-            logger.info("Utvecklingsläge aktiverat – initierar demokonton utan demoläge")
-        functions.ensure_demo_data(
-            user_email=demo_defaults["user_email"],
-            user_name=demo_defaults["user_name"],
-            user_personnummer=demo_defaults["user_personnummer"],
-            user_password=demo_defaults["user_password"],
-            supervisor_email=demo_defaults["supervisor_email"],
-            supervisor_name=demo_defaults["supervisor_name"],
-            supervisor_password=demo_defaults["supervisor_password"],
-            supervisor_orgnr=demo_defaults["supervisor_orgnr"],
-        )
-    if app.config["IS_DEMO"]:
-        _start_demo_reset_scheduler(app, demo_defaults)
 
     with app.app_context():
         if debug_mode:
@@ -762,17 +680,9 @@ def _require_supervisor() -> tuple[str, str]:
 
 @app.context_processor
 def inject_flags():
-    # Expose flags indicating debug and demo-läge to Jinja templates.
-    host = request.host
-    if host.startswith("demo."):
-        host = host[len("demo.") :]
-    main_site_url = f"{request.scheme}://{host}"
+    # Expose flags indicating debug-läge to Jinja templates.
     return {
         "IS_DEV": current_app.debug,
-        "IS_DEMO": current_app.config.get("IS_DEMO", False),
-        "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
-        "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
-        "MAIN_SITE_URL": main_site_url,
     }
 
 
@@ -847,12 +757,9 @@ def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     abort(404, description="Standardkonto hittades inte")
 
 
-@app.route("/foretagskonto/skapa/<email_hash>", methods=["GET", "POST"])
-def supervisor_create(email_hash: str):
-    logger.info(
-        "Hanterar skapande av handledarkonto för e-postreferens %s",
-        mask_email_reference(email_hash),
-    )
+@app.route("/foretagskonto/skapa/<activation_token>", methods=["GET", "POST"])
+def supervisor_create(activation_token: str):
+    pending_email = functions.get_pending_supervisor_email_by_token(activation_token)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm", "").strip()
@@ -862,8 +769,10 @@ def supervisor_create(email_hash: str):
                 error="Lösenorden måste matcha.",
                 invalid=False,
             )
+        if not pending_email:
+            return render_template("create_supervisor.html", invalid=True)
         try:
-            if not functions.supervisor_activate_account(email_hash, password):
+            if not functions.supervisor_activate_account(pending_email, password):
                 return render_template(
                     "create_supervisor.html",
                     error="Kontot kunde inte aktiveras. Kontrollera att länken är giltig.",
@@ -882,15 +791,12 @@ def supervisor_create(email_hash: str):
                 ),
                 invalid=False,
             )
-        logger.info("Handledarkonto aktiverat för %s", mask_email_reference(email_hash))
+        logger.info("Handledarkonto aktiverat för %s", mask_email_reference(pending_email))
         return redirect(url_for("supervisor_login"))
 
-    if functions.check_pending_supervisor_hash(email_hash):
+    if pending_email:
         return render_template("create_supervisor.html", invalid=False)
-    logger.warning(
-        "Handledarreferens %s hittades inte under aktivering",
-        mask_email_reference(email_hash),
-    )
+    logger.warning("Handledarens aktiveringslänk hittades inte eller har förbrukats")
     return render_template("create_supervisor.html", invalid=True)
 
 
@@ -1551,8 +1457,8 @@ def apply_foretagskonto():
                         message = str(exc)
                         form_errors.append(message)
                         _flag_application_field_error(message, field_errors)
-                    except Exception as exc:  # pragma: no cover - defensiv loggning
-                        logger.error("Kunde inte spara ansökan")
+                    except Exception:  # pragma: no cover - defensiv loggning
+                        logger.exception("Kunde inte spara ansökan")
                         form_errors.append(
                             "Det gick inte att skicka ansökan just nu. Försök igen senare."
                         )
@@ -1852,7 +1758,7 @@ def user_upload_pdf_route():
         )
         return redirect("/dashboard")
     except Exception:
-        logger.error("Kunde inte spara intyg för användare")
+        logger.exception("Kunde inte spara intyg för användare")
         flash("Ett fel inträffade när intyget skulle sparas.", "error")
         return redirect("/dashboard")
 
@@ -2367,6 +2273,96 @@ def admin_company_accounts():  # pragma: no cover
     return render_template("admin_company_accounts.html", csrf_token=csrf_token)
 
 
+def _send_application_approval_emails(
+    application_id: int, result: dict[str, Any]
+) -> dict[str, str]:
+    payload: dict[str, str] = {"message": "Ansökan godkänd."}
+    email_warnings: list[str] = []
+
+    if result.get("user_activation_required") and result.get("user_personnummer_hash"):
+        link = url_for(
+            "create_user",
+            pnr_hash=result["user_personnummer_hash"],
+            _external=True,
+        )
+        try:
+            email_service.send_creation_email(result["email"], link)
+            payload["message"] = (
+                "Ansökan godkänd. Aktiveringsmejl skickat till standardkontot."
+            )
+            payload["access_link"] = link
+            payload["access_link_label"] = "Aktiveringslänk"
+            payload["access_link_type"] = "activation"
+            payload["creation_link"] = link
+        except Exception:
+            logger.exception(
+                "Misslyckades att skicka aktiveringslänk till sökande för ansökan %s",
+                application_id,
+            )
+            email_warnings.append("Aktiveringslänken till sökande kunde inte skickas.")
+
+    if result.get("account_type") == "foretagskonto":
+        supervisor_email = result.get("supervisor_email") or result.get("email")
+        if result.get("supervisor_activation_required") and supervisor_email:
+            try:
+                activation_token = functions.ensure_pending_supervisor_activation_token(
+                    supervisor_email
+                )
+                link = url_for(
+                    "supervisor_create",
+                    activation_token=activation_token,
+                    _external=True,
+                )
+                email_service.send_creation_email(supervisor_email, link)
+                payload["message"] = (
+                    "Ansökan godkänd. Aktiveringsmejl skickat till företagskontot."
+                )
+                payload["access_link"] = link
+                payload["access_link_label"] = "Aktiveringslänk"
+                payload["access_link_type"] = "activation"
+                payload["creation_link"] = link
+            except Exception:
+                logger.exception(
+                    "Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)",
+                    application_id,
+                )
+                email_warnings.append(
+                    "Aktiveringslänken till företagskontot kunde inte skickas."
+                )
+        elif supervisor_email:
+            try:
+                reset_token = functions.create_supervisor_password_reset_token(
+                    supervisor_email
+                )
+                link = url_for(
+                    "supervisor_password_reset",
+                    token=reset_token,
+                    _external=True,
+                )
+                email_service.send_password_reset_email(supervisor_email, link)
+                payload["message"] = (
+                    "Ansökan godkänd. Företagskontot finns redan och ett åtkomstmejl "
+                    "har skickats."
+                )
+                payload["access_link"] = link
+                payload["access_link_label"] = "Återställningslänk"
+                payload["access_link_type"] = "password_reset"
+            except Exception:
+                logger.exception(
+                    "Misslyckades att skicka åtkomstmejl till aktivt företagskonto "
+                    "för ansökan %s",
+                    application_id,
+                )
+                email_warnings.append(
+                    "Åtkomstmejlet till företagskontot kunde inte skickas."
+                )
+
+    if email_warnings:
+        payload["email_warning"] = " ".join(email_warnings)
+
+    return payload
+
+
 @app.route("/admin/ansokningar", methods=["GET", "POST"])
 def admin_applications():  # pragma: no cover
     if not session.get("admin_logged_in"):
@@ -2384,9 +2380,26 @@ def admin_applications():  # pragma: no cover
         if not application_id:
             return jsonify({"status": "error", "message": "Ansökans ID saknas."}), 400
         if application_status == "approved":
-            functions.approve_application_request(int(application_id), "admin")
+            result = functions.approve_application_request(int(application_id), "admin")
+            email_result = _send_application_approval_emails(
+                int(application_id), result
+            )
             logger.debug("Ansökan har godkänts, lyckat")
-            return jsonify({"status": "success", "message": "Ansökan har godkänts."})
+            payload: dict[str, str] = {
+                "status": "success",
+                "message": email_result["message"],
+            }
+            for key in (
+                "email_warning",
+                "creation_link",
+                "access_link",
+                "access_link_label",
+                "access_link_type",
+            ):
+                value = email_result.get(key)
+                if value:
+                    payload[key] = value
+            return jsonify(payload)
         elif application_status == "rejected":
             functions.reject_application_request(int(application_id), "admin")
             logger.debug("Ansökan har avslagits, lyckat")
@@ -2566,45 +2579,7 @@ def admin_approve_application(application_id: int):  # pragma: no cover
             },
         )
 
-    email_warnings: list[str] = []
-
-    creation_link: str | None = None  # <- samlad länk för svaret
-
-    # 2) Aktiveringslänk till NORMAL user (om aktivering krävs)
-    if result.get("user_activation_required") and result.get("user_personnummer_hash"):
-        link = url_for(
-            "create_user",
-            pnr_hash=result["user_personnummer_hash"],
-            _external=True,
-        )
-        try:
-            email_service.send_creation_email(result["email"], link)
-            creation_link = link  # <- spara till payload
-        except Exception:
-            logger.error(
-                "Misslyckades att skicka aktiveringslänk till sökande för ansökan %s",
-                application_id,
-            )
-            email_warnings.append("Aktiveringslänken till sökande kunde inte skickas.")
-
-    # 3) Aktiveringslänk till SUPERVISOR (företagskonto)
-    if result.get("supervisor_activation_required") and result.get("supervisor_email_hash"):
-        link = url_for(
-            "supervisor_create", email_hash=result["supervisor_email_hash"], _external=True
-        )
-        supervisor_email = result.get("supervisor_email") or result["email"]
-        try:
-            email_service.send_creation_email(supervisor_email, link)
-            if creation_link is None:
-                creation_link = link  # <- använd denna om ingen tidigare satt
-        except Exception:
-            logger.error(
-                "Misslyckades att skicka aktiveringslänk till supervisor (ansökan %s)",
-                application_id,
-            )
-            email_warnings.append(
-                "Aktiveringslänken till handledare/supervisor kunde inte skickas."
-            )
+    email_result = _send_application_approval_emails(application_id, result)
 
     masked_email = mask_hash(functions.hash_value(result["email"]))
     functions.log_admin_action(
@@ -2613,11 +2588,21 @@ def admin_approve_application(application_id: int):  # pragma: no cover
         f"application_id={application_id}, email={masked_email}",
     )
 
-    payload: dict[str, Any] = {"status": "success", "data": result}
-    if email_warnings:
-        payload["email_warning"] = " ".join(email_warnings)
-    if creation_link:
-        payload["creation_link"] = creation_link  # <- TOPP-NIVÅ, uppfyller testet
+    payload: dict[str, Any] = {
+        "status": "success",
+        "data": result,
+        "message": email_result["message"],
+    }
+    for key in (
+        "email_warning",
+        "creation_link",
+        "access_link",
+        "access_link_label",
+        "access_link_type",
+    ):
+        value = email_result.get(key)
+        if value:
+            payload[key] = value
 
     return jsonify(payload)
 
@@ -2945,9 +2930,13 @@ def admin_list_legacy_email_hashes():  # pragma: no cover
 @app.post("/admin/api/epost-hashar/komplettera")
 def admin_complete_legacy_email_hash():  # pragma: no cover
     admin_name = _require_admin()
+    payload = request.get_json(silent=True)
+    if payload is None:
+        payload = {}
+    elif not isinstance(payload, dict):
+        return jsonify({"status": "error", "message": "Ogiltig begäran."}), 400
     if not validate_csrf_token():
         return jsonify({"status": "error", "message": "Ogiltig CSRF-token."}), 400
-    payload = request.get_json(silent=True) or {}
     reference_type = (payload.get("reference_type") or "").strip()
     email_hash = (payload.get("email_hash") or "").strip()
     email = (payload.get("email") or "").strip()
@@ -3437,15 +3426,31 @@ def admin_create_supervisor_route():  # pragma: no cover
             409,
         )
 
-    email_hash = functions.get_supervisor_email_hash(normalized_email)
-    link = url_for("supervisor_create", email_hash=email_hash, _external=True)
+    try:
+        activation_token = functions.ensure_pending_supervisor_activation_token(normalized_email)
+    except ValueError:
+        logger.error(
+            "Misslyckades med att skapa aktiveringslänk för handledare %s",
+            mask_email_reference(normalized_email),
+        )
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Det gick inte att skapa inloggningslänken.",
+                }
+            ),
+            500,
+        )
+
+    link = url_for("supervisor_create", activation_token=activation_token, _external=True)
 
     try:
         email_service.send_creation_email(normalized_email, link)
     except RuntimeError:
         logger.error(
             "Misslyckades med att skicka skapandemejl för handledare till %s",
-            mask_email_reference(email_hash),
+            mask_email_reference(normalized_email),
         )
         return (
             jsonify(
@@ -3459,11 +3464,11 @@ def admin_create_supervisor_route():  # pragma: no cover
     functions.log_admin_action(
         admin_name,
         "skapade företagskonto",
-        f"email_ref={mask_email_reference(email_hash)}",
+        f"email_ref={mask_email_reference(normalized_email)}",
     )
     logger.info(
         "Admin created supervisor %s",
-        mask_email_reference(email_hash),
+        mask_email_reference(normalized_email),
         extra={"admin": admin_name},
     )
     return jsonify({"status": "success", "message": "Företagskonto skapat.", "link": link})

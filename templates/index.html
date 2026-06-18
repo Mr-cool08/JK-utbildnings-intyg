@@ -11,21 +11,6 @@
     <meta property="og:url" content="{{ request.url }}">
 {% endblock %}
 {% block content %}
-{% if IS_DEMO %}
-<section class="demo-info" aria-labelledby="demo-title">
-    <h1 id="demo-title">Demoversion av Utbildningsintyg</h1>
-    <p>Denna miljö använder en tillfällig databas och återställs automatiskt. Allt innehåll är exempeldata.</p>
-    <div class="demo-credentials">
-        <h2>Förinställda konton</h2>
-        <ul>
-            <li><strong>Företagskonto:</strong> Org.nr {{ DEMO_CREDENTIALS.supervisor_orgnr }} / {{ DEMO_CREDENTIALS.supervisor_password }}</li>
-            <li><strong>Kontaktadress:</strong> {{ DEMO_CREDENTIALS.supervisor_email }}</li>
-            <li><strong>Användarkonto:</strong> {{ DEMO_CREDENTIALS.user_personnummer }} / {{ DEMO_CREDENTIALS.user_password }}</li>
-        </ul>
-        <p class="demo-hint">Använd uppgifterna ovan för att logga in som företagskonto eller kursdeltagare.</p>
-    </div>
-</section>
-{% endif %}
 <div class="landing-content">
     <section class="home-hero" aria-labelledby="home-hero-title" data-motion="hero">
         <div class="hero-text" data-motion-group="hero-text">
@@ -42,11 +27,7 @@
         <div class="hero-actions" aria-label="Snabbknappar" data-motion-group="hero-actions">
             <a class="btn hero-btn" href="{{ url_for('apply_account') }}" data-motion-child>Skapa konto</a>
             <a class="btn hero-btn" href="/pris" data-motion-child>Se priser</a>
-            {% if not IS_DEMO and DEMO_SITE_URL %}
-                <a class="btn hero-btn btn-ghost" href="{{ DEMO_SITE_URL }}" rel="noopener" data-motion-child>Prova demo</a>
-            {% else %}
-                <a class="btn hero-btn btn-ghost" href="/foretagskonto/login" data-motion-child>Prova demo</a>
-            {% endif %}
+            <a class="btn hero-btn btn-ghost" href="{{ url_for('supervisor_login') }}" data-motion-child>Företagsportal</a>
         </div>
     </section>
 

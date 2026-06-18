@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, insert, inspect as sqlalchemy_inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import functions
@@ -97,6 +98,8 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     created_tables = []
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 
@@ -152,12 +155,171 @@ def test_create_database_backfills_columns_and_aux_tables(monkeypatch):
     assert any("ADD COLUMN note" in sql for sql in executed_sql)
     assert any("ADD COLUMN expires_on" in sql for sql in executed_sql)
     assert any("ADD COLUMN last_expiry_reminder_month" in sql for sql in executed_sql)
-    assert any("ADD COLUMN last_expiry_reminder_sent_at" in sql for sql in executed_sql)
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME"
+        in executed_sql
+    )
     assert set(created_tables) == {
         "password_resets",
         "supervisor_password_resets",
         "admin_audit_log",
     }
+
+
+def test_create_database_uses_postgres_timestamp_type_for_missing_sent_at(monkeypatch):
+    executed_sql = []
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, *_args, **_kwargs):
+            executed_sql.append(str(statement))
+            return None
+
+    class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "postgresql")
+
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module.metadata, "create_all", lambda _engine: None)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [
+                {"name": "categories"},
+                {"name": "note"},
+                {"name": "expires_on"},
+                {"name": "last_expiry_reminder_month"},
+            ],
+            get_table_names=lambda: [
+                functions.user_pdfs_table.name,
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
+
+    database_module.create_database()
+
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at "
+        "TIMESTAMP WITH TIME ZONE"
+    ) in executed_sql
+
+
+def test_sync_postgres_primary_key_sequences_realigns_known_sequences():
+    executed_statements = []
+
+    class _Result:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+        def one_or_none(self):
+            return self.value
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def execute(self, statement, *_args, **_kwargs):
+            compiled = statement.compile(dialect=postgresql.dialect())
+            sql = str(compiled)
+            params = compiled.params
+            executed_statements.append((sql, params))
+
+            if "pg_advisory_xact_lock" in sql:
+                return _Result(None)
+            if "pg_get_serial_sequence" in sql and "user_pdfs" in params.values():
+                return _Result("public.user_pdfs_id_seq")
+            if "max(user_pdfs.id)" in sql:
+                return _Result(17)
+            if "SELECT last_value, is_called FROM public.user_pdfs_id_seq" in sql:
+                return _Result((21, True))
+            if "pg_get_serial_sequence" in sql:
+                return _Result(None)
+            return _Result(None)
+
+    database_module._sync_postgres_primary_key_sequences(_FakeConn())
+
+    assert any("pg_advisory_xact_lock" in sql for sql, _params in executed_statements)
+    assert any(
+        "pg_get_serial_sequence" in sql and "user_pdfs" in params.values()
+        for sql, params in executed_statements
+    )
+    assert any(
+        "setval" in sql
+        and "public.user_pdfs_id_seq" in params.values()
+        and 21 in params.values()
+        and True in params.values()
+        for sql, params in executed_statements
+    )
+
+
+def test_create_database_syncs_postgres_primary_key_sequences(monkeypatch):
+    sync_calls = []
+
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
+    class _FakeEngine:
+        url = SimpleNamespace(get_backend_name=lambda: "postgresql")
+
+        def begin(self):
+            return _FakeConn()
+
+    monkeypatch.setattr(database_module, "get_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(database_module.metadata, "create_all", lambda _engine: None)
+    monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [
+                {"name": "categories"},
+                {"name": "note"},
+                {"name": "expires_on"},
+                {"name": "last_expiry_reminder_month"},
+                {"name": "last_expiry_reminder_sent_at"},
+            ],
+            get_table_names=lambda: [
+                functions.user_pdfs_table.name,
+                functions.password_resets_table.name,
+                functions.supervisor_password_resets_table.name,
+                functions.admin_audit_log_table.name,
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        database_module,
+        "_sync_postgres_primary_key_sequences",
+        lambda conn: sync_calls.append(conn.dialect.name),
+    )
+
+    database_module.create_database()
+
+    assert sync_calls == ["postgresql"]
 
 
 def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path):
@@ -174,6 +336,8 @@ def test_create_database_falls_back_to_sqlite_in_dev_mode(monkeypatch, tmp_path)
     monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 
@@ -533,6 +697,318 @@ def test_migration_0010_postgres_adds_missing_constraints_and_indexes(monkeypatc
     ) in executed_sql_texts
 
 
+def test_migration_0020_sqlite_restores_orgnr_defaults():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE pending_users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL,
+                    personnummer TEXT NOT NULL UNIQUE,
+                    orgnr_normalized TEXT NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO pending_users (
+                    username,
+                    email,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Pending Person',
+                    'pending@example.com',
+                    'pending-pnr',
+                    ''
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (
+                    username,
+                    email,
+                    password,
+                    personnummer,
+                    orgnr_normalized
+                ) VALUES (
+                    'Active Person',
+                    'active@example.com',
+                    'hashed-password',
+                    'active-pnr',
+                    ''
+                )
+                """
+            )
+        )
+
+        database_module._migration_0020_fix_orgnr_column_defaults(conn)
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO pending_users (username, email, personnummer)
+                VALUES ('Ny Pending', 'ny-pending@example.com', 'ny-pending-pnr')
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (username, email, password, personnummer)
+                VALUES (
+                    'Ny Aktiv',
+                    'ny-aktiv@example.com',
+                    'hashed-password',
+                    'ny-aktiv-pnr'
+                )
+                """
+            )
+        )
+
+        pending_orgnr = conn.execute(
+            text(
+                """
+                SELECT orgnr_normalized FROM pending_users
+                WHERE personnummer = 'ny-pending-pnr'
+                """
+            )
+        ).scalar_one()
+        user_orgnr = conn.execute(
+            text(
+                """
+                SELECT orgnr_normalized FROM users
+                WHERE personnummer = 'ny-aktiv-pnr'
+                """
+            )
+        ).scalar_one()
+
+    assert pending_orgnr == ""
+    assert user_orgnr == ""
+
+
+def test_migration_0020_postgres_restores_orgnr_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [
+                functions.pending_users_table.name,
+                functions.users_table.name,
+            ],
+            get_columns=lambda _table_name: [
+                {
+                    "name": "orgnr_normalized",
+                    "nullable": False,
+                    "default": None,
+                }
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0020_fix_orgnr_column_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "ALTER TABLE pending_users ALTER COLUMN orgnr_normalized SET DEFAULT ''"
+        in executed_sql_texts
+    )
+    assert (
+        "ALTER TABLE users ALTER COLUMN orgnr_normalized SET DEFAULT ''"
+        in executed_sql_texts
+    )
+
+
+def test_migration_0021_postgres_repairs_company_user_timestamps(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.company_users_table.name],
+            get_columns=lambda _table_name: [
+                {"name": "created_at"},
+                {"name": "updated_at"},
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0021_fix_company_users_timestamp_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE company_users "
+        "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE company_users "
+        "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+        "WHERE updated_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE company_users ALTER COLUMN updated_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
+def test_migration_0022_postgres_repairs_supervisor_connection_created_at(
+    monkeypatch,
+):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.supervisor_connections_table.name],
+            get_columns=lambda _table_name: [{"name": "created_at"}],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0022_fix_supervisor_connections_created_at_default(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE supervisor_connections "
+        "SET created_at = CURRENT_TIMESTAMP "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE supervisor_connections "
+        "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE supervisor_connections ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
+def test_migration_0014_postgres_repairs_org_request_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            sql = str(statement)
+            self.executed_sql.append((sql, parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.organization_link_requests_table.name],
+            get_columns=lambda _table_name: [
+                {"name": "status"},
+                {"name": "created_at"},
+                {"name": "updated_at"},
+            ],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0014_fix_organization_link_request_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE organization_link_requests SET status = 'pending' "
+        "WHERE status IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE organization_link_requests "
+        "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+        "WHERE created_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "UPDATE organization_link_requests "
+        "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+        "WHERE updated_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN status SET DEFAULT 'pending'"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests "
+        "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests "
+        "ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN status SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN created_at SET NOT NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE organization_link_requests ALTER COLUMN updated_at SET NOT NULL"
+    ) in executed_sql_texts
+
+
 def test_migration_0011_keeps_existing_certificates_non_expiring():
     engine = create_engine("sqlite:///:memory:", future=True)
 
@@ -671,6 +1147,121 @@ def test_migration_0013_keeps_existing_certificates_without_sent_timestamp():
     assert row.last_expiry_reminder_sent_at is None
 
 
+def test_migration_0013_uses_postgres_timestamp_with_time_zone(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_columns=lambda _table: [{"name": "id"}, {"name": "expires_on"}]
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at "
+        "TIMESTAMP WITH TIME ZONE"
+    ) in executed_sql_texts
+
+
+def test_migration_0015_backfills_sqlite_uploaded_at():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE user_pdfs (
+                    id INTEGER PRIMARY KEY,
+                    personnummer TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    content BLOB NOT NULL,
+                    categories TEXT DEFAULT '' NOT NULL,
+                    uploaded_at DATETIME,
+                    note TEXT DEFAULT '' NOT NULL,
+                    expires_on DATE,
+                    last_expiry_reminder_month TEXT,
+                    last_expiry_reminder_sent_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO user_pdfs (
+                    personnummer,
+                    filename,
+                    content,
+                    categories,
+                    uploaded_at,
+                    note
+                ) VALUES (
+                    'hash',
+                    'existing.pdf',
+                    x'25504446',
+                    'truck',
+                    NULL,
+                    ''
+                )
+                """
+            )
+        )
+
+        database_module._migration_0015_fix_user_pdf_uploaded_at_defaults(conn)
+
+        row = conn.execute(text("SELECT uploaded_at FROM user_pdfs")).first()
+
+    assert row is not None
+    assert row.uploaded_at is not None
+
+
+def test_migration_0015_fixes_postgres_uploaded_at_defaults(monkeypatch):
+    class _FakeConn:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.executed_sql = []
+
+        def execute(self, statement, parameters=None):
+            self.executed_sql.append((str(statement), parameters))
+            return SimpleNamespace()
+
+    monkeypatch.setattr(
+        database_module,
+        "inspect",
+        lambda _conn: SimpleNamespace(
+            get_table_names=lambda: [functions.user_pdfs_table.name],
+            get_columns=lambda _table_name: [{"name": "uploaded_at"}],
+        ),
+    )
+
+    conn = _FakeConn()
+    database_module._migration_0015_fix_user_pdf_uploaded_at_defaults(conn)
+
+    executed_sql_texts = [sql for sql, _parameters in conn.executed_sql]
+    assert (
+        "UPDATE user_pdfs SET uploaded_at = CURRENT_TIMESTAMP "
+        "WHERE uploaded_at IS NULL"
+    ) in executed_sql_texts
+    assert (
+        "ALTER TABLE user_pdfs ALTER COLUMN uploaded_at SET DEFAULT CURRENT_TIMESTAMP"
+    ) in executed_sql_texts
+    assert "ALTER TABLE user_pdfs ALTER COLUMN uploaded_at SET NOT NULL" in executed_sql_texts
+
+
 def test_build_runtime_table_rejects_invalid_identifier():
     with pytest.raises(ValueError, match="Ogiltig SQL-identifierare"):
         database_module._build_runtime_table("users;DROP TABLE users", ["orgnr_normalized"])
@@ -794,7 +1385,6 @@ def test_company_users_allows_same_email_for_different_roles(empty_db):
 def test_build_engine_requires_postgres_user_when_host_is_set(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("DEV_MODE", raising=False)
-    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
     monkeypatch.setenv("POSTGRES_HOST", "postgres")
     monkeypatch.delenv("POSTGRES_USER", raising=False)
     monkeypatch.setenv("POSTGRES_DB", "jk")
@@ -806,7 +1396,6 @@ def test_build_engine_requires_postgres_user_when_host_is_set(monkeypatch):
 def test_build_engine_requires_postgres_db_when_host_is_set(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("DEV_MODE", raising=False)
-    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
     monkeypatch.setenv("POSTGRES_HOST", "postgres")
     monkeypatch.setenv("POSTGRES_USER", "jk")
     monkeypatch.delenv("POSTGRES_DB", raising=False)

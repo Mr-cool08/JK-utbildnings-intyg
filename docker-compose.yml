@@ -114,47 +114,6 @@ services:
     cpus: "0.60"
     pids_limit: 200
 
-  app_demo:
-    build: .
-    env_file:
-      - .env
-    environment:
-      LOG_DIR: /app/logs
-      ENABLE_DEMO_MODE: "true"
-      LOCAL_TEST_DB_PATH: "/tmp/demo-app.db"
-      SECRET_KEY: ${DEMO_SECRET_KEY:-}
-      HASH_SALT: ${DEMO_HASH_SALT:-}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
-      DEMO_USER_NAME: ${DEMO_USER_NAME:-}
-      DEMO_USER_PERSONNUMMER: ${DEMO_USER_PERSONNUMMER:-}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
-      DEMO_SUPERVISOR_EMAIL: ${DEMO_SUPERVISOR_EMAIL:-}
-      DEMO_SUPERVISOR_NAME: ${DEMO_SUPERVISOR_NAME:-}
-      DEMO_SUPERVISOR_PASSWORD: ${DEMO_SUPERVISOR_PASSWORD:-}
-      DEMO_SUPERVISOR_ORGNR: ${DEMO_SUPERVISOR_ORGNR:-}
-    expose:
-      - "80"
-    ports:
-      - "8000:80"
-    volumes:
-      - env_data:/config
-      - demo_logs:/app/logs
-    networks:
-      - public_net
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
-      - traefik.http.routers.app_demo.rule=Host(`demo.utbildningsintyg.se`)
-      - traefik.http.routers.app_demo.entrypoints=websecure
-      - traefik.http.routers.app_demo.tls=true
-      - traefik.http.routers.app_demo.middlewares=security-headers@file,upload-buffer@file
-      - traefik.http.services.app_demo.loadbalancer.server.port=80
-    restart: unless-stopped
-    mem_limit: 384m
-    memswap_limit: 384m
-    cpus: "0.40"
-    pids_limit: 150
-
   expiry_reminder:
     build: .
     command: ["python", "-m", "scripts.send_expiry_reminders"]
@@ -177,52 +136,6 @@ services:
     memswap_limit: 256m
     cpus: "0.20"
     pids_limit: 120
-
-  status_page:
-    build:
-      context: .
-      dockerfile: status_service/Dockerfile
-    command:
-      [
-        "sh",
-        "-c",
-        "mkdir -p /app/logs && gunicorn -w 2 -b 0.0.0.0:80 --access-logfile /app/logs/gunicorn-access.log --error-logfile /app/logs/gunicorn-error.log status_service.app:app"
-      ]
-    env_file:
-      - .env
-    environment:
-      STATUS_DB_HOST: postgres
-      STATUS_DB_NAME: ${POSTGRES_DB:-}
-      STATUS_DB_USER: ${POSTGRES_USER:-}
-      STATUS_DB_PASSWORD: ${POSTGRES_PASSWORD:-}
-      STATUS_TRAEFIK_HOST: traefik
-      STATUS_TRAEFIK_PORT: "80"
-    expose:
-      - "80"
-    ports:
-      - "8080:80"
-    networks:
-      - public_net
-      - db_net
-    volumes:
-      - status_logs:/app/logs
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      traefik:
-        condition: service_started
-    mem_limit: 256m
-    memswap_limit: 256m
-    cpus: "0.30"
-    pids_limit: 120
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
-      - traefik.http.routers.status.rule=Host(`status.utbildningsintyg.se`)
-      - traefik.http.routers.status.entrypoints=websecure
-      - traefik.http.routers.status.tls=true
-      - traefik.http.services.status.loadbalancer.server.port=80
 
   vscode:
     image: codercom/code-server:latest

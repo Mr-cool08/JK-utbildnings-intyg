@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, or_, select, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
@@ -37,6 +38,10 @@ logger = configure_module_logger(__name__)
 DEV_MODE = as_bool(os.getenv("DEV_MODE"))
 if DEV_MODE:
     logger.setLevel(logging.DEBUG)
+
+
+def _new_activation_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def _email_reference_values(value: str) -> tuple[str, ...]:
@@ -78,6 +83,8 @@ def admin_create_supervisor(email: str, name: str) -> bool:
                 insert(pending_supervisors_table).values(
                     email=normalized_email,
                     name=name,
+                    activation_token=_new_activation_token(),
+                    created_at=func.now(),
                 )
             )
     except IntegrityError:
@@ -89,6 +96,46 @@ def admin_create_supervisor(email: str, name: str) -> bool:
 
     logger.info("Pending supervisor created for %s", mask_email_reference(normalized_email))
     return True
+
+
+def ensure_pending_supervisor_activation_token(email: str) -> str:
+    normalized_email = normalize_email(email)
+    email_values = email_lookup_values(normalized_email)
+
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            select(
+                pending_supervisors_table.c.id,
+                pending_supervisors_table.c.activation_token,
+            ).where(pending_supervisors_table.c.email.in_(email_values))
+        ).first()
+        if not row:
+            raise ValueError("Företagskontot väntar inte på aktivering.")
+        if row.activation_token:
+            return row.activation_token
+
+        activation_token = _new_activation_token()
+        conn.execute(
+            update(pending_supervisors_table)
+            .where(pending_supervisors_table.c.id == row.id)
+            .values(activation_token=activation_token)
+        )
+
+    return activation_token
+
+
+def get_pending_supervisor_email_by_token(activation_token: str) -> Optional[str]:
+    token = (activation_token or "").strip()
+    if not token:
+        return None
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            select(pending_supervisors_table.c.email).where(
+                pending_supervisors_table.c.activation_token == token
+            )
+        ).first()
+    return row.email if row else None
 
 
 def check_pending_supervisor_hash(email_hash: str) -> bool:
@@ -148,6 +195,7 @@ def supervisor_activate_account(email_hash: str, password: str) -> bool:
                     email=row.email,
                     name=row.name,
                     password=hash_password(password),
+                    created_at=func.now(),
                 )
             )
     except IntegrityError:
@@ -340,8 +388,8 @@ def _get_company_names_by_supervisor_hashes(
 
 def get_supervisor_email_hash(email: str) -> str:
     # Return the e-mail reference used for supervisor tables.
-    normalized, legacy_hash = email_lookup_values(email)
-    email_values = (normalized, legacy_hash)
+    email_values = email_lookup_values(email)
+    normalized = email_values[0]
     with get_engine().connect() as conn:
         row = conn.execute(
             select(supervisors_table.c.email).where(supervisors_table.c.email.in_(email_values))
@@ -621,6 +669,7 @@ def user_accept_link_request(personnummer_hash: str, supervisor_email_hash: str)
                 insert(supervisor_connections_table).values(
                     supervisor_email=request_row.supervisor_email,
                     user_personnummer=personnummer_hash,
+                    created_at=func.now(),
                 )
             )
 
@@ -714,6 +763,7 @@ def admin_link_supervisor_to_user(
             insert(supervisor_connections_table).values(
                 supervisor_email=email_hash,
                 user_personnummer=pnr_hash,
+                created_at=func.now(),
             )
         )
         conn.execute(

@@ -99,6 +99,7 @@ def store_pdf_blob(
                 filename=filename,
                 content=content,
                 categories=_serialize_categories(categories),
+                uploaded_at=func.now(),
                 note=note,
                 expires_on=expires_on,
             )

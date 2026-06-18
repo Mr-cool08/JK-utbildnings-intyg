@@ -237,10 +237,19 @@
             }
 
             updateStatusBadge(card, 'approved');
-            const creationText = data.creation_link
-                ? document.createTextNode(`Aktiveringslänk: ${data.creation_link}`)
+            const accessLink = data.access_link || data.creation_link;
+            const accessLabel = data.access_link_label || 'Aktiveringslänk';
+            const accessText = accessLink
+                ? document.createTextNode(`${accessLabel}: ${accessLink}`)
                 : null;
-            setMessage('Ansökan godkänd.', 'success', creationText);
+            const successText = data.email_warning
+                ? `${data.message || 'Ansökan godkänd.'} ${data.email_warning}`
+                : (data.message || 'Ansökan godkänd.');
+            setMessage(
+                successText,
+                data.email_warning ? 'warning' : 'success',
+                accessText
+            );
         } catch (error) {
             console.error(error);
             setMessage(error.message || 'Ett fel uppstod vid godkännande.', 'error');

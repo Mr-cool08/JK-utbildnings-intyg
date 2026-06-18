@@ -1,6 +1,5 @@
 ändra text i anteckngarna i för standard användare
 
-lägg till påminelse för att förnya intyg (företag, användare)
 
 
 

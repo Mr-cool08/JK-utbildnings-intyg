@@ -1,15 +1,57 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+import importlib
+import logging
 import os
 import sys
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import OperationalError
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import functions  # noqa: E402
 import functions.database as database_module  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "functions.applications",
+        "functions.password_resets",
+        "functions.users",
+    ],
+)
+def test_module_logger_uses_dev_mode_for_debug(monkeypatch, module_name):
+    module = importlib.import_module(module_name)
+    original_level = module.logger.level
+    original_dev_mode = os.getenv("DEV_MODE")
+    original_log_level = os.getenv("LOG_LEVEL")
+
+    try:
+        module.logger.setLevel(logging.INFO)
+
+        monkeypatch.setenv("DEV_MODE", "false")
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+        reloaded = importlib.reload(module)
+        assert reloaded.logger.level == logging.INFO
+
+        reloaded.logger.setLevel(logging.INFO)
+        monkeypatch.setenv("DEV_MODE", "true")
+        reloaded = importlib.reload(reloaded)
+        assert reloaded.logger.level == logging.DEBUG
+    finally:
+        if original_dev_mode is None:
+            monkeypatch.delenv("DEV_MODE", raising=False)
+        else:
+            monkeypatch.setenv("DEV_MODE", original_dev_mode)
+        if original_log_level is None:
+            monkeypatch.delenv("LOG_LEVEL", raising=False)
+        else:
+            monkeypatch.setenv("LOG_LEVEL", original_log_level)
+        module.logger.setLevel(original_level)
+        importlib.reload(module)
 
 
 def test_normalize_personnummer():
@@ -78,44 +120,6 @@ def test_dev_mode_creates_sqlite(tmp_path, monkeypatch):
         functions.reset_engine()
 
 
-def test_demo_mode_creates_sqlite_without_dev_mode(tmp_path, monkeypatch):
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.delenv("POSTGRES_HOST", raising=False)
-    monkeypatch.delenv("POSTGRES_USER", raising=False)
-    monkeypatch.delenv("POSTGRES_DB", raising=False)
-    monkeypatch.delenv("DEV_MODE", raising=False)
-    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
-    db_file = tmp_path / "demo.db"
-    monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
-
-    functions.reset_engine()
-    engine = functions.get_engine()
-
-    try:
-        assert engine.url.get_backend_name() == "sqlite"
-        assert engine.url.database == str(db_file)
-        assert db_file.parent.exists()
-    finally:
-        functions.reset_engine()
-
-
-def test_demo_mode_overrides_database_url(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
-    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
-    monkeypatch.delenv("DEV_MODE", raising=False)
-    db_file = tmp_path / "demo_override.db"
-    monkeypatch.setenv("LOCAL_TEST_DB_PATH", str(db_file))
-
-    functions.reset_engine()
-    engine = functions.get_engine()
-
-    try:
-        assert engine.url.get_backend_name() == "sqlite"
-        assert engine.url.database == str(db_file)
-    finally:
-        functions.reset_engine()
-
-
 def test_build_engine_enables_postgres_pool_safety(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/testdb")
     monkeypatch.setattr(
@@ -179,6 +183,8 @@ def test_create_database_retries_on_operational_error(monkeypatch):
     monkeypatch.setattr(database_module, "run_migrations", lambda _engine: None)
 
     class _FakeConn:
+        dialect = sqlite.dialect()
+
         def __enter__(self):
             return self
 

@@ -5,6 +5,7 @@ import importlib.util
 import logging
 import os
 import re
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -106,6 +107,7 @@ pending_supervisors_table = Table(
     Column("id", Integer, primary_key=True),
     Column("name", String, nullable=False),
     Column("email", String, nullable=False, unique=True),
+    Column("activation_token", String, nullable=True, index=True),
     Column(
         "created_at",
         DateTime(timezone=True),
@@ -453,6 +455,18 @@ def _quote_sql_identifier(conn: Connection, value: str, label: str) -> str:
     return conn.dialect.identifier_preparer.quote(validated_value)
 
 
+def _quote_sql_path(conn: Connection, value: str, label: str) -> str:
+    return ".".join(
+        _quote_sql_identifier(conn, part, f"{label}-del")
+        for part in value.split(".")
+    )
+
+
+def _compile_sql_type(conn: Connection, sqlalchemy_type: Any) -> str:
+    # Use the active SQLAlchemy dialect so raw ALTER TABLE statements get valid type names.
+    return str(sqlalchemy_type.compile(dialect=conn.dialect))
+
+
 def _build_runtime_table(
     table_name: str,
     columns: list[str],
@@ -631,15 +645,21 @@ def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
     )
     inspector = inspect(conn)
     column = next(
-        (item for item in inspector.get_columns(table_name) if item["name"] == "orgnr_normalized"),
+        (
+            item
+            for item in inspector.get_columns(table_name)
+            if item["name"] == "orgnr_normalized"
+        ),
         None,
     )
-    if not column or column.get("nullable", True) is False:
+    if not column:
         return
 
     dialect = conn.dialect.name
     if dialect == "sqlite":
-        _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
+        default = str(column.get("default") or "").strip()
+        if column.get("nullable", True) is not False or default not in {"''", '""'}:
+            _rebuild_sqlite_table_with_non_null_orgnr(conn, table_name)
         return
 
     if dialect.startswith("postgresql"):
@@ -647,6 +667,14 @@ def _ensure_orgnr_column_not_null(conn: Connection, table_name: str) -> None:
         quoted_column_name = _quote_sql_identifier(
             conn, "orgnr_normalized", "kolumnnamn"
         )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_column_name} SET DEFAULT ''"
+            )
+        )
+        if column.get("nullable", True) is False:
+            return
         conn.execute(
             DDL(
                 f"ALTER TABLE {quoted_table_name} "
@@ -955,7 +983,466 @@ def _migration_0013_add_user_pdf_last_expiry_reminder_sent_at(conn: Connection) 
     columns = {col["name"] for col in inspector.get_columns("user_pdfs")}
     if "last_expiry_reminder_sent_at" in columns:
         return
-    conn.execute(text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME"))
+    datetime_type = _compile_sql_type(conn, DateTime(timezone=True))
+    conn.execute(
+        text(
+            "ALTER TABLE user_pdfs "
+            f"ADD COLUMN last_expiry_reminder_sent_at {datetime_type}"
+        )
+    )
+
+
+def _migration_0014_fix_organization_link_request_defaults(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if organization_link_requests_table.name not in existing_tables:
+        return
+
+    columns = {
+        column["name"] for column in inspector.get_columns(organization_link_requests_table.name)
+    }
+    required_columns = {"status", "created_at", "updated_at"}
+    if not required_columns.issubset(columns):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET status = 'pending' "
+                "WHERE status IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+                "WHERE created_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE organization_link_requests "
+                "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, organization_link_requests_table.name, "tabellnamn"
+        )
+        quoted_status = _quote_sql_identifier(conn, "status", "kolumnnamn")
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+        quoted_updated_at = _quote_sql_identifier(conn, "updated_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_status} = 'pending' "
+                f"WHERE {quoted_status} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = COALESCE("
+                f"{quoted_created_at}, {quoted_updated_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_updated_at} = COALESCE("
+                f"{quoted_updated_at}, {quoted_created_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_updated_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_status} SET DEFAULT 'pending'"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_status} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stÃ¶der inte dialekten '{dialect}'. LÃ¤gg till hantering eller kÃ¶r via Alembic."
+    )
+
+
+def _migration_0015_fix_user_pdf_uploaded_at_defaults(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if user_pdfs_table.name not in existing_tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns(user_pdfs_table.name)}
+    if "uploaded_at" not in columns:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE user_pdfs "
+                "SET uploaded_at = CURRENT_TIMESTAMP "
+                "WHERE uploaded_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(conn, user_pdfs_table.name, "tabellnamn")
+        quoted_uploaded_at = _quote_sql_identifier(conn, "uploaded_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_uploaded_at} = CURRENT_TIMESTAMP "
+                f"WHERE {quoted_uploaded_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_uploaded_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_uploaded_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrationen stÃƒÂ¶der inte dialekten '{dialect}'. LÃƒÂ¤gg till hantering eller kÃƒÂ¶r via Alembic."
+    )
+
+
+def _migration_0016_remove_standard_from_company_users(conn: Connection) -> None:
+    # Ta bort "standard"-rader från company_users. De hör hemma i users-tabellen istället.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    result = conn.execute(
+        text(
+            "DELETE FROM company_users "
+            "WHERE role = 'standard'"
+        )
+    )
+    deleted_count = result.rowcount or 0
+    if deleted_count > 0:
+        logger.info(
+            "Migrering 0016: Tog bort %d 'standard'-rader från company_users",
+            deleted_count,
+        )
+
+
+def _migration_0017_fix_schema_migrations_duplicate_ids(conn: Connection) -> None:
+    # Fixa duplicate ID:er i schema_migrations från migrering 11-15 som fick samma ID som 1-5.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if schema_migrations_table.name not in existing_tables:
+        return
+
+    # Hämta migrerings-versioner med fel ID:er
+    duplicate_versions = {
+        "0011_add_user_pdf_expires_on": 11,
+        "0012_add_user_pdf_last_expiry_reminder_month": 12,
+        "0013_add_user_pdf_last_expiry_reminder_sent_at": 13,
+        "0014_fix_organization_link_request_defaults": 14,
+        "0015_fix_user_pdf_uploaded_at_defaults": 15,
+    }
+
+    for version_name, correct_id in duplicate_versions.items():
+        # Kontrollera om denna version existerar med fel ID
+        existing_row = conn.execute(
+            select(schema_migrations_table.c.id).where(
+                schema_migrations_table.c.version == version_name
+            )
+        ).scalar_one_or_none()
+
+        if existing_row is None:
+            continue
+
+        if existing_row == correct_id:
+            # Redan korrekt
+            continue
+
+        # Uppdatera ID:n till det korrekta värdet
+        conn.execute(
+            text(
+                f"UPDATE schema_migrations SET id = :correct_id "
+                f"WHERE version = :version_name"
+            ),
+            {"correct_id": correct_id, "version_name": version_name},
+        )
+        logger.info(
+            "Migrering 0017: Fixade ID för '%s' från %s till %s",
+            version_name,
+            existing_row,
+            correct_id,
+        )
+
+
+def _migration_0018_fix_supervisor_password_resets_created_at(conn: Connection) -> None:
+    # Fixa DEFAULT för created_at i supervisor_password_resets. Måste vara explicit på PostgreSQL.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_password_resets_table.name not in existing_tables:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, supervisor_password_resets_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0018 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
+def _migration_0019_add_pending_supervisor_activation_token(conn: Connection) -> None:
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if pending_supervisors_table.name not in existing_tables:
+        return
+
+    _add_column_if_missing(conn, pending_supervisors_table.name, "activation_token", "TEXT")
+    _ensure_index(
+        conn,
+        pending_supervisors_table.name,
+        "ix_pending_supervisors_activation_token",
+        ["activation_token"],
+    )
+
+    rows = conn.execute(
+        select(
+            pending_supervisors_table.c.id,
+            pending_supervisors_table.c.activation_token,
+        )
+    ).fetchall()
+    for row in rows:
+        if row.activation_token:
+            continue
+        conn.execute(
+            pending_supervisors_table.update()
+            .where(pending_supervisors_table.c.id == row.id)
+            .values(activation_token=secrets.token_urlsafe(32))
+        )
+
+
+def _migration_0020_fix_orgnr_column_defaults(conn: Connection) -> None:
+    # Säkra defaultvärden för äldre databaser där kolumnen redan fanns utan default.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    for table_name in (pending_users_table.name, users_table.name):
+        if table_name not in existing_tables:
+            continue
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "orgnr_normalized" not in columns:
+            continue
+        _ensure_orgnr_column_not_null(conn, table_name)
+
+
+def _migration_0021_fix_company_users_timestamp_defaults(conn: Connection) -> None:
+    # Fixa DEFAULT för tidsstämplar i company_users efter import av äldre scheman.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if company_users_table.name not in existing_tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns(company_users_table.name)}
+    required_columns = {"created_at", "updated_at"}
+    if not required_columns.issubset(columns):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE company_users "
+                "SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP) "
+                "WHERE created_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE company_users "
+                "SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, company_users_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+        quoted_updated_at = _quote_sql_identifier(conn, "updated_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = COALESCE("
+                f"{quoted_created_at}, {quoted_updated_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_updated_at} = COALESCE("
+                f"{quoted_updated_at}, {quoted_created_at}, CURRENT_TIMESTAMP"
+                f") WHERE {quoted_updated_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_updated_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0021 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
+
+
+def _migration_0022_fix_supervisor_connections_created_at_default(
+    conn: Connection,
+) -> None:
+    # Fixa DEFAULT för created_at i supervisor_connections efter import av äldre scheman.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if supervisor_connections_table.name not in existing_tables:
+        return
+
+    columns = {
+        column["name"]
+        for column in inspector.get_columns(supervisor_connections_table.name)
+    }
+    if "created_at" not in columns:
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.execute(
+            text(
+                "UPDATE supervisor_connections "
+                "SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
+        )
+        return
+
+    if dialect.startswith("postgresql"):
+        quoted_table_name = _quote_sql_identifier(
+            conn, supervisor_connections_table.name, "tabellnamn"
+        )
+        quoted_created_at = _quote_sql_identifier(conn, "created_at", "kolumnnamn")
+
+        conn.execute(
+            DDL(
+                f"UPDATE {quoted_table_name} "
+                f"SET {quoted_created_at} = CURRENT_TIMESTAMP "
+                f"WHERE {quoted_created_at} IS NULL"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET DEFAULT CURRENT_TIMESTAMP"
+            )
+        )
+        conn.execute(
+            DDL(
+                f"ALTER TABLE {quoted_table_name} "
+                f"ALTER COLUMN {quoted_created_at} SET NOT NULL"
+            )
+        )
+        return
+
+    raise RuntimeError(
+        f"Migrering 0022 stöder inte dialekten '{dialect}'. Lägg till hantering eller kör via Alembic."
+    )
 
 
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
@@ -977,6 +1464,42 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0013_add_user_pdf_last_expiry_reminder_sent_at",
         _migration_0013_add_user_pdf_last_expiry_reminder_sent_at,
+    ),
+    (
+        "0014_fix_organization_link_request_defaults",
+        _migration_0014_fix_organization_link_request_defaults,
+    ),
+    (
+        "0015_fix_user_pdf_uploaded_at_defaults",
+        _migration_0015_fix_user_pdf_uploaded_at_defaults,
+    ),
+    (
+        "0016_remove_standard_from_company_users",
+        _migration_0016_remove_standard_from_company_users,
+    ),
+    (
+        "0017_fix_schema_migrations_duplicate_ids",
+        _migration_0017_fix_schema_migrations_duplicate_ids,
+    ),
+    (
+        "0018_fix_supervisor_password_resets_created_at",
+        _migration_0018_fix_supervisor_password_resets_created_at,
+    ),
+    (
+        "0019_add_pending_supervisor_activation_token",
+        _migration_0019_add_pending_supervisor_activation_token,
+    ),
+    (
+        "0020_fix_orgnr_column_defaults",
+        _migration_0020_fix_orgnr_column_defaults,
+    ),
+    (
+        "0021_fix_company_users_timestamp_defaults",
+        _migration_0021_fix_company_users_timestamp_defaults,
+    ),
+    (
+        "0022_fix_supervisor_connections_created_at_default",
+        _migration_0022_fix_supervisor_connections_created_at_default,
     ),
 ]
 
@@ -1028,19 +1551,15 @@ def _is_truthy(value: Optional[str]) -> bool:
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
-    demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
     sqlite_database_path: Optional[str] = None
     dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
-    should_use_local_sqlite = demo_mode or (dev_mode and not db_url)
+    should_use_local_sqlite = dev_mode and not db_url
 
     if should_use_local_sqlite:
         test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
         if test_db_path == ":memory:":
             db_url = "sqlite:///:memory:"
-            if dev_mode and not demo_mode:
-                logger.info("Använder SQLite-testdatabas i minnet")
-            else:
-                logger.info("Använder SQLite-demodatabas i minnet")
+            logger.info("Använder SQLite-testdatabas i minnet")
         else:
             raw_path = Path(test_db_path).expanduser()
             if not raw_path.is_absolute():
@@ -1049,15 +1568,12 @@ def _build_engine() -> Engine:
             resolved = raw_path.resolve()
             sqlite_database_path = str(resolved)
             db_url = f"sqlite:///{resolved.as_posix()}"
-            if dev_mode and not demo_mode:
-                logger.info("Använder lokal SQLite-testdatabas på %s", resolved)
-            else:
-                logger.info("Använder lokal SQLite-demodatabas på %s", resolved)
+            logger.info("Använder lokal SQLite-testdatabas på %s", resolved)
     elif not db_url:
         host = os.getenv("POSTGRES_HOST")
         if not host:
             raise RuntimeError(
-                "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
+                "Sätt DATABASE_URL, aktivera DEV_MODE "
                 "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
             )
 
@@ -1179,6 +1695,93 @@ def get_engine() -> Engine:
     return _ENGINE
 
 
+def _sync_postgres_primary_key_sequences(conn: Connection) -> None:
+    # Synka PostgreSQL-sekvenser med högsta befintliga primärnyckelvärdet.
+    if conn.dialect.name != "postgresql":
+        return
+
+    # Serialisera synken inom transaktionen så att parallella körningar inte
+    # kan flytta en sekvens bakåt mellan MAX(id)- och setval-anrop.
+    conn.execute(
+        select(
+            func.pg_advisory_xact_lock(
+                func.hashtext("jk_utbildnings_intyg:pk_sequence_sync")
+            )
+        )
+    )
+
+    for table in metadata.sorted_tables:
+        primary_key_columns = list(table.primary_key.columns)
+        if len(primary_key_columns) != 1:
+            continue
+
+        primary_key_column = primary_key_columns[0]
+        if not isinstance(primary_key_column.type, Integer):
+            continue
+
+        if not SQL_IDENTIFIER_RE.match(table.name) or not SQL_IDENTIFIER_RE.match(
+            primary_key_column.name
+        ):
+            logger.warning(
+                "Hoppar över sekvenssynk för ogiltig identifierare: %s.%s",
+                table.name,
+                primary_key_column.name,
+            )
+            continue
+
+        sequence_result = conn.execute(
+            select(func.pg_get_serial_sequence(table.name, primary_key_column.name))
+        )
+        if sequence_result is None or not hasattr(sequence_result, "scalar_one_or_none"):
+            continue
+
+        sequence_name = sequence_result.scalar_one_or_none()
+        if not sequence_name:
+            continue
+
+        try:
+            quoted_sequence_name = _quote_sql_path(conn, sequence_name, "sekvensnamn")
+        except ValueError:
+            logger.warning(
+                "Hoppar över sekvenssynk för ogiltigt sekvensnamn: %s",
+                sequence_name,
+            )
+            continue
+
+        max_result = conn.execute(select(func.max(primary_key_column)))
+        if max_result is None or not hasattr(max_result, "scalar_one_or_none"):
+            continue
+
+        max_primary_key = max_result.scalar_one_or_none()
+        sequence_state_result = conn.execute(
+            text(f"SELECT last_value, is_called FROM {quoted_sequence_name}")
+        )
+        if sequence_state_result is None or not hasattr(
+            sequence_state_result, "one_or_none"
+        ):
+            continue
+
+        sequence_state = sequence_state_result.one_or_none()
+        if sequence_state is None:
+            continue
+
+        current_sequence_value = int(sequence_state[0])
+        sequence_has_been_called = bool(sequence_state[1])
+        max_primary_key_value = int(max_primary_key) if max_primary_key is not None else 0
+        synchronized_value = max(max_primary_key_value, current_sequence_value)
+        has_existing_rows = max_primary_key is not None or sequence_has_been_called
+
+        conn.execute(select(func.setval(sequence_name, synchronized_value, has_existing_rows)))
+        logger.debug(
+            "Synkroniserade PostgreSQL-sekvens %s för %s.%s till %s (has_rows=%s)",
+            sequence_name,
+            table.name,
+            primary_key_column.name,
+            synchronized_value,
+            has_existing_rows,
+        )
+
+
 def create_database() -> None:
     # Create required tables if they do not exist.
     attempts = int(os.getenv("DATABASE_INIT_MAX_ATTEMPTS", "5"))
@@ -1231,8 +1834,12 @@ def create_database() -> None:
                 text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_month TEXT")
             )
         if "last_expiry_reminder_sent_at" not in columns:
+            datetime_type = _compile_sql_type(conn, DateTime(timezone=True))
             conn.execute(
-                text("ALTER TABLE user_pdfs ADD COLUMN last_expiry_reminder_sent_at DATETIME")
+                text(
+                    "ALTER TABLE user_pdfs "
+                    f"ADD COLUMN last_expiry_reminder_sent_at {datetime_type}"
+                )
             )
         existing_tables = set(inspector.get_table_names())
         for table in (
@@ -1242,6 +1849,7 @@ def create_database() -> None:
         ):
             if table.name not in existing_tables:
                 table.create(bind=conn)
+        _sync_postgres_primary_key_sequences(conn)
     logger.info("Databasen har initialiserats")
 
 

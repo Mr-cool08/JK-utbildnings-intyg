@@ -42,7 +42,6 @@ Inventeringen nedan bygger på `python -m pytest --collect-only -q tests` den **
 - `tests/test_custom_404.py` - 1 test
 - `tests/test_dashboard.py` - 6 tester
 - `tests/test_database_logic.py` - 21 tester
-- `tests/test_demo_mode.py` - 5 tester
 - `tests/test_docker_files.py` - 18 tester
 - `tests/test_e2e_flows.py` - 2 tester
 - `tests/test_email_env.py` - 5 tester
@@ -76,7 +75,6 @@ Inventeringen nedan bygger på `python -m pytest --collect-only -q tests` den **
 - `tests/test_share_pdf.py` - 5 tester
 - `tests/test_sitemap.py` - 2 tester
 - `tests/test_sql_injection_protection.py` - 1 test
-- `tests/test_status_service.py` - 22 tester
 - `tests/test_supervisor_features.py` - 23 tester
 - `tests/test_tls_support.py` - 5 tester
 - `tests/test_ui_rendering.py` - 21 tester

@@ -2,9 +2,11 @@ import base64
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError, InternalError
 
 import functions
+import functions.organization_links as organization_links_module
 
 
 def test_get_table_schema_describes_known_columns(empty_db):
@@ -213,6 +215,165 @@ def test_list_pending_organization_link_requests_reports_account_statuses(empty_
         row["user_personnummer"] == pending_registration["personnummer_hash"]
         for row in requests
     )
+
+
+def test_register_standard_account_sets_org_request_fields_without_db_defaults(empty_db):
+    normalized_orgnr = functions.validate_orgnr("556966-8337")
+
+    with empty_db.begin() as conn:
+        conn.execute(text("DROP TABLE organization_link_requests"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE organization_link_requests (
+                    id INTEGER PRIMARY KEY,
+                    orgnr_normalized TEXT NOT NULL,
+                    user_personnummer TEXT NOT NULL,
+                    user_name TEXT NOT NULL,
+                    user_email TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    handled_by_supervisor_email TEXT,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    handled_at DATETIME,
+                    CONSTRAINT uq_organization_link_requests_pair
+                        UNIQUE (orgnr_normalized, user_personnummer)
+                )
+                """
+            )
+        )
+
+    registration = functions.register_standard_account(
+        "Status Person",
+        "status.person@example.com",
+        "19850505-1234",
+        normalized_orgnr,
+    )
+
+    with empty_db.connect() as conn:
+        request_row = conn.execute(
+            select(functions.organization_link_requests_table).where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == registration["personnummer_hash"]
+            )
+        ).first()
+
+    assert request_row is not None
+    assert request_row.status == "pending"
+    assert request_row.user_email == "status.person@example.com"
+    assert request_row.created_at is not None
+    assert request_row.updated_at is not None
+
+
+def test_register_standard_account_recovers_after_duplicate_org_request(
+    empty_db, monkeypatch
+):
+    normalized_orgnr = functions.validate_orgnr("556966-8337")
+    personnummer = "19850505-1234"
+    personnummer_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.organization_link_requests_table.insert().values(
+                orgnr_normalized=normalized_orgnr,
+                user_personnummer=personnummer_hash,
+                user_name="Gammalt Namn",
+                user_email="gammal@example.com",
+                status="rejected",
+                handled_by_supervisor_email=functions.hash_value("chef@example.com"),
+                handled_at=datetime.now(),
+            )
+        )
+
+    class _WrappedConn:
+        def __init__(self, real_conn):
+            self._real_conn = real_conn
+            self._transaction_aborted = False
+
+        def begin_nested(self):
+            real_nested = self._real_conn.begin_nested()
+            wrapper = self
+
+            class _NestedTransaction:
+                def __enter__(self):
+                    real_nested.__enter__()
+                    return self
+
+                def __exit__(self, exc_type, exc, tb):
+                    result = real_nested.__exit__(exc_type, exc, tb)
+                    if exc_type is not None:
+                        wrapper._transaction_aborted = False
+                    return result
+
+            return _NestedTransaction()
+
+        def execute(self, statement, *args, **kwargs):
+            sql = str(statement)
+            if self._transaction_aborted:
+                raise InternalError(
+                    sql,
+                    {},
+                    Exception("current transaction is aborted"),
+                )
+            if sql.startswith("INSERT INTO organization_link_requests"):
+                self._transaction_aborted = True
+                raise IntegrityError(sql, {}, Exception("duplicate key value"))
+            return self._real_conn.execute(statement, *args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self._real_conn, name)
+
+    class _WrappedBegin:
+        def __init__(self, real_begin):
+            self._real_begin = real_begin
+
+        def __enter__(self):
+            return _WrappedConn(self._real_begin.__enter__())
+
+        def __exit__(self, exc_type, exc, tb):
+            return self._real_begin.__exit__(exc_type, exc, tb)
+
+    class _WrappedEngine:
+        def __init__(self, real_engine):
+            self._real_engine = real_engine
+
+        def begin(self):
+            return _WrappedBegin(self._real_engine.begin())
+
+    monkeypatch.setattr(
+        organization_links_module,
+        "get_engine",
+        lambda: _WrappedEngine(empty_db),
+    )
+
+    registration = functions.register_standard_account(
+        "Nytt Namn",
+        "nytt.namn@example.com",
+        personnummer,
+        normalized_orgnr,
+    )
+
+    with empty_db.connect() as conn:
+        request_rows = conn.execute(
+            select(functions.organization_link_requests_table).where(
+                functions.organization_link_requests_table.c.user_personnummer
+                == personnummer_hash
+            )
+        ).fetchall()
+        pending_user = conn.execute(
+            select(functions.pending_users_table).where(
+                functions.pending_users_table.c.personnummer == personnummer_hash
+            )
+        ).first()
+
+    assert registration["personnummer_hash"] == personnummer_hash
+    assert len(request_rows) == 1
+    assert pending_user is not None
+    assert request_rows[0].user_name == "Nytt Namn"
+    assert request_rows[0].user_email == "nytt.namn@example.com"
+    assert request_rows[0].status == "pending"
+    assert request_rows[0].handled_by_supervisor_email is None
+    assert request_rows[0].handled_at is None
 
 
 def test_approve_organization_link_request_reuses_existing_connection(empty_db):

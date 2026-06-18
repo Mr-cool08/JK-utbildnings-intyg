@@ -1,7 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 from __future__ import annotations
 
-from sqlalchemy import insert
+from sqlalchemy import func, insert
 
 from functions.database import admin_audit_log_table, get_engine
 from functions.logging import configure_module_logger
@@ -20,6 +20,7 @@ def log_admin_action(admin: str, action: str, details: str) -> None:
                 admin=admin_name,
                 action=action,
                 details=trimmed_details[:1000],
+                created_at=func.now(),
             )
         )
     logger.info("Admin %s utförde %s: %s", admin_name, action, trimmed_details)

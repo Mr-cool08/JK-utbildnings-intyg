@@ -664,6 +664,18 @@ def test_admin_complete_legacy_email_rejects_mismatch(empty_db):
     assert response.get_json()["message"] == "E-postadressen matchar inte den valda hashen."
 
 
+def test_admin_complete_legacy_email_rejects_non_object_payload(empty_db):
+    with _admin_client() as client:
+        response = client.post(
+            "/admin/api/epost-hashar/komplettera",
+            json=["fel", "format"],
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Ogiltig begäran."
+
+
 def test_admin_remove_supervisor_connection(empty_db):
     personnummer = "19900404-4567"
     email = "konto@example.com"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -24,11 +25,14 @@ from functions.hashing import (
     normalize_email,
 )
 from functions.logging import configure_module_logger, mask_hash
+from functions.requests import as_bool
 from functions.users import verify_certificate
 
 
 logger = configure_module_logger(__name__)
-logger.setLevel(logging.DEBUG)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _hash_token(token: str) -> str:

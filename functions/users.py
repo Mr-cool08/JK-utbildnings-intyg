@@ -34,36 +34,13 @@ from functions.hashing import (
 )
 from functions.logging import configure_module_logger, mask_hash
 from functions.organization_links import update_organization_request_contact_details
+from functions.requests import as_bool
 
 
 logger = configure_module_logger(__name__)
-
-# Allow overriding module log level via environment variable (e.g. LOG_LEVEL="DEBUG").
-# If unset or invalid, keep the logger's configured level (from root/configure_root_logging).
-_env_level = (os.getenv("LOG_LEVEL") or "").strip()
-if _env_level:
-    _level = None
-    # Accept numeric levels or common level names.
-    if _env_level.isdigit():
-        try:
-            _level = int(_env_level)
-        except ValueError:
-            _level = None
-    else:
-        _name = _env_level.upper()
-        _level = {
-            "CRITICAL": logging.CRITICAL,
-            "FATAL": logging.FATAL,
-            "ERROR": logging.ERROR,
-            "WARN": logging.WARNING,
-            "WARNING": logging.WARNING,
-            "INFO": logging.INFO,
-            "DEBUG": logging.DEBUG,
-            "NOTSET": logging.NOTSET,
-        }.get(_name)
-
-    if isinstance(_level, int):
-        logger.setLevel(_level)
+DEV_MODE = as_bool(os.getenv("DEV_MODE"))
+if DEV_MODE:
+    logger.setLevel(logging.DEBUG)
 
 
 def _is_legacy_email_hash(value: str | None) -> bool:
