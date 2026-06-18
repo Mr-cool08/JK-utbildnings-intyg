@@ -711,7 +711,7 @@ def mta_sts_policy():
 
 @app.route("/debug/clear-session", methods=["GET", "POST"])
 def debug_clear_session():
-    if not current_app.config.get("DEV_MODE"):
+    if not current_app.config.get("DEV_MODE") or not current_app.debug:
         abort(404)
     session.clear()
     return redirect("/")
