@@ -235,7 +235,12 @@ volumes:
   env_data:
   app_logs:
     name: jk-utbildnings-intyg_app_logs
+  demo_logs:
+    name: jk-utbildnings-intyg_demo_logs
+  status_logs:
+    name: jk-utbildnings-intyg_status_logs
   traefik_logs:
+    name: jk-utbildnings-intyg_traefik_logs
   fail2ban_data:
   pgdata:
     name: jk-utbildnings-intyg_pgdata
