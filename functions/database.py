@@ -1177,49 +1177,86 @@ def _migration_0016_remove_standard_from_company_users(conn: Connection) -> None
 
 
 def _migration_0017_fix_schema_migrations_duplicate_ids(conn: Connection) -> None:
-    # Fixa duplicate ID:er i schema_migrations från migrering 11-15 som fick samma ID som 1-5.
+    # Normalisera schema_migrations-id:n till en kompakt, unik sekvens.
+    # Använd inte versionsprefix som mål-id eftersom äldre databaser kan ha
+    # borttagna migreringar eller flera versioner med samma prefix.
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
     if schema_migrations_table.name not in existing_tables:
         return
 
-    # Hämta migrerings-versioner med fel ID:er
-    duplicate_versions = {
-        "0011_add_user_pdf_expires_on": 11,
-        "0012_add_user_pdf_last_expiry_reminder_month": 12,
-        "0013_add_user_pdf_last_expiry_reminder_sent_at": 13,
-        "0014_fix_organization_link_request_defaults": 14,
-        "0015_fix_user_pdf_uploaded_at_defaults": 15,
+    migration_order = {
+        version_name: index
+        for index, (version_name, _migration_fn) in enumerate(MIGRATIONS, start=1)
     }
 
-    for version_name, correct_id in duplicate_versions.items():
-        # Kontrollera om denna version existerar med fel ID
-        existing_row = conn.execute(
-            select(schema_migrations_table.c.id).where(
-                schema_migrations_table.c.version == version_name
-            )
-        ).scalar_one_or_none()
+    rows = conn.execute(
+        select(
+            schema_migrations_table.c.version,
+            schema_migrations_table.c.id,
+        )
+    ).all()
 
-        if existing_row is None:
+    def _sort_key(row: Any) -> tuple[int, int, int, int, str]:
+        version_prefix = row.version.split("_", 1)[0]
+        numeric_prefix = int(version_prefix) if version_prefix.isdigit() else 10**9
+        configured_position = migration_order.get(row.version)
+        return (
+            numeric_prefix,
+            0 if configured_position is None else 1,
+            configured_position or 0,
+            row.id,
+            row.version,
+        )
+
+    ordered_rows = sorted(rows, key=_sort_key)
+    temporary_base = min((row.id for row in ordered_rows), default=0) - len(ordered_rows) - 1
+
+    pending_updates = []
+    for desired_id, row in enumerate(ordered_rows, start=1):
+        if row.id == desired_id:
             continue
 
-        if existing_row == correct_id:
-            # Redan korrekt
-            continue
+        pending_updates.append(
+            {
+                "version_name": row.version,
+                "old_id": row.id,
+                "correct_id": desired_id,
+                "temporary_id": temporary_base - desired_id,
+            }
+        )
 
-        # Uppdatera ID:n till det korrekta värdet
+    if not pending_updates:
+        return
+
+    for update in pending_updates:
         conn.execute(
             text(
-                f"UPDATE schema_migrations SET id = :correct_id "
-                f"WHERE version = :version_name"
+                "UPDATE schema_migrations SET id = :temporary_id "
+                "WHERE version = :version_name"
             ),
-            {"correct_id": correct_id, "version_name": version_name},
+            update,
         )
         logger.info(
-            "Migrering 0017: Fixade ID för '%s' från %s till %s",
-            version_name,
-            existing_row,
-            correct_id,
+            "Migrering 0017: Parkerade ID f?r '%s' fr?n %s till %s",
+            update["version_name"],
+            update["old_id"],
+            update["temporary_id"],
+        )
+
+    for update in pending_updates:
+        conn.execute(
+            text(
+                "UPDATE schema_migrations SET id = :correct_id "
+                "WHERE version = :version_name"
+            ),
+            update,
+        )
+        logger.info(
+            "Migrering 0017: Fixade ID f?r '%s' fr?n %s till %s",
+            update["version_name"],
+            update["old_id"],
+            update["correct_id"],
         )
 
 

@@ -146,6 +146,36 @@ def test_dashboard_ui_contains_share_modal_for_logged_in_user(user_db):
     assert "dashboard.js" in body
 
 
+def test_dashboard_ui_contains_edit_modal_for_logged_in_user(user_db):
+    personnummer_hash = functions.hash_value("9001011234")
+    category_slug = COURSE_CATEGORIES[0][0]
+    functions.store_pdf_blob(
+        personnummer_hash,
+        "1717171717_ui-intyg.pdf",
+        b"%PDF-1.4 ui-test",
+        [category_slug],
+    )
+
+    with _client() as client:
+        _login_user(client)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert 'id="editPdfModal"' in body
+    assert 'id="editPdfForm"' in body
+    assert 'id="editPdfName"' in body
+    assert 'id="editPdfNote"' in body
+    assert 'id="editPdfExpiryMode"' in body
+    assert 'id="editPdfExpiryDate"' in body
+    assert 'id="editPdfExpiryYears"' in body
+    assert 'id="editPdfExpiryMonths"' in body
+    assert "Inget utgångsdatum" in body
+    assert "Spara ändringar" in body
+    assert "data-edit-pdf" in body
+    assert 'data-editable-name="ui-intyg"' in body
+
+
 def test_dashboard_shows_search_when_user_has_more_than_five_certificates(user_db):
     personnummer_hash = functions.hash_value("9001011234")
     category_slug = COURSE_CATEGORIES[0][0]

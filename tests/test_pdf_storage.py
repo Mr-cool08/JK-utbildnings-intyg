@@ -215,3 +215,48 @@ def test_store_pdf_blob_sets_uploaded_at_in_insert(monkeypatch):
 
     assert pdf_id == 11
     assert "uploaded_at" in captured["sql"]
+
+
+def test_update_user_pdf_metadata_updates_only_editable_fields(empty_db):
+    _ = empty_db
+
+    pnr_hash = _personnummer_hash("9001011234")
+    original_content = b"%PDF-1.4 metadata"
+    pdf_id = functions.store_pdf_blob(
+        pnr_hash,
+        "original.pdf",
+        original_content,
+        [COURSE_CATEGORIES[0][0]],
+        note="Gammal anteckning",
+        expires_on=date(2027, 5, 27),
+    )
+
+    with functions.get_engine().connect() as conn:
+        original_row = conn.execute(
+            select(functions.user_pdfs_table).where(functions.user_pdfs_table.c.id == pdf_id)
+        ).first()
+
+    assert original_row is not None
+
+    updated = functions.update_user_pdf_metadata(
+        "9001011234",
+        pdf_id,
+        "nytt_intyg.pdf",
+        "Ny anteckning",
+        None,
+    )
+
+    assert updated is True
+
+    with functions.get_engine().connect() as conn:
+        updated_row = conn.execute(
+            select(functions.user_pdfs_table).where(functions.user_pdfs_table.c.id == pdf_id)
+        ).first()
+
+    assert updated_row is not None
+    assert updated_row.filename == "nytt_intyg.pdf"
+    assert updated_row.note == "Ny anteckning"
+    assert updated_row.expires_on is None
+    assert updated_row.categories == original_row.categories
+    assert updated_row.content == original_content
+    assert updated_row.uploaded_at == original_row.uploaded_at

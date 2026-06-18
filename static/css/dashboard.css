@@ -711,6 +711,8 @@
 .form-field input[type="file"]:focus-visible,
 .form-field input[type="number"]:focus,
 .form-field input[type="number"]:focus-visible,
+.form-field input[type="text"]:focus,
+.form-field input[type="text"]:focus-visible,
 .form-field select:focus,
 .form-field select:focus-visible,
 .form-field textarea:focus,
@@ -876,6 +878,22 @@
     justify-content: center;
 }
 
+.edit-pdf-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.edit-pdf-form__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.edit-pdf-form__actions .btn {
+    flex: 1 1 12rem;
+    justify-content: center;
+}
+
 .share-modal__feedback {
     padding: 0.85rem 1rem;
     border-radius: var(--radius-md);
@@ -930,7 +948,9 @@
     .connection-actions,
     .connection-actions form,
     .pdf-actions form,
-    .dashboard-head .btn {
+    .dashboard-head .btn,
+    .edit-pdf-form__actions,
+    .edit-pdf-form__actions .btn {
         width: 100%;
     }
 
@@ -941,6 +961,10 @@
     .share-selected-button {
         width: 100%;
         justify-content: center;
+    }
+
+    .edit-pdf-form__actions {
+        flex-direction: column;
     }
 
     .dashboard-search {
