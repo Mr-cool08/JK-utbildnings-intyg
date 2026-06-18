@@ -28,8 +28,6 @@ docker compose -f docker-compose.yml up -d --build
 ## Aktiva tjänster i nuvarande Compose
 
 - `app` - huvudappen för `utbildningsintyg.se`
-- `app_demo` - demoapp
-- `status_page` - separat statussida
 - `traefik` - TLS-terminering och domänrouting
 - `postgres` - databasen
 - `postgres_backup` - återkommande databasbackup
@@ -68,8 +66,6 @@ Exempel på cron den första dagen varje månad klockan 07:00:
 Direkta host-portar i Compose:
 
 - `80:80` - huvudappen
-- `8000:80` - demoappen
-- `8080:80` - statussidan
 - `443:443` - Traefik för HTTPS
 - `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
 - `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
@@ -82,8 +78,6 @@ Traefik är konfigurerad för att routa minst följande domäner:
 
 - `utbildningsintyg.se`
 - `www.utbildningsintyg.se`
-- `demo.utbildningsintyg.se`
-- `status.utbildningsintyg.se`
 - `mta-sts.utbildningsintyg.se` för `/.well-known/mta-sts.txt`
 
 ## PostgreSQL publik exponering

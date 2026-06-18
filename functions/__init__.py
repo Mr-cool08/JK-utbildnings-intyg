@@ -43,12 +43,6 @@ from functions.database import (
     user_pdfs_table,
     users_table,
 )
-from functions.demo import (
-    DEMO_PDF_DEFINITIONS,
-    create_test_user,
-    ensure_demo_data,
-    reset_demo_database,
-)
 from functions.hashing import (
     SALT,
     _is_valid_hash,
@@ -149,7 +143,6 @@ logger = configure_module_logger(__name__)
 
 __all__ = [
     "APP_ROOT",
-    "DEMO_PDF_DEFINITIONS",
     "SALT",
     "TABLE_REGISTRY",
     "_build_engine",
@@ -182,13 +175,11 @@ __all__ = [
     "create_engine",
     "create_supervisor_link_request",
     "create_table_row",
-    "create_test_user",
     "count_user_pdfs",
     "delete_table_row",
     "delete_user_pdf",
     "email_lookup_values",
     "ensure_pending_supervisor_activation_token",
-    "ensure_demo_data",
     "fetch_table_rows",
     "get_application_request",
     "get_engine",
@@ -236,7 +227,6 @@ __all__ = [
     "register_standard_account",
     "reject_application_request",
     "reject_organization_link_request",
-    "reset_demo_database",
     "reset_engine",
     "reset_password_with_token",
     "reset_supervisor_password_with_token",

@@ -1551,19 +1551,15 @@ def _is_truthy(value: Optional[str]) -> bool:
 def _build_engine() -> Engine:
     # Create a SQLAlchemy engine based on configuration.
     db_url = os.getenv("DATABASE_URL")
-    demo_mode = _is_truthy(os.getenv("ENABLE_DEMO_MODE", "False"))
     sqlite_database_path: Optional[str] = None
     dev_mode = _is_truthy(os.getenv("DEV_MODE", "False"))
-    should_use_local_sqlite = demo_mode or (dev_mode and not db_url)
+    should_use_local_sqlite = dev_mode and not db_url
 
     if should_use_local_sqlite:
         test_db_path = os.getenv("LOCAL_TEST_DB_PATH", "instance/test.db")
         if test_db_path == ":memory:":
             db_url = "sqlite:///:memory:"
-            if dev_mode and not demo_mode:
-                logger.info("Använder SQLite-testdatabas i minnet")
-            else:
-                logger.info("Använder SQLite-demodatabas i minnet")
+            logger.info("Använder SQLite-testdatabas i minnet")
         else:
             raw_path = Path(test_db_path).expanduser()
             if not raw_path.is_absolute():
@@ -1572,15 +1568,12 @@ def _build_engine() -> Engine:
             resolved = raw_path.resolve()
             sqlite_database_path = str(resolved)
             db_url = f"sqlite:///{resolved.as_posix()}"
-            if dev_mode and not demo_mode:
-                logger.info("Använder lokal SQLite-testdatabas på %s", resolved)
-            else:
-                logger.info("Använder lokal SQLite-demodatabas på %s", resolved)
+            logger.info("Använder lokal SQLite-testdatabas på %s", resolved)
     elif not db_url:
         host = os.getenv("POSTGRES_HOST")
         if not host:
             raise RuntimeError(
-                "Sätt DATABASE_URL, aktivera DEV_MODE, slå på ENABLE_DEMO_MODE "
+                "Sätt DATABASE_URL, aktivera DEV_MODE "
                 "eller ange POSTGRES_HOST med PostgreSQL-uppgifter"
             )
 

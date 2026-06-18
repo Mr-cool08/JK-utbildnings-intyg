@@ -33,25 +33,25 @@ def test_parse_smoke_targets_supports_named_and_unnamed_entries(monkeypatch):
     module = _load_monitor_module(monkeypatch)
 
     targets = module.parse_smoke_targets(
-        "Hälsa=https://utbildningsintyg.se/health,https://status.utbildningsintyg.se"
+        "Hälsa=https://utbildningsintyg.se/health,https://www.utbildningsintyg.se/health"
     )
 
     assert targets == [
         ("Hälsa", "https://utbildningsintyg.se/health"),
-        ("https://status.utbildningsintyg.se", "https://status.utbildningsintyg.se"),
+        ("https://www.utbildningsintyg.se/health", "https://www.utbildningsintyg.se/health"),
     ]
 
 
 def test_run_smoke_tests_records_daily_results(monkeypatch):
     module = _load_monitor_module(
         monkeypatch,
-        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test,Status=https://b.test",
+        MONITOR_SMOKE_TEST_TARGETS="Hälsa=https://a.test,Reserv=https://b.test",
     )
     module.DAILY_SMOKE_RESULTS.clear()
 
     responses = [
         {"name": "Hälsa", "url": "https://a.test", "ok": True, "details": "HTTP 200", "duration_seconds": 0.01},
-        {"name": "Status", "url": "https://b.test", "ok": False, "details": "HTTP 503", "duration_seconds": 0.02},
+        {"name": "Reserv", "url": "https://b.test", "ok": False, "details": "HTTP 503", "duration_seconds": 0.02},
     ]
 
     def _fake_run(name, url):
