@@ -2030,7 +2030,8 @@ def user_update_pdf_route(pdf_id: int):
             "Antal år",
         ).strip()
     except ValueError as exc:
-        return jsonify({"fel": str(exc)}), 400
+        current_app.logger.info("PDF update payload validation failed: %s", exc)
+        return jsonify({"fel": "Ogiltig begäran."}), 400
 
     if len(note) > 300:
         return jsonify({"fel": "Anteckningen får vara högst 300 tecken."}), 400
