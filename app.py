@@ -137,6 +137,10 @@ ALLOWED_PDF_METADATA_UPDATE_ERRORS = {
     "Intygsnamnet kan inte vara tomt.",
     "Intygsnamnet innehåller inga tillåtna tecken.",
     "Intygsnamnet får vara högst 120 tecken.",
+    "Anteckningen måste anges som text.",
+    "Utgångsdatum måste anges som text.",
+    "Antal månader måste anges som text.",
+    "Antal år måste anges som text.",
     "Välj ett utgångsdatum.",
     "Välj ett giltigt utgångsdatum.",
     "Utgångsdatum kan inte vara tidigare än idag.",
@@ -2031,7 +2035,18 @@ def user_update_pdf_route(pdf_id: int):
         ).strip()
     except ValueError as exc:
         current_app.logger.info("PDF update payload validation failed: %s", exc)
-        return jsonify({"fel": "Ogiltig begäran."}), 400
+        return (
+            jsonify(
+                {
+                    "fel": _safe_user_error(
+                        str(exc),
+                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
+                        "Ogiltig begäran.",
+                    )
+                }
+            ),
+            400,
+        )
 
     if len(note) > 300:
         return jsonify({"fel": "Anteckningen får vara högst 300 tecken."}), 400
