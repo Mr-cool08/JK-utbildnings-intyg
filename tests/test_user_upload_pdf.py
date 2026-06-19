@@ -455,6 +455,7 @@ def test_user_update_pdf_rejects_non_string_metadata_fields(user_db):
         [COURSE_CATEGORIES[0][0]],
     )
     invalid_fields = (
+        ("filename", ["gammalt.pdf"], "Intygsnamnet måste anges som text."),
         ("note", ["inte text"], "Anteckningen måste anges som text."),
         ("expiry_date", ["2029-06-17"], "Utgångsdatum måste anges som text."),
         ("expiry_months", ["3"], "Antal månader måste anges som text."),

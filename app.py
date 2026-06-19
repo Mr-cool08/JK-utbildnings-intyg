@@ -137,6 +137,7 @@ ALLOWED_PDF_METADATA_UPDATE_ERRORS = {
     "Intygsnamnet kan inte vara tomt.",
     "Intygsnamnet innehåller inga tillåtna tecken.",
     "Intygsnamnet får vara högst 120 tecken.",
+    "Intygsnamnet måste anges som text.",
     "Anteckningen måste anges som text.",
     "Utgångsdatum måste anges som text.",
     "Antal månader måste anges som text.",
@@ -184,6 +185,11 @@ TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund 
 UPLOAD_TOO_LARGE_MESSAGE = (
     f"Uppladdningen är för stor. Max {UPLOAD_MAX_MB} MB tillåts."
 )
+
+
+class SafeUserPayloadError(ValueError):
+    # Markerar valideringsfel som redan är säkra att visa direkt för användaren.
+    pass
 
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
@@ -275,7 +281,7 @@ def _coerce_text_payload_value(value: Any, field_label: str, *, default: str = "
         return value
     if isinstance(value, (int, float, bool)):
         return str(value)
-    raise ValueError(f"{field_label} måste anges som text.")
+    raise SafeUserPayloadError(f"{field_label} måste anges som text.")
 
 
 def _format_display_name(name: str | None) -> str:
@@ -2015,6 +2021,10 @@ def user_update_pdf_route(pdf_id: int):
         return jsonify({"fel": "Ogiltig begäran."}), 400
 
     try:
+        filename_raw = _coerce_text_payload_value(
+            payload.get("filename", ""),
+            "Intygsnamnet",
+        ).strip()
         note = _coerce_text_payload_value(payload.get("note", ""), "Anteckningen").strip()
         expiry_mode = _coerce_text_payload_value(
             payload.get("expiry_mode", "none"),
@@ -2033,6 +2043,9 @@ def user_update_pdf_route(pdf_id: int):
             payload.get("expiry_years", ""),
             "Antal år",
         ).strip()
+    except SafeUserPayloadError as exc:
+        current_app.logger.info("PDF update payload validation failed: %s", exc)
+        return jsonify({"fel": str(exc)}), 400
     except ValueError as exc:
         current_app.logger.info("PDF update payload validation failed: %s", exc)
         return (
@@ -2055,7 +2068,7 @@ def user_update_pdf_route(pdf_id: int):
     current_expires_on = current_pdf.get("expires_on") if current_pdf else None
 
     try:
-        filename = pdf.build_editable_pdf_filename(payload.get("filename", ""))
+        filename = pdf.build_editable_pdf_filename(filename_raw)
         expires_on = _resolve_certificate_expiry(
             expiry_mode,
             expiry_date_raw,
