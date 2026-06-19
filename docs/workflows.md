@@ -10,7 +10,7 @@ Det här är de workflows som finns i `.github/workflows` i dag.
 - Kör på `push` och `pull_request`.
 - Testar Python `3.10`, `3.11` och `3.12`.
 - Installerar beroenden från `requirements.txt`.
-- Kör `mypy app.py functions services status_service`.
+- Kör `mypy app.py functions services`.
 - Kör `pytest` utan coverage när `CODACY_PROJECT_TOKEN` saknas.
 - Kör `pytest --cov=. --cov-report xml` och rapporterar till Codacy när token finns.
 

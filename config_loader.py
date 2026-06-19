@@ -116,14 +116,10 @@ def _log_loaded_configuration() -> None:
     # Logga konfigurationsvärden som är säkra att visa i loggar.
     keys = [
         "DEV_MODE",
-        "ENABLE_DEMO_MODE",
-        "DEMO_SITE_URL",
         "TRUSTED_PROXY_COUNT",
         "DATABASE_URL",
         "POSTGRES_HOST",
         "POSTGRES_DB",
-        "STATUS_MAIN_URL",
-        "STATUS_DEMO_URL",
         "LOG_LEVEL",
         "LOG_FILE",
     ]

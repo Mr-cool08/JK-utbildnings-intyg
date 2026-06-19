@@ -37,7 +37,7 @@ jobs:
           pip install pytest pytest-cov pytest-xdist coverage ruff mypy
 
       - name: Typkontroll
-        run: mypy app.py functions services status_service
+        run: mypy app.py functions services
 
       - name: Kör tester
         if: ${{ env.CODACY_PROJECT_TOKEN == '' }}

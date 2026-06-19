@@ -15,7 +15,6 @@ import re
 import secrets
 import sys
 from pathlib import Path
-import threading
 import time
 from typing import Any, Callable, Sequence
 import json
@@ -514,47 +513,6 @@ def _enable_debug_mode(app: Flask) -> None:
 
     functions.logger.debug("Utvecklingsläge är aktiverat")
     logger.debug("Utvecklingsläge är aktiverat")
-    # Skapa testanvändare endast i debug-läge
-    functions.create_test_user()
-    logger.debug("Utvecklingsläge är aktiverat, testanvändare skapad")
-
-
-def _start_demo_reset_scheduler(app: Flask, demo_defaults: dict[str, str]) -> None:
-    # Start a bakgrundstråd som återställer demodatabasen var femte minut.
-    interval_seconds = 10 * 60
-
-    # Lock to prevent concurrent database access during reset
-    reset_lock = threading.Lock()
-
-    # Store as app config so error handlers can check reset status
-    app.config["DEMO_RESET_LOCK"] = reset_lock
-
-    def _reset_loop() -> None:
-        logger.info("Bakgrundsjobb för demoreset startat")
-        while True:
-            # Only run reset if no other thread is actively using it
-            if reset_lock.acquire(blocking=False):
-                try:
-                    with app.app_context():
-                        logger.info("Bakgrundsjobb kör demoreset")
-                        if functions.reset_demo_database(demo_defaults):
-                            logger.info("Demoreset slutfördes framgångsrikt")
-                        else:
-                            logger.warning("Demoreset returnerade falskt")
-                except Exception as exc:
-                    logger.error("Automatisk demoreset misslyckades: %s", exc)
-                finally:
-                    reset_lock.release()
-            else:
-                logger.debug("Demoreset hoppad över - låst för närvarande")
-
-            time.sleep(interval_seconds)
-
-    thread = threading.Thread(target=_reset_loop, daemon=True, name="demo-reset-loop")
-    thread.start()
-    logger.info("Bakgrundstråd startad: %s", thread.name)
-
-
 def _is_pytest_running() -> bool:
     return "PYTEST_CURRENT_TEST" in os.environ or any("pytest" in arg for arg in sys.argv)
 
@@ -588,6 +546,7 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = UPLOAD_MAX_BYTES
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
+    app.config["DEV_MODE"] = dev_mode
     app.config["DEBUG"] = debug_mode
     if not dev_mode:
         root_logger = logging.getLogger()
@@ -598,47 +557,6 @@ def create_app() -> Flask:
         functions.logger.setLevel(logging.INFO)
 
     logger.debug("Utvecklingsläge: %s", debug_mode)
-
-    demo_defaults = {
-        "user_email": os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
-        "user_name": os.getenv("DEMO_USER_NAME", "Demoanvändare"),
-        "user_personnummer": os.getenv("DEMO_USER_PERSONNUMMER", "199001011234"),
-        "user_password": os.getenv("DEMO_USER_PASSWORD", "DemoLösenord1!"),
-        "supervisor_email": os.getenv("DEMO_SUPERVISOR_EMAIL", "demo.foretagskonto@example.com"),
-        "supervisor_name": os.getenv("DEMO_SUPERVISOR_NAME", "Demoföretagskonto"),
-        "supervisor_password": os.getenv("DEMO_SUPERVISOR_PASSWORD", "DemoForetagskonto1!"),
-        "supervisor_orgnr": os.getenv("DEMO_SUPERVISOR_ORGNR", "5569668337"),
-    }
-
-    app.config["IS_DEMO"] = as_bool(os.getenv("ENABLE_DEMO_MODE"))
-    app.config["DEMO_SITE_URL"] = os.getenv("DEMO_SITE_URL", "").strip()
-    app.config["DEMO_CREDENTIALS"] = {
-        "user_personnummer": demo_defaults["user_personnummer"],
-        "user_password": demo_defaults["user_password"],
-        "supervisor_email": demo_defaults["supervisor_email"],
-        "supervisor_orgnr": demo_defaults["supervisor_orgnr"],
-        "supervisor_password": demo_defaults["supervisor_password"],
-    }
-    app.config["DEMO_DEFAULTS"] = demo_defaults
-
-    should_seed_demo_accounts = app.config["IS_DEMO"] or dev_mode
-    if should_seed_demo_accounts:
-        if app.config["IS_DEMO"]:
-            logger.info("Demoläge aktiverat – initierar exempeldata")
-        else:
-            logger.info("Utvecklingsläge aktiverat – initierar demokonton utan demoläge")
-        functions.ensure_demo_data(
-            user_email=demo_defaults["user_email"],
-            user_name=demo_defaults["user_name"],
-            user_personnummer=demo_defaults["user_personnummer"],
-            user_password=demo_defaults["user_password"],
-            supervisor_email=demo_defaults["supervisor_email"],
-            supervisor_name=demo_defaults["supervisor_name"],
-            supervisor_password=demo_defaults["supervisor_password"],
-            supervisor_orgnr=demo_defaults["supervisor_orgnr"],
-        )
-    if app.config["IS_DEMO"]:
-        _start_demo_reset_scheduler(app, demo_defaults)
 
     with app.app_context():
         if debug_mode:
@@ -803,17 +721,9 @@ def _require_supervisor() -> tuple[str, str]:
 
 @app.context_processor
 def inject_flags():
-    # Expose flags indicating debug and demo-läge to Jinja templates.
-    host = request.host
-    if host.startswith("demo."):
-        host = host[len("demo.") :]
-    main_site_url = f"{request.scheme}://{host}"
+    # Expose flags indicating debug-läge to Jinja templates.
     return {
         "IS_DEV": current_app.debug,
-        "IS_DEMO": current_app.config.get("IS_DEMO", False),
-        "DEMO_SITE_URL": current_app.config.get("DEMO_SITE_URL", ""),
-        "DEMO_CREDENTIALS": current_app.config.get("DEMO_CREDENTIALS", {}),
-        "MAIN_SITE_URL": main_site_url,
     }
 
 
@@ -842,7 +752,7 @@ def mta_sts_policy():
 
 @app.route("/debug/clear-session", methods=["GET", "POST"])
 def debug_clear_session():
-    if not current_app.config.get("DEV_MODE"):
+    if not current_app.config.get("DEV_MODE") or not current_app.debug:
         abort(404)
     session.clear()
     return redirect("/")

@@ -22,7 +22,7 @@
 
 - Local app start: `python app.py`
 - Local Docker start: `docker compose up --build`
-- CI typecheck parity: `mypy app.py functions services status_service`
+- CI typecheck parity: `mypy app.py functions services`
 - CI coverage test when needed: `pytest --cov=. --cov-report xml`
 - Docker build parity with CI: `docker compose -f docker-compose.prod.yml build` and `docker compose -f docker-compose.yml build`
 - Security scan parity with workflow: `bandit -r . -f json -o bandit.json --exit-zero`

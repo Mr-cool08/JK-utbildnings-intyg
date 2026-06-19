@@ -1,8 +1,6 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/43a0995859d24aaf96f0397be4069dc4)](https://app.codacy.com/gh/Mr-cool08/JK-utbildnings-intyg/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
-![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374823-3a8d4541c53b344b63c35538?label=Demo%20site%20uptime)
-![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374820-0fe3051da2a9b338bddefd42?label=Status%20site%20uptime)
 ![Uptime Robot ratio (30 days)](https://img.shields.io/uptimerobot/ratio/m802374649-19fecede0f8e395e27276d11?label=Utbildningsintyg.se%20uptime)
 ![Website](https://img.shields.io/website?url=https%3A%2F%2Futbildningsintyg.se&label=utbildningsintyg.se)
 ![GitHub top language](https://img.shields.io/github/languages/top/Mr-cool08/JK-utbildnings-intyg)
@@ -18,7 +16,7 @@ JK Utbildningsintyg är en Flask-baserad tjänst för att hantera utbildningsint
 - Adminpanel för ansökningar, konton, intyg, företagskopplingar, fakturering och avancerad tabelladministration.
 - Användardashboard där användare kan se, dela och ladda upp intyg samt hantera kopplingar till företagskonton.
 - Företagskonton med egen inloggning, kopplingsförfrågningar och delning av användares PDF:er.
-- Statussida, serverövervakning, säkerhetsloggning och Docker-baserad drift.
+- Serverövervakning, säkerhetsloggning och Docker-baserad drift.
 
 ## Snabbstart lokalt
 
@@ -59,19 +57,17 @@ python app.py
 
 Om du använder värdena från `.example.env` kör appen normalt på `http://localhost:8080`. Om `PORT` saknas används `8000`.
 
-## DEV_MODE och demo
+## DEV_MODE
 
 `DEV_MODE` är den enda officiella växeln för utvecklingsläge.
 
 - `DEV_MODE=true` aktiverar lokal debug-loggning och utvecklarvänligt beteende.
 - `DEV_MODE=false` ska användas i produktion.
-- `ENABLE_DEMO_MODE=true` startar demodata och demon separat från vanligt dev-läge.
 
 Exempel:
 
 ```env
 DEV_MODE=true
-ENABLE_DEMO_MODE=false
 PORT=8080
 ```
 
@@ -88,8 +84,6 @@ docker compose up --build
 Viktiga host-portar i Compose:
 
 - Huvudapp: `http://localhost`
-- Demoapp: `http://localhost:8000`
-- Statussida: `http://localhost:8080`
 - VS Code i webbläsaren: `http://localhost:8083` när `DEV_MODE=true`
 - PostgreSQL: `127.0.0.1:1543` som standard
 
@@ -130,7 +124,7 @@ pytest
 Typkontroll:
 
 ```bash
-mypy app.py functions services status_service
+mypy app.py functions services
 ```
 
 Säkerhetsskanning:

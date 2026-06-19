@@ -107,14 +107,8 @@ def test_compose_uses_direct_host_port_bindings_for_main_services():
     compose = _read(ROOT / "docker-compose.yml")
 
     assert "dev_main_port:" not in compose
-    assert "dev_demo_port:" not in compose
-    assert "dev_status_port:" not in compose
     assert "80:80" in compose
-    assert "8080:80" in compose
-    assert "8000:80" in compose
     assert "127.0.0.1:80:80" not in compose
-    assert "127.0.0.1:8080:80" not in compose
-    assert "127.0.0.1:8000:80" not in compose
 
 
 def test_compose_does_not_include_rclone_cloud_backup_service():
@@ -224,6 +218,32 @@ def test_entrypoint_runs_gunicorn_only():
     assert nginx_start_pattern.search(entrypoint) is None
 
 
+def test_entrypoint_requires_explicit_true_for_dev_mode():
+    entrypoint = _read(ROOT / "entrypoint.sh")
+    local_database_case = re.search(
+        r'case "\$\{enable_local_db\}:\$\{enable_demo_mode\}" in\s+([^)]+)\)',
+        entrypoint,
+    )
+
+    assert local_database_case is not None
+    dev_mode_patterns = [
+        pattern
+        for pattern in local_database_case.group(1).split("|")
+        if pattern.endswith(":*")
+    ]
+    assert dev_mode_patterns == ["true:*"]
+
+
+def test_compose_assigns_explicit_traefik_logs_volume_name():
+    compose = _read(ROOT / "docker-compose.yml")
+
+    assert (
+        "  traefik_logs:\n"
+        "    name: jk-utbildnings-intyg_traefik_logs\n"
+        in compose
+    )
+
+
 def test_dockerfile_installs_openssl():
     dockerfile = _read(ROOT / "Dockerfile")
     # Någon apk-add rad måste innehålla tini och curl
@@ -243,38 +263,3 @@ def test_builds_production_app_image_with_pytest_docker(tmp_path):
         dockerfile_path="Dockerfile",
     )
     _build_image_with_pytest_docker(compose_file, "build app")
-
-
-@pytest.mark.docker
-def test_builds_dev_status_image_with_pytest_docker(tmp_path):
-    _require_working_docker()
-    compose_file = _create_temp_compose_for_build(
-        tmp_path,
-        service_name="status_page",
-        dockerfile_path="status_service/Dockerfile",
-    )
-    _build_image_with_pytest_docker(compose_file, "build status_page")
-
-
-def test_status_service_dockerfile_copies_functions_package():
-    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
-    assert re.search(
-        r"^\s*COPY\s+functions\s+/app/functions\s*$",
-        status_dockerfile,
-        re.MULTILINE,
-    )
-
-
-def test_status_service_dockerfile_copies_config_loader_module():
-    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
-    assert re.search(
-        r"^\s*COPY\s+config_loader\.py\s+/app/config_loader\.py\s*$",
-        status_dockerfile,
-        re.MULTILINE,
-    )
-
-
-def test_status_service_dockerfile_has_healthcheck_for_root_endpoint():
-    status_dockerfile = _read(ROOT / "status_service" / "Dockerfile")
-    assert "HEALTHCHECK" in status_dockerfile
-    assert "http://127.0.0.1:80/" in status_dockerfile
