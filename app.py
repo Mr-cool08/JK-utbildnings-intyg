@@ -1953,15 +1953,16 @@ def user_update_pdf_route(pdf_id: int):
             payload.get("expiry_years", ""),
             "Antal år",
         ).strip()
-    except SafeUserPayloadError as exc:
-        current_app.logger.info("PDF update payload validation failed: %s", exc)
-        return jsonify({"fel": "Ogiltig begäran."}), 400
     except ValueError as exc:
         current_app.logger.info("PDF update payload validation failed: %s", exc)
         return (
             jsonify(
                 {
-                    "fel": "Ogiltig begäran."
+                    "fel": _safe_user_error(
+                        str(exc),
+                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
+                        "Ogiltig begäran.",
+                    )
                 }
             ),
             400,
