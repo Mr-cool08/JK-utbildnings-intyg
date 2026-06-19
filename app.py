@@ -1955,7 +1955,7 @@ def user_update_pdf_route(pdf_id: int):
         ).strip()
     except SafeUserPayloadError as exc:
         current_app.logger.info("PDF update payload validation failed: %s", exc)
-        return jsonify({"fel": str(exc)}), 400
+        return jsonify({"fel": "Ogiltig begäran."}), 400
     except ValueError as exc:
         current_app.logger.info("PDF update payload validation failed: %s", exc)
         return (
