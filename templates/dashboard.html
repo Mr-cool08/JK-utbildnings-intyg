@@ -91,6 +91,13 @@
                     {% for pdf in group.pdfs %}
                     <li
                         data-pdf-item
+                        data-pdf-id="{{ pdf.id }}"
+                        data-group-label="{{ group.label }}"
+                        data-pdf-filename="{{ pdf.filename }}"
+                        data-editable-name="{{ pdf.editable_name }}"
+                        data-pdf-note="{{ pdf.note or '' }}"
+                        data-pdf-expires-on="{{ pdf.expires_on or '' }}"
+                        data-update-url="{{ url_for('user_update_pdf_route', pdf_id=pdf.id) }}"
                         data-search-text="{{ (pdf.filename ~ ' ' ~ (pdf.note or '') ~ ' ' ~ group.label)|lower }}"
                     >
                         <div class="pdf-entry">
@@ -103,22 +110,17 @@
                                 aria-label="Markera {{ pdf.filename }} för delning"
                             >
                             <div class="pdf-details">
-                                <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download>
+                                <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download data-pdf-link>
                                     {{ pdf.filename }}
                                 </a>
-                                {% if pdf.note or pdf.expires_on %}
-                                <div class="pdf-meta">
-                                    {% if pdf.note %}
-                                    <span class="pdf-note">{{ pdf.note }}</span>
-                                    {% endif %}
-                                    {% if pdf.expires_on %}
-                                    <span class="pdf-note">Gäller till {{ pdf.expires_on }}</span>
-                                    {% endif %}
+                                <div class="pdf-meta" data-pdf-meta {% if not pdf.note and not pdf.expires_on %}hidden{% endif %}>
+                                    <span class="pdf-note" data-pdf-note-text {% if not pdf.note %}hidden{% endif %}>{{ pdf.note or '' }}</span>
+                                    <span class="pdf-note" data-pdf-expiry-text {% if not pdf.expires_on %}hidden{% endif %}>{% if pdf.expires_on %}Gäller till {{ pdf.expires_on }}{% endif %}</span>
                                 </div>
-                                {% endif %}
                             </div>
                         </div>
                         <div class="pdf-actions">
+                            <button type="button" class="btn btn-secondary" data-edit-pdf>Redigera</button>
                             <form method="post" action="{{ url_for('user_delete_pdf_route', pdf_id=pdf.id) }}" data-delete-pdf>
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit" class="btn btn-danger">Ta bort</button>
@@ -178,6 +180,92 @@
         </a>
     </div>
 </section>
+
+<dialog id="editPdfModal" class="share-modal edit-pdf-modal" aria-modal="true" aria-labelledby="editPdfModalTitle">
+    <div class="share-modal__dialog edit-pdf-modal__dialog" role="document">
+        <button type="button" class="share-modal__close" aria-label="Stäng redigeringsrutan" data-edit-close>&times;</button>
+        <div class="share-modal__intro">
+            <p class="share-modal__eyebrow">Redigera intyg</p>
+            <h2 id="editPdfModalTitle">Ändra uppgifter för intyg</h2>
+            <p class="share-modal__lead">
+                Du redigerar <strong id="editPdfSummary" class="share-modal__summary-name">intyget</strong>.
+            </p>
+        </div>
+        <form id="editPdfForm" class="edit-pdf-form" novalidate>
+            <input type="hidden" id="editPdfCsrfToken" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-field">
+                <label for="editPdfName">Intygsnamn</label>
+                <input
+                    type="text"
+                    id="editPdfName"
+                    name="filename"
+                    maxlength="120"
+                    autocomplete="off"
+                    required
+                >
+                <p class="form-help">PDF läggs till automatiskt när intyget sparas.</p>
+            </div>
+            <div class="form-field">
+                <label for="editPdfNote">Anteckning</label>
+                <textarea id="editPdfNote" name="note" maxlength="300" rows="4" placeholder="Valfritt"></textarea>
+            </div>
+            <div class="form-field">
+                <label for="editPdfExpiryMode">Utgångsdatum</label>
+                <select id="editPdfExpiryMode" name="expiry_mode">
+                    <option value="none">Inget utgångsdatum</option>
+                    <option value="date">Exakt datum</option>
+                    <option value="duration">Antal år och månader från idag</option>
+                </select>
+                <p class="form-help">Välj inget utgångsdatum om intyget inte ska löpa ut.</p>
+            </div>
+            <div class="form-field" data-edit-expiry-field="date" hidden>
+                <label for="editPdfExpiryDate">Datum då intyget går ut</label>
+                <input
+                    type="date"
+                    id="editPdfExpiryDate"
+                    name="expiry_date"
+                    min="{{ today_iso }}"
+                >
+            </div>
+            <div class="form-field" data-edit-expiry-field="duration" hidden>
+                <div class="expiry-duration-grid">
+                    <div class="form-field form-field--compact">
+                        <label for="editPdfExpiryYears">År</label>
+                        <input
+                            type="number"
+                            id="editPdfExpiryYears"
+                            name="expiry_years"
+                            min="0"
+                            max="100"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="2"
+                        >
+                    </div>
+                    <div class="form-field form-field--compact">
+                        <label for="editPdfExpiryMonths">Månader</label>
+                        <input
+                            type="number"
+                            id="editPdfExpiryMonths"
+                            name="expiry_months"
+                            min="0"
+                            max="1200"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="6"
+                        >
+                    </div>
+                </div>
+                <p class="form-help">Ange år, månader eller båda.</p>
+            </div>
+            <div class="edit-pdf-form__actions">
+                <button type="submit" class="btn">Spara ändringar</button>
+                <button type="button" class="btn btn-secondary" data-edit-close>Avbryt</button>
+            </div>
+        </form>
+        <p class="share-modal__feedback" id="editPdfFeedback" role="alert" hidden></p>
+    </div>
+</dialog>
 
 <dialog id="shareModal" class="share-modal" aria-modal="true" aria-labelledby="shareModalTitle">
     <div class="share-modal__dialog" role="document">

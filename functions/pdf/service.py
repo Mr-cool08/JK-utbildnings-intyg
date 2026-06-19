@@ -5,6 +5,7 @@ from datetime import date
 import io
 import logging
 import os
+import re
 import time
 from typing import Sequence
 
@@ -17,6 +18,9 @@ from functions.logging import mask_hash
 from services.pdf_scanner import ScanVerdict, scan_pdf_bytes
 
 ALLOWED_MIMES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
+EDITABLE_PDF_NAME_MAX_LENGTH = 120
+LEGACY_PDF_FILENAME_PATTERN = re.compile(r"^(?P<timestamp>\d{10})_(?P<name>.+)$")
+LEGACY_PDF_TIMESTAMP_MIN = 946684800
 
 
 def _convert_image_to_pdf(file_storage) -> bytes:
@@ -39,8 +43,49 @@ def _build_pdf_filename(file_storage, normalized_pnr: str) -> str:
     base = base.lstrip("_- ")
     name, _ext = os.path.splitext(base)
     if not name:
-        name = "certificate"
+        name = "intyg"
     return f"{int(time.time())}_{name}.pdf"
+
+
+def _is_legacy_pdf_timestamp(raw_timestamp: str) -> bool:
+    try:
+        timestamp = int(raw_timestamp)
+    except (TypeError, ValueError):
+        return False
+    return LEGACY_PDF_TIMESTAMP_MIN <= timestamp <= int(time.time())
+
+
+def extract_editable_pdf_name(filename: str) -> str:
+    """Returnera ett användarvänligt namn för redigering av sparade PDF:er."""
+
+    stem, _extension = os.path.splitext((filename or "").strip())
+    legacy_match = LEGACY_PDF_FILENAME_PATTERN.match(stem)
+    if legacy_match and _is_legacy_pdf_timestamp(legacy_match.group("timestamp")):
+        legacy_name = legacy_match.group("name").strip("._- ")
+        if legacy_name:
+            return legacy_name
+    return stem
+
+
+def build_editable_pdf_filename(raw_value: str) -> str:
+    """Normalisera användarens redigerade PDF-namn till ett säkert filnamn."""
+
+    cleaned = str(raw_value or "").strip()
+    if not cleaned:
+        raise ValueError("Intygsnamnet kan inte vara tomt.")
+
+    stem, extension = os.path.splitext(cleaned)
+    if extension.lower() == ".pdf":
+        cleaned = stem.strip()
+
+    safe_name = secure_filename(cleaned).strip("._- ")
+    if not safe_name:
+        raise ValueError("Intygsnamnet innehåller inga tillåtna tecken.")
+    if len(safe_name) > EDITABLE_PDF_NAME_MAX_LENGTH:
+        raise ValueError(
+            f"Intygsnamnet får vara högst {EDITABLE_PDF_NAME_MAX_LENGTH} tecken."
+        )
+    return f"{safe_name}.pdf"
 
 
 def save_pdf_for_user(

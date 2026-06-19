@@ -2,6 +2,7 @@
 import io
 import os
 import sys
+import time
 
 import pytest
 import werkzeug
@@ -71,3 +72,13 @@ def test_save_pdf_rejects_multiple_categories(empty_db):
     category_two = COURSE_CATEGORIES[1][0]
     with pytest.raises(ValueError):
         app.pdf.save_pdf_for_user("9001011234", pdf, [category_one, category_two])
+
+
+def test_extract_editable_pdf_name_strips_legacy_timestamp_prefix():
+    legacy_timestamp = str(int(time.time()) - 60)
+
+    assert app.pdf.extract_editable_pdf_name(f"{legacy_timestamp}_kursintyg.pdf") == "kursintyg"
+
+
+def test_extract_editable_pdf_name_keeps_user_numeric_prefixes():
+    assert app.pdf.extract_editable_pdf_name("2024010112_kursintyg.pdf") == "2024010112_kursintyg"

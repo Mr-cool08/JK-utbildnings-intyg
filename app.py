@@ -11,6 +11,7 @@ import importlib
 import importlib.util
 import logging
 import os
+import re
 import secrets
 import sys
 from pathlib import Path
@@ -131,6 +132,27 @@ ALLOWED_PDF_UPLOAD_ERRORS = {
     "Bilden kunde inte konverteras till PDF.",
     "PDF:en blockerades av säkerhetsskannern.",
 }
+ALLOWED_PDF_METADATA_UPDATE_ERRORS = {
+    "Intygsnamnet kan inte vara tomt.",
+    "Intygsnamnet innehåller inga tillåtna tecken.",
+    "Intygsnamnet får vara högst 120 tecken.",
+    "Intygsnamnet måste anges som text.",
+    "Anteckningen måste anges som text.",
+    "Utgångsdatum måste anges som text.",
+    "Antal månader måste anges som text.",
+    "Antal år måste anges som text.",
+    "Välj ett utgångsdatum.",
+    "Välj ett giltigt utgångsdatum.",
+    "Utgångsdatum kan inte vara tidigare än idag.",
+    "Ange ett giltigt antal månader.",
+    "Antal månader kan inte vara mindre än 0.",
+    "Antal månader får vara högst 1200.",
+    "Ange ett giltigt antal år.",
+    "Antal år kan inte vara mindre än 0.",
+    "Antal år får vara högst 100.",
+    "Ange antal år, månader eller båda.",
+    "Välj ett giltigt alternativ för utgångsdatum.",
+}
 ALLOWED_SUPERVISOR_ACTIVATION_ERRORS = {
     "Lösenordet måste vara minst 8 tecken.",
 }
@@ -162,6 +184,11 @@ TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund 
 UPLOAD_TOO_LARGE_MESSAGE = (
     f"Uppladdningen är för stor. Max {UPLOAD_MAX_MB} MB tillåts."
 )
+
+
+class SafeUserPayloadError(ValueError):
+    # Markerar valideringsfel som redan är säkra att visa direkt för användaren.
+    pass
 
 
 def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
@@ -202,6 +229,7 @@ def _resolve_certificate_expiry(
     expiry_months_raw: str,
     expiry_years_raw: str,
     *,
+    current_expires_on: date | None = None,
     today: date | None = None,
 ) -> date | None:
     today = today or date.today()
@@ -217,6 +245,8 @@ def _resolve_certificate_expiry(
             expires_on = date.fromisoformat(cleaned_date)
         except ValueError as exc:
             raise ValueError("Välj ett giltigt utgångsdatum.") from exc
+        if current_expires_on is not None and expires_on == current_expires_on:
+            return expires_on
         if expires_on < today:
             raise ValueError("Utgångsdatum kan inte vara tidigare än idag.")
         return expires_on
@@ -243,12 +273,29 @@ def _resolve_certificate_expiry(
     raise ValueError("Välj ett giltigt alternativ för utgångsdatum.")
 
 
+def _coerce_text_payload_value(value: Any, field_label: str, *, default: str = "") -> str:
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    raise SafeUserPayloadError(f"{field_label} måste anges som text.")
+
+
 def _format_display_name(name: str | None) -> str:
     # Säkerställ stor begynnelsebokstav för varje namnsegment.
     cleaned_name = (name or "").strip()
     if not cleaned_name:
         return ""
     return " ".join(part[:1].upper() + part[1:] for part in cleaned_name.split())
+
+
+def _editable_pdf_name(filename: str) -> str:
+    # Visa gamla timestamp-prefixade filnamn utan teknisk prefix i redigeringsfältet.
+    extracted = pdf.extract_editable_pdf_name(filename)
+    cleaned = re.sub(r"\.pdf$", "", extracted, flags=re.IGNORECASE).strip()
+    return cleaned or "intyg"
 
 
 def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1630,6 +1677,7 @@ def dashboard():
     pdfs = functions.get_user_pdfs(pnr_hash)
     for pdf in pdfs:
         pdf["category_labels"] = labels_for_slugs(pdf.get("categories", []))
+        pdf["editable_name"] = _editable_pdf_name(pdf.get("filename", ""))
     grouped_pdfs = []
     groups_by_slug = {}
     for slug, label in COURSE_CATEGORIES:
@@ -1686,6 +1734,7 @@ def dashboard():
         pending_link_requests=pending_link_requests,
         supervisor_connections=supervisor_connections,
         csrf_token=csrf_token,
+        today_iso=date.today().isoformat(),
     )
 
 
@@ -1862,6 +1911,115 @@ def user_delete_pdf_route(pdf_id: int):
         flash("Ett fel inträffade när intyget skulle tas bort.", "error")
 
     return redirect("/dashboard")
+
+
+@app.post("/dashboard/intyg/<int:pdf_id>/uppdatera")
+def user_update_pdf_route(pdf_id: int):
+    if not session.get("user_logged_in"):
+        return jsonify({"fel": "Du måste vara inloggad för att uppdatera intyg."}), 401
+
+    if not validate_csrf_token():
+        return jsonify({"fel": CSRF_EXPIRED_MESSAGE}), 400
+
+    personnummer = session.get("personnummer_raw")
+    if not personnummer:
+        return jsonify({"fel": "Kunde inte identifiera användaren. Logga in igen."}), 400
+    personnummer_hash = functions.hash_value(personnummer)
+
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"fel": "Ogiltig begäran."}), 400
+
+    try:
+        filename_raw = _coerce_text_payload_value(
+            payload.get("filename", ""),
+            "Intygsnamnet",
+        ).strip()
+        note = _coerce_text_payload_value(payload.get("note", ""), "Anteckningen").strip()
+        expiry_mode = _coerce_text_payload_value(
+            payload.get("expiry_mode", "none"),
+            "Val för utgångsdatum",
+            default="none",
+        ).strip()
+        expiry_date_raw = _coerce_text_payload_value(
+            payload.get("expiry_date", ""),
+            "Utgångsdatum",
+        ).strip()
+        expiry_months_raw = _coerce_text_payload_value(
+            payload.get("expiry_months", ""),
+            "Antal månader",
+        ).strip()
+        expiry_years_raw = _coerce_text_payload_value(
+            payload.get("expiry_years", ""),
+            "Antal år",
+        ).strip()
+    except ValueError as exc:
+        current_app.logger.info("PDF update payload validation failed: %s", exc)
+        return (
+            jsonify(
+                {
+                    "fel": _safe_user_error(
+                        str(exc),
+                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
+                        "Ogiltig begäran.",
+                    )
+                }
+            ),
+            400,
+        )
+
+    if len(note) > 300:
+        return jsonify({"fel": "Anteckningen får vara högst 300 tecken."}), 400
+
+    current_pdf = functions.get_pdf_metadata(personnummer_hash, pdf_id)
+    current_expires_on = current_pdf.get("expires_on") if current_pdf else None
+
+    try:
+        filename = pdf.build_editable_pdf_filename(filename_raw)
+        expires_on = _resolve_certificate_expiry(
+            expiry_mode,
+            expiry_date_raw,
+            expiry_months_raw,
+            expiry_years_raw,
+            current_expires_on=current_expires_on,
+        )
+    except ValueError as exc:
+        current_app.logger.info("PDF metadata update validation failed: %s", exc)
+        return jsonify({"fel": str(exc)}), 400
+
+    try:
+        updated = functions.update_user_pdf_metadata(
+            personnummer,
+            pdf_id,
+            filename,
+            note,
+            expires_on,
+        )
+    except Exception:
+        logger.exception("Kunde inte uppdatera intyg %s för användare", pdf_id)
+        return jsonify({"fel": "Ett fel inträffade när intyget skulle uppdateras."}), 500
+
+    if not updated:
+        return jsonify({"fel": "Intyget kunde inte hittas."}), 404
+
+    return (
+        jsonify(
+            {
+                "meddelande": "Intyget har uppdaterats.",
+                "data": {
+                    "id": pdf_id,
+                    "filename": filename,
+                    "note": note,
+                    "expires_on": (
+                        expires_on.isoformat()
+                        if expires_on and hasattr(expires_on, "isoformat")
+                        else None
+                    ),
+                },
+            }
+        ),
+        200,
+    )
 
 @app.route("/dashboard/upload", methods=["GET"])
 def user_upload_page():

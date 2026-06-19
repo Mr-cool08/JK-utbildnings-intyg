@@ -83,6 +83,44 @@ def update_pdf_categories(personnummer: str, pdf_id: int, categories: Sequence[s
     return updated
 
 
+def update_user_pdf_metadata(
+    personnummer: str,
+    pdf_id: int,
+    filename: str,
+    note: str,
+    expires_on: date | None,
+) -> bool:
+    # Uppdatera redigerbar metadata för en PDF utan att röra innehållet.
+    personnummer_hash = _hash_personnummer(personnummer)
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(user_pdfs_table)
+            .where(
+                user_pdfs_table.c.personnummer == personnummer_hash,
+                user_pdfs_table.c.id == pdf_id,
+            )
+            .values(
+                filename=filename,
+                note=note,
+                expires_on=expires_on,
+            )
+        )
+    updated = result.rowcount > 0
+    if updated:
+        logger.info(
+            "PDF %s metadata uppdaterades för %s",
+            pdf_id,
+            mask_hash(personnummer_hash),
+        )
+    else:
+        logger.warning(
+            "PDF %s kunde inte metadatauppdateras för %s",
+            pdf_id,
+            mask_hash(personnummer_hash),
+        )
+    return updated
+
+
 def store_pdf_blob(
     personnummer_hash: str,
     filename: str,

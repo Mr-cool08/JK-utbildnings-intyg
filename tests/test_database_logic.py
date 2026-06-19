@@ -76,6 +76,96 @@ def test_run_migrations_skips_applied_versions(monkeypatch):
     assert set(versions) == {"0001_dummy", "0002_dummy"}
 
 
+def test_migration_0017_reassigns_colliding_schema_migration_ids():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        database_module.schema_migrations_table.create(bind=conn)
+        conn.execute(
+            insert(database_module.schema_migrations_table),
+            [
+                {"id": 3, "version": "0001_initial"},
+                {"id": 4, "version": "0002_second"},
+                {"id": 1, "version": "0011_add_user_pdf_expires_on"},
+                {"id": 2, "version": "0012_add_user_pdf_last_expiry_reminder_month"},
+                {"id": 11, "version": "0016_remove_standard_from_company_users"},
+            ],
+        )
+
+    with engine.begin() as conn:
+        database_module._migration_0017_fix_schema_migrations_duplicate_ids(conn)
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                database_module.schema_migrations_table.c.version,
+                database_module.schema_migrations_table.c.id,
+            )
+        ).all()
+
+    assert {row.version: row.id for row in rows} == {
+        "0001_initial": 1,
+        "0002_second": 2,
+        "0011_add_user_pdf_expires_on": 3,
+        "0012_add_user_pdf_last_expiry_reminder_month": 4,
+        "0016_remove_standard_from_company_users": 5,
+    }
+
+
+def test_migration_0017_handles_duplicate_version_prefixes_from_older_databases():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    with engine.begin() as conn:
+        database_module.schema_migrations_table.create(bind=conn)
+        conn.execute(
+            insert(database_module.schema_migrations_table),
+            [
+                {"id": 1, "version": "0001_companies"},
+                {"id": 2, "version": "0002_remove_phone_columns"},
+                {"id": 3, "version": "0003_add_invoice_fields"},
+                {"id": 4, "version": "0004_make_company_id_nullable"},
+                {"id": 5, "version": "0005_add_supervisor_link_requests"},
+                {"id": 6, "version": "0006_add_application_personnummer_hash"},
+                {"id": 7, "version": "0007_add_supervisor_password_resets"},
+                {"id": 8, "version": "0008_company_users_email_role_unique"},
+                {"id": 9, "version": "0009_add_user_pdf_note"},
+                {"id": 10, "version": "0010_add_orgnr_to_users_and_org_requests"},
+                {"id": 11, "version": "0011_drop_unused_uncrypted_email_columns"},
+                {"id": 12, "version": "0011_add_user_pdf_expires_on"},
+                {"id": 13, "version": "0012_add_user_pdf_last_expiry_reminder_month"},
+                {"id": 14, "version": "0013_add_user_pdf_last_expiry_reminder_sent_at"},
+            ],
+        )
+
+    with engine.begin() as conn:
+        database_module._migration_0017_fix_schema_migrations_duplicate_ids(conn)
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                database_module.schema_migrations_table.c.version,
+                database_module.schema_migrations_table.c.id,
+            )
+        ).all()
+
+    assert {row.version: row.id for row in rows} == {
+        "0001_companies": 1,
+        "0002_remove_phone_columns": 2,
+        "0003_add_invoice_fields": 3,
+        "0004_make_company_id_nullable": 4,
+        "0005_add_supervisor_link_requests": 5,
+        "0006_add_application_personnummer_hash": 6,
+        "0007_add_supervisor_password_resets": 7,
+        "0008_company_users_email_role_unique": 8,
+        "0009_add_user_pdf_note": 9,
+        "0010_add_orgnr_to_users_and_org_requests": 10,
+        "0011_drop_unused_uncrypted_email_columns": 11,
+        "0011_add_user_pdf_expires_on": 12,
+        "0012_add_user_pdf_last_expiry_reminder_month": 13,
+        "0013_add_user_pdf_last_expiry_reminder_sent_at": 14,
+    }
+
+
 def test_migration_0004_raises_for_unsupported_dialect(monkeypatch):
     class _FakeConn:
         dialect = SimpleNamespace(name="mysql")

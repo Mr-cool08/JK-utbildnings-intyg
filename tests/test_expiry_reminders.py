@@ -336,6 +336,30 @@ def test_expiry_reminders_exclude_certificates_without_expiry_date(empty_db, mon
     assert private_calls == []
 
 
+def test_expiry_reminders_exclude_already_expired_certificates(empty_db, monkeypatch):
+    _set_reminder_config(monkeypatch, enabled=True)
+    private_calls, supervisor_calls = _capture_email_calls(monkeypatch)
+    today = date(2026, 5, 27)
+    personnummer_hash = _create_active_user(
+        empty_db,
+        personnummer="19900304-1234",
+        email="otto@example.com",
+        username="Otto",
+    )
+    _store_certificate(
+        empty_db,
+        personnummer_hash=personnummer_hash,
+        filename="utgatt.pdf",
+        expires_on=date(2026, 5, 26),
+    )
+
+    result = expiry_reminders.run_expiry_reminder_job(today=today, reminder_months=6)
+
+    assert result.candidate_certificates == 0
+    assert private_calls == []
+    assert supervisor_calls == []
+
+
 def test_expiry_reminders_do_not_repeat_same_certificate_in_same_month(
     empty_db,
     monkeypatch,

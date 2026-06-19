@@ -681,6 +681,10 @@ def _fetch_expiring_certificate_rows(
     skipped_current_month = 0
     skipped_duplicate_guard = 0
     for row in rows:
+        # Skicka aldrig påminnelser för intyg som redan har gått ut,
+        # även om en rad av någon anledning skulle slinka igenom SQL-filtret.
+        if row.expires_on is None or row.expires_on < today:
+            continue
         if row.last_expiry_reminder_month == current_month:
             skipped_current_month += 1
             continue

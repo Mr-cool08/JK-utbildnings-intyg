@@ -83,6 +83,7 @@ from functions.pdf_storage import (
     get_user_pdfs,
     store_pdf_blob,
     update_pdf_categories,
+    update_user_pdf_metadata,
 )
 from functions.supervisors import (
     admin_create_supervisor,
@@ -243,6 +244,7 @@ __all__ = [
     "delete_organization_link_requests_for_user",
     "supervisors_table",
     "update_pdf_categories",
+    "update_user_pdf_metadata",
     "update_organization_request_contact_details",
     "update_table_row",
     "user_accept_link_request",

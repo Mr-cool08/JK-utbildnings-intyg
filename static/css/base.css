@@ -2491,6 +2491,7 @@ small.hint {
     border-radius: 0.5rem;
     color: var(--color-info-text);
     padding: 0.75rem 1rem;
+    margin-bottom: 2rem;
 }
 
 .message.success {
