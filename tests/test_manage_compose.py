@@ -20,7 +20,7 @@ def _load_module():
 
 def test_build_compose_args_includes_expected_flags():
     module = _load_module()
-    args = module.build_compose_args("docker-compose.yml", "./.env", "demo")
+    args = module.build_compose_args("docker-compose.yml", "./.env", "local")
 
     assert args == [
         "-f",
@@ -28,7 +28,7 @@ def test_build_compose_args_includes_expected_flags():
         "--env-file",
         "./.env",
         "--project-name",
-        "demo",
+        "local",
     ]
 
 
@@ -361,14 +361,14 @@ def test_ensure_compose_volumes_creates_missing_volume():
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     module._ensure_compose_volumes(
-        ["-f", "docker-compose.yml", "--project-name", "demo"],
+        ["-f", "docker-compose.yml", "--project-name", "local"],
         runner=fake_runner,
     )
 
     assert calls == [
-        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "demo", "config", "--format", "json"],
-        ["docker", "volume", "inspect", "demo_env_data"],
-        ["docker", "volume", "create", "demo_env_data"],
+        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "local", "config", "--format", "json"],
+        ["docker", "volume", "inspect", "local_env_data"],
+        ["docker", "volume", "create", "local_env_data"],
     ]
 
 
@@ -396,15 +396,15 @@ def test_ensure_compose_volumes_recreates_missing_mountpoint(tmp_path):
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     module._ensure_compose_volumes(
-        ["-f", "docker-compose.yml", "--project-name", "demo"],
+        ["-f", "docker-compose.yml", "--project-name", "local"],
         runner=fake_runner,
     )
 
     assert calls == [
-        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "demo", "config", "--format", "json"],
-        ["docker", "volume", "inspect", "demo_env_data"],
-        ["docker", "volume", "rm", "demo_env_data"],
-        ["docker", "volume", "create", "demo_env_data"],
+        ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "local", "config", "--format", "json"],
+        ["docker", "volume", "inspect", "local_env_data"],
+        ["docker", "volume", "rm", "local_env_data"],
+        ["docker", "volume", "create", "local_env_data"],
     ]
 
 
@@ -426,12 +426,12 @@ def test_ensure_volume_present_handles_in_use_volume(capsys, tmp_path):
             raise subprocess.CalledProcessError(1, cmd, stderr="volume is in use")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    result = module._ensure_volume_present("demo_env_data", runner=fake_runner)
+    result = module._ensure_volume_present("local_env_data", runner=fake_runner)
 
     assert result is False
     assert calls == [
-        ["docker", "volume", "inspect", "demo_env_data"],
-        ["docker", "volume", "rm", "demo_env_data"],
+        ["docker", "volume", "inspect", "local_env_data"],
+        ["docker", "volume", "rm", "local_env_data"],
     ]
     captured = capsys.readouterr()
     assert "Varning: Kunde inte ta bort Docker-volymen" in captured.err

@@ -148,19 +148,11 @@
                     <a class="nav-link {% if request.path.startswith('/ansok') %}is-active{% endif %}" href="{{ url_for('apply_account') }}">Skapa konto</a>
                     <a class="nav-link {% if request.path.startswith('/foretagskonto') %}is-active{% endif %}" href="{{ url_for('supervisor_login') }}">Företagsportal</a>
                     <a class="nav-link {% if request.path.startswith('/login') %}is-active{% endif %}" href="/login">Privatinloggning</a>
-                    {% if IS_DEMO %}
-                        <a class="nav-link" href="{{ MAIN_SITE_URL }}">Lämna demomiljö</a>
-                    {% endif %}
                 {% endif %}
 
             </div>
         </div>
     </nav>
-    {% if IS_DEMO %}
-        <div class="demo-banner" role="status">
-            <strong>Demomiljö:</strong> Denna sajt använder en tillfällig databas och är endast avsedd för visning.
-        </div>
-    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="toast-container" aria-live="polite" aria-atomic="true">
@@ -215,7 +207,6 @@
                         <ul>
                             <li><a href="/dashboard">Mina intyg</a></li>
                             <li><a href="/foretagskonto">Företagskonto</a></li>
-                            <li><a href="https://status.utbildningsintyg.se">Driftstatus</a></li>
                         </ul>
                     </div>
                     <div class="footer-links">

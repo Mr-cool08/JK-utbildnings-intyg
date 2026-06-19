@@ -94,7 +94,7 @@ def test_app_timezone_formatter_falls_back_to_stockholm_for_invalid_timezone(mon
 
 
 def test_configure_root_logging_uses_first_available_env_var(monkeypatch):
-    monkeypatch.setenv("STATUS_LOG_LEVEL", "warning")
+    monkeypatch.setenv("SERVICE_LOG_LEVEL", "warning")
     monkeypatch.delenv("LOG_LEVEL", raising=False)
 
     root_logger = logging.getLogger()
@@ -104,7 +104,7 @@ def test_configure_root_logging_uses_first_available_env_var(monkeypatch):
         root_logger.handlers = []
         root_logger.setLevel(logging.NOTSET)
 
-        logging_utils.configure_root_logging(level_env_vars=("STATUS_LOG_LEVEL", "LOG_LEVEL"))
+        logging_utils.configure_root_logging(level_env_vars=("SERVICE_LOG_LEVEL", "LOG_LEVEL"))
 
         assert root_logger.level == logging.WARNING
     finally:
@@ -201,7 +201,7 @@ def test_mask_sensitive_data_skips_overlong_email_candidates():
 
 
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
-    monkeypatch.setenv("STATUS_LOG_LEVEL", "error")
+    monkeypatch.setenv("SERVICE_LOG_LEVEL", "error")
 
     root_logger = logging.getLogger()
     original_handlers = list(root_logger.handlers)
@@ -224,7 +224,7 @@ def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
 
         logger = logging_utils.bootstrap_logging(
             "jk.bootstrap",
-            level_env_vars=("STATUS_LOG_LEVEL", "LOG_LEVEL"),
+            level_env_vars=("SERVICE_LOG_LEVEL", "LOG_LEVEL"),
         )
 
         assert logger is target_logger

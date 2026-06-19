@@ -1475,7 +1475,6 @@ def test_company_users_allows_same_email_for_different_roles(empty_db):
 def test_build_engine_requires_postgres_user_when_host_is_set(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("DEV_MODE", raising=False)
-    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
     monkeypatch.setenv("POSTGRES_HOST", "postgres")
     monkeypatch.delenv("POSTGRES_USER", raising=False)
     monkeypatch.setenv("POSTGRES_DB", "jk")
@@ -1487,7 +1486,6 @@ def test_build_engine_requires_postgres_user_when_host_is_set(monkeypatch):
 def test_build_engine_requires_postgres_db_when_host_is_set(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("DEV_MODE", raising=False)
-    monkeypatch.delenv("ENABLE_DEMO_MODE", raising=False)
     monkeypatch.setenv("POSTGRES_HOST", "postgres")
     monkeypatch.setenv("POSTGRES_USER", "jk")
     monkeypatch.delenv("POSTGRES_DB", raising=False)
