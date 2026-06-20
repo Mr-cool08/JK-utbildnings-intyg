@@ -28,9 +28,9 @@ services:
     networks:
       - public_net
     restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: "0.25"
+    mem_limit: 96m
+    memswap_limit: 96m
+    cpus: "0.15"
     pids_limit: 100
 
   fail2ban:
@@ -45,9 +45,9 @@ services:
       - traefik_logs:/var/log/traefik:ro
       - fail2ban_data:/data/db
     restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: "0.20"
+    mem_limit: 96m
+    memswap_limit: 96m
+    cpus: "0.10"
     pids_limit: 100
 
   server_monitor:
@@ -69,9 +69,9 @@ services:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    cpus: "0.30"
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.15"
     pids_limit: 120
     networks:
       - public_net
@@ -83,6 +83,8 @@ services:
     environment:
       LOG_DIR: /app/logs
       DATABASE_URL: postgresql://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      THREADS: ${THREADS:-4}
     expose:
       - "80"
     ports:
@@ -109,9 +111,9 @@ services:
       - traefik.http.routers.app-mta-sts.middlewares=security-headers@file
       - traefik.http.services.app.loadbalancer.server.port=80
     restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
-    cpus: "0.60"
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: "0.45"
     pids_limit: 200
 
   expiry_reminder:
@@ -132,9 +134,9 @@ services:
       - public_net
       - db_net
     restart: "no"
-    mem_limit: 256m
-    memswap_limit: 256m
-    cpus: "0.20"
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: "0.10"
     pids_limit: 120
 
   vscode:
@@ -172,15 +174,15 @@ services:
     command:
       - postgres
       - -c
-      - shared_buffers=256MB
+      - shared_buffers=128MB
       - -c
-      - work_mem=4MB
+      - work_mem=2MB
       - -c
-      - maintenance_work_mem=64MB
+      - maintenance_work_mem=32MB
       - -c
-      - effective_cache_size=512MB
+      - effective_cache_size=256MB
       - -c
-      - max_connections=50
+      - max_connections=30
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
@@ -201,9 +203,9 @@ services:
       - pg_pub_net
       - db_net
     restart: unless-stopped
-    mem_limit: 768m
-    memswap_limit: 768m
-    cpus: "0.90"
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: "0.60"
     pids_limit: 200
 
   postgres_backup:
@@ -226,9 +228,9 @@ services:
     networks:
       - db_net
     restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: "0.10"
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: "0.05"
     pids_limit: 50
 
 volumes:

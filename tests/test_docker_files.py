@@ -19,6 +19,15 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _extract_service_block(compose: str, service_name: str) -> str:
+    service_match = re.search(
+        rf"(?ms)^  {re.escape(service_name)}:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+        compose,
+    )
+    assert service_match, f"Expected {service_name} service in docker-compose.yml"
+    return service_match.group(1)
+
+
 def _require_working_docker() -> None:
     if shutil.which("docker") is None:
         pytest.skip("Docker CLI finns inte installerad i testmiljön.")
@@ -132,13 +141,7 @@ def test_compose_runs_postgres_backup_script_with_bash():
 
 def test_compose_has_expiry_reminder_service_that_only_runs_script():
     compose = _read(ROOT / "docker-compose.yml")
-    expiry_service_match = re.search(
-        r"(?ms)^  expiry_reminder:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
-        compose,
-    )
-
-    assert expiry_service_match, "Expected expiry_reminder service in docker-compose.yml"
-    expiry_service = expiry_service_match.group(1)
+    expiry_service = _extract_service_block(compose, "expiry_reminder")
     assert 'command: ["python", "-m", "scripts.send_expiry_reminders"]' in expiry_service
     assert "ports:" not in expiry_service
     assert "expose:" not in expiry_service
@@ -146,6 +149,61 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
     assert "entrypoint.sh" not in expiry_service
     assert "      - db_net" in expiry_service
     assert "      - public_net" in expiry_service
+
+
+def test_compose_default_resource_caps_fit_small_host_profile():
+    compose = _read(ROOT / "docker-compose.yml")
+    default_services = [
+        "traefik",
+        "fail2ban",
+        "server_monitor",
+        "app",
+        "expiry_reminder",
+        "postgres",
+        "postgres_backup",
+    ]
+
+    total_memory_mb = 0
+    total_cpus = 0.0
+
+    for service_name in default_services:
+        service_block = _extract_service_block(compose, service_name)
+        memory_match = re.search(
+            r"^\s+mem_limit: (\d+)([mg])$",
+            service_block,
+            re.MULTILINE,
+        )
+        cpu_match = re.search(r'^\s+cpus: "([0-9.]+)"$', service_block, re.MULTILINE)
+
+        assert memory_match, f"Expected mem_limit for {service_name}"
+        assert cpu_match, f"Expected cpus limit for {service_name}"
+
+        memory_value = int(memory_match.group(1))
+        memory_unit = memory_match.group(2)
+        if memory_unit == "g":
+            total_memory_mb += memory_value * 1024
+        else:
+            total_memory_mb += memory_value
+
+        total_cpus += float(cpu_match.group(1))
+
+    assert total_memory_mb <= 1536
+    assert total_cpus <= 1.70
+
+
+def test_compose_tunes_app_and_postgres_for_small_host_profile():
+    compose = _read(ROOT / "docker-compose.yml")
+    app_service = _extract_service_block(compose, "app")
+    postgres_service = _extract_service_block(compose, "postgres")
+
+    assert "WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}" in app_service
+    assert "THREADS: ${THREADS:-4}" in app_service
+
+    assert "- shared_buffers=128MB" in postgres_service
+    assert "- work_mem=2MB" in postgres_service
+    assert "- maintenance_work_mem=32MB" in postgres_service
+    assert "- effective_cache_size=256MB" in postgres_service
+    assert "- max_connections=30" in postgres_service
 
 
 def test_gitattributes_forces_lf_for_shell_scripts():
