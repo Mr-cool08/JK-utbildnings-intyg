@@ -31,7 +31,6 @@ docker compose -f docker-compose.yml up -d --build
 - `traefik` - TLS-terminering och domänrouting
 - `postgres` - databasen
 - `postgres_backup` - återkommande databasbackup
-- `server_monitor` - övervakning, smoke-tester och resurslarm
 - `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
 - `expiry_reminder` - schemalagt jobb för utgångspåminnelser
@@ -104,16 +103,12 @@ Lokal återkommande backup sköts av `postgres_backup`.
 Tidigare dokumentation för separat molnsynk är legacy och gäller inte längre för nuvarande `docker-compose.yml`.
 Om molnsynk behövs måste den sättas upp utanför den här Compose-konfigurationen.
 
-## Övervakning och aviseringar
+## Hälsokontroll och aviseringar
 
-`server_monitor` använder bland annat:
+Applikationen exponerar fortsatt `GET /health` för extern monitorering.
 
-- `CRITICAL_ALERTS_EMAIL`
-- `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TIMEOUT`
-- `MONITOR_CHECK_INTERVAL_SECONDS`
-- `MONITOR_SMOKE_TEST_TARGETS`
-
-Den kan skicka larm för disk, RAM, CPU, smoke-tester och veckorapporter.
+Inbyggd serverövervakning, interna smoke-tester och nattlig antivirusskanning ingår inte längre i Compose-stacken.
+Kritiska appnotifieringar använder `ADMIN_EMAIL` via applikationens ordinarie notifieringsflöde.
 
 ## Hjälpskript
 

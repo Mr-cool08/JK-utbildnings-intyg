@@ -156,7 +156,6 @@ def test_compose_default_resource_caps_fit_small_host_profile():
     default_services = [
         "traefik",
         "fail2ban",
-        "server_monitor",
         "app",
         "expiry_reminder",
         "postgres",
@@ -187,8 +186,8 @@ def test_compose_default_resource_caps_fit_small_host_profile():
 
         total_cpus += float(cpu_match.group(1))
 
-    assert total_memory_mb <= 1536
-    assert total_cpus <= 1.70
+    assert total_memory_mb <= 1408
+    assert total_cpus <= 1.55
 
 
 def test_compose_tunes_app_and_postgres_for_small_host_profile():

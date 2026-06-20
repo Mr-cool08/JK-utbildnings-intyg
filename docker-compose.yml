@@ -50,32 +50,6 @@ services:
     cpus: "0.10"
     pids_limit: 100
 
-  server_monitor:
-    build: ./services/server_monitor
-    env_file:
-      - .env
-    environment:
-      SMTP_SERVER: ${SMTP_SERVER:-${smtp_server:-}}
-      SMTP_PORT: ${SMTP_PORT:-${smtp_port:-587}}
-      SMTP_USER: ${SMTP_USER:-${smtp_user:-}}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-${smtp_password:-}}
-      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-${smtp_timeout:-30}}
-      CRITICAL_ALERTS_EMAIL: ${CRITICAL_ALERTS_EMAIL:-}
-      HOST_ROOT: /host
-      MONITOR_CHECK_INTERVAL_SECONDS: ${MONITOR_CHECK_INTERVAL_SECONDS:-60}
-      CLAMAV_SCAN_IMAGE: ${CLAMAV_SCAN_IMAGE:-clamav/clamav:stable}
-      CLAMAV_SCAN_TIMEOUT_SECONDS: ${CLAMAV_SCAN_TIMEOUT_SECONDS:-21600}
-    volumes:
-      - /:/host:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: unless-stopped
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: "0.15"
-    pids_limit: 120
-    networks:
-      - public_net
-
   app:
     build: .
     env_file:

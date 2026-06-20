@@ -641,7 +641,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-notify",
         action="store_true",
-        help="Skicka inte e-postaviseringar (kräver CRITICAL_ALERTS_EMAIL att vara konfigurerad).",
+        help="Skicka inte e-postaviseringar via appens ordinarie notifieringsflöde.",
     )
     return parser.parse_args()
 

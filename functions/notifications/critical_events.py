@@ -380,8 +380,8 @@ def send_critical_alert(event_type: str, details: str = "") -> None:
     """
     Send a critical alert email notification.
 
-    This unified function replaces separate CRITICAL_ALERTS_EMAIL, ERROR_ALERTS_EMAIL,
-    and other email configurations. Uses ADMIN_EMAIL for all notifications.
+    This unified function replaces legacy separate email configurations.
+    Uses ADMIN_EMAIL for all notifications.
 
     Args:
         event_type: Type of critical event (startup, shutdown, crash, error, etc.)

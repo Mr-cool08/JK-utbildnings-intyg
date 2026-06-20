@@ -16,7 +16,7 @@ JK Utbildningsintyg är en Flask-baserad tjänst för att hantera utbildningsint
 - Adminpanel för ansökningar, konton, intyg, företagskopplingar, fakturering och avancerad tabelladministration.
 - Användardashboard där användare kan se, dela och ladda upp intyg samt hantera kopplingar till företagskonton.
 - Företagskonton med egen inloggning, kopplingsförfrågningar och delning av användares PDF:er.
-- Serverövervakning, säkerhetsloggning och Docker-baserad drift.
+- PDF-uppladdningsskanning med Quicksand, säkerhetsloggning och Docker-baserad drift.
 
 ## Snabbstart lokalt
 

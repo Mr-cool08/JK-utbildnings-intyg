@@ -18,7 +18,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 ## Applikationskod
 
 - `functions/` - affärslogik för användare, admin, organisationer, databas, säkerhet, loggning, e-post och PDF-lagring.
-- `services/` - stödtjänster som serverövervakning, antivirusskript och hjälptjänster kring drift.
+- `services/` - stödtjänster som PDF-skanning och hjälptjänster kring drift.
 
 ## Webbgränssnitt
 
