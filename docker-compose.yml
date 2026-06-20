@@ -164,10 +164,6 @@ services:
     networks:
       - public_net
     restart: "no"
-    mem_limit: 1g
-    memswap_limit: 1g
-    cpus: "0.75"
-    pids_limit: 300
 
   postgres:
     image: postgres:16
