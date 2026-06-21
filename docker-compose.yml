@@ -42,7 +42,7 @@ services:
     volumes:
       - ./deploy/fail2ban/jail.local:/data/jail.local:ro
       - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
-      - traefik_logs:/var/log/traefik:ro
+      - /var/log:/var/log/host:ro
       - fail2ban_data:/data/db
     restart: unless-stopped
     mem_limit: 96m

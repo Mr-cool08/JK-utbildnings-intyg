@@ -31,7 +31,7 @@ docker compose -f docker-compose.yml up -d --build
 - `traefik` - TLS-terminering och domänrouting
 - `postgres` - databasen
 - `postgres_backup` - återkommande databasbackup
-- `fail2ban` - skydd för inkommande trafik mot loggbaserade attacker
+- `fail2ban` - skyddar i första hand SSH på origin-servern
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
 - `expiry_reminder` - schemalagt jobb för utgångspåminnelser
 
@@ -70,6 +70,12 @@ Direkta host-portar i Compose:
 - `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
 
 För publik drift bör direktåtkomst till origin begränsas med brandvägg, särskilt om Cloudflare används framför servern.
+
+## Fail2ban
+
+`fail2ban` är konfigurerad för att läsa hostens SSH-loggar från `/var/log/auth.log` eller `/var/log/secure` och bannlysa upprepade inloggningsförsök mot SSH.
+
+Publik webbtrafik bör i stället filtreras av Cloudflare och serverns brandvägg, så att fail2ban inte behöver vara primärt webbskydd för HTTP/HTTPS.
 
 ## Traefik och domäner
 

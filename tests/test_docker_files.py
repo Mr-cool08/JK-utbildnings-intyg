@@ -301,6 +301,27 @@ def test_compose_assigns_explicit_traefik_logs_volume_name():
     )
 
 
+def test_fail2ban_service_reads_host_ssh_logs_instead_of_traefik_logs():
+    compose = _read(ROOT / "docker-compose.yml")
+    fail2ban_service = _extract_service_block(compose, "fail2ban")
+
+    assert "      - /var/log:/var/log/host:ro" in fail2ban_service
+    assert "      - traefik_logs:/var/log/traefik:ro" not in fail2ban_service
+
+
+def test_fail2ban_jail_prioritizes_sshd_protection():
+    jail = _read(ROOT / "deploy/fail2ban/jail.local")
+
+    assert "[sshd]" in jail
+    assert "enabled = true" in jail
+    assert "port = ssh" in jail
+    assert "mode = aggressive" in jail
+    assert "logpath = /var/log/host/auth.log" in jail
+    assert "/var/log/host/secure" in jail
+    assert "[traefik-http-auth]" not in jail
+    assert "[traefik-badbots]" not in jail
+
+
 def test_dockerfile_installs_openssl():
     dockerfile = _read(ROOT / "Dockerfile")
     # Någon apk-add rad måste innehålla tini och curl

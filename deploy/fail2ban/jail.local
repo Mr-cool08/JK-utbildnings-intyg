@@ -1,20 +1,15 @@
-# Fail2ban-jails för att skydda Traefik
+# Fail2ban-jails för att i första hand skydda SSH på origin-servern
 [DEFAULT]
 bantime = 1h
 findtime = 10m
 maxretry = 5
 backend = auto
 
-[traefik-http-auth]
-enabled = false
-# Aktivera först när ett Traefik-anpassat filter finns på plats.
-port = http,https
-logpath = /var/log/traefik/traefik.log
-
-[traefik-badbots]
-enabled = false
-# Aktivera först när ett Traefik-anpassat filter finns på plats.
-port = http,https
-logpath = /var/log/traefik/access.log
+[sshd]
+enabled = true
+port = ssh
+mode = aggressive
+logpath = /var/log/host/auth.log
+          /var/log/host/secure
 
 # Copyright (c) Liam Suorsa and Mika Suorsa
