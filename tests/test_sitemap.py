@@ -1,6 +1,7 @@
 """Tests for the public sitemap endpoint."""
 
 import unittest
+from pathlib import Path
 
 import pytest
 
@@ -41,6 +42,14 @@ class TestSitemapXml(unittest.TestCase):
         body = response.data.decode("utf-8")
         self.assertIn("version: STSv1", body)
         self.assertIn("mode: testing", body)
+
+    def test_bimi_logo_static_alias_is_public(self):
+        with _client() as client:
+            response = client.get("/static/pictures/bimi-logo.svg")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "image/svg+xml")
+        self.assertEqual(response.data, Path("static/pictures/bimi-logo.svg").read_bytes())
 
 
 # Copyright (c) Liam Suorsa and Mika Suorsa
