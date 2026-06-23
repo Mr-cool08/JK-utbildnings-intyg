@@ -109,6 +109,12 @@ Säkerhetsskanning:
 bandit -r . -f json -o bandit.json --exit-zero
 ```
 
+## Struktur efter städningen
+
+- `app.py` ska vara tunn och främst montera ihop appen.
+- `web/` är platsen för Flask-specifik struktur som routes, bootstrap och felhantering.
+- När du städar vidare: flytta hellre kod mellan `web/`-moduler än att bygga upp en ny monolit i `app.py`.
+
 ## Driftstöd i repo
 
 Interaktiv eller styrd Compose-hantering:

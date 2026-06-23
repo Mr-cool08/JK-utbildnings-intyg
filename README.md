@@ -133,6 +133,12 @@ Säkerhetsskanning:
 bandit -r . -f json -o bandit.json --exit-zero
 ```
 
+## Kodstruktur i korthet
+
+- `app.py` är nu ett tunt kompositionslager som behåller de publika importytorna `app`, `create_app` och `save_pdf_for_user`.
+- `web/` innehåller Flask-webblagret uppdelat i `bootstrap`, `helpers`, `errors` och separata route-moduler för publik, användare, företagskonto och admin.
+- `functions/` och `services/` fortsätter bära affärslogik, databasåtkomst, e-post och PDF-hantering.
+
 ## Drift och underhåll
 
 Lokal appstart:
@@ -150,6 +156,7 @@ python scripts/manage_compose.py --action <stop|pull|up|cycle|git-pull|pytest|pr
 ## Viktiga dokument
 
 - Dokumentationsindex: [docs/INDEX.md](docs/INDEX.md)
+- Kompatibilitetsmatris: [docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md)
 - Utveckling: [docs/UTVECKLING.md](docs/UTVECKLING.md)
 - Drift: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - Cloudflare: [docs/PUBLIC_DEPLOYMENT_CLOUDFLARE.md](docs/PUBLIC_DEPLOYMENT_CLOUDFLARE.md)

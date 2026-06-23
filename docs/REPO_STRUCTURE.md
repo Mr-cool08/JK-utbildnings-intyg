@@ -5,7 +5,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 ## Roten
 
-- `app.py` - huvudapplikationen med routes, felhantering och appkonfiguration.
+- `app.py` - tunt kompositionslager som skapar Flask-appen och behåller de publika importytorna.
 - `wsgi.py` - WSGI-entrypoint för serverkörning.
 - `config_loader.py` - inläsning av miljövariabler och konfigurationsfiler.
 - `course_categories.py` - kategorier och etiketter för intyg.
@@ -17,6 +17,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 ## Applikationskod
 
+- `web/` - webblagret för Flask med bootstrap, hjälpfunktioner, felhantering och route-moduler per domän.
 - `functions/` - affärslogik för användare, admin, organisationer, databas, säkerhet, loggning, e-post och PDF-lagring.
 - `services/` - stödtjänster som PDF-skanning och hjälptjänster kring drift.
 
@@ -46,5 +47,6 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 - `admin.md` används inte bara som dokumentation i repot utan renderas också inne i adminpanelen via `/admin/guide`.
 - Projektet har i dagsläget ingen separat `docker-compose.prod.yml` i roten. Driftdokumentationen ska därför peka på `docker-compose.yml`.
+- `docs/COMPATIBILITY_MATRIX.md` beskriver vilka publika importytor och startvägar som ska hållas stabila även när intern struktur rensas.
 
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->

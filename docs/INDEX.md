@@ -8,6 +8,7 @@ Här hittar du rätt dokument utifrån vad du arbetar med.
 - [README](../README.md)
 - [Utveckling](UTVECKLING.md)
 - [Repo-struktur](REPO_STRUCTURE.md)
+- [Kompatibilitetsmatris](COMPATIBILITY_MATRIX.md)
 
 ## Admin
 

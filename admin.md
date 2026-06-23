@@ -85,4 +85,5 @@ Använd den här delen försiktigt. Om du är osäker ska du hellre pausa och be
 - Fakturering: <https://utbildningsintyg.se/admin/fakturering>
 - Support: <mailto:support@utbildningsintyg.se>
 
+
 <!-- Copyright (c) Liam Suorsa and Mika Suorsa -->
