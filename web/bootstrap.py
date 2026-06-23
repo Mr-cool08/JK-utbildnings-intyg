@@ -20,7 +20,6 @@ from functions.logging import (
     configure_module_logger,
     configure_root_logging,
     mask_headers,
-    mask_hash,
     mask_sensitive_data,
 )
 from functions.notifications import critical_events
@@ -68,13 +67,10 @@ def apply_proxy_fix(app: Flask, hops: int) -> None:
             x_host=hops,
             x_port=hops,
         )
-        logger.info("Aktiverar ProxyFix med %s betrodda proxyhopp", mask_hash(str(hops)))
+        logger.info("ProxyFix är aktiverad med betrodda proxyhopp.")
         return
 
-    logger.info(
-        "ProxyFix är inaktiverad (TRUSTED_PROXY_COUNT=%s)",
-        os.getenv("TRUSTED_PROXY_COUNT", "0"),
-    )
+    logger.info("ProxyFix är inaktiverad.")
 
 
 def configure_timezone() -> str:
