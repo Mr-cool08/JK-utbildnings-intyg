@@ -341,7 +341,18 @@ def user_update_pdf_route(pdf_id: int):
         )
     except ValueError as exc:
         logger.info("PDF metadata update validation failed: %s", exc)
-        return jsonify({"fel": str(exc)}), 400
+        return (
+            jsonify(
+                {
+                    "fel": _safe_user_error(
+                        str(exc),
+                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
+                        "Ogiltig begäran.",
+                    )
+                }
+            ),
+            400,
+        )
 
     try:
         updated = functions.update_user_pdf_metadata(
