@@ -118,6 +118,7 @@ Thumbs.db
 ehthumbs.db
 Icon?
 desktop.ini
+Desktop.ini
 $RECYCLE.BIN/
 
 # ----------------------------------------
@@ -150,3 +151,5 @@ environment.toml
 /.devcontainer/*
 /.codex/*
 lägg till epost till konton.txt
+palette-preview-*.png
+Todo.txt

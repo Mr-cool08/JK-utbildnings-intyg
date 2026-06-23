@@ -22,6 +22,7 @@ Inventeringen nedan bygger på `python -m pytest --collect-only -q tests` den **
 - `pytest.ini` placerar temporära pytest-filer under `.pytest_tmp/run`.
 - Vissa Docker-relaterade tester hoppar över automatiskt om Docker inte finns tillgängligt i miljön.
 - Flera tester är stora regressionspaket för admin- och dashboardflöden. Räkna med att hela sviten kan ta tid att köra.
+- `app.py` är fortsatt den publika importytan för testsviten, även om själva route-registreringen nu ligger i `web/`.
 
 ## Testfiler och antal tester
 
