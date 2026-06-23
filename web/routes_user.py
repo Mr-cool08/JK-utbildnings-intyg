@@ -314,11 +314,7 @@ def user_update_pdf_route(pdf_id: int):
         return (
             jsonify(
                 {
-                    "fel": _safe_user_error(
-                        str(exc),
-                        ALLOWED_PDF_METADATA_UPDATE_ERRORS,
-                        "Ogiltig begäran.",
-                    )
+                    "fel": "Ogiltig begäran.",
                 }
             ),
             400,
