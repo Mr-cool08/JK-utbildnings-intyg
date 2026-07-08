@@ -265,6 +265,7 @@ def test_build_expiry_reminder_cron_line_uses_env_schedule(monkeypatch):
 
 def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
     installed_crontabs = []
+    project_root = Path("/srv/jk utbildningsintyg")
 
     def fake_run(cmd, check=False, **kwargs):
         if list(cmd) == ["crontab", "-l"]:
@@ -278,7 +279,7 @@ def test_ensure_expiry_reminder_cron_adds_entry_when_missing(monkeypatch):
     monkeypatch.setattr(ua, "_command_exists", lambda command: command == "crontab")
     monkeypatch.setattr(ua.subprocess, "run", fake_run)
 
-    ua._ensure_expiry_reminder_cron(Path("/srv/jk utbildningsintyg"))
+    ua._ensure_expiry_reminder_cron(project_root)
 
     assert len(installed_crontabs) == 1
     assert (
@@ -318,9 +319,8 @@ def test_ensure_expiry_reminder_cron_reads_schedule_from_project_env(
 
 
 def test_ensure_expiry_reminder_cron_does_not_add_duplicate_entry(monkeypatch):
-    existing_cron = (
-        ua._build_expiry_reminder_cron_line(Path("/srv/jk-utbildnings-intyg")) + "\n"
-    )
+    project_root = Path("/srv/jk-utbildnings-intyg")
+    existing_cron = ua._build_expiry_reminder_cron_line(project_root) + "\n"
 
     def fake_run(cmd, check=False, **kwargs):
         if list(cmd) == ["crontab", "-l"]:
@@ -333,7 +333,7 @@ def test_ensure_expiry_reminder_cron_does_not_add_duplicate_entry(monkeypatch):
     monkeypatch.setattr(ua, "_command_exists", lambda command: command == "crontab")
     monkeypatch.setattr(ua.subprocess, "run", fake_run)
 
-    ua._ensure_expiry_reminder_cron(Path("/srv/jk-utbildnings-intyg"))
+    ua._ensure_expiry_reminder_cron(project_root)
 
 
 def test_main_ensures_expiry_reminder_cron_after_compose_up(monkeypatch):
