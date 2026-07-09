@@ -16,7 +16,7 @@ import secrets
 import sys
 from pathlib import Path
 import time
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, NoReturn, Sequence
 import json
 
 from flask import (
@@ -603,7 +603,7 @@ def _resolve_admin_credentials(flask_app: Flask) -> tuple[str, str]:
     _raise_missing_admin_credentials(error_msg)
 
 
-def _raise_missing_admin_credentials(error_msg: str) -> None:
+def _raise_missing_admin_credentials(error_msg: str) -> NoReturn:
     logger.critical(error_msg)
     critical_events.send_critical_error_notification(
         error_message=error_msg,
