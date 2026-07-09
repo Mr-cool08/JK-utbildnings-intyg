@@ -51,6 +51,7 @@ def test_configure_proxy_fix_disabled_when_zero(monkeypatch):
 
 
 def test_resolve_secret_key_generates_in_pytest(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
     monkeypatch.delenv("secret_key", raising=False)
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "true")
     monkeypatch.setenv("DEV_MODE", "true")
