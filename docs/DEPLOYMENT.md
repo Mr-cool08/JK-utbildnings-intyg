@@ -35,6 +35,57 @@ docker compose -f docker-compose.yml up -d --build
 - `vscode` - valfri utvecklartjänst när `DEV_MODE=true`
 - `expiry_reminder` - schemalagt jobb för utgångspåminnelser
 
+## Separat utvecklingsmiljö på dev.utbildningsintyg.se
+
+Den publika devmiljön körs separat med `docker-compose.dev.yml` och ska aldrig dela prodhemligheter, prodvolymer eller proddata.
+
+1. Kopiera `deploy/dev/dev.env.example` till `deploy/dev/dev.env`.
+2. Fyll i unika devvärden för `SECRET_KEY`, `HASH_SALT`, `DEV_ADMIN_*`, `DEV_PRIVATE_USER_*` och `DEV_COMPANY_*`.
+3. Lämna SMTP-hemligheter tomma. `DISABLE_EMAILS=true` är obligatoriskt i dev.
+4. Kontrollera att `PUBLIC_NETWORK_NAME` matchar det befintliga publika Traefik-nätverket på servern.
+
+Devstacken använder som standard en separat SQLite-fil i den egna volymen `dev_db` via `DATABASE_URL=sqlite:////app/dev-data/dev.sqlite`.
+Vid containerstart valideras miljön och syntetiska testkonton seedas automatiskt.
+Om en framtida blockerande Postgres-specifik inkompatibilitet skulle återstå efter riktade dialektfixar är enda tillåtna fallback en separat `postgres_dev`, aldrig huvudstackens `postgres`.
+
+Starta eller uppdatera devstacken:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev up -d --build
+```
+
+Stoppa devstacken:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev stop
+```
+
+Bygg om devstacken efter `git pull`:
+
+```bash
+git pull
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev up -d --build
+```
+
+Återskapa devstacken från tomt läge:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev down -v --remove-orphans
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev up -d --build
+```
+
+Ta bort devstacken helt:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file deploy/dev/dev.env --project-name jk-utbildnings-intyg-dev down -v --remove-orphans
+```
+
+Full borttagning av den publika devmiljön innebär också att:
+
+- radera `deploy/dev/dev.env` från servern
+- radera DNS-posten för `dev.utbildningsintyg.se`
+- låta `down -v` rensa SQLite-filen via devvolymen
+
 ## Utgångspåminnelser
 
 Tjänsten `expiry_reminder` kör bara `python -m scripts.send_expiry_reminders` och avslutas direkt när jobbet är klart.

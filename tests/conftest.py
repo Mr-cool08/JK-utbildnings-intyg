@@ -14,8 +14,12 @@ def _force_test_environment() -> None:
     # Force a hermetic pytest configuration even when the caller has already
     # loaded a .env file into the process environment.
     os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+    os.environ["APP_ENV"] = "production"
     os.environ["admin_username"] = "test_admin"
     os.environ["admin_password"] = "test_password_123"
+    os.environ["DEV_ADMIN_USERNAME"] = "test_dev_admin"
+    os.environ["DEV_ADMIN_PASSWORD"] = "test_dev_password_123"
+    os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["secret_key"] = "test-secret-key"
     os.environ["DEV_MODE"] = "true"
     os.environ["DISABLE_EMAILS"] = "true"
@@ -64,8 +68,12 @@ def pytest_configure(config: pytest.Config) -> None:
 def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
     monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("admin_username", "test_admin")
     monkeypatch.setenv("admin_password", "test_password_123")
+    monkeypatch.setenv("DEV_ADMIN_USERNAME", "test_dev_admin")
+    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "test_dev_password_123")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
     functions.reset_engine()
     functions.create_database()
     app.app.secret_key = "test-secret"

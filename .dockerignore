@@ -33,6 +33,13 @@ node_modules/
 # App local data
 uploads/
 
+# Runtime environment files should never be baked into the image.
+.env
+server.env
+stack.env
+dev_server.env
+deploy/dev/dev.env
+
 artifacts/pytesttmp/
 artifacts/pytesttmp/**
 **/pytesttmp/

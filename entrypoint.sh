@@ -18,19 +18,33 @@ shutdown() {
 
 trap 'shutdown' INT TERM EXIT
 
-# Standardportar i containern (mappa utanför)
+# Standardportar i containern (mappa utanfÃ¶r)
 HTTP_PORT="${HTTP_PORT:-80}"
 APP_PORT="${APP_PORT:-${HTTP_PORT}}"
 LOG_DIR="${LOG_DIR:-/app/logs}"
+APP_ENV="${APP_ENV:-production}"
+normalized_app_env="$(printf '%s' "${APP_ENV}" | tr '[:upper:]' '[:lower:]')"
+DEV_DATA_DIR="${DEV_DATA_DIR:-/app/dev-data}"
 
-# Se till att loggkatalogen finns och kan skrivas av app-användaren
+# Se till att loggkatalogen finns och kan skrivas av app-anvÃ¤ndaren
 mkdir -p "${LOG_DIR}"
+mkdir -p "${DEV_DATA_DIR}"
 chown -R app:app "${LOG_DIR}"
+chown -R app:app "${DEV_DATA_DIR}"
+
+if [ "${normalized_app_env}" = "development" ]; then
+  echo "Validerar separat utvecklingsmiljÃ¶ innan appstart"
+  python -m scripts.validate_dev_environment
+  echo "Seedar syntetiska utvecklingskonton"
+  python -m scripts.seed_dev_environment
+fi
 
 # Validate external PostgreSQL configuration or enable local SQLite fallback.
 if [ -z "${DATABASE_URL:-}" ]; then
   enable_local_db="${DEV_MODE:-false}"
   enable_local_db="$(printf '%s' "${enable_local_db}" | tr '[:upper:]' '[:lower:]')"
+  enable_demo_mode="${ENABLE_DEMO_MODE:-false}"
+  enable_demo_mode="$(printf '%s' "${enable_demo_mode}" | tr '[:upper:]' '[:lower:]')"
 
   case "${enable_local_db}:${enable_demo_mode}" in
     true:*|*:1|*:true|*:on|*:yes|*:ja|*:sant)
@@ -49,7 +63,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
       ;;
     *)
       if [ -z "${POSTGRES_HOST:-}" ]; then
-        echo "Sätt DATABASE_URL, aktivera DEV_MODE eller konfigurera POSTGRES_HOST med uppgifter" >&2
+        echo "SÃ¤tt DATABASE_URL, aktivera DEV_MODE eller konfigurera POSTGRES_HOST med uppgifter" >&2
         exit 1
       fi
 
@@ -87,12 +101,12 @@ if [ -z "${DATABASE_URL:-}" ]; then
   esac
 fi
 
-# Starta Gunicorn (kör som app:app)
+# Starta Gunicorn (kÃ¶r som app:app)
 # Justera workers/threads efter CPU
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-2}"
 THREADS="${THREADS:-8}"
 
-# Kontrollera att wsgi:app finns (ändra modul om din heter något annat)
+# Kontrollera att wsgi:app finns (Ã¤ndra modul om din heter nÃ¥got annat)
 GUNICORN_CMD="gunicorn --bind 0.0.0.0:${APP_PORT} \
     --workers ${WEB_CONCURRENCY} --threads ${THREADS} \
     --access-logfile ${LOG_DIR}/gunicorn-access.log \

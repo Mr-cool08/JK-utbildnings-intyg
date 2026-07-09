@@ -101,6 +101,7 @@ def _mask_sensitive_data(values: dict[str, str | None]) -> dict[str, str | None]
         "DATABASE_URL",
         "POSTGRES_PASSWORD",
         "SECRET_KEY",
+        "secret_key",
         "SMTP_PASSWORD",
     }
     masked: dict[str, str | None] = {}
@@ -115,6 +116,7 @@ def _mask_sensitive_data(values: dict[str, str | None]) -> dict[str, str | None]
 def _log_loaded_configuration() -> None:
     # Logga konfigurationsvärden som är säkra att visa i loggar.
     keys = [
+        "APP_ENV",
         "DEV_MODE",
         "TRUSTED_PROXY_COUNT",
         "DATABASE_URL",

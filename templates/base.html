@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
+    {% if not config.get('DISABLE_ANALYTICS') %}
     <script
         type="text/javascript"
         data-cmp-ab="1"
@@ -44,11 +45,15 @@
     gtag('js', new Date());
     gtag('config', 'G-EHG218KKPZ');
     </script>
+    {% endif %}
     
     <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='pictures/favicon_smaller.png') }}">
     <meta charset="UTF-8">
-    <title>{% block title %}Utbildningsintyg{% endblock %}</title>
+    <title>{% block title %}Utbildningsintyg{% endblock %}{% if config.get('IS_DEV_ENVIRONMENT') %} | {{ config.get('APP_DISPLAY_NAME', 'Utbildningsintyg DEV') }}{% endif %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if config.get('NOINDEX') %}
+    <meta name="robots" content="noindex, nofollow">
+    {% endif %}
     <meta name="theme-color" content="#E93B56">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
@@ -96,6 +101,19 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
     }
+    .environment-banner {
+        background: #FFF2B8;
+        border-bottom: 1px solid rgba(156, 30, 10, 0.18);
+        color: #6E1A00;
+        font-size: 0.95rem;
+    }
+    .environment-banner-inner {
+        width: min(100%, 1100px);
+        margin: 0 auto;
+        padding: 0.8rem clamp(1.25rem, 4vw, 2.5rem);
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
     .brand-logo {
         width: 2.5rem;
         height: 2.5rem;
@@ -125,7 +143,7 @@
                     height="40"
                     decoding="async"
                 >
-                <span class="brand-name">Utbildningsintyg</span>
+                <span class="brand-name">{{ config.get('APP_DISPLAY_NAME', 'Utbildningsintyg') }}</span>
             </a>
             <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Växla navigering">
                 <span class="nav-toggle-bar"></span>
@@ -156,6 +174,13 @@
             </div>
         </div>
     </nav>
+    {% if config.get('IS_DEV_ENVIRONMENT') %}
+        <div class="environment-banner" role="status" aria-live="polite">
+            <div class="environment-banner-inner">
+                {{ config.get('DEV_UI_LABEL', 'Utvecklingsmiljö') }} - separat testmiljö med syntetisk data.
+            </div>
+        </div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="toast-container" aria-live="polite" aria-atomic="true">
@@ -184,7 +209,7 @@
                             height="30"
                             decoding="async"
                         >
-                        <span>Utbildningsintyg</span>
+                        <span>{{ config.get('APP_DISPLAY_NAME', 'Utbildningsintyg') }}</span>
                     </div>
                     <p class="footer-description">
                         Samla, dela och hantera utbildningsintyg på ett tryggt sätt för både företag och privatpersoner.
@@ -222,7 +247,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>© 2026 Utbildningsintyg</span>
+                <span>© 2026 {{ config.get('APP_DISPLAY_NAME', 'Utbildningsintyg') }}</span>
                 <span>Trygg hantering av intyg enligt GDPR.</span>
             </div>
             {% endblock %}

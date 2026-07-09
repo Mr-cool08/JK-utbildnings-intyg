@@ -523,7 +523,102 @@ def _is_pytest_running() -> bool:
     return "PYTEST_CURRENT_TEST" in os.environ or any("pytest" in arg for arg in sys.argv)
 
 
+def _resolve_app_environment() -> str:
+    raw_environment = (os.getenv("APP_ENV") or "").strip().lower()
+    if raw_environment:
+        return raw_environment
+    return "production"
+
+
+def _resolve_app_display_name(is_dev_environment: bool) -> str:
+    configured_name = (os.getenv("APP_DISPLAY_NAME") or "").strip()
+    if configured_name:
+        return configured_name
+    if is_dev_environment:
+        return "Utbildningsintyg DEV"
+    return "Utbildningsintyg"
+
+
+def _apply_session_cookie_config(app: Flask) -> None:
+    is_dev_environment = bool(app.config.get("IS_DEV_ENVIRONMENT"))
+    session_cookie_name = (os.getenv("SESSION_COOKIE_NAME") or "").strip()
+    if not session_cookie_name and is_dev_environment:
+        session_cookie_name = "jk_dev_session"
+    if session_cookie_name:
+        app.config["SESSION_COOKIE_NAME"] = session_cookie_name
+
+    boolean_cookie_settings = (
+        ("SESSION_COOKIE_SECURE", True if is_dev_environment else None),
+        ("SESSION_COOKIE_HTTPONLY", True if is_dev_environment else None),
+    )
+    for env_name, dev_default in boolean_cookie_settings:
+        raw_value = os.getenv(env_name)
+        if raw_value is None or raw_value.strip() == "":
+            if dev_default is not None:
+                app.config[env_name] = dev_default
+            continue
+        app.config[env_name] = as_bool(raw_value)
+
+    same_site = (os.getenv("SESSION_COOKIE_SAMESITE") or "").strip()
+    if not same_site and is_dev_environment:
+        same_site = "Lax"
+    if same_site:
+        app.config["SESSION_COOKIE_SAMESITE"] = same_site
+
+    domain_raw = os.getenv("SESSION_COOKIE_DOMAIN")
+    if domain_raw is not None:
+        session_cookie_domain = domain_raw.strip()
+        if session_cookie_domain:
+            app.config["SESSION_COOKIE_DOMAIN"] = session_cookie_domain
+        else:
+            app.config.pop("SESSION_COOKIE_DOMAIN", None)
+
+    preferred_url_scheme = (os.getenv("PREFERRED_URL_SCHEME") or "").strip()
+    if not preferred_url_scheme and is_dev_environment:
+        preferred_url_scheme = "https"
+    if preferred_url_scheme:
+        app.config["PREFERRED_URL_SCHEME"] = preferred_url_scheme
+
+
+def _resolve_admin_credentials(flask_app: Flask) -> tuple[str, str]:
+    if flask_app.config.get("IS_DEV_ENVIRONMENT"):
+        admin_username = os.getenv("DEV_ADMIN_USERNAME")
+        admin_password = os.getenv("DEV_ADMIN_PASSWORD")
+        if admin_username and admin_password:
+            return admin_username, admin_password
+        error_msg = (
+            "KRITISKT: miljovariablerna DEV_ADMIN_USERNAME och DEV_ADMIN_PASSWORD "
+            "maste vara satta och inte tomma i utvecklingsmiljon"
+        )
+        logger.critical(error_msg)
+        critical_events.send_critical_error_notification(
+            error_message=error_msg,
+            endpoint="/login_admin",
+            user_ip=get_request_ip(),
+        )
+        raise RuntimeError(error_msg)
+
+    admin_password = os.getenv("admin_password")
+    admin_username = os.getenv("admin_username")
+    if admin_password and admin_username:
+        return admin_username, admin_password
+    error_msg = (
+        "KRITISKT: miljovariablerna admin_username och admin_password "
+        "maste vara satta och inte tomma"
+    )
+    logger.critical(error_msg)
+    critical_events.send_critical_error_notification(
+        error_message=error_msg,
+        endpoint="/login_admin",
+        user_ip=get_request_ip(),
+    )
+    raise RuntimeError(error_msg)
+
+
 def _resolve_secret_key() -> str:
+    secret_key = os.getenv("SECRET_KEY")
+    if secret_key:
+        return secret_key
     secret_key = os.getenv("secret_key")
     if secret_key:
         return secret_key
@@ -550,10 +645,19 @@ def create_app() -> Flask:
     app.secret_key = _resolve_secret_key()
 
     app.config["MAX_CONTENT_LENGTH"] = UPLOAD_MAX_BYTES
+    app_environment = _resolve_app_environment()
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
+    is_dev_environment = app_environment == "development"
+    app.config["APP_ENV"] = app_environment
     app.config["DEV_MODE"] = dev_mode
     app.config["DEBUG"] = debug_mode
+    app.config["IS_DEV_ENVIRONMENT"] = is_dev_environment
+    app.config["DEV_UI_LABEL"] = (os.getenv("DEV_UI_LABEL") or "").strip() or "Utvecklingsmiljö"
+    app.config["APP_DISPLAY_NAME"] = _resolve_app_display_name(is_dev_environment)
+    app.config["DISABLE_ANALYTICS"] = is_dev_environment
+    app.config["NOINDEX"] = is_dev_environment
+    _apply_session_cookie_config(app)
     if not dev_mode:
         root_logger = logging.getLogger()
         if root_logger.getEffectiveLevel() < logging.INFO:
@@ -729,13 +833,15 @@ def _require_supervisor() -> tuple[str, str]:
 def inject_flags():
     # Expose flags indicating debug-läge to Jinja templates.
     return {
-        "IS_DEV": current_app.debug,
+        "IS_DEV": bool(current_app.config.get("IS_DEV_ENVIRONMENT")),
     }
 
 
 @app.route("/robots.txt")
 def robots_txt():
     # Serve robots.txt to disallow all crawlers.
+    if current_app.config.get("IS_DEV_ENVIRONMENT"):
+        return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
     if app.static_folder is None:
         abort(404)
     return send_from_directory(app.static_folder, "robots.txt", mimetype="text/plain")
@@ -744,6 +850,8 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     # Serve sitemap.xml with public URLs only.
+    if current_app.config.get("IS_DEV_ENVIRONMENT"):
+        abort(404)
     if app.static_folder is None:
         abort(404)
     return send_from_directory(app.static_folder, "sitemap.xml", mimetype="application/xml")
@@ -4090,8 +4198,7 @@ def verify_certificate_route(personnummer):  # pragma: no cover
 def login_admin():  # pragma: no cover
     # Authenticate an administrator for access to the admin panel.
     if request.method == "POST":
-        admin_password = os.getenv("admin_password")
-        admin_username = os.getenv("admin_username")
+        admin_username, admin_password = _resolve_admin_credentials(current_app)
 
         # Require admin credentials to be explicitly set (no insecure defaults)
         if not admin_password or not admin_username:

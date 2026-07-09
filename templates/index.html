@@ -4,7 +4,9 @@
 {% block head %}
     <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Kom åt dina intyg när du behöver dem.">
     <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering">
+    {% if not config.get('NOINDEX') %}
     <meta name="robots" content="index, follow">
+    {% endif %}
     <meta property="og:title" content="Utbildningsintyg – Samla, spara och dela intyg enkelt">
     <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
     <meta property="og:type" content="website">

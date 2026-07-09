@@ -4,7 +4,9 @@
 {% block head %}
     <meta name="description" content="Hur Utbildningsintyg behandlar personuppgifter i portalen och vilka rättigheter du har enligt GDPR.">
     <meta name="keywords" content="GDPR, personuppgifter, dataskydd, integritet, Utbildningsintyg">
+    {% if not config.get('NOINDEX') %}
     <meta name="robots" content="index, follow">
+    {% endif %}
     <meta property="og:title" content="GDPR - Utbildningsintyg">
     <meta property="og:description" content="Läs hur Utbildningsintyg hanterar ansökningar, inloggning och kursintyg enligt GDPR.">
     <meta property="og:type" content="website">

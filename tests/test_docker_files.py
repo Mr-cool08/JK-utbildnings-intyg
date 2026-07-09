@@ -205,6 +205,45 @@ def test_compose_tunes_app_and_postgres_for_small_host_profile():
     assert "- max_connections=30" in postgres_service
 
 
+def test_dev_compose_uses_separate_project_and_volumes():
+    compose = _read(ROOT / "docker-compose.dev.yml")
+    app_service = _extract_service_block(compose, "app_dev")
+
+    assert "name: jk-utbildnings-intyg-dev" in compose
+    assert 'DATABASE_URL: ${DATABASE_URL:-sqlite:////app/dev-data/dev.sqlite}' in app_service
+    assert "- dev_db:/app/dev-data" in app_service
+    assert "- dev_logs:/app/logs" in app_service
+    assert "jk-utbildnings-intyg-dev_dev_db" in compose
+    assert "jk-utbildnings-intyg-dev_logs" in compose
+
+
+def test_dev_compose_does_not_share_prod_ports_volumes_or_postgres():
+    compose = _read(ROOT / "docker-compose.dev.yml")
+    app_service = _extract_service_block(compose, "app_dev")
+
+    assert "ports:" not in app_service
+    assert "- env_data:/config" not in app_service
+    assert "- app_logs:/app/logs" not in app_service
+    assert "- pgdata:/var/lib/postgresql/data" not in app_service
+    assert "postgres:5432" not in app_service
+    assert "postgres_backup" not in compose
+    assert "postgres:" not in compose
+
+
+def test_dev_compose_uses_dev_domain_and_safe_flags():
+    compose = _read(ROOT / "docker-compose.dev.yml")
+    app_service = _extract_service_block(compose, "app_dev")
+
+    assert "Host(`dev.utbildningsintyg.se`)" in app_service
+    assert "DEV_MODE: ${DEV_MODE:-true}" in app_service
+    assert "DISABLE_EMAILS: ${DISABLE_EMAILS:-true}" in app_service
+    assert "SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-jk_dev_session}" in app_service
+    assert "SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}" in app_service
+    assert "SESSION_COOKIE_HTTPONLY: ${SESSION_COOKIE_HTTPONLY:-true}" in app_service
+    assert "SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Lax}" in app_service
+    assert "traefik.http.routers.app-dev.rule=Host(`dev.utbildningsintyg.se`)" in app_service
+
+
 def test_gitattributes_forces_lf_for_shell_scripts():
     gitattributes = _read(ROOT / ".gitattributes")
 
@@ -291,6 +330,14 @@ def test_entrypoint_requires_explicit_true_for_dev_mode():
     assert dev_mode_patterns == ["true:*"]
 
 
+def test_entrypoint_runs_dev_validation_and_seed_in_development():
+    entrypoint = _read(ROOT / "entrypoint.sh")
+
+    assert 'if [ "${normalized_app_env}" = "development" ]; then' in entrypoint
+    assert "python -m scripts.validate_dev_environment" in entrypoint
+    assert "python -m scripts.seed_dev_environment" in entrypoint
+
+
 def test_compose_assigns_explicit_traefik_logs_volume_name():
     compose = _read(ROOT / "docker-compose.yml")
 
@@ -330,6 +377,32 @@ def test_dockerfile_installs_openssl():
     assert any(("tini" in line and "curl" in line) for line in apk_lines), (
         "Expected tini and curl to be installed via apk add"
     )
+
+
+def test_runtime_env_files_are_not_baked_into_images():
+    dockerfile = _read(ROOT / "Dockerfile")
+    dockerignore = _read(ROOT / ".dockerignore")
+
+    assert "cp .env /config/.env" not in dockerfile
+    assert ".env" in dockerignore
+    assert "server.env" in dockerignore
+    assert "stack.env" in dockerignore
+    assert "dev_server.env" in dockerignore
+    assert "deploy/dev/dev.env" in dockerignore
+
+
+def test_dev_env_example_documents_isolated_dev_defaults():
+    dev_env = _read(ROOT / "deploy" / "dev" / "dev.env.example")
+
+    assert "APP_ENV=development" in dev_env
+    assert "DEV_MODE=true" in dev_env
+    assert "DISABLE_EMAILS=true" in dev_env
+    assert "SECRET_KEY=" in dev_env
+    assert "HASH_SALT=" in dev_env
+    assert "DEV_ADMIN_USERNAME=" in dev_env
+    assert "DEV_PRIVATE_USER_EMAIL=" in dev_env
+    assert "DEV_COMPANY_ORGNR=" in dev_env
+    assert "DATABASE_URL=sqlite:////app/dev-data/dev.sqlite" in dev_env
 
 
 @pytest.mark.docker
