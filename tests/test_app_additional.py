@@ -1,6 +1,7 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 import logging
 
+import pytest
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -59,6 +60,19 @@ def test_resolve_secret_key_generates_in_pytest(monkeypatch):
 
     assert resolved
     assert len(resolved) >= 32
+
+
+def test_resolve_secret_key_error_mentions_both_env_names(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("secret_key", raising=False)
+    monkeypatch.setenv("DEV_MODE", "false")
+    monkeypatch.setattr(app, "_is_pytest_running", lambda: False)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        app._resolve_secret_key()
+
+    assert "SECRET_KEY" in str(exc_info.value)
+    assert "secret_key" in str(exc_info.value)
 
 
 def test_enable_debug_mode_sets_handlers(monkeypatch):

@@ -21,15 +21,15 @@ def _configure_valid_dev_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("SECRET_KEY", "dev-secret-key")
     monkeypatch.setenv("HASH_SALT", "dev-hash-salt")
     monkeypatch.setenv("DEV_ADMIN_USERNAME", "dev_admin")
-    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "DevAdminPassword1!")
+    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "dev-admin-placeholder")
     monkeypatch.setenv("DEV_PRIVATE_USER_NAME", "Dev Testperson")
     monkeypatch.setenv("DEV_PRIVATE_USER_EMAIL", "dev.private.user@example.com")
     monkeypatch.setenv("DEV_PRIVATE_USER_PERSONNUMMER", "199001011234")
-    monkeypatch.setenv("DEV_PRIVATE_USER_PASSWORD", "DevPrivatLosenord1!")
+    monkeypatch.setenv("DEV_PRIVATE_USER_PASSWORD", "dev-private-placeholder")
     monkeypatch.setenv("DEV_COMPANY_NAME", "Dev Exempelbolag AB")
     monkeypatch.setenv("DEV_COMPANY_EMAIL", "dev.company@example.com")
     monkeypatch.setenv("DEV_COMPANY_ORGNR", "5561234567")
-    monkeypatch.setenv("DEV_COMPANY_PASSWORD", "DevForetagLosenord1!")
+    monkeypatch.setenv("DEV_COMPANY_PASSWORD", "dev-company-placeholder")
     monkeypatch.setenv("ADMIN_EMAIL", "dev-admin@example.com")
 
     for env_name in validate_dev_environment.FORBIDDEN_DEV_SMTP_VARIABLES:
@@ -91,6 +91,27 @@ def test_create_app_applies_dev_session_cookie_defaults(monkeypatch):
     assert flask_app.config["PREFERRED_URL_SCHEME"] == "https"
 
 
+def test_create_app_requires_dev_mode_for_dev_environment_flags(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEV_MODE", "false")
+    monkeypatch.setenv("SECRET_KEY", "prod-like-secret")
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
+    monkeypatch.delenv("SESSION_COOKIE_NAME", raising=False)
+
+    monkeypatch.setattr(app.functions, "create_database", lambda: None)
+
+    flask_app = app.create_app()
+
+    assert flask_app.config["APP_ENV"] == "development"
+    assert flask_app.config["DEV_MODE"] is False
+    assert flask_app.config["IS_DEV_ENVIRONMENT"] is False
+    assert flask_app.config["APP_DISPLAY_NAME"] == "Utbildningsintyg"
+    assert flask_app.config["DISABLE_ANALYTICS"] is False
+    assert flask_app.config["NOINDEX"] is False
+    assert flask_app.config["SESSION_COOKIE_SECURE"] is True
+
+
 def test_dev_pages_disable_analytics_and_add_banner(empty_db, monkeypatch):
     _set_dev_ui_flags(monkeypatch)
 
@@ -104,6 +125,17 @@ def test_dev_pages_disable_analytics_and_add_banner(empty_db, monkeypatch):
     assert "Utbildningsintyg DEV" in body
     assert "https://www.googletagmanager.com/gtag/js?id=G-EHG218KKPZ" not in body
     assert "https://cdn.consentmanager.net/delivery/autoblocking/79b762eac2d3b.js" not in body
+
+
+def test_gdpr_page_uses_explicit_noindex_follow_in_dev(empty_db, monkeypatch):
+    _set_dev_ui_flags(monkeypatch)
+
+    with app.app.test_client() as client:
+        response = client.get("/gdpr", base_url="https://dev.utbildningsintyg.se")
+
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert 'name="robots" content="noindex, follow"' in body
 
 
 def test_dev_robots_and_sitemap_are_restricted(empty_db, monkeypatch):
@@ -121,18 +153,18 @@ def test_dev_robots_and_sitemap_are_restricted(empty_db, monkeypatch):
 def test_dev_admin_login_uses_separate_credentials(empty_db, monkeypatch):
     _set_dev_ui_flags(monkeypatch)
     monkeypatch.setenv("DEV_ADMIN_USERNAME", "dev_admin")
-    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "DevAdminPassword1!")
+    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "dev-admin-placeholder")
     monkeypatch.setenv("admin_username", "prod_admin")
-    monkeypatch.setenv("admin_password", "ProdPassword1!")
+    monkeypatch.setenv("admin_password", "prod-admin-placeholder")
 
     with app.app.test_client() as client:
         wrong_response = client.post(
             "/login_admin",
-            data={"username": "prod_admin", "password": "ProdPassword1!"},
+            data={"username": "prod_admin", "password": "prod-admin-placeholder"},
         )
         correct_response = client.post(
             "/login_admin",
-            data={"username": "dev_admin", "password": "DevAdminPassword1!"},
+            data={"username": "dev_admin", "password": "dev-admin-placeholder"},
             follow_redirects=False,
         )
 
@@ -163,7 +195,7 @@ def test_seed_dev_environment_supports_file_sqlite_smoke_flows(monkeypatch, tmp_
         with app.app.test_client() as admin_client:
             admin_response = admin_client.post(
                 "/login_admin",
-                data={"username": "dev_admin", "password": "DevAdminPassword1!"},
+                data={"username": "dev_admin", "password": "dev-admin-placeholder"},
                 follow_redirects=False,
             )
         assert admin_response.status_code == 302
@@ -176,7 +208,7 @@ def test_seed_dev_environment_supports_file_sqlite_smoke_flows(monkeypatch, tmp_
                 "/login",
                 data={
                     "personnummer": "199001011234",
-                    "password": "DevPrivatLosenord1!",
+                    "password": "dev-private-placeholder",
                     "csrf_token": _csrf_token(user_client),
                 },
                 follow_redirects=False,
@@ -207,7 +239,7 @@ def test_seed_dev_environment_supports_file_sqlite_smoke_flows(monkeypatch, tmp_
                 "/foretagskonto/login",
                 data={
                     "orgnr": "5561234567",
-                    "password": "DevForetagLosenord1!",
+                    "password": "dev-company-placeholder",
                     "csrf_token": _csrf_token(supervisor_client),
                 },
                 follow_redirects=False,
@@ -225,8 +257,10 @@ def test_seed_dev_environment_supports_file_sqlite_smoke_flows(monkeypatch, tmp_
 def test_disable_emails_stops_password_reset_and_critical_notifications(monkeypatch):
     monkeypatch.setenv("DISABLE_EMAILS", "true")
     monkeypatch.setenv("ADMIN_EMAIL", "dev-admin@example.com")
+    smtp_calls = []
 
     def _unexpected(*_args, **_kwargs):
+        smtp_calls.append(("smtp", _args, _kwargs))
         raise AssertionError("Inga SMTP-anrop ska goras nar DISABLE_EMAILS=true.")
 
     monkeypatch.setattr(email_service, "load_smtp_settings", _unexpected)
@@ -238,6 +272,8 @@ def test_disable_emails_stops_password_reset_and_critical_notifications(monkeypa
         endpoint="/dev-test",
         user_ip="127.0.0.1",
     )
+
+    assert smtp_calls == []
 
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

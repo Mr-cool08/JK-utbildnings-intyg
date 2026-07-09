@@ -24,6 +24,7 @@ APP_PORT="${APP_PORT:-${HTTP_PORT}}"
 LOG_DIR="${LOG_DIR:-/app/logs}"
 APP_ENV="${APP_ENV:-production}"
 normalized_app_env="$(printf '%s' "${APP_ENV}" | tr '[:upper:]' '[:lower:]')"
+normalized_dev_mode="$(printf '%s' "${DEV_MODE:-false}" | tr '[:upper:]' '[:lower:]')"
 DEV_DATA_DIR="${DEV_DATA_DIR:-/app/dev-data}"
 
 # Se till att loggkatalogen finns och kan skrivas av app-anvÃ¤ndaren
@@ -32,7 +33,7 @@ mkdir -p "${DEV_DATA_DIR}"
 chown -R app:app "${LOG_DIR}"
 chown -R app:app "${DEV_DATA_DIR}"
 
-if [ "${normalized_app_env}" = "development" ]; then
+if [ "${normalized_app_env}" = "development" ] && [ "${normalized_dev_mode}" = "true" ]; then
   echo "Validerar separat utvecklingsmiljÃ¶ innan appstart"
   python -m scripts.validate_dev_environment
   echo "Seedar syntetiska utvecklingskonton"
@@ -41,8 +42,7 @@ fi
 
 # Validate external PostgreSQL configuration or enable local SQLite fallback.
 if [ -z "${DATABASE_URL:-}" ]; then
-  enable_local_db="${DEV_MODE:-false}"
-  enable_local_db="$(printf '%s' "${enable_local_db}" | tr '[:upper:]' '[:lower:]')"
+  enable_local_db="${normalized_dev_mode}"
   enable_demo_mode="${ENABLE_DEMO_MODE:-false}"
   enable_demo_mode="$(printf '%s' "${enable_demo_mode}" | tr '[:upper:]' '[:lower:]')"
 

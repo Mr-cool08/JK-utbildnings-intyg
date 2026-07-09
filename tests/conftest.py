@@ -10,18 +10,55 @@ import werkzeug
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
+def _set_shared_test_environment_variable(
+    name: str,
+    value: str,
+    *,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+    use_os_environ: bool = False,
+) -> None:
+    if monkeypatch is not None:
+        monkeypatch.setenv(name, value)
+        return
+    if use_os_environ:
+        os.environ[name] = value
+        return
+    raise ValueError("Ange monkeypatch eller use_os_environ=True.")
+
+
+def _set_shared_test_environment_variables(
+    *,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+    use_os_environ: bool = False,
+) -> None:
+    shared_environment = {
+        "APP_ENV": "production",
+        "admin_username": "test_admin",
+        "admin_password": "test_password_123",
+        "DEV_ADMIN_USERNAME": "test_dev_admin",
+        "DEV_ADMIN_PASSWORD": "test_dev_password_123",
+        "SECRET_KEY": "test-secret-key",
+        "secret_key": "test-secret-key",
+        "DEV_MODE": "true",
+    }
+    for name, value in shared_environment.items():
+        _set_shared_test_environment_variable(
+            name,
+            value,
+            monkeypatch=monkeypatch,
+            use_os_environ=use_os_environ,
+        )
+
+
 def _force_test_environment() -> None:
     # Force a hermetic pytest configuration even when the caller has already
     # loaded a .env file into the process environment.
-    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-    os.environ["APP_ENV"] = "production"
-    os.environ["admin_username"] = "test_admin"
-    os.environ["admin_password"] = "test_password_123"
-    os.environ["DEV_ADMIN_USERNAME"] = "test_dev_admin"
-    os.environ["DEV_ADMIN_PASSWORD"] = "test_dev_password_123"
-    os.environ["SECRET_KEY"] = "test-secret-key"
-    os.environ["secret_key"] = "test-secret-key"
-    os.environ["DEV_MODE"] = "true"
+    _set_shared_test_environment_variable(
+        "DATABASE_URL",
+        "sqlite:///:memory:",
+        use_os_environ=True,
+    )
+    _set_shared_test_environment_variables(use_os_environ=True)
     os.environ["DISABLE_EMAILS"] = "true"
 
 
@@ -67,13 +104,12 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def _prepare_database(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
-    monkeypatch.setenv("DATABASE_URL", db_url)
-    monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("admin_username", "test_admin")
-    monkeypatch.setenv("admin_password", "test_password_123")
-    monkeypatch.setenv("DEV_ADMIN_USERNAME", "test_dev_admin")
-    monkeypatch.setenv("DEV_ADMIN_PASSWORD", "test_dev_password_123")
-    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
+    _set_shared_test_environment_variable(
+        "DATABASE_URL",
+        db_url,
+        monkeypatch=monkeypatch,
+    )
+    _set_shared_test_environment_variables(monkeypatch=monkeypatch)
     functions.reset_engine()
     functions.create_database()
     app.app.secret_key = "test-secret"

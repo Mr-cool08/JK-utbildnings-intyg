@@ -548,7 +548,7 @@ def _apply_session_cookie_config(app: Flask) -> None:
         app.config["SESSION_COOKIE_NAME"] = session_cookie_name
 
     boolean_cookie_settings = (
-        ("SESSION_COOKIE_SECURE", True if is_dev_environment else None),
+        ("SESSION_COOKIE_SECURE", True),
         ("SESSION_COOKIE_HTTPONLY", True if is_dev_environment else None),
     )
     for env_name, dev_default in boolean_cookie_settings:
@@ -590,13 +590,7 @@ def _resolve_admin_credentials(flask_app: Flask) -> tuple[str, str]:
             "KRITISKT: miljovariablerna DEV_ADMIN_USERNAME och DEV_ADMIN_PASSWORD "
             "maste vara satta och inte tomma i utvecklingsmiljon"
         )
-        logger.critical(error_msg)
-        critical_events.send_critical_error_notification(
-            error_message=error_msg,
-            endpoint="/login_admin",
-            user_ip=get_request_ip(),
-        )
-        raise RuntimeError(error_msg)
+        _raise_missing_admin_credentials(error_msg)
 
     admin_password = os.getenv("admin_password")
     admin_username = os.getenv("admin_username")
@@ -606,6 +600,10 @@ def _resolve_admin_credentials(flask_app: Flask) -> tuple[str, str]:
         "KRITISKT: miljovariablerna admin_username och admin_password "
         "maste vara satta och inte tomma"
     )
+    _raise_missing_admin_credentials(error_msg)
+
+
+def _raise_missing_admin_credentials(error_msg: str) -> None:
     logger.critical(error_msg)
     critical_events.send_critical_error_notification(
         error_message=error_msg,
@@ -634,9 +632,11 @@ def _resolve_secret_key() -> str:
     if pytest_running and as_bool(os.getenv("DEV_MODE")):
         logger.warning("secret_key saknas i testmiljön. Genererar temporär nyckel.")
         return secrets.token_hex(32)
-    error_msg = "KRITISKT: miljövariabeln secret_key måste vara satt och inte tom"
+    error_msg = (
+        "KRITISKT: minst en av miljövariablerna SECRET_KEY och secret_key "
+        "måste vara satt och inte tom"
+    )
     logger.critical(error_msg)
-    
     raise RuntimeError(error_msg)
 
 
@@ -657,7 +657,7 @@ def create_app() -> Flask:
     app_environment = _resolve_app_environment()
     dev_mode = as_bool(os.getenv("DEV_MODE"))
     debug_mode = dev_mode
-    is_dev_environment = app_environment == "development"
+    is_dev_environment = dev_mode and app_environment == "development"
     app.config["APP_ENV"] = app_environment
     app.config["DEV_MODE"] = dev_mode
     app.config["DEBUG"] = debug_mode
@@ -4209,12 +4209,6 @@ def login_admin():  # pragma: no cover
     if request.method == "POST":
         admin_username, admin_password = _resolve_admin_credentials(current_app)
 
-        # Require admin credentials to be explicitly set (no insecure defaults)
-        if not admin_password or not admin_username:
-            error_msg = "KRITISKT: miljövariablerna admin_username och admin_password måste vara satta och inte tomma"
-            logger.critical(error_msg)
-            critical_events.send_critical_error_notification(error_message=error_msg, endpoint="/login_admin", user_ip=get_request_ip())
-            raise RuntimeError(error_msg)
         submitted_username = request.form.get("username")
         submitted_password = request.form.get("password")
         user_ok = secrets.compare_digest(str(submitted_username or ""), str(admin_username))

@@ -333,7 +333,7 @@ def test_entrypoint_requires_explicit_true_for_dev_mode():
 def test_entrypoint_runs_dev_validation_and_seed_in_development():
     entrypoint = _read(ROOT / "entrypoint.sh")
 
-    assert 'if [ "${normalized_app_env}" = "development" ]; then' in entrypoint
+    assert 'if [ "${normalized_app_env}" = "development" ] && [ "${normalized_dev_mode}" = "true" ]; then' in entrypoint
     assert "python -m scripts.validate_dev_environment" in entrypoint
     assert "python -m scripts.seed_dev_environment" in entrypoint
 
@@ -403,6 +403,9 @@ def test_dev_env_example_documents_isolated_dev_defaults():
     assert "DEV_PRIVATE_USER_EMAIL=" in dev_env
     assert "DEV_COMPANY_ORGNR=" in dev_env
     assert "DATABASE_URL=sqlite:////app/dev-data/dev.sqlite" in dev_env
+    assert "DEV_ADMIN_PASSWORD=EXEMPEL_BYT_DEV_ADMIN_LOSENORD" in dev_env
+    assert "DEV_PRIVATE_USER_PASSWORD=EXEMPEL_BYT_DEV_PRIVAT_LOSENORD" in dev_env
+    assert "DEV_COMPANY_PASSWORD=EXEMPEL_BYT_DEV_FORETAGSLOSENORD" in dev_env
 
 
 @pytest.mark.docker
