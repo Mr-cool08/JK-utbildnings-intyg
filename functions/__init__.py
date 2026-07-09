@@ -43,6 +43,11 @@ from functions.database import (
     user_pdfs_table,
     users_table,
 )
+from functions.demo import (
+    DEMO_PDF_DEFINITIONS,
+    ensure_demo_data,
+    reset_demo_database,
+)
 from functions.hashing import (
     SALT,
     _is_valid_hash,
@@ -179,7 +184,9 @@ __all__ = [
     "count_user_pdfs",
     "delete_table_row",
     "delete_user_pdf",
+    "DEMO_PDF_DEFINITIONS",
     "email_lookup_values",
+    "ensure_demo_data",
     "ensure_pending_supervisor_activation_token",
     "fetch_table_rows",
     "get_application_request",
@@ -229,6 +236,7 @@ __all__ = [
     "reject_application_request",
     "reject_organization_link_request",
     "reset_engine",
+    "reset_demo_database",
     "reset_password_with_token",
     "reset_supervisor_password_with_token",
     "schema_migrations_table",
