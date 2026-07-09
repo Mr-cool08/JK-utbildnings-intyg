@@ -616,13 +616,22 @@ def _resolve_admin_credentials(flask_app: Flask) -> tuple[str, str]:
 
 
 def _resolve_secret_key() -> str:
+    pytest_running = _is_pytest_running()
     secret_key = os.getenv("SECRET_KEY")
-    if secret_key:
+    legacy_secret_key = os.getenv("secret_key")
+    ignore_pytest_bootstrap_secret = (
+        pytest_running
+        and secret_key == "test-secret-key"
+        and legacy_secret_key != secret_key
+    )
+
+    # Pytest seeds a placeholder SECRET_KEY during import; allow each test to
+    # override it through secret_key or to exercise the generated fallback.
+    if secret_key and not ignore_pytest_bootstrap_secret:
         return secret_key
-    secret_key = os.getenv("secret_key")
-    if secret_key:
-        return secret_key
-    if _is_pytest_running() and as_bool(os.getenv("DEV_MODE")):
+    if legacy_secret_key:
+        return legacy_secret_key
+    if pytest_running and as_bool(os.getenv("DEV_MODE")):
         logger.warning("secret_key saknas i testmiljön. Genererar temporär nyckel.")
         return secrets.token_hex(32)
     error_msg = "KRITISKT: miljövariabeln secret_key måste vara satt och inte tom"
