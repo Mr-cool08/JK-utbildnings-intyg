@@ -9,19 +9,19 @@ python-dotenv = "==1.2.2"
 werkzeug = "==3.1.8"
 jinja2 = "==3.1.6"
 itsdangerous = "==2.2.0"
-click = "==8.3.3"
-sqlalchemy = "==2.0.49"
+click = "==8.4.2"
+sqlalchemy = "==2.0.51"
 markupsafe = "==3.0.3"
 markdown = "==3.10.2"
-pytest = "==9.0.3"
+pytest = "==9.1.1"
 pytest-xdist = "==3.8.0"
 pytest-docker = "==3.2.5"
-requests = "==2.32.5"
-pillow = "==12.1.1"
+requests = "==2.34.2"
+pillow = "==12.3.0"
 psutil = "==7.2.2"
-psycopg = {version = "==3.2.1", markers = "platform_system == \"Linux\""}
+psycopg = {version = "==3.3.4", markers = "platform_system == \"Linux\""}
 psycopg2-binary = {version = "==2.9.12", markers = "platform_system == \"Linux\" or platform_system == \"Windows\""}
-gunicorn = {version = "==25.0.0", markers = "platform_system == \"Linux\""}
+gunicorn = {version = "==26.0.0", markers = "platform_system == \"Linux\""}
 pysqlite3-binary = {version = ">=0.5.3", markers = "platform_system == \"Linux\" and python_version < \"3.12\""}
 quicksand = {version = "==2.1.4", markers = "platform_system == \"Linux\""}
 
