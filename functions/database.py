@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -21,6 +22,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    Text,
     UniqueConstraint,
     case,
     create_engine as sqlalchemy_create_engine,
@@ -88,6 +90,7 @@ user_pdfs_table = Table(
     Column("personnummer", String, nullable=False, index=True),
     Column("filename", String, nullable=False),
     Column("content", LargeBinary, nullable=False),
+    Column("content_sha256", String(64), nullable=True),
     Column("categories", String, nullable=False, server_default=""),
     Column("note", String, nullable=False, server_default=""),
     Column("expires_on", Date, nullable=True),
@@ -98,6 +101,11 @@ user_pdfs_table = Table(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    ),
+    UniqueConstraint(
+        "personnummer",
+        "content_sha256",
+        name="uq_user_pdfs_personnummer_content_sha256",
     ),
 )
 
@@ -339,6 +347,104 @@ company_users_table = Table(
         nullable=False,
     ),
     UniqueConstraint("email", "role", name="uq_company_users_email_role"),
+)
+
+EXTERNAL_PROVISIONING_STATES = (
+    "processing",
+    "stored_mail_pending",
+    "mail_sending",
+    "mail_failed_retryable",
+    "delivery_unknown",
+    "completed",
+    "failed_terminal",
+)
+
+external_provisioning_requests_table = Table(
+    "external_provisioning_requests",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("key_id", String(128), nullable=False),
+    Column("idempotency_key_hash", String(64), nullable=False),
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("state", String(32), nullable=False, server_default="processing"),
+    Column("http_status", Integer),
+    Column("response_body", Text),
+    Column("mail_status", String(32), nullable=False, server_default="not_started"),
+    Column("attempt_count", Integer, nullable=False, server_default="1"),
+    Column("locked_at", DateTime(timezone=True)),
+    Column("last_attempt_at", DateTime(timezone=True)),
+    Column("completed_at", DateTime(timezone=True)),
+    Column("personnummer_hash", String(64), index=True),
+    Column("pdf_content_sha256", String(64)),
+    Column("pdf_id", Integer),
+    Column("account_state", String(16)),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    CheckConstraint(
+        "state IN ("
+        + ", ".join(f"'{state}'" for state in EXTERNAL_PROVISIONING_STATES)
+        + ")",
+        name="ck_external_provisioning_requests_state",
+    ),
+    UniqueConstraint(
+        "key_id",
+        "idempotency_key_hash",
+        name="uq_external_provisioning_requests_key_id_idempotency",
+    ),
+)
+
+external_provisioning_nonces_table = Table(
+    "external_provisioning_nonces",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("key_id", String(128), nullable=False),
+    Column("nonce_hash", String(64), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    UniqueConstraint(
+        "key_id",
+        "nonce_hash",
+        name="uq_external_provisioning_nonces_key_id_nonce",
+    ),
+)
+
+private_account_activation_tokens_table = Table(
+    "private_account_activation_tokens",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("pending_user_personnummer", String(64), nullable=False, index=True),
+    Column("provisioning_request_id", Integer, nullable=False, index=True),
+    Column("token_hash", String(64), nullable=False),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    ),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("used_at", DateTime(timezone=True)),
+    Column("revoked_at", DateTime(timezone=True)),
+    Column("superseded_at", DateTime(timezone=True)),
+    UniqueConstraint(
+        "token_hash",
+        name="uq_private_account_activation_tokens_token_hash",
+    ),
 )
 
 TABLE_REGISTRY: dict[str, Table] = {

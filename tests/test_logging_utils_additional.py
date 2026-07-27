@@ -200,6 +200,26 @@ def test_mask_sensitive_data_skips_overlong_email_candidates():
     assert logging_utils.mask_sensitive_data(overlong_email) == overlong_email
 
 
+def test_mask_sensitive_data_masks_hash_like_strings_in_sequences():
+    sha256_value = "a" * 64
+    scrypt_value = "scrypt:32768:8:1$abcdefghijklmnop$qrstuvwxyz1234567890"
+
+    masked = logging_utils.mask_sensitive_data([sha256_value, scrypt_value, "plain-text"])
+
+    assert masked[0] == logging_utils.mask_hash(sha256_value)
+    assert masked[1] == logging_utils.mask_hash(scrypt_value)
+    assert masked[2] == "plain-text"
+
+
+def test_mask_sensitive_data_masks_hash_like_strings_in_mappings():
+    sha256_value = "b" * 64
+
+    masked = logging_utils.mask_sensitive_data({"personnummer": sha256_value, "status": "ok"})
+
+    assert masked["personnummer"] == logging_utils.mask_hash(sha256_value)
+    assert masked["status"] == "ok"
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("SERVICE_LOG_LEVEL", "error")
 

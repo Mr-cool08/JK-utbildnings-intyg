@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 MASK_PLACEHOLDER = "***"
 _MAX_EMAIL_MATCH_LENGTH = 256
 _EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+_HEX_HASH_PATTERN = re.compile(r"^[0-9a-f]{32,128}$")
 
 _TZ_WARNING_STATE = threading.local()
 
@@ -151,6 +152,16 @@ def _looks_like_email(value: str) -> bool:
     return bool(_EMAIL_PATTERN.fullmatch(candidate))
 
 
+def _looks_like_hash_reference(value: str) -> bool:
+    # Match common hash formats that should never be logged verbatim.
+    candidate = value.strip()
+    if not candidate:
+        return False
+    if _HEX_HASH_PATTERN.fullmatch(candidate):
+        return True
+    return candidate.startswith(("scrypt:", "pbkdf2:", "sha256:", "sha512:"))
+
+
 def mask_sensitive_data(data: Any) -> Any:
     # Mask sensitive fields in dicts/lists to avoid leaking secrets to logs.
     if isinstance(data, Mapping):
@@ -166,12 +177,20 @@ def mask_sensitive_data(data: Any) -> Any:
         masked_items: list[Any] = []
         for item in data:
             if isinstance(item, str):
-                masked_items.append(mask_email(item) if _looks_like_email(item) else item)
+                if _looks_like_email(item):
+                    masked_items.append(mask_email(item))
+                elif _looks_like_hash_reference(item):
+                    masked_items.append(mask_hash(item))
+                else:
+                    masked_items.append(item)
             else:
                 masked_items.append(mask_sensitive_data(item))
         return masked_items
-    if isinstance(data, str) and _looks_like_email(data):
-        return mask_email(data)
+    if isinstance(data, str):
+        if _looks_like_email(data):
+            return mask_email(data)
+        if _looks_like_hash_reference(data):
+            return mask_hash(data)
     return data
 
 
