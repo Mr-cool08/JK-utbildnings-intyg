@@ -48,6 +48,7 @@ from functions.logging import (
     mask_email_reference,
     mask_hash,
     mask_headers,
+    mask_request_path,
     mask_sensitive_data,
 )
 
@@ -63,6 +64,7 @@ from functions.pdf import service as pdf
 from functions.notifications import critical_events
 from functions import security as sec
 from functions.requests import as_bool, get_request_ip, register_public_submission
+from services import external_private_provisioning
 
 
 load_environment()
@@ -76,6 +78,69 @@ save_pdf_for_user = pdf.save_pdf_for_user
 
 
 logger = configure_module_logger(__name__)
+
+PRIVATE_ACTIVATION_SESSION_KEY = "private_activation_token_hash"
+PRIVATE_ACTIVATION_SESSION_EXPIRES_KEY = "private_activation_token_expires_at"
+PRIVATE_ACTIVATION_SESSION_TTL_SECONDS = 10 * 60
+
+
+def _external_api_response(
+    result: external_private_provisioning.ExternalResponse,
+) -> Response:
+    response = Response(
+        result.body_text,
+        status=result.http_status,
+        content_type="application/json; charset=utf-8",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _is_external_api_request() -> bool:
+    return request.path == "/api/external" or request.path.startswith(
+        "/api/external/"
+    )
+
+
+def _is_private_activation_request() -> bool:
+    return request.path == "/create_user/token" or request.path.startswith(
+        "/create_user/token/"
+    )
+
+
+def _private_activation_response(
+    response_value: ResponseReturnValue,
+) -> Response:
+    response = make_response(response_value)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
+def _error_page_response(
+    status_code: int,
+    message: str,
+) -> ResponseReturnValue:
+    value: ResponseReturnValue = (
+        render_template(
+            "error.html",
+            error_code=status_code,
+            error_message=message,
+            time=time.time(),
+            sensitive_page=_is_private_activation_request(),
+        ),
+        status_code,
+    )
+    if _is_private_activation_request():
+        return _private_activation_response(value)
+    return value
+
+
+def _clear_private_activation_session() -> None:
+    session.pop(PRIVATE_ACTIVATION_SESSION_KEY, None)
+    session.pop(PRIVATE_ACTIVATION_SESSION_EXPIRES_KEY, None)
 
 
 def _render_create_supervisor_page(error: str | None = None, invalid: bool = False, **extra) -> str:
@@ -305,7 +370,7 @@ def _request_error_context(extra: dict[str, Any] | None = None) -> dict[str, Any
         mask_hash(session_personnummer) if isinstance(session_personnummer, str) and session_personnummer else None
     )
     context: dict[str, Any] = {
-        "endpoint": request.path,
+        "endpoint": mask_request_path(request.path),
         "method": request.method,
         "admin": session.get("admin_username") if session.get("admin_logged_in") else None,
         "user": masked_user,
@@ -540,6 +605,7 @@ def create_app() -> Flask:
     # Create and configure the Flask application.
     logger.debug("Applikationen initieras")
     logger.debug("Laddar miljövariabler och initierar databas")
+    external_private_provisioning.validate_startup_configuration()
     functions.create_database()
     app = Flask(__name__)
     timezone_name = _configure_timezone()
@@ -554,6 +620,14 @@ def create_app() -> Flask:
     debug_mode = dev_mode
     app.config["DEV_MODE"] = dev_mode
     app.config["DEBUG"] = debug_mode
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    secure_cookie_value = os.getenv("SESSION_COOKIE_SECURE")
+    app.config["SESSION_COOKIE_SECURE"] = (
+        not dev_mode
+        if secure_cookie_value is None
+        else as_bool(secure_cookie_value)
+    )
     if not dev_mode:
         root_logger = logging.getLogger()
         if root_logger.getEffectiveLevel() < logging.INFO:
@@ -611,7 +685,7 @@ def _log_request_start() -> None:
     logger.debug(
         "Begäran startad: %s %s (IP=%s, agent=%s)",
         request.method,
-        request.path,
+        mask_request_path(request.path),
         mask_hash(client_ip) if client_ip else "okänd",
         request.headers.get("User-Agent", "okänd"),
     )
@@ -652,7 +726,7 @@ def _log_request_end(response: Response) -> Response:
         level,
         "Begäran slutförd: %s %s -> %s (%.3fs)",
         request.method,
-        request.path,
+        mask_request_path(request.path),
         status_code,
         duration,
     )
@@ -703,6 +777,30 @@ def _teardown(exception=None):
 def health() -> tuple[dict, int]:
     # Basic health check endpoint.
     return {"status": "ok"}, 200
+
+
+@app.route(
+    external_private_provisioning.EXTERNAL_ROUTE,
+    methods=["POST"],
+    provide_automatic_options=False,
+)
+def external_private_account_provisioning() -> Response:
+    result = external_private_provisioning.handle_provisioning_request(
+        request,
+        activation_url_builder=(
+            external_private_provisioning.build_activation_url
+        ),
+    )
+    logger.info(
+        "External provisioning-resultat: http_status=%s result_code=%s "
+        "account_state=%s mail_status=%s route=%s",
+        result.http_status,
+        result.body.get("code", "unknown"),
+        result.body.get("account_state", "not_applicable"),
+        result.body.get("mail_status", "not_applicable"),
+        external_private_provisioning.EXTERNAL_ROUTE,
+    )
+    return _external_api_response(result)
 
 
 def _require_admin() -> str:
@@ -764,9 +862,142 @@ def debug_clear_session():
     return redirect("/")
 
 
+def _render_private_activation_page(
+    *,
+    invalid: bool = False,
+    error_message: str | None = None,
+    status_code: int = 200,
+) -> Response:
+    return _private_activation_response(
+        (
+            render_template(
+                "create_private_account_token.html",
+                invalid=invalid,
+                error=error_message,
+                csrf_token=ensure_csrf_token(),
+                sensitive_page=True,
+            ),
+            status_code,
+        )
+    )
+
+
+def _validate_activation_passwords() -> tuple[str | None, str | None]:
+    password = request.form.get("password", "").strip()
+    confirm = request.form.get("confirm", "").strip()
+    if password != confirm:
+        return None, "Lösenorden måste matcha."
+    if len(password) < 8:
+        return None, "Lösenordet måste vara minst åtta tecken långt."
+    return password, None
+
+
+@app.route("/create_user/token/<token>", methods=["GET", "POST"])
+def create_user_token(token: str) -> Response:
+    # Hasha bearer-token direkt och växla till en kortlivad tokenfri session.
+    token_status = external_private_provisioning.get_activation_token_status(
+        token=token
+    )
+    if not token_status.valid or token_status.token_hash is None:
+        _clear_private_activation_session()
+        return _render_private_activation_page(
+            invalid=True,
+            status_code=404,
+        )
+    session[PRIVATE_ACTIVATION_SESSION_KEY] = token_status.token_hash
+    session[PRIVATE_ACTIVATION_SESSION_EXPIRES_KEY] = (
+        int(time.time()) + PRIVATE_ACTIVATION_SESSION_TTL_SECONDS
+    )
+    ensure_csrf_token()
+    if request.method == "GET":
+        return _private_activation_response(
+            redirect(url_for("create_user_token_session"), code=303)
+        )
+
+    password, password_error = _validate_activation_passwords()
+    if password_error:
+        return _render_private_activation_page(
+            error_message=password_error,
+            status_code=400,
+        )
+    if password is None or not external_private_provisioning.activate_private_account(
+        password,
+        token_hash=token_status.token_hash,
+    ):
+        _clear_private_activation_session()
+        return _render_private_activation_page(
+            invalid=True,
+            status_code=409,
+        )
+    _clear_private_activation_session()
+    flash(
+        "Lösenordet är skapat. Du kan nu logga in på ditt privatkonto.",
+        "success",
+    )
+    return _private_activation_response(redirect("/login", code=303))
+
+
+@app.route("/create_user/token", methods=["GET", "POST"])
+def create_user_token_session() -> Response:
+    token_hash = session.get(PRIVATE_ACTIVATION_SESSION_KEY)
+    expires_at = session.get(PRIVATE_ACTIVATION_SESSION_EXPIRES_KEY)
+    session_is_current = (
+        isinstance(token_hash, str)
+        and isinstance(expires_at, int)
+        and expires_at >= int(time.time())
+    )
+    token_status = (
+        external_private_provisioning.get_activation_token_status(
+            token_hash=token_hash
+        )
+        if session_is_current
+        else external_private_provisioning.ActivationTokenStatus(False)
+    )
+    if not token_status.valid or token_status.token_hash is None:
+        _clear_private_activation_session()
+        return _render_private_activation_page(
+            invalid=True,
+            status_code=404,
+        )
+    if request.method == "GET":
+        return _render_private_activation_page()
+    if not validate_csrf_token():
+        return _render_private_activation_page(
+            error_message="Formuläret har gått ut. Ladda om sidan och försök igen.",
+            status_code=400,
+        )
+    password, password_error = _validate_activation_passwords()
+    if password_error:
+        return _render_private_activation_page(
+            error_message=password_error,
+            status_code=400,
+        )
+    if password is None or not external_private_provisioning.activate_private_account(
+        password,
+        token_hash=token_status.token_hash,
+    ):
+        _clear_private_activation_session()
+        return _render_private_activation_page(
+            invalid=True,
+            status_code=409,
+        )
+    _clear_private_activation_session()
+    flash(
+        "Lösenordet är skapat. Du kan nu logga in på ditt privatkonto.",
+        "success",
+    )
+    return _private_activation_response(redirect("/login", code=303))
+
+
 @app.route("/create_user/<pnr_hash>", methods=["POST", "GET"])
 def create_user(pnr_hash: str):  # type: ignore[no-untyped-def]
     # Allow a pending user to set a password and activate the account.
+    if (
+        external_private_provisioning.pending_account_requires_activation_token(
+            pnr_hash
+        )
+    ):
+        abort(404, description="Standardkonto hittades inte")
     logger.info("Hanterar create_user för hash %s", pnr_hash)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
@@ -4142,6 +4373,25 @@ def logout():
 
 
 ## -------------------------Error Handlers -------------------------##
+class TooEarlyHTTPError(HTTPException):
+    code = 425
+    description = "Begäran kan inte behandlas ännu."
+
+
+def _external_http_error(
+    status_code: int,
+    code: str,
+    message: str,
+) -> Response:
+    return _external_api_response(
+        external_private_provisioning.error_response(
+            status_code,
+            code,
+            message,
+        )
+    )
+
+
 @app.route("/error")
 def error():  # pragma: no cover
     # Intentionally raise an error to test the 500 page.
@@ -4151,11 +4401,11 @@ def error():  # pragma: no cover
 
 @app.errorhandler(500)
 def internal_server_error(_):  # pragma: no cover
-    logger.error("500 Internt serverfel: %s", request.path)
+    logger.error("500 Internt serverfel: %s", mask_request_path(request.path))
 
     try:
         user_ip = get_request_ip()
-        endpoint = request.path
+        endpoint = mask_request_path(request.path)
         error_msg = f"Endpoint: {endpoint}\nMetod: {request.method}\nIP: {user_ip}"
         critical_events.send_critical_error_notification(
             error_message=error_msg, endpoint=endpoint, user_ip=user_ip
@@ -4163,12 +4413,29 @@ def internal_server_error(_):  # pragma: no cover
     except Exception as e:
         logger.warning("Kunde inte skicka error-notifikation: %s", e)
 
+    if _is_external_api_request():
+        return _external_http_error(
+            500,
+            "internal_error",
+            "Ett internt fel uppstod vid behandling av integrationsbegäran.",
+        )
+
     # Visa en användarvänlig 500-sida när ett serverfel inträffar.
     error_code = 500
     error_message = "Ett internt serverfel har inträffat. Vänligen försök igen senare."
-    return render_template(
-        "error.html", error_code=error_code, error_message=error_message, time=time.time()
-    ), 500
+    return _error_page_response(error_code, error_message)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error: HTTPException):
+    if _is_external_api_request():
+        status_code = int(error.code or 500)
+        return _external_http_error(
+            status_code,
+            f"http_error_{status_code}",
+            "Begäran kunde inte behandlas av integrations-API:t.",
+        )
+    return error
 
 
 @app.errorhandler(Exception)
@@ -4183,30 +4450,50 @@ def handle_unexpected_exception(error: Exception):  # pragma: no cover
 @app.errorhandler(401)
 def unauthorized_error(_):  # pragma: no cover
     # Visa en användarvänlig 401-sida vid obehörig åtkomst.
-    logger.warning("401 Obehörig åtkomst: %s", request.path)
+    logger.warning(
+        "401 Obehörig åtkomst: %s",
+        mask_request_path(request.path),
+    )
+    if _is_external_api_request():
+        return _external_http_error(
+            401,
+            "unauthorized",
+            "Begäran saknar giltig autentisering.",
+        )
     error_code = 401
     error_message = "Du måste vara inloggad för att se denna sida."
-    return render_template(
-        "error.html", error_code=error_code, error_message=error_message, time=time.time()
-    ), 401
+    return _error_page_response(error_code, error_message)
 
 
 @app.errorhandler(409)
 def conflict_error(_):  # pragma: no cover
     # Visa en användarvänlig 409-sida vid konflikt.
-    logger.error("409 Konflikt: %s", request.path)
+    logger.error("409 Konflikt: %s", mask_request_path(request.path))
+    if _is_external_api_request():
+        return _external_http_error(
+            409,
+            "conflict",
+            "Begäran står i konflikt med befintligt tillstånd.",
+        )
     error_code = 409
     error_message = "Det uppstod en konflikt vid hantering av din begäran."
-    return render_template(
-        "error.html", error_code=error_code, error_message=error_message, time=time.time()
-    ), 409
+    return _error_page_response(error_code, error_message)
 
 
 @app.errorhandler(413)
 def request_entity_too_large(_):  # pragma: no cover
     # Visa ett tydligt felmeddelande när uppladdningen överskrider global gräns.
-    logger.warning("413 För stor uppladdning: %s", request.path)
+    logger.warning(
+        "413 För stor uppladdning: %s",
+        mask_request_path(request.path),
+    )
     endpoint = request.endpoint or ""
+    if _is_external_api_request():
+        return _external_http_error(
+            413,
+            "pdf_too_large",
+            "Uppladdningen överskrider den tillåtna storleksgränsen.",
+        )
     if endpoint.startswith("admin") or request.path == "/admin" or request.path.startswith(
         "/admin/"
     ):
@@ -4222,20 +4509,95 @@ def request_entity_too_large(_):  # pragma: no cover
 
     error_code = 413
     error_message = UPLOAD_TOO_LARGE_MESSAGE
-    return render_template(
-        "error.html", error_code=error_code, error_message=error_message, time=time.time()
-    ), 413
+    return _error_page_response(error_code, error_message)
 
 
 @app.errorhandler(404)
 def page_not_found(_):  # pragma: no cover
     # Visa en användarvänlig 404-sida när en sida saknas.
-    logger.warning("Sidan hittades inte: %s", request.path)
+    logger.warning(
+        "Sidan hittades inte: %s",
+        mask_request_path(request.path),
+    )
+    if _is_external_api_request():
+        return _external_http_error(
+            404,
+            "external_route_not_found",
+            "Den externa API-rutten finns inte.",
+        )
     error_code = 404
     error_message = "Sidan du letade efter kunde inte hittas."
-    return render_template(
-        "error.html", error_code=error_code, error_message=error_message, time=time.time()
-    ), 404
+    return _error_page_response(error_code, error_message)
+
+
+@app.errorhandler(400)
+def bad_request_error(_):  # pragma: no cover
+    if _is_external_api_request():
+        return _external_http_error(
+            400,
+            "bad_request",
+            "Begäran har ett ogiltigt format.",
+        )
+    return _error_page_response(
+        400,
+        "Begäran har ett ogiltigt format.",
+    )
+
+
+@app.errorhandler(405)
+def method_not_allowed_error(_):  # pragma: no cover
+    if _is_external_api_request():
+        return _external_http_error(
+            405,
+            "method_not_allowed",
+            "HTTP-metoden är inte tillåten för den externa API-rutten.",
+        )
+    return _error_page_response(
+        405,
+        "HTTP-metoden är inte tillåten för den här sidan.",
+    )
+
+
+@app.errorhandler(415)
+def unsupported_media_type_error(_):  # pragma: no cover
+    if _is_external_api_request():
+        return _external_http_error(
+            415,
+            "unsupported_media_type",
+            "Begärans medietyp stöds inte.",
+        )
+    return _error_page_response(
+        415,
+        "Begärans medietyp stöds inte.",
+    )
+
+
+@app.errorhandler(TooEarlyHTTPError)
+def too_early_error(_):  # pragma: no cover
+    if _is_external_api_request():
+        return _external_http_error(
+            425,
+            "request_in_progress",
+            "En motsvarande integrationsbegäran behandlas redan.",
+        )
+    return _error_page_response(
+        425,
+        "Begäran kan inte behandlas ännu.",
+    )
+
+
+@app.errorhandler(429)
+def too_many_requests_error(_):  # pragma: no cover
+    if _is_external_api_request():
+        return _external_http_error(
+            429,
+            "rate_limit_exceeded",
+            "För många integrationsbegäranden har skickats.",
+        )
+    return _error_page_response(
+        429,
+        "För många begäranden har skickats. Försök igen senare.",
+    )
 
 
 ##----------------------------------------##

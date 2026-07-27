@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import logging
 import os
 import re
 import secrets
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import quote_plus
 
 from sqlalchemy import (
@@ -61,6 +62,23 @@ logger.debug("Application root directory: %s", APP_ROOT)
 
 metadata = MetaData()
 SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def acquire_private_provisioning_identity_locks(
+    conn: Connection,
+    identities: Sequence[str],
+) -> None:
+    # Serialisera kontoidentiteter mellan provisioning och äldre kontoflöden.
+    if not conn.dialect.name.startswith("postgresql"):
+        return
+    for identity in sorted(set(identities)):
+        conn.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtext(f"external-private:{identity}")
+                )
+            )
+        )
 
 pending_users_table = Table(
     "pending_users",
@@ -366,12 +384,12 @@ external_provisioning_requests_table = Table(
     Column("key_id", String(128), nullable=False),
     Column("idempotency_key_hash", String(64), nullable=False),
     Column("request_fingerprint", String(64), nullable=False),
-    Column("state", String(32), nullable=False, server_default="processing"),
+    Column("state", String(32), nullable=False, server_default="processing", index=True),
     Column("http_status", Integer),
     Column("response_body", Text),
     Column("mail_status", String(32), nullable=False, server_default="not_started"),
     Column("attempt_count", Integer, nullable=False, server_default="1"),
-    Column("locked_at", DateTime(timezone=True)),
+    Column("locked_at", DateTime(timezone=True), index=True),
     Column("last_attempt_at", DateTime(timezone=True)),
     Column("completed_at", DateTime(timezone=True)),
     Column("personnummer_hash", String(64), index=True),
@@ -1588,6 +1606,166 @@ def _migration_0022_fix_supervisor_connections_created_at_default(
     )
 
 
+def _migration_0023_external_private_provisioning(conn: Connection) -> None:
+    # Skapa säkerhetstabellerna och förbered stegvis hashbackfill av befintliga PDF:er.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+
+    for table in (
+        external_provisioning_requests_table,
+        external_provisioning_nonces_table,
+        private_account_activation_tokens_table,
+    ):
+        if table.name not in existing_tables:
+            table.create(bind=conn)
+
+    if user_pdfs_table.name not in existing_tables:
+        return
+
+    pdf_columns = {
+        column["name"] for column in inspect(conn).get_columns(user_pdfs_table.name)
+    }
+    if "content_sha256" not in pdf_columns:
+        sha_type = _compile_sql_type(conn, String(64))
+        conn.execute(
+            text(
+                "ALTER TABLE user_pdfs "
+                f"ADD COLUMN content_sha256 {sha_type}"
+            )
+        )
+
+
+def _backfill_user_pdf_content_hashes(engine: Engine) -> None:
+    # Bearbeta blobbar i korta transaktioner så att migreringen inte låser hela tabellen länge.
+    configured_batch_size = int(
+        os.getenv("EXTERNAL_PROVISIONING_HASH_BACKFILL_BATCH_SIZE", "25")
+    )
+    batch_size = max(1, min(configured_batch_size, 500))
+    last_id = 0
+    duplicate_count = 0
+
+    while True:
+        with engine.begin() as conn:
+            inspector = inspect(conn)
+            if user_pdfs_table.name not in set(inspector.get_table_names()):
+                return
+            columns = {
+                column["name"] for column in inspector.get_columns(user_pdfs_table.name)
+            }
+            if "content_sha256" not in columns:
+                return
+
+            rows = conn.execute(
+                select(
+                    user_pdfs_table.c.id,
+                    user_pdfs_table.c.personnummer,
+                )
+                .where(
+                    user_pdfs_table.c.id > last_id,
+                    user_pdfs_table.c.content_sha256.is_(None),
+                )
+                .order_by(user_pdfs_table.c.id.asc())
+                .limit(batch_size)
+            ).all()
+            if not rows:
+                break
+
+            for row in rows:
+                last_id = max(last_id, int(row.id))
+                content = conn.execute(
+                    select(user_pdfs_table.c.content).where(
+                        user_pdfs_table.c.id == row.id
+                    )
+                ).scalar_one()
+                content_hash = hashlib.sha256(content).hexdigest()
+                del content
+                canonical_id = conn.execute(
+                    select(user_pdfs_table.c.id)
+                    .where(
+                        user_pdfs_table.c.personnummer == row.personnummer,
+                        user_pdfs_table.c.content_sha256 == content_hash,
+                        user_pdfs_table.c.id != row.id,
+                    )
+                    .order_by(user_pdfs_table.c.id.asc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                if canonical_id is not None:
+                    duplicate_count += 1
+                    logger.warning(
+                        "Migrering 0023 inventerade duplicerad PDF: "
+                        "behåller id %s som kanonisk och lämnar id %s utan innehållshash",
+                        canonical_id,
+                        row.id,
+                    )
+                    continue
+
+                conn.execute(
+                    user_pdfs_table.update()
+                    .where(
+                        user_pdfs_table.c.id == row.id,
+                        user_pdfs_table.c.content_sha256.is_(None),
+                    )
+                    .values(content_sha256=content_hash)
+                )
+
+    if duplicate_count:
+        logger.warning(
+            "Migrering 0023 inventerade %s befintliga PDF-dubbletter. "
+            "Raderna bevarades och endast den kanoniska kopian fick innehållshash.",
+            duplicate_count,
+        )
+
+
+def _finalize_external_private_provisioning_migration(engine: Engine) -> None:
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        if user_pdfs_table.name not in set(inspector.get_table_names()):
+            return
+        columns = {
+            column["name"] for column in inspector.get_columns(user_pdfs_table.name)
+        }
+        if "content_sha256" not in columns:
+            return
+
+        duplicate_groups = conn.execute(
+            select(
+                user_pdfs_table.c.personnummer,
+                user_pdfs_table.c.content_sha256,
+                func.min(user_pdfs_table.c.id).label("canonical_id"),
+                func.count(user_pdfs_table.c.id).label("duplicate_count"),
+            )
+            .where(user_pdfs_table.c.content_sha256.is_not(None))
+            .group_by(
+                user_pdfs_table.c.personnummer,
+                user_pdfs_table.c.content_sha256,
+            )
+            .having(func.count(user_pdfs_table.c.id) > 1)
+        ).all()
+        for duplicate in duplicate_groups:
+            conn.execute(
+                user_pdfs_table.update()
+                .where(
+                    user_pdfs_table.c.personnummer == duplicate.personnummer,
+                    user_pdfs_table.c.content_sha256 == duplicate.content_sha256,
+                    user_pdfs_table.c.id != duplicate.canonical_id,
+                )
+                .values(content_sha256=None)
+            )
+            logger.warning(
+                "Migrering 0023 reparerade %s redan hashade PDF-dubbletter; "
+                "id %s behöll den kanoniska hashen.",
+                int(duplicate.duplicate_count) - 1,
+                duplicate.canonical_id,
+            )
+
+        _ensure_unique_columns(
+            conn,
+            user_pdfs_table.name,
+            "uq_user_pdfs_personnummer_content_sha256",
+            ["personnummer", "content_sha256"],
+        )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1644,23 +1822,110 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
         "0022_fix_supervisor_connections_created_at_default",
         _migration_0022_fix_supervisor_connections_created_at_default,
     ),
+    (
+        "0023_external_private_provisioning",
+        _migration_0023_external_private_provisioning,
+    ),
 ]
 
 
-def run_migrations(engine: Engine) -> None:
+def _run_migrations_with_lock_held(engine: Engine) -> None:
     with engine.begin() as conn:
         inspector = inspect(conn)
         existing_tables = set(inspector.get_table_names())
         if schema_migrations_table.name not in existing_tables:
             schema_migrations_table.create(bind=conn)
-        applied_versions = {
-            row.version for row in conn.execute(select(schema_migrations_table.c.version))
-        }
-        for version, migration_fn in MIGRATIONS:
-            if version in applied_versions:
+
+    for version, migration_fn in MIGRATIONS:
+        with engine.connect() as conn:
+            applied = conn.execute(
+                select(schema_migrations_table.c.id).where(
+                    schema_migrations_table.c.version == version
+                )
+            ).scalar_one_or_none()
+        if applied is not None:
+            continue
+
+        if version == "0023_external_private_provisioning":
+            with engine.begin() as conn:
+                migration_fn(conn)
+            _backfill_user_pdf_content_hashes(engine)
+            _finalize_external_private_provisioning_migration(engine)
+            with engine.begin() as conn:
+                already_recorded = conn.execute(
+                    select(schema_migrations_table.c.id).where(
+                        schema_migrations_table.c.version == version
+                    )
+                ).scalar_one_or_none()
+                if already_recorded is None:
+                    conn.execute(
+                        insert(schema_migrations_table).values(
+                            version=version,
+                            applied_at=func.now(),
+                        )
+                    )
+            continue
+
+        with engine.begin() as conn:
+            already_recorded = conn.execute(
+                select(schema_migrations_table.c.id).where(
+                    schema_migrations_table.c.version == version
+                )
+            ).scalar_one_or_none()
+            if already_recorded is not None:
                 continue
             migration_fn(conn)
-            conn.execute(insert(schema_migrations_table).values(version=version, applied_at=func.now()))
+            conn.execute(
+                insert(schema_migrations_table).values(
+                    version=version,
+                    applied_at=func.now(),
+                )
+            )
+
+
+def run_migrations(engine: Engine) -> None:
+    if not engine.dialect.name.startswith("postgresql"):
+        _run_migrations_with_lock_held(engine)
+        return
+
+    # Ett sessionslås skyddar hela flerfas-migreringen även när hashbackfill
+    # behöver committa mellan batcherna.
+    with engine.connect() as lock_conn:
+        lock_name = "jk_utbildnings_intyg:schema_migrations"
+        lock_conn.execute(
+            select(func.pg_advisory_lock(func.hashtext(lock_name)))
+        )
+        lock_conn.commit()
+        try:
+            _run_migrations_with_lock_held(engine)
+        finally:
+            lock_conn.execute(
+                select(func.pg_advisory_unlock(func.hashtext(lock_name)))
+            )
+            lock_conn.commit()
+
+
+def _create_all_with_startup_lock(engine: Engine) -> None:
+    if not isinstance(engine, Engine) or not engine.dialect.name.startswith(
+        "postgresql"
+    ):
+        metadata.create_all(engine)
+        return
+
+    with engine.connect() as lock_conn:
+        lock_name = "jk_utbildnings_intyg:schema_migrations"
+        lock_conn.execute(
+            select(func.pg_advisory_lock(func.hashtext(lock_name)))
+        )
+        lock_conn.commit()
+        try:
+            metadata.create_all(lock_conn)
+            lock_conn.commit()
+        finally:
+            lock_conn.execute(
+                select(func.pg_advisory_unlock(func.hashtext(lock_name)))
+            )
+            lock_conn.commit()
 
 
 _ENGINE: Optional[Engine] = None
@@ -1932,7 +2197,7 @@ def create_database() -> None:
     for attempt in range(1, max_attempts + 1):
         engine = get_engine()
         try:
-            metadata.create_all(engine)
+            _create_all_with_startup_lock(engine)
             break
         except OperationalError as exc:
             switched_host = _switch_postgres_host_after_dns_error(engine, exc)
@@ -1940,7 +2205,7 @@ def create_database() -> None:
                 switched_to_dev_sqlite = _switch_to_dev_sqlite_after_failed_retries(engine)
                 if switched_to_dev_sqlite:
                     engine = get_engine()
-                    metadata.create_all(engine)
+                    _create_all_with_startup_lock(engine)
                     break
                 raise
             wait_seconds = min(2 * attempt, 10)

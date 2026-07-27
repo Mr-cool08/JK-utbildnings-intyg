@@ -91,13 +91,15 @@ fi
 # Justera workers/threads efter CPU
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-2}"
 THREADS="${THREADS:-8}"
+GUNICORN_TIMEOUT="${GUNICORN_TIMEOUT:-120}"
 
 # Kontrollera att wsgi:app finns (ändra modul om din heter något annat)
 GUNICORN_CMD="gunicorn --bind 0.0.0.0:${APP_PORT} \
     --workers ${WEB_CONCURRENCY} --threads ${THREADS} \
     --access-logfile ${LOG_DIR}/gunicorn-access.log \
+    --access-logformat '%(h)s %(m)s %(s)s %(L)s' \
     --error-logfile ${LOG_DIR}/gunicorn-error.log \
-    --timeout 60 \
+    --timeout ${GUNICORN_TIMEOUT} \
     --user app --group app \
     --preload \
     wsgi:app"

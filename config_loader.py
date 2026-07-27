@@ -102,6 +102,8 @@ def _mask_sensitive_data(values: dict[str, str | None]) -> dict[str, str | None]
         "POSTGRES_PASSWORD",
         "SECRET_KEY",
         "SMTP_PASSWORD",
+        "EXTERNAL_PROVISIONING_HMAC_KEYS",
+        "EXTERNAL_PRIVATE_PROVISIONING_KEYS",
     }
     masked: dict[str, str | None] = {}
     for key, value in values.items():

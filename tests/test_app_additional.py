@@ -111,6 +111,7 @@ def test_create_app_defaults_without_debug(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_COUNT", "0")
     monkeypatch.setenv("secret_key", "start-secret")
     monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
 
     monkeypatch.setattr(app.functions, "create_database", lambda: None)
 
@@ -118,6 +119,7 @@ def test_create_app_defaults_without_debug(monkeypatch):
 
     assert flask_app.debug is False
     assert flask_app.config["DEV_MODE"] is False
+    assert flask_app.config["SESSION_COOKIE_SECURE"] is True
     assert flask_app.secret_key == "start-secret"
 
 

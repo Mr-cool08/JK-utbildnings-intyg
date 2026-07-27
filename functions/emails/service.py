@@ -14,8 +14,11 @@ from html import escape
 from smtplib import (
     SMTP,
     SMTPAuthenticationError,
+    SMTPDataError,
     SMTPException,
+    SMTPRecipientsRefused,
     SMTPServerDisconnected,
+    SMTPSenderRefused,
     SMTP_SSL,
 )
 from typing import Any, Sequence
@@ -44,6 +47,20 @@ class SMTPSettings:
     password: str
     timeout: int
     from_address: str
+
+
+class EmailNotSentError(RuntimeError):
+    # SMTP har entydigt inte accepterat meddelandet; ett kontrollerat nytt försök är säkert.
+    pass
+
+
+class EmailDeliveryUnknownError(RuntimeError):
+    # SMTP-förbindelsen bröts efter att överföringen började och leveransläget är okänt.
+    pass
+
+
+class EmailSendingDisabledError(EmailNotSentError):
+    pass
 
 
 def load_smtp_settings() -> SMTPSettings:
@@ -102,8 +119,11 @@ def send_email_message(
     context = ssl.create_default_context()
     recipient_mask = mask_hash(functions.hash_value(normalized_recipient))
     masked_user = mask_hash(functions.hash_value(settings.user))
+    send_attempted = False
+    send_accepted = False
 
     def _send_using_connection(smtp: SMTP, use_ssl: bool) -> None:
+        nonlocal send_accepted, send_attempted
         if hasattr(smtp, "ehlo"):
             smtp.ehlo()
 
@@ -127,6 +147,7 @@ def send_email_message(
         smtp.login(settings.user, settings.password)
         logger.debug("SMTP inloggning lyckades för %s", masked_user)
 
+        send_attempted = True
         if hasattr(smtp, "send_message"):
             refused = smtp.send_message(
                 msg,
@@ -141,7 +162,10 @@ def send_email_message(
         logger.debug("SMTP svar för %s: %s", recipient_mask, refused or "ok")
         if refused:
             logger.error("SMTP server refused recipients: %s", recipient_mask)
-            raise RuntimeError("E-postservern accepterade inte mottagaren.")
+            raise EmailNotSentError(
+                "E-postservern accepterade inte mottagaren."
+            )
+        send_accepted = True
 
     try:
         use_ssl = settings.port == 465
@@ -163,18 +187,55 @@ def send_email_message(
             msg["Message-ID"],
         )
 
+    except EmailNotSentError:
+        raise
     except SMTPAuthenticationError as exc:
         logger.error("SMTP login failed for %s", masked_user)
-        raise RuntimeError("SMTP-inloggning misslyckades") from exc
+        raise EmailNotSentError("SMTP-inloggning misslyckades") from exc
+    except (SMTPRecipientsRefused, SMTPSenderRefused, SMTPDataError) as exc:
+        logger.error("SMTP avvisade meddelandet till %s", recipient_mask)
+        raise EmailNotSentError("E-postservern avvisade meddelandet.") from exc
     except SMTPServerDisconnected as exc:
+        if send_accepted:
+            logger.warning(
+                "SMTP-förbindelsen stängdes efter bekräftad acceptans för %s",
+                recipient_mask,
+            )
+            return
         logger.error("Server closed the connection during SMTP session")
-        raise RuntimeError("Det gick inte att skicka e-post") from exc
+        if send_attempted:
+            raise EmailDeliveryUnknownError(
+                "E-postserverns leveransbesked är okänt."
+            ) from exc
+        raise EmailNotSentError("Det gick inte att skicka e-post") from exc
     except SMTPException as exc:
+        if send_accepted:
+            logger.warning(
+                "SMTP-sessionen gav fel efter bekräftad acceptans för %s",
+                recipient_mask,
+            )
+            return
         logger.error("SMTP error when sending to %s", recipient_mask)
-        raise RuntimeError("Det gick inte att skicka e-post") from exc
+        if send_attempted:
+            raise EmailDeliveryUnknownError(
+                "E-postserverns leveransbesked är okänt."
+            ) from exc
+        raise EmailNotSentError("Det gick inte att skicka e-post") from exc
     except OSError as exc:
+        if send_accepted:
+            logger.warning(
+                "SMTP-anslutningen stängdes efter bekräftad acceptans för %s",
+                recipient_mask,
+            )
+            return
         logger.error("Connection error to email server")
-        raise RuntimeError("Det gick inte att ansluta till e-postservern") from exc
+        if send_attempted:
+            raise EmailDeliveryUnknownError(
+                "E-postserverns leveransbesked är okänt."
+            ) from exc
+        raise EmailNotSentError(
+            "Det gick inte att ansluta till e-postservern"
+        ) from exc
 
 
 def open_smtp_connection(settings: SMTPSettings, context: ssl.SSLContext) -> SMTP:
@@ -231,6 +292,9 @@ def send_email(
     subject: str,
     html_body: str,
     attachments: Sequence[tuple[str, bytes]] | None = None,
+    *,
+    message_id: str | None = None,
+    fail_if_disabled: bool = False,
 ) -> None:
     """Create an ``EmailMessage`` and send it to ``recipient_email``."""
 
@@ -245,6 +309,10 @@ def send_email(
 
     if should_disable_email_sending():
         logger.info("E-postutskick är avstängt i aktuell miljö; hoppar över sändning")
+        if fail_if_disabled:
+            raise EmailSendingDisabledError(
+                "E-postutskick är avstängt i aktuell miljö."
+            )
         return
 
     settings = load_smtp_settings()
@@ -260,7 +328,9 @@ def send_email(
     msg["Subject"] = subject
     msg["From"] = settings.from_address
     msg["To"] = normalized_email
-    msg["Message-ID"] = make_msgid()
+    if message_id is not None and ("\r" in message_id or "\n" in message_id):
+        raise ValueError("Ogiltigt Message-ID.")
+    msg["Message-ID"] = message_id or make_msgid()
     msg["Date"] = format_datetime(datetime.now(timezone.utc))
     msg.set_content(html_body, subtype="html")
 
@@ -359,6 +429,58 @@ def send_creation_email(to_email: str, link: str) -> None:
 
     body = format_email_html("Skapa ditt konto", content, accent_color="#07b91f")
     send_email(to_email, "Skapa ditt konto", body)
+
+
+def send_external_private_provisioning_email(
+    to_email: str,
+    recipient_name: str,
+    filename: str,
+    pdf_content: bytes,
+    message_id: str,
+    *,
+    activation_link: str | None = None,
+) -> None:
+    """Skicka integrationsmejl med ett deterministiskt logiskt meddelande-ID."""
+
+    safe_name = escape(recipient_name.strip() or "där")
+    safe_filename = escape(filename)
+    if activation_link:
+        safe_link = escape(activation_link, quote=True)
+        content = (
+            f"<p>Hej {safe_name},</p>"
+            "<p>Ett utbildningsintyg har lagts till på ditt privatkonto. "
+            "Aktivera kontot med knappen nedan.</p>"
+            f"{_render_action_button(activation_link, 'Aktivera privatkonto')}"
+            "<p>Om knappen inte fungerar kan du kopiera länken:</p>"
+            f"<p><a href='{safe_link}'>{safe_link}</a></p>"
+            f"<p>Intyget finns även bifogat som <em>{safe_filename}</em>.</p>"
+        )
+        subject = "Aktivera ditt privatkonto och visa ditt intyg"
+    else:
+        content = (
+            f"<p>Hej {safe_name},</p>"
+            "<p>Ett nytt utbildningsintyg har lagts till på ditt privatkonto.</p>"
+            f"<p>Intyget finns även bifogat som <em>{safe_filename}</em>.</p>"
+            f"{_render_action_button(_build_app_url('/dashboard'), 'Visa mina intyg')}"
+        )
+        subject = "Ett nytt intyg har lagts till"
+
+    body = format_email_html(subject, content, accent_color="#0f766e")
+    try:
+        send_email(
+            to_email,
+            subject,
+            body,
+            attachments=[(filename, pdf_content)],
+            message_id=message_id,
+            fail_if_disabled=True,
+        )
+    except (EmailNotSentError, EmailDeliveryUnknownError):
+        raise
+    except (RuntimeError, ValueError) as exc:
+        raise EmailNotSentError(
+            "E-postutskicket kunde inte förberedas."
+        ) from exc
 
 
 def send_password_reset_email(to_email: str, link: str) -> None:

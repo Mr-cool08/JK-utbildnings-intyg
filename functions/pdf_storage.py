@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from datetime import date
+import hashlib
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import delete, func, insert, select, update
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from functions.database import user_pdfs_table, get_engine
 from functions.hashing import _hash_personnummer, _is_valid_hash
@@ -130,19 +131,26 @@ def store_pdf_blob(
     expires_on: date | None = None,
 ) -> int:
     # Store a PDF for the hashed personnummer and return its database id.
-    with get_engine().begin() as conn:
-        result = conn.execute(
-            insert(user_pdfs_table).values(
-                personnummer=personnummer_hash,
-                filename=filename,
-                content=content,
-                categories=_serialize_categories(categories),
-                uploaded_at=func.now(),
-                note=note,
-                expires_on=expires_on,
+    content_sha256 = hashlib.sha256(content).hexdigest()
+    try:
+        with get_engine().begin() as conn:
+            result = conn.execute(
+                insert(user_pdfs_table).values(
+                    personnummer=personnummer_hash,
+                    filename=filename,
+                    content=content,
+                    content_sha256=content_sha256,
+                    categories=_serialize_categories(categories),
+                    uploaded_at=func.now(),
+                    note=note,
+                    expires_on=expires_on,
+                )
             )
-        )
-        pdf_id = result.inserted_primary_key[0]
+            pdf_id = result.inserted_primary_key[0]
+    except IntegrityError as exc:
+        raise ValueError(
+            "Samma PDF-dokument finns redan för användaren."
+        ) from exc
     logger.info(
         "Sparade PDF %s för %s med id %s",
         filename,

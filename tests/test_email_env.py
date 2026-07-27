@@ -369,3 +369,48 @@ def test_send_email_message_raises_after_exhausted_connection_retries(monkeypatc
     assert "ansluta till e-postservern" in str(exc.value)
     assert len(attempts) == email_service.SMTP_CONNECT_MAX_ATTEMPTS
     assert sleep_calls == [1, 2]
+
+
+def test_smtp_teardown_error_after_acceptance_is_still_success(monkeypatch):
+    class AcceptedThenQuitFailedSMTP:
+        def __init__(self, _server, _port, **_kwargs):
+            pass
+
+        def ehlo(self):
+            pass
+
+        def starttls(self, _context=None):
+            pass
+
+        def login(self, _user, _password):
+            pass
+
+        def send_message(self, _msg, from_addr=None, to_addrs=None):
+            return {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            raise email_service.SMTPException("QUIT misslyckades")
+
+    monkeypatch.setattr(
+        email_service,
+        "SMTP",
+        AcceptedThenQuitFailedSMTP,
+    )
+    msg = EmailMessage()
+    msg["Subject"] = "Test"
+    msg["From"] = "from@example.com"
+    msg["To"] = "to@example.com"
+    msg.set_content("Hej")
+    settings = email_service.SMTPSettings(
+        server="smtp.example.com",
+        port=587,
+        user="real.user@example.com",
+        password="x",
+        timeout=10,
+        from_address="from@example.com",
+    )
+
+    email_service.send_email_message(msg, "to@example.com", settings)

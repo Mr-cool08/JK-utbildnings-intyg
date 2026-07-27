@@ -1,0 +1,44 @@
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
+{% extends "base.html" %}
+{% block title %}Aktivera privatkonto{% endblock %}
+{% block content %}
+    <div class="create-account">
+        <h2>Aktivera privatkonto</h2>
+        {% if invalid %}
+            <p class="message error">
+                Länken är ogiltig, har gått ut eller har redan använts.
+                Kontakta avsändaren om du behöver en ny inbjudan.
+            </p>
+        {% else %}
+            {% if error %}
+                <p class="message error">{{ error }}</p>
+            {% endif %}
+            <p>
+                Välj ett starkt lösenord för ditt privatkonto.
+                Lösenordet måste vara minst åtta tecken långt.
+            </p>
+            <form method="post" action="{{ url_for('create_user_token_session') }}" class="form-card">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <label for="password">Lösenord</label>
+                <input type="password" id="password" name="password" minlength="8" required>
+
+                <label for="confirm">Bekräfta lösenord</label>
+                <input type="password" id="confirm" name="confirm" minlength="8" required>
+
+                <button type="submit" class="btn">Aktivera konto</button>
+            </form>
+            <p class="license-note">
+                Genom att fortsätta accepterar du villkoren i vårt användaravtal
+                och vår GDPR-policy.
+            </p>
+            <a href="{{ url_for('terms_of_service') }}" class="license-link" target="_blank" rel="noreferrer">
+                Läs användaravtalet
+            </a>
+            <a href="{{ url_for('gdpr_info') }}" class="license-link" target="_blank" rel="noreferrer">
+                Läs GDPR-policyn
+            </a>
+        {% endif %}
+    </div>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

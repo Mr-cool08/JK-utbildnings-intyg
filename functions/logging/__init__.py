@@ -115,6 +115,7 @@ def configure_module_logger(name: str) -> logging.Logger:
         handlers = (handler,)
 
     for handler in handlers:
+        _ensure_sensitive_path_filter(handler)
         logger.addHandler(handler)
 
     if logger.level == logging.NOTSET:
@@ -141,7 +142,14 @@ _SENSITIVE_KEYS = {
     "api_key",
     "apikey",
     "key",
+    "idempotency-key",
+    "x-csrf-token",
 }
+
+_TOKEN_ROUTE_PATTERN = re.compile(
+    r"(?P<prefix>/create_user/token/)[^/?#\s]+",
+    re.IGNORECASE,
+)
 
 
 def _looks_like_email(value: str) -> bool:
@@ -164,11 +172,16 @@ def _looks_like_hash_reference(value: str) -> bool:
 
 def mask_sensitive_data(data: Any) -> Any:
     # Mask sensitive fields in dicts/lists to avoid leaking secrets to logs.
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        return f"<binär data: {len(data)} byte>"
     if isinstance(data, Mapping):
         masked: dict[Any, Any] = {}
         for key, value in data.items():
             key_str = str(key).lower()
-            if key_str in _SENSITIVE_KEYS:
+            if (
+                key_str in _SENSITIVE_KEYS
+                or key_str.startswith("x-external-")
+            ):
                 masked[key] = "***"
             else:
                 masked[key] = mask_sensitive_data(value)
@@ -177,20 +190,23 @@ def mask_sensitive_data(data: Any) -> Any:
         masked_items: list[Any] = []
         for item in data:
             if isinstance(item, str):
-                if _looks_like_email(item):
-                    masked_items.append(mask_email(item))
-                elif _looks_like_hash_reference(item):
-                    masked_items.append(mask_hash(item))
+                sanitized_item = mask_request_path(item)
+                if _looks_like_email(sanitized_item):
+                    masked_items.append(mask_email(sanitized_item))
+                elif _looks_like_hash_reference(sanitized_item):
+                    masked_items.append(mask_hash(sanitized_item))
                 else:
-                    masked_items.append(item)
+                    masked_items.append(sanitized_item)
             else:
                 masked_items.append(mask_sensitive_data(item))
         return masked_items
     if isinstance(data, str):
-        if _looks_like_email(data):
-            return mask_email(data)
-        if _looks_like_hash_reference(data):
-            return mask_hash(data)
+        sanitized_data = mask_request_path(data)
+        if _looks_like_email(sanitized_data):
+            return mask_email(sanitized_data)
+        if _looks_like_hash_reference(sanitized_data):
+            return mask_hash(sanitized_data)
+        return sanitized_data
     return data
 
 
@@ -198,11 +214,56 @@ def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
     # Mask sensitive headers for logging.
     masked: dict[str, str] = {}
     for key, value in headers.items():
-        if key.lower() in _SENSITIVE_KEYS:
+        normalized_key = key.lower()
+        if (
+            normalized_key in _SENSITIVE_KEYS
+            or normalized_key.startswith("x-external-")
+        ):
             masked[key] = "***"
         else:
-            masked[key] = value
+            masked[key] = mask_request_path(value)
     return masked
+
+
+def mask_request_path(path: str | None) -> str:
+    # Dölj bearer-token i aktiveringsvägen innan sökvägen lämnar requestlagret.
+    if not path:
+        return ""
+    return _TOKEN_ROUTE_PATTERN.sub(
+        lambda match: f"{match.group('prefix')}<token>",
+        str(path),
+    )
+
+
+def _mask_request_paths_in_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return mask_request_path(value)
+    if isinstance(value, Mapping):
+        return {
+            key: _mask_request_paths_in_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, tuple):
+        return tuple(_mask_request_paths_in_value(item) for item in value)
+    if isinstance(value, list):
+        return [_mask_request_paths_in_value(item) for item in value]
+    return value
+
+
+class SensitiveRequestPathFilter(logging.Filter):
+    # Sista skyddslager för ramverksloggar som inte använder applagrets helpers.
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = _mask_request_paths_in_value(record.msg)
+        record.args = _mask_request_paths_in_value(record.args)
+        return True
+
+
+def _ensure_sensitive_path_filter(handler: logging.Handler) -> None:
+    if not any(
+        isinstance(existing_filter, SensitiveRequestPathFilter)
+        for existing_filter in handler.filters
+    ):
+        handler.addFilter(SensitiveRequestPathFilter())
 
 
 def _resolve_log_level(level_env_vars: Sequence[str]) -> str:
@@ -251,6 +312,7 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
     if not has_console_handler:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
+        _ensure_sensitive_path_filter(console_handler)
         root.addHandler(console_handler)
 
     if not has_file_handler:
@@ -260,7 +322,11 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
             backupCount=backup_count,
         )
         file_handler.setFormatter(formatter)
+        _ensure_sensitive_path_filter(file_handler)
         root.addHandler(file_handler)
+
+    for handler in root.handlers:
+        _ensure_sensitive_path_filter(handler)
 
     root.setLevel(log_level)
 
@@ -273,6 +339,7 @@ def configure_root_logging(level_env_vars: Sequence[str] = ("LOG_LEVEL",)) -> No
         if not has_email_handler:
             email_handler = EmailErrorHandler()
             email_handler.setFormatter(formatter)
+            _ensure_sensitive_path_filter(email_handler)
             root.addHandler(email_handler)
     except Exception:
         # Silently fail if email handler can't be attached (e.g., during early initialization)

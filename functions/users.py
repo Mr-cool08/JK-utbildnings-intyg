@@ -10,12 +10,14 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from functions.database import (
+    acquire_private_provisioning_identity_locks,
     application_requests_table,
     company_users_table,
     organization_link_requests_table,
     password_resets_table,
     pending_supervisors_table,
     pending_users_table,
+    private_account_activation_tokens_table,
     supervisor_connections_table,
     supervisor_link_requests_table,
     supervisor_password_resets_table,
@@ -179,28 +181,55 @@ def user_create_user(password: str, personnummer_hash: str) -> bool:
     # Move a pending user identified by ``personnummer_hash`` into users.
     try:
         with get_engine().begin() as conn:
+            acquire_private_provisioning_identity_locks(
+                conn,
+                [f"pnr:{personnummer_hash}"],
+            )
+            token_protected = conn.execute(
+                select(private_account_activation_tokens_table.c.id)
+                .where(
+                    private_account_activation_tokens_table.c.pending_user_personnummer
+                    == personnummer_hash
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+            if token_protected is not None:
+                logger.warning(
+                    "Token-skyddat konto %s kan inte aktiveras via hash-rutten",
+                    mask_hash(personnummer_hash),
+                )
+                return False
             existing = conn.execute(
                 select(users_table.c.id).where(users_table.c.personnummer == personnummer_hash)
             ).first()
             if existing:
                 logger.warning("User %s already exists", mask_hash(personnummer_hash))
                 return False
-            row = conn.execute(
-                select(
-                    pending_users_table.c.email,
-                    pending_users_table.c.orgnr_normalized,
-                    pending_users_table.c.username,
-                    pending_users_table.c.personnummer,
-                ).where(pending_users_table.c.personnummer == personnummer_hash)
-            ).first()
+            pending_query = select(
+                pending_users_table.c.email,
+                pending_users_table.c.orgnr_normalized,
+                pending_users_table.c.username,
+                pending_users_table.c.personnummer,
+            ).where(
+                pending_users_table.c.personnummer == personnummer_hash
+            )
+            if conn.dialect.name.startswith("postgresql"):
+                pending_query = pending_query.with_for_update()
+            row = conn.execute(pending_query).first()
             if not row:
                 logger.warning("Pending user %s not found", mask_hash(personnummer_hash))
                 return False
-            conn.execute(
+            delete_result = conn.execute(
                 delete(pending_users_table).where(
                     pending_users_table.c.personnummer == personnummer_hash
                 )
             )
+            if delete_result.rowcount != 1:
+                logger.warning(
+                    "Väntande konto %s ändrades under aktivering",
+                    mask_hash(personnummer_hash),
+                )
+                return False
             conn.execute(
                 insert(users_table).values(
                     email=row.email,
@@ -298,6 +327,15 @@ def _admin_delete_user_account_by_hash(
             conn.execute(
                 delete(password_resets_table).where(
                     password_resets_table.c.personnummer == personnummer_hash
+                )
+            ).rowcount
+            or 0
+        )
+        summary["private_account_activation_tokens"] = (
+            conn.execute(
+                delete(private_account_activation_tokens_table).where(
+                    private_account_activation_tokens_table.c.pending_user_personnummer
+                    == personnummer_hash
                 )
             ).rowcount
             or 0

@@ -18,6 +18,7 @@ import app  # noqa: E402
 import functions  # noqa: E402
 from app import save_pdf_for_user  # noqa: E402
 from course_categories import COURSE_CATEGORIES  # noqa: E402
+from functions.logging import SensitiveRequestPathFilter  # noqa: E402
 from werkzeug.datastructures import FileStorage  # noqa: E402
 
 
@@ -113,3 +114,47 @@ def test_admin_upload_logging_masks_sensitive_data(empty_db, caplog):
     assert data["email"] not in log_text
     assert normalized_email not in log_text
     assert hashed_email not in log_text
+
+
+def test_private_activation_token_is_absent_from_request_and_error_logs(
+    empty_db,
+    monkeypatch,
+):
+    raw_token = "raw-token-som-aldrig-far-loggas"
+    activation_path = f"/create_user/token/{raw_token}"
+    captured_notifications = []
+    output = io.StringIO()
+    handler = logging.StreamHandler(output)
+    handler.addFilter(SensitiveRequestPathFilter())
+    app.logger.addHandler(handler)
+    original_level = app.logger.level
+    app.logger.setLevel(logging.DEBUG)
+    monkeypatch.setattr(app, "_is_pytest_running", lambda: False)
+    monkeypatch.setattr(
+        app.critical_events,
+        "send_critical_error_notification",
+        lambda **kwargs: captured_notifications.append(kwargs),
+    )
+    try:
+        response = app.app.test_client().get(
+            activation_path,
+            headers={
+                "Referer": (
+                    "https://intyg.example"
+                    f"{activation_path}?source=email"
+                ),
+                "X-Forwarded-Uri": activation_path,
+            },
+        )
+        with app.app.test_request_context(activation_path):
+            app.internal_server_error(None)
+    finally:
+        app.logger.removeHandler(handler)
+        app.logger.setLevel(original_level)
+        handler.close()
+
+    assert response.status_code == 404
+    assert raw_token not in output.getvalue()
+    assert raw_token not in str(captured_notifications)
+    assert "<token>" in output.getvalue()
+    assert captured_notifications

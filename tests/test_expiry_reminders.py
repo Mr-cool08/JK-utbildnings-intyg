@@ -159,7 +159,7 @@ def _store_certificate(
     pdf_id = functions.store_pdf_blob(
         personnummer_hash,
         filename,
-        b"%PDF-1.4 test",
+        b"%PDF-1.4 test " + filename.encode("utf-8"),
         categories or [],
         expires_on=expires_on,
     )

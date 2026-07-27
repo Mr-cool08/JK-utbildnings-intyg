@@ -38,6 +38,23 @@ class ScanVerdict(NamedTuple):
     findings: list[str]
 
 
+class PDFScannerError(ValueError):
+    # Basfel för stabil felklassificering i API-lagret.
+    pass
+
+
+class PDFScannerUnavailableError(PDFScannerError):
+    pass
+
+
+class PDFScannerTimeoutError(PDFScannerError):
+    pass
+
+
+class PDFScannerExecutionError(PDFScannerError):
+    pass
+
+
 def _collect_matches_from_strings(strings: Iterable[str]) -> set[str]:
     matches: set[str] = set()
     for candidate in strings:
@@ -97,10 +114,12 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
         )
     except FileNotFoundError:
         logger.error("Quicksand saknas på systemet")
-        raise ValueError("Säkerhetsskannern är inte tillgänglig just nu.")
+        raise PDFScannerUnavailableError(
+            "Säkerhetsskannern är inte tillgänglig just nu."
+        )
     except subprocess.TimeoutExpired:
         logger.warning("Quicksand-tidgräns överskreds för %s", tmp_path)
-        raise ValueError("PDF:en kunde inte skannas i tid.")
+        raise PDFScannerTimeoutError("PDF:en kunde inte skannas i tid.")
     finally:
         try:
             os.unlink(tmp_path)
@@ -152,6 +171,8 @@ def scan_pdf_bytes(pdf_bytes: bytes, logger: logging.Logger | None = None) -> Sc
                 result.returncode,
                 stderr,
             )
-            raise ValueError("Säkerhetsskannern rapporterade ett fel.")
+            raise PDFScannerExecutionError(
+                "Säkerhetsskannern rapporterade ett fel."
+            )
 
     return ScanVerdict(decision, sorted(findings))

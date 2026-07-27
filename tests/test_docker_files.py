@@ -112,12 +112,29 @@ def test_compose_avoids_host_volumes():
     assert re.search(r"-\s+\./[^:\n]*:/config", app_service) is None
 
 
-def test_compose_uses_direct_host_port_bindings_for_main_services():
+def test_compose_exposes_public_ports_only_through_traefik():
     compose = _read(ROOT / "docker-compose.yml")
+    traefik_service = _extract_service_block(compose, "traefik")
+    app_service = _extract_service_block(compose, "app")
 
     assert "dev_main_port:" not in compose
-    assert "80:80" in compose
-    assert "127.0.0.1:80:80" not in compose
+    assert '- "80:80"' in traefik_service
+    assert '- "443:443"' in traefik_service
+    assert "ports:" not in app_service
+    assert '- "80"' in app_service
+
+
+def test_token_routes_are_excluded_from_access_log_urls():
+    compose = _read(ROOT / "docker-compose.yml")
+    entrypoint = _read(ROOT / "entrypoint.sh")
+
+    assert (
+        "traefik.http.routers.app-token.observability.accesslogs=false"
+        in compose
+    )
+    assert "--access-logformat '%(h)s %(m)s %(s)s %(L)s'" in entrypoint
+    assert "%(U)s" not in entrypoint
+    assert "%(r)s" not in entrypoint
 
 
 def test_compose_does_not_include_rclone_cloud_backup_service():

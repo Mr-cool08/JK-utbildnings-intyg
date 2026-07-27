@@ -31,7 +31,7 @@ def _store_sample_pdf(filename: str = "delningstest.pdf") -> int:
     return functions.store_pdf_blob(
         personnummer_hash,
         filename,
-        b"%PDF-1.4 sample",
+        b"%PDF-1.4 sample " + filename.encode("utf-8"),
         [COURSE_CATEGORIES[0][0]],
     )
 

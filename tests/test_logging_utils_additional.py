@@ -194,6 +194,18 @@ def test_mask_sensitive_data_keeps_non_email_strings_in_sequences():
     assert masked[3]["contact"] == "c***@example.com"
 
 
+def test_mask_sensitive_data_never_logs_binary_payloads():
+    binary_pdf = b"%PDF-1.4\nhemligt innehall"
+
+    masked = logging_utils.mask_sensitive_data(
+        [binary_pdf, {"content": memoryview(binary_pdf)}]
+    )
+
+    assert binary_pdf not in str(masked).encode()
+    assert masked[0] == f"<binär data: {len(binary_pdf)} byte>"
+    assert masked[1]["content"] == f"<binär data: {len(binary_pdf)} byte>"
+
+
 def test_mask_sensitive_data_skips_overlong_email_candidates():
     overlong_email = f"{'a' * 257}@example.com"
 
@@ -218,6 +230,57 @@ def test_mask_sensitive_data_masks_hash_like_strings_in_mappings():
 
     assert masked["personnummer"] == logging_utils.mask_hash(sha256_value)
     assert masked["status"] == "ok"
+
+
+def test_mask_headers_hides_activation_tokens_inside_header_values():
+    raw_token = "hemlig-token-som-inte-far-loggas"
+    headers = {
+        "Referer": (
+            "https://intyg.example/create_user/token/"
+            f"{raw_token}?source=email"
+        ),
+        "X-Forwarded-Uri": f"/create_user/token/{raw_token}",
+        "X-External-Signature": "signatur",
+    }
+
+    masked = logging_utils.mask_headers(headers)
+
+    assert raw_token not in str(masked)
+    assert masked["Referer"].endswith(
+        "/create_user/token/<token>?source=email"
+    )
+    assert masked["X-Forwarded-Uri"] == "/create_user/token/<token>"
+    assert masked["X-External-Signature"] == "***"
+
+
+def test_nested_log_values_hide_activation_tokens():
+    raw_token = "token-i-nestlad-loggdata"
+    nested = {
+        "query": [
+            {
+                "next": (
+                    "https://intyg.example/create_user/token/"
+                    f"{raw_token}"
+                )
+            }
+        ]
+    }
+
+    masked = logging_utils.mask_sensitive_data(nested)
+    record = logging.LogRecord(
+        "test",
+        logging.INFO,
+        __file__,
+        1,
+        "context=%s",
+        (nested,),
+        None,
+    )
+    logging_utils.SensitiveRequestPathFilter().filter(record)
+
+    assert raw_token not in str(masked)
+    assert raw_token not in record.getMessage()
+    assert "<token>" in record.getMessage()
 
 
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):

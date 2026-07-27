@@ -64,12 +64,16 @@ Exempel på cron den första dagen varje månad klockan 07:00:
 
 Direkta host-portar i Compose:
 
-- `80:80` - huvudappen
+- `80:80` - Traefik för omdirigering från HTTP till HTTPS
 - `443:443` - Traefik för HTTPS
 - `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
 - `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
 
-För publik drift bör direktåtkomst till origin begränsas med brandvägg, särskilt om Cloudflare används framför servern.
+Appcontainerns port 80 exponeras bara internt på Docker-nätverket. Den ska inte
+publiceras direkt på hosten, eftersom det skulle kringgå Traefiks TLS-,
+router- och loggningsskydd. För publik drift bör direktåtkomst till origin
+dessutom begränsas med brandvägg, särskilt om Cloudflare används framför
+servern.
 
 ## Fail2ban
 
