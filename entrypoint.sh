@@ -106,6 +106,30 @@ echo "Starting Gunicorn: $GUNICORN_CMD"
 sh -c "$GUNICORN_CMD" &
 GUNICORN_PID=$!
 
+# Självläkning: avsluta Gunicorn om hela webbappen slutar svara.
+# Docker restart: unless-stopped startar då automatiskt containern igen.
+(
+  sleep 30
+  failures=0
+  while kill -0 "${GUNICORN_PID}" 2>/dev/null; do
+    if curl --max-time 3 -fsS "http://127.0.0.1:${APP_PORT}/health" >/dev/null 2>&1; then
+      failures=0
+    else
+      failures=$((failures + 1))
+      echo "Health watchdog: failure ${failures}/5" >&2
+      if [ "${failures}" -ge 5 ]; then
+        echo "Health watchdog: Gunicorn is unresponsive, terminating for automatic restart." >&2
+        kill -TERM "${GUNICORN_PID}" 2>/dev/null || true
+        sleep 10
+        kill -KILL "${GUNICORN_PID}" 2>/dev/null || true
+        break
+      fi
+    fi
+    sleep 15
+  done
+) &
+WATCHDOG_PID=$!
+
 set +e
 if [ -n "${GUNICORN_PID}" ]; then
   wait "${GUNICORN_PID}" 2>/dev/null
