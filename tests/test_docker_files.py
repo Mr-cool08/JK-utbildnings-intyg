@@ -195,7 +195,7 @@ def test_compose_tunes_app_and_postgres_for_small_host_profile():
     app_service = _extract_service_block(compose, "app")
     postgres_service = _extract_service_block(compose, "postgres")
 
-    assert "WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}" in app_service
+    assert "WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}" in app_service
     assert "THREADS: ${THREADS:-4}" in app_service
 
     assert "- shared_buffers=128MB" in postgres_service
