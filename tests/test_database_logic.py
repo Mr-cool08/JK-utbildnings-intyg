@@ -1034,6 +1034,81 @@ def test_migration_0022_postgres_repairs_supervisor_connection_created_at(
     ) in executed_sql_texts
 
 
+def test_migration_0023_consolidates_legacy_course_categories_idempotently():
+    engine = create_engine("sqlite:///:memory:", future=True)
+
+    source_categories = [
+        "heta-arbeten",
+        "fallskydd-grund,liftutbildning,truckutbildning-a",
+        (
+            "allman-jarnvagsteknik,apv-steg-1-grundkompetens,gdpr-grund,"
+            "pedagogik-retorik,basala-hygienrutiner"
+        ),
+        "jordbruk-skog-naturbruk",
+        "egen-kategori",
+        "fallskydd,lift,truck",
+        "",
+        " HETA-ARBETEN , arbetsmiljo-sakerhet ",
+    ]
+    expected_categories = [
+        "arbetsmiljo-sakerhet",
+        "bygg-anlaggning-industri,transport-logistik",
+        (
+            "jarnvag-vag,transport-logistik,it-teknik-administration,"
+            "ledarskap-hr-mjuka-fardigheter,vard-omsorg-samhalle"
+        ),
+        "jordbruk-skog-naturbruk",
+        "egen-kategori",
+        "bygg-anlaggning-industri,transport-logistik",
+        "",
+        "arbetsmiljo-sakerhet",
+    ]
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE user_pdfs ("
+                "id INTEGER PRIMARY KEY, categories TEXT DEFAULT '' NOT NULL)"
+            )
+        )
+        for row_id, categories in enumerate(source_categories, start=1):
+            conn.execute(
+                text(
+                    "INSERT INTO user_pdfs (id, categories) "
+                    "VALUES (:id, :categories)"
+                ),
+                {"id": row_id, "categories": categories},
+            )
+
+        database_module._migration_0023_migrate_legacy_course_categories(conn)
+        first_result = list(
+            conn.execute(
+                text("SELECT categories FROM user_pdfs ORDER BY id")
+            ).scalars()
+        )
+        database_module._migration_0023_migrate_legacy_course_categories(conn)
+        second_result = list(
+            conn.execute(
+                text("SELECT categories FROM user_pdfs ORDER BY id")
+            ).scalars()
+        )
+
+    assert first_result == expected_categories
+    assert second_result == expected_categories
+
+
+def test_migration_0023_is_registered_and_handles_missing_storage():
+    version, migration_fn = database_module.MIGRATIONS[-1]
+    assert version == "0023_migrate_legacy_course_categories"
+    assert migration_fn is database_module._migration_0023_migrate_legacy_course_categories
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    with engine.begin() as conn:
+        database_module._migration_0023_migrate_legacy_course_categories(conn)
+        conn.execute(text("CREATE TABLE user_pdfs (id INTEGER PRIMARY KEY)"))
+        database_module._migration_0023_migrate_legacy_course_categories(conn)
+
+
 def test_migration_0014_postgres_repairs_org_request_defaults(monkeypatch):
     class _FakeConn:
         dialect = postgresql.dialect()

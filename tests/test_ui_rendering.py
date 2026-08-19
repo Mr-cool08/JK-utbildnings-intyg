@@ -351,6 +351,10 @@ def test_upload_page_renders_form_for_logged_in_user(user_db):
     assert "Tillbaka till mina intyg" in body
     assert "Max 50 MB per uppladdning." in body
     assert 'data-max-bytes="52428800"' in body
+    assert "<optgroup" not in body
+    assert "Fallskydd – grund" not in body
+    for slug, _label in COURSE_CATEGORIES:
+        assert f'value="{slug}"' in body
 
 
 def test_admin_upload_script_enforces_total_upload_limit():

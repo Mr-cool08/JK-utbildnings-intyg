@@ -38,6 +38,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.schema import CreateIndex, DDL
 
 from config_loader import load_environment
+from course_categories import migrate_legacy_category_slugs
 from functions.logging import configure_module_logger, mask_sql_parameters
 
 
@@ -1482,6 +1483,36 @@ def _migration_0022_fix_supervisor_connections_created_at_default(
     )
 
 
+def _migration_0023_migrate_legacy_course_categories(conn: Connection) -> None:
+    # Flytta lagrade detaljkategorier till de nya breda kurskategorierna.
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+    if user_pdfs_table.name not in existing_tables:
+        return
+
+    columns = {
+        column["name"] for column in inspector.get_columns(user_pdfs_table.name)
+    }
+    if not {"id", "categories"}.issubset(columns):
+        return
+
+    rows = conn.execute(
+        select(user_pdfs_table.c.id, user_pdfs_table.c.categories)
+    ).all()
+    for row in rows:
+        stored_categories = row.categories or ""
+        migrated_categories = ",".join(
+            migrate_legacy_category_slugs(stored_categories.split(","))
+        )
+        if migrated_categories == stored_categories:
+            continue
+        conn.execute(
+            user_pdfs_table.update()
+            .where(user_pdfs_table.c.id == row.id)
+            .values(categories=migrated_categories)
+        )
+
+
 MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("0001_companies", _migration_0001_companies),
     ("0002_remove_phone_columns", _migration_0002_remove_phone_columns),
@@ -1537,6 +1568,10 @@ MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     (
         "0022_fix_supervisor_connections_created_at_default",
         _migration_0022_fix_supervisor_connections_created_at_default,
+    ),
+    (
+        "0023_migrate_legacy_course_categories",
+        _migration_0023_migrate_legacy_course_categories,
     ),
 ]
 

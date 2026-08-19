@@ -1,51 +1,81 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
-"""Omfattande tester för kurskategori-hjälpfunktioner."""
+"""Tester för kurskategorier och migrering av äldre kategori-slugs."""
+
+from collections import Counter
 
 import pytest
 
-from course_categories import labels_for_slugs, normalize_category_slugs
+from course_categories import (
+    COURSE_CATEGORIES,
+    LEGACY_CATEGORY_SLUG_MAP,
+    labels_for_slugs,
+    migrate_legacy_category_slugs,
+    normalize_category_slugs,
+)
+
+
+EXPECTED_COURSE_CATEGORIES = [
+    ("arbetsmiljo-sakerhet", "🦺 Arbetsmiljö & säkerhet"),
+    ("bygg-anlaggning-industri", "🏗️ Bygg, anläggning & industri"),
+    ("jarnvag-vag", "🚆 Järnväg och väg"),
+    ("transport-logistik", "🚚 Transport & logistik"),
+    ("it-teknik-administration", "💻 IT, teknik & administration"),
+    (
+        "ledarskap-hr-mjuka-fardigheter",
+        "👥 Ledarskap, HR & mjuka färdigheter",
+    ),
+    ("vard-omsorg-samhalle", "🏥 Vård, omsorg & samhälle"),
+    ("jordbruk-skog-naturbruk", "🌲 Jordbruk, skog & naturbruk"),
+    ("utbildning-pedagogik", "📚 Utbildning & pedagogik"),
+    ("ekonomi-juridik-affar", "💼 Ekonomi, juridik & affär"),
+    ("ovrigt", "🗂️ Övrigt"),
+]
+
+
+def test_course_categories_match_requested_list():
+    assert COURSE_CATEGORIES == EXPECTED_COURSE_CATEGORIES
+
+
+def test_all_legacy_categories_map_to_existing_categories():
+    current_slugs = {slug for slug, _label in COURSE_CATEGORIES}
+    expected_legacy_targets = {
+        "arbetsmiljo-sakerhet",
+        "bygg-anlaggning-industri",
+        "jarnvag-vag",
+        "transport-logistik",
+        "it-teknik-administration",
+        "ledarskap-hr-mjuka-fardigheter",
+        "vard-omsorg-samhalle",
+    }
+
+    assert len(LEGACY_CATEGORY_SLUG_MAP) == 149
+    assert set(LEGACY_CATEGORY_SLUG_MAP.values()) == expected_legacy_targets
+    assert expected_legacy_targets <= current_slugs
+    assert Counter(LEGACY_CATEGORY_SLUG_MAP.values()) == {
+        "arbetsmiljo-sakerhet": 27,
+        "bygg-anlaggning-industri": 22,
+        "jarnvag-vag": 20,
+        "transport-logistik": 33,
+        "it-teknik-administration": 17,
+        "ledarskap-hr-mjuka-fardigheter": 18,
+        "vard-omsorg-samhalle": 12,
+    }
+    assert LEGACY_CATEGORY_SLUG_MAP["fallskydd"] == "bygg-anlaggning-industri"
+    assert LEGACY_CATEGORY_SLUG_MAP["lift"] == "bygg-anlaggning-industri"
+    assert LEGACY_CATEGORY_SLUG_MAP["truck"] == "transport-logistik"
 
 
 @pytest.mark.parametrize(
     "input_values, expected",
     [
-        (["fallskydd-grund"], ["fallskydd-grund"]),
-        (["FALLSKYDD-GRUND"], ["fallskydd-grund"]),
-        ([" Liftutbildning "], ["liftutbildning"]),
-        (["truckutbildning-a", "truckutbildning-a"], ["truckutbildning-a"]),
-        (["heta-arbeten", "unknown"], ["heta-arbeten"]),
-        (["unknown"], []),
-        (["fallskydd-grund", "liftutbildning"], ["fallskydd-grund", "liftutbildning"]),
-        (["liftutbildning", "fallskydd-grund"], ["liftutbildning", "fallskydd-grund"]),
-        (["", " "], []),
-        (["säKRA-Lyft"], ["säkra-lyft"]),
-        (["Fallskydd-grund", "fallskydd-grund", "FALLSKYDD-GRUND"], ["fallskydd-grund"]),
-        (["fallskydd-grund", " liftutbildning "], ["fallskydd-grund", "liftutbildning"]),
-        ([" Heta-Arbeten "], ["heta-arbeten"]),
+        (["arbetsmiljo-sakerhet"], ["arbetsmiljo-sakerhet"]),
+        ([" JARNVAG-VAG "], ["jarnvag-vag"]),
         (
-            ["truckutbildning-a", "Liftutbildning", "Säkra-Lyft"],
-            ["truckutbildning-a", "liftutbildning", "säkra-lyft"],
+            ["transport-logistik", "Transport-Logistik", "ovrigt"],
+            ["transport-logistik", "ovrigt"],
         ),
-        (["liftutbildning", "Liftutbildning", "liftutbildning "], ["liftutbildning"]),
-        (["säkrA-lyft", "TRUCKUTBILDNING-A", "unknown"], ["säkra-lyft", "truckutbildning-a"]),
-        (["FALLSKYDD-GRUND", "liftutbildning", "Liftutbildning"], ["fallskydd-grund", "liftutbildning"]),
-        (["\tsäkra-lyft\n"], ["säkra-lyft"]),
-        (["fallskydd-grund", "unknown", " liftutbildning "], ["fallskydd-grund", "liftutbildning"]),
-        (
-            ["TRUCKUTBILDNING-A", "Fallskydd-grund", "Liftutbildning", "HETA-ARBETEN"],
-            ["truckutbildning-a", "fallskydd-grund", "liftutbildning", "heta-arbeten"],
-        ),
-        (
-            ["liftutbildning", "säkra-lyft", "fallskydd-grund", "liftutbildning"],
-            ["liftutbildning", "säkra-lyft", "fallskydd-grund"],
-        ),
-        (["truckutbildning-a", "   ", "heta-arbeten"], ["truckutbildning-a", "heta-arbeten"]),
-        (["liftutbildning", "Liftutbildning", "LIFTUTBILDNING", "liftutbildning"], ["liftutbildning"]),
-        (
-            [" fallskydd-grund ", " säkra-lyft ", "unknown", "truckutbildning-a"],
-            ["fallskydd-grund", "säkra-lyft", "truckutbildning-a"],
-        ),
-        (["HETA-ARBETEN", " SäKrA-LyFt "], ["heta-arbeten", "säkra-lyft"]),
+        (["fallskydd-grund", "unknown", ""], []),
+        ([], []),
     ],
 )
 def test_normalize_category_slugs(input_values, expected):
@@ -55,53 +85,46 @@ def test_normalize_category_slugs(input_values, expected):
 @pytest.mark.parametrize(
     "slugs, expected_labels",
     [
-        (["fallskydd-grund"], ["Fallskydd – grund"]),
-        (["liftutbildning"], ["Liftutbildning"]),
-        (["säkra-lyft"], ["Säkra lyft"]),
-        (["truckutbildning-a"], ["Truckutbildning A"]),
-        (["heta-arbeten"], ["Heta Arbeten"]),
-        (["fallskydd-grund", "liftutbildning"], ["Fallskydd – grund", "Liftutbildning"]),
-        (["liftutbildning", "fallskydd-grund"], ["Liftutbildning", "Fallskydd – grund"]),
-        (["säkra-lyft", "heta-arbeten"], ["Säkra lyft", "Heta Arbeten"]),
-        (["fallskydd-grund", "fallskydd-grund"], ["Fallskydd – grund", "Fallskydd – grund"]),
-        (["liftutbildning", "liftutbildning", "liftutbildning"], ["Liftutbildning", "Liftutbildning", "Liftutbildning"]),
-        (["unknown"], []),
-        (["fallskydd-grund", "unknown", "liftutbildning"], ["Fallskydd – grund", "Liftutbildning"]),
-        (["unknown", "fallskydd-grund", "unknown"], ["Fallskydd – grund"]),
+        (["arbetsmiljo-sakerhet"], ["🦺 Arbetsmiljö & säkerhet"]),
+        (
+            ["jarnvag-vag", "jordbruk-skog-naturbruk"],
+            ["🚆 Järnväg och väg", "🌲 Jordbruk, skog & naturbruk"],
+        ),
+        (["unknown", "ovrigt"], ["🗂️ Övrigt"]),
         ([], []),
-        (["liftutbildning", "Liftutbildning"], ["Liftutbildning"]),
-        (
-            ["säkra-lyft", "truckutbildning-a", "heta-arbeten"],
-            ["Säkra lyft", "Truckutbildning A", "Heta Arbeten"],
-        ),
-        (
-            ["truckutbildning-a", "säkra-lyft", "fallskydd-grund"],
-            ["Truckutbildning A", "Säkra lyft", "Fallskydd – grund"],
-        ),
-        (
-            ["heta-arbeten", "truckutbildning-a", "liftutbildning"],
-            ["Heta Arbeten", "Truckutbildning A", "Liftutbildning"],
-        ),
-        (
-            ["fallskydd-grund", "säkra-lyft", "heta-arbeten", "truckutbildning-a"],
-            ["Fallskydd – grund", "Säkra lyft", "Heta Arbeten", "Truckutbildning A"],
-        ),
-        (["liftutbildning", "liftutbildning", "unknown", "truckutbildning-a"], ["Liftutbildning", "Liftutbildning", "Truckutbildning A"]),
-        (["unknown", "unknown"], []),
-        (
-            ["säkra-lyft", "säkra-lyft", "säkra-lyft"],
-            ["Säkra lyft", "Säkra lyft", "Säkra lyft"],
-        ),
-        (["truckutbildning-a", "unknown", "unknown", "truckutbildning-a"], ["Truckutbildning A", "Truckutbildning A"]),
-        (
-            ["heta-arbeten", "fallskydd-grund", "liftutbildning", "säkra-lyft", "truckutbildning-a"],
-            ["Heta Arbeten", "Fallskydd – grund", "Liftutbildning", "Säkra lyft", "Truckutbildning A"],
-        ),
-        (
-            ["fallskydd-grund", "liftutbildning", "säkra-lyft", "unknown", "heta-arbeten"],
-            ["Fallskydd – grund", "Liftutbildning", "Säkra lyft", "Heta Arbeten"],
-        ),
     ],
 )
 def test_labels_for_slugs(slugs, expected_labels):
     assert labels_for_slugs(slugs) == expected_labels
+
+
+@pytest.mark.parametrize(
+    "legacy_slugs, expected",
+    [
+        (["heta-arbeten"], ["arbetsmiljo-sakerhet"]),
+        (["fallskydd-grund"], ["bygg-anlaggning-industri"]),
+        (["allman-jarnvagsteknik"], ["jarnvag-vag"]),
+        (["apv-steg-1-grundkompetens"], ["transport-logistik"]),
+        (["gdpr-grund"], ["it-teknik-administration"]),
+        (
+            ["pedagogik-retorik"],
+            ["ledarskap-hr-mjuka-fardigheter"],
+        ),
+        (["basala-hygienrutiner"], ["vard-omsorg-samhalle"]),
+        (
+            ["fallskydd", "lift", "truck"],
+            ["bygg-anlaggning-industri", "transport-logistik"],
+        ),
+        (
+            ["fallskydd-grund", "liftutbildning", "truckutbildning-a"],
+            ["bygg-anlaggning-industri", "transport-logistik"],
+        ),
+        (
+            [" JARNVAG-VAG ", "Egen-kategori", "Egen-kategori"],
+            ["jarnvag-vag", "Egen-kategori"],
+        ),
+        (["", "   "], []),
+    ],
+)
+def test_migrate_legacy_category_slugs(legacy_slugs, expected):
+    assert migrate_legacy_category_slugs(legacy_slugs) == expected

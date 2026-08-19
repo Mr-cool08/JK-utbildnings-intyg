@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from typing import Iterable, List, Tuple
 
-# Lista över tillgängliga kurskategorier grupperade per rubrik.
-COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
+# Tidigare kurskategorier grupperade efter den nya kategori de ska migreras till.
+_LEGACY_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
     (
-        "🦺 Arbetsmiljö & säkerhet",
+        "arbetsmiljo-sakerhet",
         [
             ("arbetsmiljoutbildning-grund", "Arbetsmiljöutbildning – grund"),
             ("sam", "Systematiskt arbetsmiljöarbete (SAM)"),
@@ -40,7 +40,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "🏗️ Bygg, anläggning & industri",
+        "bygg-anlaggning-industri",
         [
             ("fallskydd-grund", "Fallskydd – grund"),
             ("fallskydd-repetition", "Fallskydd – repetition"),
@@ -68,7 +68,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "🚆 Järnväg",
+        "jarnvag-vag",
         [
             ("allman-jarnvagsteknik", "Allmän järnvägsteknik"),
             (
@@ -137,7 +137,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "🚚 Transport & logistik",
+        "transport-logistik",
         [
             ("adr-1-3-farligt-gods-grund", "ADR 1.3 – Farligt gods (grund)"),
             ("adr-1-3-farligt-gods-repetition", "ADR 1.3 – Farligt gods (repetition)"),
@@ -186,7 +186,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "💻 IT, teknik & administration",
+        "it-teknik-administration",
         [
             ("agil-projektledning", "Agil projektledning"),
             ("ai-utbildning", "AI utbildning"),
@@ -208,7 +208,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "👥 Ledarskap, HR & mjuka färdigheter",
+        "ledarskap-hr-mjuka-fardigheter",
         [
             ("alkohol-droger-arbetslivet", "Alkohol och droger i arbetslivet"),
             ("arbetsledarutbildning", "Arbetsledarutbildning"),
@@ -231,7 +231,7 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
         ],
     ),
     (
-        "🏥 Vård, omsorg & samhälle",
+        "vard-omsorg-samhalle",
         [
             ("basala-hygienrutiner", "Basala hygienrutiner"),
             ("brandskydd-lokaler-hem", "Brandskydd – Lokaler och hem"),
@@ -250,15 +250,38 @@ COURSE_CATEGORY_GROUPS: List[Tuple[str, List[Tuple[str, str]]]] = [
 ]
 
 
-def _flatten_category_groups(
-    groups: Iterable[Tuple[str, List[Tuple[str, str]]]],
-) -> List[Tuple[str, str]]:
-    return [item for _, items in groups for item in items]
+# Lista över tillgängliga kurskategorier (slug, etikett).
+COURSE_CATEGORIES: List[Tuple[str, str]] = [
+    ("arbetsmiljo-sakerhet", "🦺 Arbetsmiljö & säkerhet"),
+    ("bygg-anlaggning-industri", "🏗️ Bygg, anläggning & industri"),
+    ("jarnvag-vag", "🚆 Järnväg och väg"),
+    ("transport-logistik", "🚚 Transport & logistik"),
+    ("it-teknik-administration", "💻 IT, teknik & administration"),
+    (
+        "ledarskap-hr-mjuka-fardigheter",
+        "👥 Ledarskap, HR & mjuka färdigheter",
+    ),
+    ("vard-omsorg-samhalle", "🏥 Vård, omsorg & samhälle"),
+    ("jordbruk-skog-naturbruk", "🌲 Jordbruk, skog & naturbruk"),
+    ("utbildning-pedagogik", "📚 Utbildning & pedagogik"),
+    ("ekonomi-juridik-affar", "💼 Ekonomi, juridik & affär"),
+    ("ovrigt", "🗂️ Övrigt"),
+]
 
+# Alla detaljkategorier flyttas till den breda kategori som tidigare var rubrik.
+LEGACY_CATEGORY_SLUG_MAP: dict[str, str] = {
+    legacy_slug: target_slug
+    for target_slug, legacy_categories in _LEGACY_CATEGORY_GROUPS
+    for legacy_slug, _legacy_label in legacy_categories
+}
 
-# Lista över tillgängliga kurskategorier (slug, etikett)
-COURSE_CATEGORIES: List[Tuple[str, str]] = _flatten_category_groups(
-    COURSE_CATEGORY_GROUPS
+# Äldre installationer kan fortfarande innehålla dessa tre ursprungliga slugs.
+LEGACY_CATEGORY_SLUG_MAP.update(
+    {
+        "fallskydd": "bygg-anlaggning-industri",
+        "lift": "bygg-anlaggning-industri",
+        "truck": "transport-logistik",
+    }
 )
 
 _CATEGORY_LOOKUP = {slug: label for slug, label in COURSE_CATEGORIES}
@@ -275,6 +298,26 @@ def normalize_category_slugs(values: Iterable[str]) -> List[str]:
             normalized.append(slug)
             seen.add(slug)
     return normalized
+
+
+def migrate_legacy_category_slugs(values: Iterable[str]) -> List[str]:
+    # Flytta gamla detaljkategorier och bevara okända värden utan dataförlust.
+
+    migrated: List[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        stripped = raw.strip()
+        if not stripped:
+            continue
+
+        lookup_key = stripped.lower()
+        target = LEGACY_CATEGORY_SLUG_MAP.get(lookup_key)
+        if target is None:
+            target = lookup_key if lookup_key in _CATEGORY_LOOKUP else stripped
+        if target not in seen:
+            migrated.append(target)
+            seen.add(target)
+    return migrated
 
 
 def labels_for_slugs(slugs: Iterable[str]) -> List[str]:

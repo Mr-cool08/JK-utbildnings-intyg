@@ -2,6 +2,7 @@
 from datetime import date
 
 from flask import get_flashed_messages
+from markupsafe import escape
 
 import app
 import functions
@@ -46,7 +47,8 @@ def test_dashboard_shows_only_user_pdfs(user_db):
         response = client.get("/dashboard")
         assert b"own.pdf" in response.data
         assert b"other.pdf" not in response.data
-        assert COURSE_CATEGORIES[0][1].encode() in response.data
+        rendered_label = str(escape(COURSE_CATEGORIES[0][1])).encode()
+        assert rendered_label in response.data
 
 
 def test_dashboard_capitalizes_first_letter_of_forename_and_surname(user_db):

@@ -40,12 +40,8 @@
                 <label for="category">Kategori</label>
                 <select id="category" name="category" required>
                     <option value="">Välj kategori</option>
-                    {% for group_label, items in course_category_groups %}
-                        <optgroup label="{{ group_label }}">
-                            {% for slug, label in items %}
-                                <option value="{{ slug }}">{{ label }}</option>
-                            {% endfor %}
-                        </optgroup>
+                    {% for slug, label in course_categories %}
+                        <option value="{{ slug }}">{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>

@@ -36,12 +36,12 @@ Inventeringen nedan bygger på `python -m pytest --collect-only -q tests` den **
 - `tests/test_backend_logic_additional.py` - 12 tester
 - `tests/test_certificate_verification.py` - 1 test
 - `tests/test_config_loader_additional.py` - 6 tester
-- `tests/test_course_categories_bulk.py` - 50 tester
+- `tests/test_course_categories_bulk.py` - 22 tester
 - `tests/test_create_user_route.py` - 1 test
 - `tests/test_critical_events.py` - 19 tester
 - `tests/test_custom_404.py` - 1 test
 - `tests/test_dashboard.py` - 6 tester
-- `tests/test_database_logic.py` - 36 tester
+- `tests/test_database_logic.py` - 38 tester
 - `tests/test_docker_files.py` - 20 tester
 - `tests/test_e2e_flows.py` - 2 tester
 - `tests/test_email_env.py` - 7 tester

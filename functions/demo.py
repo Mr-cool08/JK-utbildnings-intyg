@@ -41,11 +41,11 @@ from functions.requests import as_bool
 DEMO_PDF_DEFINITIONS: list[dict[str, Any]] = [
     {
         "filename": "demo-arbetsmiljo-grund.pdf",
-        "categories": ["arbetsmiljoutbildning-grund"],
+        "categories": ["arbetsmiljo-sakerhet"],
     },
     {
         "filename": "demo-hlr.pdf",
-        "categories": ["forsta-hjalpen"],
+        "categories": ["arbetsmiljo-sakerhet"],
     },
 ]
 
