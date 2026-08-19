@@ -175,6 +175,29 @@ def mask_sensitive_data(data: Any) -> Any:
     return data
 
 
+def mask_sql_parameters(parameters: Any) -> Any:
+    # Mask all SQL parameter values while preserving their structure for diagnostics.
+    if parameters is None:
+        return None
+    if isinstance(parameters, Mapping):
+        return {key: MASK_PLACEHOLDER for key in parameters}
+    if isinstance(parameters, Sequence) and not isinstance(
+        parameters,
+        (str, bytes, bytearray),
+    ):
+        masked_items: list[Any] = []
+        for item in parameters:
+            if isinstance(item, Mapping) or (
+                isinstance(item, Sequence)
+                and not isinstance(item, (str, bytes, bytearray))
+            ):
+                masked_items.append(mask_sql_parameters(item))
+            else:
+                masked_items.append(MASK_PLACEHOLDER)
+        return masked_items
+    return MASK_PLACEHOLDER
+
+
 def mask_headers(headers: Mapping[str, str]) -> dict[str, str]:
     # Mask sensitive headers for logging.
     masked: dict[str, str] = {}

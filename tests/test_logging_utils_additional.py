@@ -200,6 +200,35 @@ def test_mask_sensitive_data_skips_overlong_email_candidates():
     assert logging_utils.mask_sensitive_data(overlong_email) == overlong_email
 
 
+def test_mask_sql_parameters_masks_values_and_preserves_structure():
+    parameters = (
+        "451831aafd89e6305a9adad1c798a0075d190dcfb2f451aaf21e9a26fa0dee56",
+        "new.user@example.com",
+        b"%PDF-1.4 sensitive",
+        42,
+    )
+
+    assert logging_utils.mask_sql_parameters(parameters) == [
+        "***",
+        "***",
+        "***",
+        "***",
+    ]
+
+
+def test_mask_sql_parameters_masks_mapping_and_batch_values():
+    parameters = [
+        {"personnummer": "19900101-1234", "email": "new.user@example.com"},
+        ("scrypt:secret", 7),
+    ]
+
+    assert logging_utils.mask_sql_parameters(parameters) == [
+        {"personnummer": "***", "email": "***"},
+        ["***", "***"],
+    ]
+    assert logging_utils.mask_sql_parameters(None) is None
+
+
 def test_bootstrap_logging_returns_configured_module_logger(monkeypatch):
     monkeypatch.setenv("SERVICE_LOG_LEVEL", "error")
 

@@ -38,7 +38,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.schema import CreateIndex, DDL
 
 from config_loader import load_environment
-from functions.logging import configure_module_logger, mask_sensitive_data
+from functions.logging import configure_module_logger, mask_sql_parameters
 
 
 logger = configure_module_logger(__name__)
@@ -1687,7 +1687,7 @@ def _build_engine() -> Engine:
 
 
 def _attach_query_logger(engine: Engine) -> None:
-    # Logga SQL-frågor och parametrar för felsökning.
+    # Logga SQL-frågor och maskerad parameterstruktur för felsökning.
     if not isinstance(engine, Engine):
         logger.debug("Hoppar över SQL-loggning för okänd engine-typ: %s", type(engine))
         return
@@ -1704,7 +1704,7 @@ def _attach_query_logger(engine: Engine) -> None:
         logger.debug(
             "SQL körs: %s | parametrar=%s",
             statement,
-            mask_sensitive_data(parameters),
+            mask_sql_parameters(parameters),
         )
 
 
