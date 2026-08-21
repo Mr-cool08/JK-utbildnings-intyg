@@ -423,6 +423,27 @@ def test_home_page_markets_expiry_reminders(empty_db):
     ) in body
 
 
+def test_home_page_prioritizes_needs_shared_by_people_and_companies(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    shared_messages = (
+        "Spara intyg digitalt och hitta dem snabbt",
+        "Dela intyg säkert med arbetsgivare eller kunder",
+        "Få automatisk påminnelse innan ett intyg går ut",
+        "Skydda personuppgifter med GDPR-anpassad hantering",
+    )
+    for message in shared_messages:
+        assert message in body
+
+    assert "Logga in från mobil, surfplatta eller dator" not in body
+    assert "Privatkonto är gratis för privatpersoner." not in body
+    assert "<h3>Välj rätt konto</h3>" not in body
+    assert body.count('class="feature-card" data-motion-child') == 6
+
+
 def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
     with _client() as client:
         response = client.get("/")
@@ -430,10 +451,10 @@ def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
         body = response.get_data(as_text=True)
 
     assert body.count('class="btn hero-btn hero-btn--shine"') == 1
-    assert body.count('class="hero-check" aria-hidden="true"') == 6
-    assert body.count('class="hero-check__icon"') == 6
-    assert body.count('class="hero-check__path" pathLength="1"') == 6
-    assert body.count('focusable="false"') == 6
+    assert body.count('class="hero-check" aria-hidden="true"') == 4
+    assert body.count('class="hero-check__icon"') == 4
+    assert body.count('class="hero-check__path" pathLength="1"') == 4
+    assert body.count('focusable="false"') == 4
 
 
 def test_home_page_animation_css_uses_dedicated_checkmark_hooks():

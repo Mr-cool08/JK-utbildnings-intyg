@@ -21,8 +21,8 @@ def test_home_page_links_pricing(empty_db):
         response = client.get('/')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
-        assert '/pris' in body
-        assert 'Privatkonto är gratis för privatpersoner.' in body
+        assert 'href="/pris"' in body
+        assert '>Se priser<' in body
 
 
 def test_pricing_page_has_direct_actions_and_distilled_content(empty_db):
