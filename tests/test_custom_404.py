@@ -53,7 +53,7 @@ def test_general_error_layout_does_not_show_404_animation(
 def test_error_animations_respect_reduced_motion():
     with app.app.test_client() as client:
         response = client.get("/static/css/error.css")
-        stylesheet = response.get_data(as_text=True)
+        stylesheet = response.get_data(as_text=True).replace("\r\n", "\n")
 
     assert response.status_code == 200
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
