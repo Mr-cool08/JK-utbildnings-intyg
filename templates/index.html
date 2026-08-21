@@ -2,11 +2,11 @@
 {% extends 'base.html' %}
 {% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
 {% block head %}
-    <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Kom åt dina intyg när du behöver dem.">
-    <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering">
+    <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Få automatiska påminnelser innan intyg går ut. Kom åt dina intyg när du behöver dem.">
+    <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering, påminnelse, utgångsdatum, kompetenshantering, certifikatbevakning">
     <meta name="robots" content="index, follow">
     <meta property="og:title" content="Utbildningsintyg – Samla, spara och dela intyg enkelt">
-    <meta property="og:description" content="Samla dina utbildningsintyg på ett ställe och dela dem säkert vid behov.">
+    <meta property="og:description" content="Samla, spara och dela utbildningsintyg digitalt. Få automatiska påminnelser innan intyg går ut. Kom åt dina intyg när du behöver dem.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
 {% endblock %}
@@ -32,6 +32,14 @@
                         </svg>
                     </span>
                     Dela intyg säkert med arbetsgivare eller kunder
+                </li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Få automatisk påminnelse innan ett intyg går ut
                 </li>
                 <li data-motion-child>
                     <span class="hero-check" aria-hidden="true">
@@ -97,6 +105,10 @@
                 <h3>Sortera dina intyg</h3>
                 <p>Samla intyg i ett tydligt arkiv och märk dem med kategorier.</p>
                 <p class="feature-highlight">Du ser direkt vilket intyg som gäller för vilken utbildning.</p>
+            </article>
+            <article class="feature-card" data-motion-child>
+                <h3>Missa aldrig ett utgångsdatum</h3>
+                <p>Få en automatisk påminnelse i god tid innan ett intyg löper ut, så du alltid hinner förnya i tid.</p>
             </article>
             <article class="feature-card" data-motion-child>
                 <h3>Dela intyg säkert</h3>
