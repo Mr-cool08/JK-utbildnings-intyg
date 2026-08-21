@@ -1,6 +1,4 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
-import re
-
 import app
 
 
@@ -14,7 +12,7 @@ def test_pricing_page_loads(empty_db):
         response = client.get('/pris')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
-        assert 'Prislista' in body
+        assert '<h1 id="pricing-page-title">Priser</h1>' in body
         assert '690 kr' in body
 
 
@@ -27,21 +25,53 @@ def test_home_page_links_pricing(empty_db):
         assert 'Privatkonto är gratis för privatpersoner.' in body
 
 
-def test_pricing_page_has_clear_primary_cta_and_adaptive_layout(empty_db):
+def test_pricing_page_has_direct_actions_and_distilled_content(empty_db):
     with _client() as client:
         response = client.get('/pris')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
 
-    actions_match = re.search(
-        r'<div class="pricing-hero-actions"[\s\S]*?</div>',
-        body,
-    )
-    assert actions_match is not None
-
-    actions_block = actions_match.group(0)
-    assert actions_block.count('class="btn"') == 1
-    assert 'Frågor om pris? Kontakta support' in actions_block
-    assert 'mailto:support@utbildningsintyg.se' in actions_block
     assert 'class="pricing-layout"' in body
-    assert 'class="pricing-summary"' in body
+    assert 'href="/ansok/foretagskonto"' in body
+    assert 'href="/ansok/standardkonto"' in body
+    assert 'mailto:support@utbildningsintyg.se' in body
+    assert 'pricing-included' not in body
+    assert 'pricing-summary' not in body
+    assert 'Tre enkla steg' not in body
+
+
+def test_pricing_page_exposes_tiers_and_direct_plan_actions(empty_db):
+    with _client() as client:
+        response = client.get('/pris')
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    expected_tiers = (
+        ('1–10', '190 kr'),
+        ('11–20', '390 kr'),
+        ('21–50', '690 kr'),
+    )
+    for user_range, monthly_price in expected_tiers:
+        assert user_range in body
+        assert monthly_price in body
+
+    assert 'Pris per månad efter antal anslutna användare' in body
+    assert 'Företagspriserna anges exklusive moms.' in body
+    assert 'Fakturering sker årsvis.' in body
+    assert '<strong>0 kr</strong>' in body
+    assert 'href="/ansok/foretagskonto"' in body
+    assert 'href="/ansok/standardkonto"' in body
+    assert 'aria-labelledby="company-plan-title"' in body
+    assert 'css/pricing.css' in body
+
+
+def test_pricing_page_styles_use_shared_theme_tokens(empty_db):
+    with _client() as client:
+        response = client.get('/static/css/pricing.css')
+        assert response.status_code == 200
+        stylesheet = response.get_data(as_text=True)
+
+    assert 'var(--color-primary)' in stylesheet
+    assert 'var(--color-surface)' in stylesheet
+    assert 'var(--shadow-md)' in stylesheet
+    assert '--pricing-' not in stylesheet

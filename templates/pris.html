@@ -1,73 +1,97 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Prislista{% endblock %}
+{% block title %}Priser för privatpersoner och företag{% endblock %}
+{% block head %}
+    <meta
+        name="description"
+        content="Se aktuella priser för Utbildningsintyg. Privatkonto kostar 0 kr och företagskonto prissätts efter antal anslutna användare."
+    >
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pricing.css') }}">
+{% endblock %}
 {% block content %}
 <section class="pricing-page" aria-labelledby="pricing-page-title">
     <header class="pricing-hero" data-motion="hero">
-        <p class="pricing-eyebrow">Prislista</p>
-        <h1 id="pricing-page-title">Välj konto som passar verksamheten</h1>
-        <p class="pricing-lead">
-            Samla intyg på ett ställe och välj nivå utifrån hur många användare ni behöver hantera.
+        <h1 id="pricing-page-title">Priser</h1>
+        <p>
+            Privatkonto är gratis. Företagskonto prissätts efter antal anslutna användare.
         </p>
-        <div class="pricing-hero-actions" data-motion-group="pricing-hero-actions">
-            <a class="btn" href="/ansok" data-motion-child>Ansök om konto</a>
-            <a class="pricing-inline-link" href="mailto:support@utbildningsintyg.se" data-motion-child>
-                Frågor om pris? Kontakta support
-            </a>
-        </div>
     </header>
 
-    <div class="pricing-layout" data-motion-group="pricing-sections">
-        <section class="pricing-section pricing-section-company" data-motion-child>
-            <h2 class="pricing-page-subtitle">Företagskonto</h2>
-            <p>För organisationer som behöver hantera flera användare och intyg i samma portal.</p>
-            <div class="pricing-table-wrapper">
+    <div
+        class="pricing-layout"
+        data-motion="section"
+        data-motion-group="pricing-sections"
+    >
+        <section
+            id="foretagskonto"
+            class="pricing-section pricing-section-company"
+            aria-labelledby="company-plan-title"
+            data-motion-child
+        >
+            <h2 id="company-plan-title">Företagskonto</h2>
+            <p class="pricing-plan-intro">
+                För organisationer som hanterar flera användare och intyg.
+            </p>
+
+            <div class="pricing-table-wrapper table-scroll">
                 <table class="pricing-table">
+                    <caption class="sr-only">Pris per månad efter antal anslutna användare</caption>
                     <thead>
                         <tr>
-                            <th scope="col">Antal användare</th>
+                            <th scope="col">Användare</th>
                             <th scope="col">Pris per månad</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td data-label="Antal användare">1–10</td>
-                            <td data-label="Pris per månad">190 kr</td>
+                            <td><strong>1–10</strong></td>
+                            <td><strong>190 kr</strong></td>
                         </tr>
                         <tr>
-                            <td data-label="Antal användare">11–20</td>
-                            <td data-label="Pris per månad">390 kr</td>
+                            <td><strong>11–20</strong></td>
+                            <td><strong>390 kr</strong></td>
                         </tr>
                         <tr>
-                            <td data-label="Antal användare">21–50</td>
-                            <td data-label="Pris per månad">690 kr</td>
+                            <td><strong>21–50</strong></td>
+                            <td><strong>690 kr</strong></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <p class="pricing-tier-note">Behöver ni fler än 50 användare? Kontakta oss för en skräddarsydd offert.</p>
+
+            <p class="pricing-support">
+                <span>Fler än 50 användare eller frågor om pris?</span>
+                <a class="btn-link" href="mailto:support@utbildningsintyg.se?subject=Fr%C3%A5ga%20om%20pris">
+                    Kontakta support
+                </a>
+            </p>
+
+            <a class="btn pricing-plan-cta" href="{{ url_for('apply_foretagskonto') }}">
+                Ansök om företagskonto
+            </a>
         </section>
 
-        <aside class="pricing-section pricing-section-private" aria-labelledby="private-plan-title" data-motion-child>
-            <h2 id="private-plan-title" class="pricing-page-subtitle">Privatkonto</h2>
-            <p>Privatkonto passar dig som hanterar egna intyg och vill komma igång direkt.</p>
-            <p class="pricing-private-price">0 kr/månad</p>
-            <ul class="pricing-private-list">
-                <li>Lagra och hämta egna intyg</li>
-                <li>Dela intyg säkert vid behov</li>
-                <li>Logga in från mobil, surfplatta eller dator</li>
-            </ul>
-            <p class="pricing-vat-note">Samtliga priser anges exklusive moms om inget annat anges.</p>
-        </aside>
+        <section
+            id="privatkonto"
+            class="pricing-section pricing-section-private"
+            aria-labelledby="private-plan-title"
+            data-motion-child
+        >
+            <h2 id="private-plan-title">Privatkonto</h2>
+            <p class="pricing-private-price">
+                <strong>0 kr</strong>
+                <span>per månad</span>
+            </p>
+            <p class="pricing-plan-intro">För dig som hanterar dina egna intyg.</p>
+
+            <a class="btn btn-secondary pricing-plan-cta" href="{{ url_for('apply_standardkonto') }}">
+                Skapa privatkonto
+            </a>
+        </section>
     </div>
 
-    <section class="pricing-summary" aria-labelledby="pricing-summary-title" data-motion="section">
-        <h2 id="pricing-summary-title">Så väljer ni rätt nivå</h2>
-        <ol class="pricing-summary-list">
-            <li>Räkna antal användare som behöver tillgång till intyg.</li>
-            <li>Välj nivå i tabellen och ansök om konto.</li>
-            <li>Vi hjälper er vidare med uppstart och fakturering.</li>
-        </ol>
-    </section>
+    <p class="pricing-vat-note">
+        Företagspriserna anges exklusive moms. Fakturering sker årsvis.
+    </p>
 </section>
 {% endblock %}

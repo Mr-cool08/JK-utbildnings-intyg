@@ -1,0 +1,216 @@
+.pricing-page {
+    width: 100%;
+    display: grid;
+    gap: clamp(2rem, 5vw, 3rem);
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.pricing-hero {
+    padding: clamp(2.5rem, 5vw, 3.5rem);
+    background:
+        radial-gradient(circle at top right, rgba(227, 62, 38, 0.06), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(233, 59, 86, 0.1), transparent 36%),
+        var(--color-surface);
+    border-radius: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.pricing-hero h1 {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+    font-size: clamp(2.2rem, 6vw, 3.1rem);
+    line-height: 1.15;
+}
+
+.pricing-hero p {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: clamp(1rem, 2vw, 1.1rem);
+    line-height: 1.65;
+}
+
+.pricing-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(1.25rem, 4vw, 1.75rem);
+    align-items: start;
+}
+
+.pricing-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: clamp(1.5rem, 4vw, 2rem);
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
+    border-top: 4px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.pricing-section-private {
+    border-top-color: var(--color-secondary);
+}
+
+.pricing-section h2 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: clamp(1.55rem, 3vw, 2rem);
+    line-height: 1.2;
+}
+
+.pricing-plan-intro {
+    margin: 0.65rem 0 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.pricing-table-wrapper {
+    margin-top: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.pricing-table {
+    table-layout: fixed;
+}
+
+.pricing-table th,
+.pricing-table td {
+    width: 50%;
+    padding: 0.8rem 1rem;
+}
+
+.pricing-table th:last-child,
+.pricing-table td:last-child {
+    text-align: right;
+}
+
+.pricing-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pricing-table td strong {
+    color: var(--color-text);
+    font-size: 1.08rem;
+}
+
+.pricing-table td:last-child strong {
+    color: var(--color-primary-dark);
+}
+
+.pricing-support {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.55rem;
+    margin: 1.25rem 0 0;
+    padding-top: 1rem;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
+    font-size: 0.92rem;
+}
+
+.pricing-support .btn-link {
+    min-height: 2.5rem;
+}
+
+.pricing-plan-cta {
+    align-self: flex-start;
+    min-height: 2.75rem;
+    margin-top: 1.25rem;
+}
+
+.pricing-plan-cta.btn-secondary,
+.pricing-plan-cta.btn-secondary:link,
+.pricing-plan-cta.btn-secondary:visited {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+    border-color: var(--color-primary);
+    box-shadow: none;
+}
+
+.pricing-plan-cta.btn-secondary:hover,
+.pricing-plan-cta.btn-secondary:focus-visible {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-xs);
+}
+
+.pricing-private-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 1.5rem 0 0;
+    color: var(--color-primary);
+}
+
+.pricing-private-price strong {
+    font-size: clamp(3rem, 8vw, 4.5rem);
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+}
+
+.pricing-private-price span {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.pricing-vat-note {
+    margin: calc(clamp(2rem, 5vw, 3rem) * -0.55) 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+@media (min-width: 760px) {
+    .pricing-layout {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 479px) {
+    .pricing-hero {
+        border-radius: var(--radius-lg);
+    }
+
+    .pricing-table th,
+    .pricing-table td {
+        padding-inline: 0.75rem;
+    }
+
+    .pricing-plan-cta {
+        width: 100%;
+    }
+}
+
+@media print {
+    .site-nav,
+    .site-footer,
+    .pricing-plan-cta {
+        display: none !important;
+    }
+
+    .pricing-page {
+        gap: 1rem;
+    }
+
+    .pricing-hero,
+    .pricing-section {
+        background: #fff;
+        box-shadow: none;
+    }
+
+    .pricing-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .pricing-vat-note {
+        margin-top: 0;
+    }
+}
+
+/* # Copyright (c) Liam Suorsa and Mika Suorsa */

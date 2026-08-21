@@ -1,11 +1,104 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Serverfel ({{error_code}}){% endblock %}
+{% block title %}{% if error_code == 404 %}Sidan hittades inte (404){% else %}Fel ({{ error_code }}){% endif %}{% endblock %}
+{% block head %}
+	{{ super() }}
+	<meta name="robots" content="noindex">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
+{% endblock %}
 {% block content %}
-	<div class="error-container">
-		<h1>{{error_code}}</h1>
-		<p>{{error_message}}</p>
-		<p>Tidpunkt för felet: <strong>{{ time | datetimeformat('%Y-%m-%d %H:%M:%S') }}</strong></p>
-		<p>Vänligen kontakta webbplatsens administratörer på <a href="mailto:support@utbildningsintyg.se?subject=Serverfel 500&body=Fel inträffade vid tidpunkt: {{ time }}">support@utbildningsintyg.se</a> och inkludera tiden ovan.</p>
-	</div>
+	{% if error_code == 404 %}
+		<section class="error-404" aria-labelledby="error-404-title">
+			<div class="error-404__content">
+				<p class="error-404__code">Fel 404</p>
+				<h1 id="error-404-title">Den här sidan har gått vilse</h1>
+				<p class="error-404__message">{{ error_message }}</p>
+				<a class="btn error-404__home-link" href="/">Till startsidan</a>
+			</div>
+
+			<div class="error-404__visual">
+				<!-- # Anpassad från Jon Kantners MIT-licensierade CodePen. Licensnotis finns i error.css. -->
+				<svg
+					class="error-404__face"
+					viewBox="0 0 320 380"
+					width="320"
+					height="380"
+					role="img"
+					aria-labelledby="error-404-face-title error-404-face-description"
+				>
+					<title id="error-404-face-title">Fel 404</title>
+					<desc id="error-404-face-description">Siffrorna 404 formas till ett ansikte som tittar åt sidan och blinkar.</desc>
+					<g
+						fill="none"
+						stroke="currentColor"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="25"
+					>
+						<g class="error-404__face-eyes" transform="translate(0, 112.5)">
+							<g transform="translate(15, 0)">
+								<polyline class="error-404__face-eye-lid" points="37,0 0,120 75,120"></polyline>
+								<polyline class="error-404__face-pupil" points="55,120 55,155" stroke-dasharray="35 35"></polyline>
+							</g>
+							<g transform="translate(230, 0)">
+								<polyline class="error-404__face-eye-lid" points="37,0 0,120 75,120"></polyline>
+								<polyline class="error-404__face-pupil" points="55,120 55,155" stroke-dasharray="35 35"></polyline>
+							</g>
+						</g>
+						<rect class="error-404__face-nose" rx="4" ry="4" x="132.5" y="112.5" width="55" height="155"></rect>
+						<g stroke-dasharray="102 102" transform="translate(65, 334)">
+							<path class="error-404__face-mouth-left" d="M 0 30 C 0 30 40 0 95 0" stroke-dashoffset="-102"></path>
+							<path class="error-404__face-mouth-right" d="M 95 0 C 150 0 190 30 190 30" stroke-dashoffset="102"></path>
+						</g>
+					</g>
+				</svg>
+			</div>
+		</section>
+	{% else %}
+		<section class="error-general" aria-labelledby="error-general-title">
+			<div class="error-general__intro">
+				<p class="error-general__code">
+					<span class="sr-only">Felkod </span>{{ error_code }}
+				</p>
+				<h1 id="error-general-title">
+					Något gick fel <span class="error-general__sad-face" aria-hidden="true">:(</span>
+				</h1>
+				<p class="error-general__message">{{ error_message }}</p>
+			</div>
+
+			<!-- # Anpassad från Gayanés MIT-licensierade CodePen. Licensnotis finns i error.css. -->
+			<div class="error-general__gears" aria-hidden="true">
+				<div class="error-general__gear error-general__gear--left">
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+				</div>
+				<div class="error-general__gear error-general__gear--middle">
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+				</div>
+				<div class="error-general__gear error-general__gear--right">
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+					<span class="error-general__gear-bar"></span>
+				</div>
+			</div>
+
+			<div class="error-general__support">
+				<p class="error-general__timestamp">
+					<span>Tidpunkt för felet</span>
+					<time datetime="{{ time | datetimeformat('%Y-%m-%dT%H:%M:%S') }}">
+						{{ time | datetimeformat('%Y-%m-%d %H:%M:%S') }}
+					</time>
+				</p>
+				<p class="error-general__support-copy">
+					Vänligen kontakta webbplatsens administratörer på
+					<a href="mailto:support@utbildningsintyg.se?subject=Fel%20{{ error_code }}">support@utbildningsintyg.se</a>
+					och inkludera felkoden {{ error_code }} samt tiden ovan.
+				</p>
+				<a class="btn error-general__home-link" href="/">Till startsidan</a>
+			</div>
+		</section>
+	{% endif %}
 {% endblock %}
