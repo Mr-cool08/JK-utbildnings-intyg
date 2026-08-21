@@ -732,6 +732,18 @@ def inject_flags():
     }
 
 
+@app.route("/favicon.ico")
+def favicon():
+    # Servera webbplatsens ikon på den standardiserade rotadressen.
+    if app.static_folder is None:
+        abort(404)
+    return send_from_directory(
+        app.static_folder,
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+
+
 @app.route("/robots.txt")
 def robots_txt():
     # Serve robots.txt to disallow all crawlers.

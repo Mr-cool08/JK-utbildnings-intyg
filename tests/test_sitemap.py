@@ -15,6 +15,14 @@ def _client():
 
 @pytest.mark.usefixtures("empty_db")
 class TestSitemapXml(unittest.TestCase):
+    def test_favicon_is_public(self):
+        with _client() as client:
+            response = client.get("/favicon.ico")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "image/vnd.microsoft.icon")
+        self.assertTrue(response.data.startswith(b"\x00\x00\x01\x00"))
+
     def test_sitemap_xml_is_public(self):
         with _client() as client:
             response = client.get("/sitemap.xml")
