@@ -62,6 +62,7 @@ def test_pricing_page_exposes_tiers_and_direct_plan_actions(empty_db):
     assert 'href="/ansok/foretagskonto"' in body
     assert 'href="/ansok/standardkonto"' in body
     assert 'aria-labelledby="company-plan-title"' in body
+    assert 'aria-labelledby="private-plan-title"' in body
     assert 'css/pricing.css' in body
 
 
@@ -75,3 +76,9 @@ def test_pricing_page_styles_use_shared_theme_tokens(empty_db):
     assert 'var(--color-surface)' in stylesheet
     assert 'var(--shadow-md)' in stylesheet
     assert '--pricing-' not in stylesheet
+    assert '@media (max-width: 479px)' in stylesheet
+    assert 'padding-inline: 0.75rem;' in stylesheet
+    assert 'width: 100%;' in stylesheet
+    assert '@media print' in stylesheet
+    assert 'display: none !important;' in stylesheet
+    assert 'grid-template-columns: 1fr;' in stylesheet

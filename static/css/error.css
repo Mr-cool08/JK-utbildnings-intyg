@@ -33,6 +33,7 @@
     --gear-size: clamp(5.5rem, 16vw, 7.5rem);
     --gear-gap: clamp(4.4rem, 14vw, 6.2rem);
     --gear-drop: clamp(2.2rem, 5vw, 2.8rem);
+
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -113,6 +114,7 @@
 
 .error-general__gear {
     --gear-color: var(--color-text);
+
     width: var(--gear-size);
     aspect-ratio: 1;
     margin-left: calc(var(--gear-size) / -2);
@@ -153,6 +155,7 @@
 
 .error-general__gear--middle {
     --gear-color: var(--color-primary-dark);
+
     top: 0.35rem;
     z-index: 2;
     animation:
@@ -236,33 +239,33 @@
 }
 
 @keyframes error-general-reveal {
-    from {
+    0% {
         opacity: 0;
         transform: translateY(-0.75rem);
     }
 
-    to {
+    100% {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
 @keyframes error-general-spin-clockwise {
-    to {
+    100% {
         transform: rotate(1turn);
     }
 }
 
 @keyframes error-general-spin-anticlockwise {
-    to {
+    100% {
         transform: rotate(-1turn);
     }
 }
 
 @keyframes error-general-jam-clockwise {
-    from,
+    0%,
     15%,
-    to {
+    100% {
         transform: rotate(0);
     }
 
@@ -277,9 +280,9 @@
 }
 
 @keyframes error-general-jam-anticlockwise {
-    from,
+    0%,
     15%,
-    to {
+    100% {
         transform: rotate(0);
     }
 
@@ -424,10 +427,10 @@
 }
 
 @keyframes error-404-eye-lid {
-    from,
+    0%,
     40%,
     45%,
-    to {
+    100% {
         transform: translateY(0);
     }
 
@@ -437,22 +440,22 @@
 }
 
 @keyframes error-404-eyes {
-    from {
+    0% {
         transform: translateY(112.5px);
     }
 
-    to {
+    100% {
         transform: translateY(15px);
     }
 }
 
 @keyframes error-404-pupil {
-    from,
+    0%,
     37.5%,
     40%,
     45%,
     87.5%,
-    to {
+    100% {
         stroke-dashoffset: 0;
         transform: translate(0, 0);
     }
@@ -472,33 +475,33 @@
 }
 
 @keyframes error-404-mouth-left {
-    from,
+    0%,
     50% {
         stroke-dashoffset: -102;
     }
 
-    to {
+    100% {
         stroke-dashoffset: 0;
     }
 }
 
 @keyframes error-404-mouth-right {
-    from,
+    0%,
     50% {
         stroke-dashoffset: 102;
     }
 
-    to {
+    100% {
         stroke-dashoffset: 0;
     }
 }
 
 @keyframes error-404-nose {
-    from {
+    0% {
         transform: translate(0, 0);
     }
 
-    to {
+    100% {
         transform: translate(0, 22.5px);
     }
 }
@@ -508,6 +511,7 @@
         --gear-size: 5.5rem;
         --gear-gap: 4.35rem;
         --gear-drop: 2.15rem;
+
         min-height: auto;
         padding-top: 0;
     }
@@ -581,6 +585,27 @@
     .error-404__face-nose,
     .error-404__face-pupil {
         animation: none;
+    }
+
+    .error-404__face-eyes {
+        transform: translate(0, 112.5px);
+    }
+
+    .error-404__face-nose,
+    .error-404__face-pupil {
+        transform: translate(0, 0);
+    }
+
+    .error-404__face-pupil {
+        stroke-dashoffset: 0;
+    }
+
+    .error-404__face-mouth-left {
+        stroke-dashoffset: -102;
+    }
+
+    .error-404__face-mouth-right {
+        stroke-dashoffset: 102;
     }
 }
 

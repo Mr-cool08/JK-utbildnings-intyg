@@ -137,6 +137,10 @@ function setupCheckmarkAnimations() {
         return;
     }
 
+    if (typeof window.matchMedia !== 'function') {
+        return;
+    }
+
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (
         reducedMotionQuery.matches ||

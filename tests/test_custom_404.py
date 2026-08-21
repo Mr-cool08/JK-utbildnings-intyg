@@ -60,3 +60,29 @@ def test_error_animations_respect_reduced_motion():
     assert ".error-general__gear" in stylesheet
     assert "error-general-jam-clockwise" in stylesheet
     assert "animation: none;" in stylesheet
+    assert (
+        ".error-404__face-eyes {\n"
+        "        transform: translate(0, 112.5px);\n"
+        "    }"
+    ) in stylesheet
+    assert (
+        ".error-404__face-nose,\n"
+        "    .error-404__face-pupil {\n"
+        "        transform: translate(0, 0);\n"
+        "    }"
+    ) in stylesheet
+    assert (
+        ".error-404__face-pupil {\n"
+        "        stroke-dashoffset: 0;\n"
+        "    }"
+    ) in stylesheet
+    assert (
+        ".error-404__face-mouth-left {\n"
+        "        stroke-dashoffset: -102;\n"
+        "    }"
+    ) in stylesheet
+    assert (
+        ".error-404__face-mouth-right {\n"
+        "        stroke-dashoffset: 102;\n"
+        "    }"
+    ) in stylesheet

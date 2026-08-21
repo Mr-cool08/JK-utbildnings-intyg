@@ -414,11 +414,16 @@ def test_home_page_animation_css_uses_dedicated_checkmark_hooks():
 
 def test_checkmark_script_waits_for_css_and_observes_each_icon_once():
     nav_script = Path("static/js/nav.js").read_text(encoding="utf-8")
+    checkmark_setup = nav_script.split("function setupCheckmarkAnimations()", maxsplit=1)[1]
 
     assert "setupCheckmarkAnimations();" in nav_script
     assert "document.body.classList.add('has-checkmark-motion')" in nav_script
     assert "checkmark.classList.add('is-drawn')" in nav_script
     assert "baseStylesheet.addEventListener('load', initialize" in nav_script
+    assert "typeof window.matchMedia !== 'function'" in checkmark_setup
+    assert checkmark_setup.index("typeof window.matchMedia") < checkmark_setup.index(
+        "window.matchMedia('(prefers-reduced-motion: reduce)')"
+    )
     assert "!('requestAnimationFrame' in window)" in nav_script
     assert nav_script.count("requestAnimationFrame(() =>") == 2
     assert nav_script.count("activeObserver.unobserve(entry.target)") == 2
