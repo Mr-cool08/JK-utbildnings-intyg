@@ -4,6 +4,7 @@
 window.addEventListener('DOMContentLoaded', () => {
     setupNavigationToggle();
     setupMotionEffects();
+    setupCheckmarkAnimations();
 });
 
 function setupNavigationToggle() {
@@ -127,4 +128,95 @@ function setupMotionEffects() {
         }
         observer.observe(element);
     });
+}
+
+
+function setupCheckmarkAnimations() {
+    const checkmarks = Array.from(document.querySelectorAll('.hero-check'));
+    if (!checkmarks.length || !document.body) {
+        return;
+    }
+
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (
+        reducedMotionQuery.matches ||
+        !('IntersectionObserver' in window) ||
+        !('requestAnimationFrame' in window)
+    ) {
+        return;
+    }
+
+    let initializationScheduled = false;
+
+    const initialize = () => {
+        if (initializationScheduled || document.body.classList.contains('has-checkmark-motion')) {
+            return;
+        }
+
+        const drawCheckmark = (checkmark) => {
+            checkmark.classList.add('is-drawn');
+        };
+
+        let observer;
+        try {
+            observer = new IntersectionObserver(
+                (entries, activeObserver) => {
+                    entries.forEach((entry) => {
+                        if (!entry.isIntersecting) {
+                            return;
+                        }
+                        drawCheckmark(entry.target);
+                        activeObserver.unobserve(entry.target);
+                    });
+                },
+                {
+                    root: null,
+                    threshold: 0.6,
+                    rootMargin: '0px 0px -5% 0px',
+                }
+            );
+        } catch {
+            return;
+        }
+
+        initializationScheduled = true;
+
+        requestAnimationFrame(() => {
+            if (reducedMotionQuery.matches) {
+                observer.disconnect();
+                return;
+            }
+
+            document.body.classList.add('has-checkmark-motion');
+
+            requestAnimationFrame(() => {
+                if (reducedMotionQuery.matches) {
+                    document.body.classList.remove('has-checkmark-motion');
+                    observer.disconnect();
+                    return;
+                }
+
+                try {
+                    checkmarks.forEach((checkmark) => observer.observe(checkmark));
+                } catch {
+                    document.body.classList.remove('has-checkmark-motion');
+                    observer.disconnect();
+                }
+            });
+        });
+    };
+
+    const baseStylesheet = document.querySelector(
+        'link[rel="stylesheet"][href*="/static/css/base.css"]'
+    );
+    if (!(baseStylesheet instanceof HTMLLinkElement)) {
+        return;
+    }
+
+    if (!baseStylesheet.sheet || baseStylesheet.media === 'print') {
+        baseStylesheet.addEventListener('load', initialize, { once: true });
+        return;
+    }
+
+    initialize();
 }

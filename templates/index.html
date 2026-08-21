@@ -17,15 +17,50 @@
             <p class="hero-eyebrow" data-motion-child>Alla dina utbildningsintyg på ett ställe</p>
             <h1 id="home-hero-title" data-motion-child>Håll ordning på dina utbildningsintyg</h1>
             <ul class="hero-list" data-motion-group="hero-list">
-                <li data-motion-child>Spara intyg digitalt och hitta dem snabbt</li>
-                <li data-motion-child>Dela intyg säkert med arbetsgivare eller kunder</li>
-                <li data-motion-child>Skydda personuppgifter med GDPR-anpassad hantering</li>
-                <li data-motion-child>Logga in från mobil, surfplatta eller dator</li>
-                <li data-motion-child>Privatkonto är gratis för privatpersoner.</li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Spara intyg digitalt och hitta dem snabbt
+                </li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Dela intyg säkert med arbetsgivare eller kunder
+                </li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Skydda personuppgifter med GDPR-anpassad hantering
+                </li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Logga in från mobil, surfplatta eller dator
+                </li>
+                <li data-motion-child>
+                    <span class="hero-check" aria-hidden="true">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                            <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
+                        </svg>
+                    </span>
+                    Privatkonto är gratis för privatpersoner.
+                </li>
             </ul>
         </div>
         <div class="hero-actions" aria-label="Snabbknappar" data-motion-group="hero-actions">
-            <a class="btn hero-btn" href="{{ url_for('apply_account') }}" data-motion-child>Skapa konto</a>
+            <a class="btn hero-btn hero-btn--shine" href="{{ url_for('apply_account') }}" data-motion-child>Skapa konto</a>
             <a class="btn hero-btn" href="/pris" data-motion-child>Se priser</a>
             <a class="btn btn-ghost" href="/login" data-motion-child>Logga in</a>
         </div>

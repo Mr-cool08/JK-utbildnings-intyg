@@ -385,6 +385,45 @@ def test_home_page_exposes_motion_markers(empty_db):
     assert 'data-motion-group="benefits"' in body
 
 
+def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    assert body.count('class="btn hero-btn hero-btn--shine"') == 1
+    assert body.count('class="hero-check" aria-hidden="true"') == 5
+    assert body.count('class="hero-check__icon"') == 5
+    assert body.count('class="hero-check__path" pathLength="1"') == 5
+    assert body.count('focusable="false"') == 5
+
+
+def test_home_page_animation_css_uses_dedicated_checkmark_hooks():
+    base_css = Path("static/css/base.css").read_text(encoding="utf-8")
+
+    assert ".hero-btn--shine::after" in base_css
+    assert "@keyframes hero-button-shine" in base_css
+    assert "animation: hero-button-shine 7.2s" in base_css
+    assert ".has-checkmark-motion .hero-check__path" in base_css
+    assert ".has-checkmark-motion .hero-check.is-drawn" in base_css
+    assert "stroke-dasharray: 1;" in base_css
+    assert "stroke-dashoffset: 1;" in base_css
+    assert "stroke-dashoffset: 0;" in base_css
+    assert "transition: stroke-dashoffset 520ms var(--ease-out-quart);" in base_css
+
+
+def test_checkmark_script_waits_for_css_and_observes_each_icon_once():
+    nav_script = Path("static/js/nav.js").read_text(encoding="utf-8")
+
+    assert "setupCheckmarkAnimations();" in nav_script
+    assert "document.body.classList.add('has-checkmark-motion')" in nav_script
+    assert "checkmark.classList.add('is-drawn')" in nav_script
+    assert "baseStylesheet.addEventListener('load', initialize" in nav_script
+    assert "!('requestAnimationFrame' in window)" in nav_script
+    assert nav_script.count("requestAnimationFrame(() =>") == 2
+    assert nav_script.count("activeObserver.unobserve(entry.target)") == 2
+
+
 def test_home_page_head_uses_non_blocking_assets_and_cmp_order(empty_db):
     with _client() as client:
         response = client.get("/")
@@ -450,9 +489,16 @@ def test_motion_assets_support_reduced_motion():
 
     assert "prefers-reduced-motion: reduce" in nav_script
     assert "IntersectionObserver" in nav_script
+    assert "activeObserver.unobserve(entry.target)" in nav_script
     assert ".has-motion .motion-ready" in base_css
     assert ".motion-ready.is-visible" in base_css
     assert "@media (prefers-reduced-motion: reduce)" in base_css
+
+    reduced_motion_css = base_css.split("@media (prefers-reduced-motion: reduce)", maxsplit=1)[1]
+    assert ".hero-btn--shine::after" in reduced_motion_css
+    assert "animation: none !important;" in reduced_motion_css
+    assert ".has-checkmark-motion .hero-check__path" in reduced_motion_css
+    assert "stroke-dashoffset: 0 !important;" in reduced_motion_css
 
 
 def test_base_css_exposes_compact_palette_tokens():
