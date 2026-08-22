@@ -21,8 +21,8 @@ def test_home_page_links_pricing(empty_db):
         response = client.get('/')
         assert response.status_code == 200
         body = response.data.decode('utf-8')
-        assert '/pris' in body
-        assert 'Privatkonto är gratis för privatpersoner.' in body
+        assert 'href="/pris"' in body
+        assert '>Se priser<' in body
 
 
 def test_pricing_page_has_direct_actions_and_distilled_content(empty_db):
@@ -64,6 +64,23 @@ def test_pricing_page_exposes_tiers_and_direct_plan_actions(empty_db):
     assert 'aria-labelledby="company-plan-title"' in body
     assert 'aria-labelledby="private-plan-title"' in body
     assert 'css/pricing.css' in body
+
+
+def test_pricing_page_includes_expiry_reminders_for_all_company_accounts(empty_db):
+    with _client() as client:
+        response = client.get('/pris')
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    reminder_copy = (
+        'Alla företagskonton inkluderar automatiska påminnelser innan intyg går ut.'
+    )
+
+    assert reminder_copy in body
+    assert body.index('<h2 id="company-plan-title">Företagskonto</h2>') < body.index(
+        reminder_copy
+    )
+    assert body.index(reminder_copy) < body.index('1–10')
 
 
 def test_pricing_page_styles_use_shared_theme_tokens(empty_db):

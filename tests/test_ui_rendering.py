@@ -385,6 +385,70 @@ def test_home_page_exposes_motion_markers(empty_db):
     assert 'data-motion-group="benefits"' in body
 
 
+def test_home_page_markets_expiry_reminders(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    description = (
+        "Samla, spara och dela utbildningsintyg digitalt. Få automatiska "
+        "påminnelser innan intyg går ut. Kom åt dina intyg när du behöver dem."
+    )
+    keywords = (
+        "utbildningsintyg, intyg, lagring, delning, verifiering, påminnelse, "
+        "utgångsdatum, kompetenshantering, certifikatbevakning"
+    )
+    reminder_item = "Få automatisk påminnelse innan ett intyg går ut"
+
+    assert f'<meta name="description" content="{description}">' in body
+    assert f'<meta name="keywords" content="{keywords}">' in body
+    assert (
+        '<meta property="og:title" '
+        'content="Utbildningsintyg – Samla, spara och dela intyg enkelt">'
+        in body
+    )
+    assert f'<meta property="og:description" content="{description}">' in body
+    assert reminder_item in body
+    assert body.index("Dela intyg säkert med arbetsgivare eller kunder") < body.index(
+        reminder_item
+    )
+    assert body.index(reminder_item) < body.index(
+        "Skydda personuppgifter med GDPR-anpassad hantering"
+    )
+    assert body.index("<h3>Sortera dina intyg</h3>") < body.index(
+        "<h3>Missa aldrig ett utgångsdatum</h3>"
+    )
+    assert body.index("<h3>Missa aldrig ett utgångsdatum</h3>") < body.index(
+        "<h3>Dela intyg säkert</h3>"
+    )
+    assert (
+        "Få en automatisk påminnelse i god tid innan ett intyg löper ut, "
+        "så du alltid hinner förnya i tid."
+    ) in body
+
+
+def test_home_page_prioritizes_needs_shared_by_people_and_companies(empty_db):
+    with _client() as client:
+        response = client.get("/")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+
+    shared_messages = (
+        "Spara intyg digitalt och hitta dem snabbt",
+        "Dela intyg säkert med arbetsgivare eller kunder",
+        "Få automatisk påminnelse innan ett intyg går ut",
+        "Skydda personuppgifter med GDPR-anpassad hantering",
+    )
+    for message in shared_messages:
+        assert message in body
+
+    assert "Logga in från mobil, surfplatta eller dator" not in body
+    assert "Privatkonto är gratis för privatpersoner." not in body
+    assert "<h3>Välj rätt konto</h3>" not in body
+    assert body.count('class="feature-card" data-motion-child') == 6
+
+
 def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
     with _client() as client:
         response = client.get("/")
@@ -392,10 +456,10 @@ def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
         body = response.get_data(as_text=True)
 
     assert body.count('class="btn hero-btn hero-btn--shine"') == 1
-    assert body.count('class="hero-check" aria-hidden="true"') == 5
-    assert body.count('class="hero-check__icon"') == 5
-    assert body.count('class="hero-check__path" pathLength="1"') == 5
-    assert body.count('focusable="false"') == 5
+    assert body.count('class="hero-check" aria-hidden="true"') == 4
+    assert body.count('class="hero-check__icon"') == 4
+    assert body.count('class="hero-check__path" pathLength="1"') == 4
+    assert body.count('focusable="false"') == 4
 
 
 def test_home_page_animation_css_uses_dedicated_checkmark_hooks():
