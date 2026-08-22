@@ -110,15 +110,12 @@
                                 aria-label="Markera {{ pdf.filename }} för delning"
                             >
                             <div class="pdf-details">
-                                <div class="pdf-title-row">
-                                    <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download data-pdf-link>
-                                        {{ pdf.filename }}
-                                    </a>
-                                    <span class="expiry-status" data-expiry-status hidden aria-hidden="true"></span>
-                                </div>
+                                <a href="{{ url_for('download_pdf', pdf_id=pdf.id) }}" download data-pdf-link>
+                                    {{ pdf.filename }}
+                                </a>
                                 <div class="pdf-meta" data-pdf-meta {% if not pdf.note and not pdf.expires_on %}hidden{% endif %}>
                                     <span class="pdf-note" data-pdf-note-text {% if not pdf.note %}hidden{% endif %}>{{ pdf.note or '' }}</span>
-                                    <span class="pdf-note" data-pdf-expiry-text {% if not pdf.expires_on %}hidden{% endif %}>{% if pdf.expires_on %}Gäller till {{ pdf.expires_on }}{% endif %}</span>
+                                    <span class="pdf-note" data-pdf-expiry-text {% if not pdf.expires_on %}hidden{% endif %}>{% if pdf.expires_on %}Gäller till {{ pdf.expires_on }}{% endif %}<span class="expiry-status" data-expiry-status hidden aria-hidden="true"></span></span>
                                 </div>
                             </div>
                         </div>
