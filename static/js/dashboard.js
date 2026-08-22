@@ -16,6 +16,53 @@
     return `${filename || ''} ${note || ''} ${groupLabel || ''}`.trim().toLowerCase();
   }
 
+  function updateExpiryStatus(pdfItem) {
+    const statusElement = pdfItem.querySelector('[data-expiry-status]');
+    const expiryValue = pdfItem.dataset.pdfExpiresOn || '';
+
+    if (!statusElement) {
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryValue)) {
+      statusElement.textContent = '';
+      statusElement.hidden = true;
+      statusElement.removeAttribute('aria-label');
+      statusElement.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiryDate = new Date(`${expiryValue}T00:00:00`);
+    const daysUntilExpiry = Math.ceil(
+      (expiryDate.getTime() - today.getTime()) / 86400000
+    );
+    let emoji;
+    let label;
+
+    if (daysUntilExpiry < 0) {
+      emoji = '🔴';
+      label = 'Intyget har gått ut';
+    } else if (daysUntilExpiry <= 30) {
+      emoji = '🟡';
+      label = 'Intyget går ut inom 30 dagar';
+    } else {
+      emoji = '🟢';
+      label = 'Intyget går ut om mer än 30 dagar';
+    }
+
+    statusElement.textContent = emoji;
+    statusElement.setAttribute('aria-label', label);
+    statusElement.setAttribute('title', label);
+    statusElement.setAttribute('aria-hidden', 'false');
+    statusElement.hidden = false;
+  }
+
+  function setupExpiryStatuses() {
+    document.querySelectorAll('[data-pdf-item]').forEach(updateExpiryStatus);
+  }
+
   function refreshDashboardSearch() {
     const searchInput = document.querySelector('[data-dashboard-search]');
     if (!searchInput) {
@@ -313,6 +360,7 @@
       pdfItem.dataset.pdfNote = note;
       pdfItem.dataset.pdfExpiresOn = expiresOn;
       pdfItem.dataset.searchText = buildPdfSearchText(filename, note, groupLabel);
+      updateExpiryStatus(pdfItem);
 
       const shareCheckbox = pdfItem.querySelector('[data-share-select]');
       if (shareCheckbox) {
@@ -747,6 +795,7 @@
   }
 
   setupDashboardSearch();
+  setupExpiryStatuses();
   setupSupervisorDashboard();
   setupEditPdfModal();
   setupShareModal();

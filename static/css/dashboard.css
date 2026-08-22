@@ -212,6 +212,18 @@
     min-width: 0;
 }
 
+.pdf-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.expiry-status {
+    flex-shrink: 0;
+    line-height: 1;
+}
+
 .pdf-details a {
     font-weight: 600;
     overflow-wrap: anywhere;
