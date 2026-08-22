@@ -175,6 +175,7 @@ def test_seo_page_is_public_indexable_and_complete(page, empty_db):
     assert f'<meta property="og:url" content="{canonical}">' in body
     assert '<meta property="og:type" content="website">' in body
     assert f'<meta property="og:image" content="{og_image}">' in body
+    assert f'<meta property="og:image:alt" content="{page["alt"]}">' in body
     assert f'src="{image_url}"' in body
     assert f'alt="{page["alt"]}"' in body
     assert '<meta property="og:image:width" content="1536">' in body

@@ -19,6 +19,7 @@ Disallow: /error
 # Tillåt offentliga resurser som behövs för rendering
 Allow: /static/
 Allow: /media/
+Disallow: /uploads/
 Allow: /uploads/public/
 
 # Webbplatskarta för bättre indexering
