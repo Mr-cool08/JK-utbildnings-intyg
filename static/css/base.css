@@ -2337,7 +2337,7 @@ small.hint {
 .seo-related a:hover,
 .seo-related a:focus-visible {
     color: var(--color-primary-dark);
-    text-decoration-color: currentColor;
+    text-decoration-color: currentcolor;
 }
 
 .seo-related a:hover::after,
