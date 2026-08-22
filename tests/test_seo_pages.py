@@ -199,6 +199,24 @@ def test_seo_pages_have_distinct_titles_descriptions_and_h1s():
         assert len(values) == len(set(values))
 
 
+def test_seo_hero_media_reserves_space_for_captions():
+    stylesheet = Path("static/css/base.css").read_text(encoding="utf-8")
+    stylesheet = stylesheet.replace("\r\n", "\n")
+    figure_rule = re.search(
+        r"\.seo-hero__media \{(?P<body>.*?)\n\}", stylesheet, re.DOTALL
+    )
+    image_rule = re.search(
+        r"\.seo-hero__media img \{(?P<body>.*?)\n\}", stylesheet, re.DOTALL
+    )
+
+    assert figure_rule is not None
+    assert image_rule is not None
+    assert "aspect-ratio" not in figure_rule.group("body")
+    assert "height: auto;" in image_rule.group("body")
+    assert "aspect-ratio: 3 / 2;" in image_rule.group("body")
+    assert ".seo-hero__media figcaption" in stylesheet
+
+
 def test_seo_pages_keep_product_and_legal_boundaries_explicit(empty_db):
     with _client() as client:
         company = _visible_text(client.get("/utbildningsintyg-for-foretag").get_data(as_text=True))
