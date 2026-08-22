@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% block title %}Dela utbildningsintyg digitalt – Snabbt och enkelt{% endblock %}
+{% block head %}
+    <meta name="description" content="Dela utbildningsintyg digitalt med arbetsgivare, kunder och andra mottagare. Hitta rätt intyg och skicka det som PDF-bilaga via e-post.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/dela-utbildningsintyg">
+    <meta property="og:title" content="Dela utbildningsintyg digitalt – Snabbt och enkelt">
+    <meta property="og:description" content="Dela utbildningsintyg digitalt med arbetsgivare, kunder och andra mottagare. Hitta rätt intyg och skicka det som PDF-bilaga via e-post.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/dela-utbildningsintyg">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/dela-utbildningsintyg-digitalt.webp">
+    <meta property="og:image:alt" content="Dela utbildningsintyg digitalt med arbetsgivare eller kund">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": "https://www.utbildningsintyg.se/dela-utbildningsintyg#webpage",
+                "url": "https://www.utbildningsintyg.se/dela-utbildningsintyg",
+                "name": "Dela utbildningsintyg digitalt – Snabbt och enkelt",
+                "description": "Dela utbildningsintyg digitalt med arbetsgivare, kunder och andra mottagare. Hitta rätt intyg och skicka det som PDF-bilaga via e-post.",
+                "inLanguage": "sv-SE"
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Hem",
+                        "item": "https://www.utbildningsintyg.se/"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Dela utbildningsintyg",
+                        "item": "https://www.utbildningsintyg.se/dela-utbildningsintyg"
+                    }
+                ]
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": "Hur delar jag ett utbildningsintyg från mitt privatkonto?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Du väljer ett eller flera intyg i ditt privata arkiv, anger mottagarens e-postadress och skickar dem som PDF-bilagor via e-post."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Skapas en offentlig länk eller QR-kod när jag delar?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Nej. Delningen från privatkontot skickar de valda intygen som PDF-bilagor via e-post. Den skapar inte en offentlig länk eller QR-kod."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Vad bör jag kontrollera innan jag skickar ett intyg?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Kontrollera att du har valt rätt intyg och att mottagarens e-postadress är korrekt. Dela bara de dokument som mottagaren behöver."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Verifierar Utbildningsintyg att ett delat intyg är äkta?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Nej. Tjänsten hjälper dig att lagra, hitta och skicka dokumentet, men innebär inte en kontroll eller verifiering av intygets äkthet."
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero seo-hero" aria-labelledby="share-certificate-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Dela utbildningsintyg</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="share-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Rätt intyg till rätt mottagare</p>
+                <h1 id="share-certificate-title" data-motion-child>Dela utbildningsintyg digitalt när någon behöver se dem</h1>
+                <p class="reminder-lead" data-motion-child>
+                    När en arbetsgivare, kund eller annan mottagare ber om dokumentation kan du
+                    hitta rätt intyg i ditt privata arkiv och skicka ett eller flera dokument som
+                    PDF-bilagor via e-post.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_account') }}">Skapa konto</a>
+                    <a class="reminder-text-link" href="#sa-fungerar">Så fungerar delningen</a>
+                </div>
+            </div>
+
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/dela-utbildningsintyg-digitalt.webp') }}"
+                    alt="Dela utbildningsintyg digitalt med arbetsgivare eller kund"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+                <figcaption>Välj rätt intyg och kontrollera mottagaren innan PDF-bilagan skickas.</figcaption>
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#nar-behovs-delning">När intyg behöver delas</a>
+        <a href="#sa-fungerar">Så fungerar det</a>
+        <a href="#dela-med-omtanke">Dela med omtanke</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="nar-behovs-delning" aria-labelledby="sharing-situations-title" data-motion="section">
+        <p class="reminder-section-label">Vanliga situationer</p>
+        <div class="reminder-intro__layout">
+            <h2 id="sharing-situations-title">När någon behöver se din utbildning dokumenterad</h2>
+            <div class="reminder-prose">
+                <p>
+                    Ett utbildningsintyg kan behövas när du söker arbete, börjar ett nytt uppdrag
+                    eller ska visa en kund att du har genomfört en viss utbildning. För den som har
+                    många intyg kan det vara själva letandet som tar längst tid: dokument kan ligga
+                    i gamla mejl, lokala mappar eller bland papperskopior.
+                </p>
+                <p>
+                    Ett samlat digitalt arkiv gör det enklare att först hitta rätt dokument och
+                    därefter välja vad som faktiskt ska skickas. Läs mer om hur du kan
+                    <a href="{{ url_for('digital_certificate_storage_info') }}">lagra utbildningsintyg digitalt</a>
+                    innan du behöver dela dem.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reminder-process-section" id="sa-fungerar" aria-labelledby="sharing-process-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Från arkiv till inkorg</p>
+                <h2 id="sharing-process-title">Så delar en privat användare utbildningsintyg</h2>
+            </div>
+            <p>Du väljer själv vilka dokument som ska lämna ditt arkiv och vem som ska få dem.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="sharing-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Öppna ditt privata intygsarkiv</h3>
+                    <p>
+                        Logga in och leta fram det utbildningsintyg som mottagaren har efterfrågat.
+                        Ett tydligt filnamn, rätt kategori och ett registrerat datum gör det enklare
+                        att skilja aktuella dokument från äldre versioner.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Hitta rätt</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Välj ett eller flera intyg</h3>
+                    <p>
+                        Markera bara de intyg som mottagaren behöver. Du kan dela ett enskilt
+                        dokument eller samla flera valda intyg i samma e-postutskick.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Avgränsa</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Kontrollera mottagarens e-postadress</h3>
+                    <p>
+                        Skriv in adressen noggrant och kontrollera den en extra gång före utskick.
+                        Ett felstavat namn eller en felaktig domän kan innebära att personuppgifter
+                        skickas till fel person.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Kontrollera</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Skicka intygen som PDF-bilagor</h3>
+                    <p>
+                        De valda utbildningsintygen skickas via e-post som en eller flera
+                        PDF-bilagor. Delningen skapar alltså inte en publik länk, QR-kod eller en
+                        separat verifieringssida.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Skicka</p>
+            </li>
+        </ol>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="sharing-contexts">
+        <section aria-labelledby="traditional-sharing-title" data-motion-child>
+            <p class="reminder-section-label">När dokumenten är utspridda</p>
+            <h2 id="traditional-sharing-title">Traditionell delning börjar ofta med att leta</h2>
+            <p>
+                Om intyget bara finns i en gammal inkorg, på en viss dator eller i en fysisk pärm
+                måste du först hitta rätt version. Därefter behöver dokumentet skannas, laddas ner
+                eller bifogas manuellt. Risken ökar att fel fil följer med eller att samma dokument
+                sparas i flera svåröverskådliga kopior.
+            </p>
+            <p class="reminder-audience__closing">
+                Ordning före utskick minskar onödigt arbete och gör valet av dokument tydligare.
+            </p>
+        </section>
+
+        <section aria-labelledby="digital-sharing-title" data-motion-child>
+            <p class="reminder-section-label">När arkivet är samlat</p>
+            <h2 id="digital-sharing-title">Digital lagring gör delningen mer förberedd</h2>
+            <p>
+                Med intygen samlade kan du söka fram dokumentet, kontrollera att det är rätt och
+                välja mottagare i ett sammanhängande flöde. Tjänsten skickar dokumentet, men det är
+                fortfarande du som avgör vilket intyg som ska delas och med vem.
+            </p>
+            <p class="reminder-audience__closing">
+                För en bredare överblick över tjänsten kan du läsa om
+                <a href="{{ url_for('digital_certificates_info') }}">digitala utbildningsintyg</a>.
+            </p>
+        </section>
+    </div>
+
+    <section class="reminder-capabilities" id="dela-med-omtanke" aria-labelledby="careful-sharing-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Innan du trycker på skicka</p>
+                <h2 id="careful-sharing-title">Dela med omtanke om personuppgifterna</h2>
+            </div>
+            <p>Ett utbildningsintyg kan innehålla namn och andra uppgifter som mottagaren ska hantera.</p>
+        </div>
+
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Välj minsta möjliga</dt>
+                <dd>Skicka bara de intyg som behövs för det aktuella ärendet.</dd>
+            </div>
+            <div>
+                <dt>Läs dokumentet</dt>
+                <dd>Kontrollera innehållet och att du har valt rätt version innan utskicket.</dd>
+            </div>
+            <div>
+                <dt>Granska adressen</dt>
+                <dd>Säkerställ att mottagarens e-postadress är korrekt och avsedd för dokumentet.</dd>
+            </div>
+            <div>
+                <dt>Kom ihåg kopian</dt>
+                <dd>När bilagan har skickats finns en ny kopia utanför ditt digitala arkiv.</dd>
+            </div>
+        </dl>
+
+        <p class="reminder-capabilities__summary">
+            Läs den fördjupande guiden om
+            <a href="{{ url_for('certificate_gdpr_info') }}">utbildningsintyg och GDPR</a>
+            om du vill veta mer om personuppgifter, åtkomst och lagringstid.
+        </p>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="sharing-faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="sharing-faq-title">Om att dela utbildningsintyg digitalt</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Hur delar jag ett utbildningsintyg från mitt privatkonto?</summary>
+                <p>
+                    Du väljer ett eller flera intyg i ditt privata arkiv, anger mottagarens
+                    e-postadress och skickar dem som PDF-bilagor via e-post.
+                </p>
+            </details>
+            <details>
+                <summary>Skapas en offentlig länk eller QR-kod när jag delar?</summary>
+                <p>
+                    Nej. Delningen från privatkontot skickar de valda intygen som PDF-bilagor via
+                    e-post. Den skapar inte en offentlig länk eller QR-kod.
+                </p>
+            </details>
+            <details>
+                <summary>Vad bör jag kontrollera innan jag skickar ett intyg?</summary>
+                <p>
+                    Kontrollera att du har valt rätt intyg och att mottagarens e-postadress är
+                    korrekt. Dela bara de dokument som mottagaren behöver.
+                </p>
+            </details>
+            <details>
+                <summary>Verifierar Utbildningsintyg att ett delat intyg är äkta?</summary>
+                <p>
+                    Nej. Tjänsten hjälper dig att lagra, hitta och skicka dokumentet, men innebär
+                    inte en kontroll eller verifiering av intygets äkthet.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-labelledby="sharing-related-title" data-motion="section">
+        <p class="reminder-section-label">Guider och artiklar</p>
+        <h2 id="sharing-related-title">Fortsätt läsa om digital intygshantering</h2>
+        <ul>
+            <li><a href="{{ url_for('digital_certificate_storage_info') }}">Lagra utbildningsintyg digitalt</a></li>
+            <li><a href="{{ url_for('company_certificates_info') }}">Utbildningsintyg för företag</a></li>
+            <li><a href="{{ url_for('manage_certificates_info') }}">Hantera utbildningsintyg på ett ställe</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="sharing-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Förbered intygen innan de efterfrågas</p>
+        <h2 id="sharing-cta-title">Samla rätt dokument och dela när det behövs</h2>
+        <p>Skapa ett konto för ditt intygsarkiv eller jämför kontoformer och priser först.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_account') }}">Skapa konto</a>
+            <a class="btn btn-ghost" href="{{ url_for('pricing') }}">Se priser</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

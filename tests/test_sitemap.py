@@ -36,6 +36,18 @@ class TestSitemapXml(unittest.TestCase):
         self.assertIn("/ansok/foretagskonto", body)
         self.assertIn("/organisationer", body)
         self.assertIn("/paminnelse-utbildningsintyg", body)
+        seo_paths = (
+            "/digitala-utbildningsintyg",
+            "/hantera-utbildningsintyg",
+            "/utbildningsintyg-for-foretag",
+            "/kompetensregister",
+            "/hall-koll-pa-personalens-utbildningar",
+            "/lagra-utbildningsintyg-digitalt",
+            "/dela-utbildningsintyg",
+            "/gdpr-utbildningsintyg",
+        )
+        for path in seo_paths:
+            self.assertIn(f"https://www.utbildningsintyg.se{path}", body)
 
         self.assertNotIn("/admin", body)
         self.assertNotIn("/dashboard", body)

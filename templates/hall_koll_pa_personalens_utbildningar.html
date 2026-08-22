@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% block title %}Så håller du koll på personalens utbildningar och intyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Få kontroll över personalens utbildningar, certifikat och utgångsdatum. Se hur ett digitalt utbildningsregister minskar administration och missade förnyelser.">
+    <meta name="keywords" content="hålla koll på utbildningar personal, hålla koll på personalens utbildningar, utbildningar som går ut">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/hall-koll-pa-personalens-utbildningar">
+    <meta property="og:title" content="Så håller du koll på personalens utbildningar och intyg">
+    <meta property="og:description" content="Få kontroll över personalens utbildningar, certifikat och utgångsdatum. Se hur ett digitalt utbildningsregister minskar administration och missade förnyelser.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/hall-koll-pa-personalens-utbildningar">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/hall-koll-personal-utbildningar.webp">
+    <meta property="og:image:alt" content="Översikt över personalens utbildningar och giltighetstider">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero" aria-labelledby="staff-training-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Håll koll på personalens utbildningar</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="staff-training-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Praktisk guide för företag</p>
+                <h1 id="staff-training-title" data-motion-child>Så håller du koll på personalens utbildningar</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Börja med en gemensam rutin för dokument, ansvar och utgångsdatum. När alla
+                    utbildningsintyg finns på ett bestämt ställe blir det lättare att hitta
+                    underlag, upptäcka luckor och planera förnyelser i tid.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="#arbetsprocess">Följ arbetsprocessen</a>
+                    <a class="reminder-text-link" href="#vanliga-misstag">Undvik vanliga misstag</a>
+                </div>
+            </div>
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/hall-koll-personal-utbildningar.webp') }}"
+                    alt="Översikt över personalens utbildningar och giltighetstider"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#utmaningen">Utmaningen</a>
+        <a href="#arbetsprocess">Steg för steg</a>
+        <a href="#vanliga-misstag">Vanliga misstag</a>
+        <a href="#kalkylblad-eller-system">Kalkylblad eller system</a>
+        <a href="#utbildningsintyg">Utbildningsintyg i processen</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="utmaningen" aria-labelledby="challenge-title" data-motion="section">
+        <p class="reminder-section-label">Börja med nuläget</p>
+        <div class="reminder-intro__layout">
+            <h2 id="challenge-title">Kontroll handlar om mer än en lista med kursnamn</h2>
+            <div class="reminder-prose">
+                <p>
+                    Många företag har redan information om personalens utbildningar, men den kan
+                    vara spridd mellan mejl, pärmar, gemensamma mappar och enskilda kalkylblad. Då
+                    blir den verkliga utmaningen att veta vilken uppgift som är aktuell och var
+                    intyget som styrker den finns.
+                </p>
+                <p>
+                    En hållbar rutin behöver därför omfatta både översikten och dokumentationen.
+                    Det ska vara tydligt vem som ansvarar för registret, vilka uppgifter som ska
+                    registreras, hur utgångsdatum följs och vad som händer när ett intyg förnyas
+                    eller en person lämnar organisationen.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Praktisk princip:</strong> Samla inte fler uppgifter än verksamheten behöver.
+            Ett enkelt register som uppdateras konsekvent är mer användbart än ett omfattande
+            kalkylblad som ingen ansvarar för.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="arbetsprocess" aria-labelledby="process-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Steg för steg</p>
+                <h2 id="process-title">En praktisk process för personalens utbildningsintyg</h2>
+            </div>
+            <p>Gör ansvar, dokumentation och uppföljning till delar av samma rutin.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="staff-training-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Bestäm vad ni behöver följa</h3>
+                    <p>
+                        Lista de utbildningar och certifikat som är relevanta för verksamheten.
+                        Skilj på intyg utan slutdatum och intyg som behöver förnyas efter en viss
+                        tid.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Tydlig omfattning</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Utse en ansvarig för rutinen</h3>
+                    <p>
+                        Bestäm vem som följer upp att intyg kommer in, att uppgifterna är aktuella
+                        och att planerade kontroller faktiskt genomförs.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Ägarskap</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Samla intygen på ett ställe</h3>
+                    <p>
+                        Välj ett gemensamt arkiv där dokumentet kan kopplas till rätt person. Använd
+                        tydliga namn och kategorier så att en kollega kan hitta samma intyg utan att
+                        känna till den ursprungliga mappstrukturen.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Gemensam källa</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Registrera relevanta utgångsdatum</h3>
+                    <p>
+                        Lägg till ett slutdatum när intyget har begränsad giltighet. Saknas
+                        utgångsdatum ska det framgå att intyget inte behöver bevakas, i stället för
+                        att datumfältet lämnas oklart.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Planerad bevakning</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">05</span>
+                <div>
+                    <h3>Använd påminnelser med framförhållning</h3>
+                    <p>
+                        En påminnelse ska ge tid att boka en ny utbildning och ersätta det gamla
+                        dokumentet. Kontrollera också vem som tar emot påminnelsen och vem som ska
+                        agera på den.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Tid för förnyelse</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">06</span>
+                <div>
+                    <h3>Gör en återkommande genomgång</h3>
+                    <p>
+                        Granska registret regelbundet. Ta bort inaktuella kopplingar, rätta
+                        felaktiga uppgifter och kontrollera att ett förnyat intyg har ersatt den
+                        äldre dokumentationen.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Löpande kvalitet</p>
+            </li>
+        </ol>
+    </section>
+
+    <div class="reminder-audiences" id="vanliga-misstag" data-motion-group="staff-training-mistakes">
+        <section aria-labelledby="mistakes-title" data-motion-child>
+            <p class="reminder-section-label">Vanliga misstag</p>
+            <h2 id="mistakes-title">När översikten ser bättre ut än den är</h2>
+            <ul class="reminder-check-list">
+                <li>Datum finns i ett kalkylblad men originalintyget går inte att hitta.</li>
+                <li>Flera kopior av samma dokument ligger i olika mappar.</li>
+                <li>Utgångsdatum registreras utan att någon ansvarar för nästa steg.</li>
+                <li>Påminnelser skickas till en adress som inte längre bevakas.</li>
+                <li>En gammal fil ligger kvar efter att utbildningen har förnyats.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                Kontrollera därför både uppgiften i registret och dokumentet som uppgiften bygger
+                på.
+            </p>
+        </section>
+
+        <section aria-labelledby="routine-title" data-motion-child>
+            <p class="reminder-section-label">En bättre vardagsrutin</p>
+            <h2 id="routine-title">Gör det enkelt att göra rätt från början</h2>
+            <ul class="reminder-check-list">
+                <li>Använd samma namn- och kategoriprincip för alla intyg.</li>
+                <li>Lägg in datum när dokumentet kommer in, inte vid nästa kontroll.</li>
+                <li>Förvara inte personuppgifter i fler kopior än vad som behövs.</li>
+                <li>Bestäm hur åtkomst ändras när roller eller anställningar förändras.</li>
+                <li>Dokumentera vem som kontrollerar registret och hur ofta.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                En gemensam rutin minskar beroendet av att en enskild person minns var allt finns.
+            </p>
+        </section>
+    </div>
+
+    <section class="reminder-capabilities" id="kalkylblad-eller-system" aria-labelledby="comparison-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Välj rätt nivå</p>
+                <h2 id="comparison-title">Kalkylblad eller ett särskilt utbildningsregister?</h2>
+            </div>
+            <p>Behovet avgörs av antal personer, förändringstakt och hur ofta intygen behöver visas.</p>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Fråga</th>
+                        <th scope="col">Kalkylblad och mappar</th>
+                        <th scope="col">Digitalt intygsregister</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Var finns dokumentet?</th>
+                        <td>Ofta i en separat mapp eller mejltråd.</td>
+                        <td>Intyget finns tillsammans med personens registrerade uppgifter.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Hur följs utgångsdatum?</th>
+                        <td>Manuella kalendernotiser eller återkommande kontroll av listan.</td>
+                        <td>Registrerade datum kan bevakas och ge en påminnelse via e-post.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Hur hittas rätt intyg?</th>
+                        <td>Sökning i flera mappar, listor och filnamn.</td>
+                        <td>Sökning och kategorier i en samlad översikt.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Vem håller informationen aktuell?</th>
+                        <td>Organisationen måste tydligt fördela det manuella arbetet.</td>
+                        <td>Systemet hjälper med struktur, men organisationen ansvarar fortfarande för riktigheten.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="reminder-intro" id="utbildningsintyg" aria-labelledby="service-title" data-motion="section">
+        <p class="reminder-section-label">När ni vill samla flödet</p>
+        <div class="reminder-intro__layout">
+            <h2 id="service-title">Så passar Utbildningsintyg in i arbetsprocessen</h2>
+            <div class="reminder-prose">
+                <p>
+                    Utbildningsintyg låter varje privatperson samla sina dokument i ett eget
+                    digitalt arkiv. Företaget kan skicka en kopplingsförfrågan, och efter
+                    användarens godkännande visas intygen i företagsportalen. Där går det att söka
+                    på person, filnamn eller kategori samt visa registrerade utgångsdatum.
+                </p>
+                <p>
+                    När ett intyg har ett utgångsdatum kan tjänsten skicka en sammanställning via
+                    e-post innan datumet passeras. Det ersätter inte företagets ansvar att bedöma
+                    utbildningsbehovet, men gör bevakningen och dokumentationen enklare att hålla
+                    samman.
+                </p>
+                <p>
+                    Läs mer om <a href="{{ url_for('company_certificates_info') }}">utbildningsintyg för företag</a>
+                    eller fördjupa dig i hur ett
+                    <a href="{{ url_for('competence_register_info') }}">digitalt kompetensregister</a>
+                    kan struktureras.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="faq-title">Om att följa personalens utbildningar</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Vilka uppgifter bör finnas i ett utbildningsregister?</summary>
+                <p>
+                    Börja med person, utbildning eller kategori, själva intyget och ett eventuellt
+                    utgångsdatum. Lägg bara till fler uppgifter när verksamheten har ett tydligt
+                    behov av dem.
+                </p>
+            </details>
+            <details>
+                <summary>Hur ofta bör registret granskas?</summary>
+                <p>
+                    Anpassa intervallet efter verksamhetens risker och hur ofta personal eller krav
+                    förändras. En återkommande kontroll behövs även när automatiska påminnelser
+                    används, eftersom organisationen ansvarar för att uppgifterna är riktiga.
+                </p>
+            </details>
+            <details>
+                <summary>Vad gör man med ett intyg utan utgångsdatum?</summary>
+                <p>
+                    Spara dokumentet men markera tydligt att det inte ska löpa ut. I
+                    Utbildningsintyg kan utgångsdatum lämnas bort; då ligger intyget kvar utan att
+                    skapa en automatisk påminnelse.
+                </p>
+            </details>
+            <details>
+                <summary>Vad händer när en person lämnar företaget?</summary>
+                <p>
+                    Företaget bör ha en rutin för att avsluta åtkomsten och bedöma vilka uppgifter
+                    som fortfarande behöver sparas. En koppling mellan företagskontot och
+                    privatkontot kan tas bort, medan privatpersonen behåller sitt eget arkiv.
+                </p>
+            </details>
+            <details>
+                <summary>Räcker ett kalkylblad för att hålla koll på utbildningarna?</summary>
+                <p>
+                    Det kan räcka för en liten, stabil översikt med tydligt ansvar. När dokumenten
+                    blir många, datumen förändras eller flera behöver hitta intygen kan ett
+                    särskilt digitalt register minska det manuella dubbelarbetet.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-label="Relaterade guider" data-motion="section">
+        <h2>Relaterade guider och tjänster</h2>
+        <ul>
+            <li><a href="{{ url_for('company_certificates_info') }}">Utbildningsintyg för företag</a></li>
+            <li><a href="{{ url_for('competence_register_info') }}">Digitalt kompetensregister</a></li>
+            <li><a href="{{ url_for('expiry_reminders_info') }}">Påminnelser för utbildningsintyg</a></li>
+            <li><a href="{{ url_for('certificate_gdpr_info') }}">Utbildningsintyg och GDPR</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="staff-training-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Från rutin till gemensam översikt</p>
+        <h2 id="staff-training-cta-title">Se hur företagskontot samlar personalens intyg</h2>
+        <p>Läs om företagslösningen eller ansök när ni är redo att koppla personalens privatkonton.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('company_certificates_info') }}">Läs om företagskontot</a>
+            <a class="btn btn-ghost" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

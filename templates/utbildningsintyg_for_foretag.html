@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}Utbildningsintyg för företag – Kontroll på personalens intyg{% endblock %}
+{% block head %}
+    <meta name="description" content="Samla personalens utbildningsintyg i ett digitalt register. Se giltighetstider, hitta intyg snabbt och få påminnelser om intyg som snart går ut.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/utbildningsintyg-for-foretag">
+    <meta property="og:title" content="Utbildningsintyg för företag – Kontroll på personalens intyg">
+    <meta property="og:description" content="Samla personalens utbildningsintyg i ett digitalt register. Se giltighetstider, hitta intyg snabbt och få påminnelser om intyg som snart går ut.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/utbildningsintyg-for-foretag">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/utbildningsintyg-for-foretag.webp">
+    <meta property="og:image:alt" content="Företag som hanterar personalens utbildningsintyg digitalt">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero seo-hero" aria-labelledby="company-certificates-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Utbildningsintyg för företag</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="seo-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Företagsportal för godkända kopplingar</p>
+                <h1 id="company-certificates-title" data-motion-child>Utbildningsintyg för företag – få kontroll på personalens intyg</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Se kopplade privatkonton och deras uppladdade utbildningsintyg i en gemensam
+                    översikt. Sök på person, filnamn eller kategori och se registrerade
+                    giltighetsdatum när uppgifterna behövs.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+                    <a class="reminder-text-link" href="#sa-fungerar">Så fungerar kopplingen</a>
+                </div>
+            </div>
+
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/utbildningsintyg-for-foretag.webp') }}"
+                    alt="Företag som hanterar personalens utbildningsintyg digitalt"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+                <figcaption>Företagsportalen samlar översikten över godkända, kopplade privatkonton.</figcaption>
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#foretagets-behov">Företagets behov</a>
+        <a href="#sa-fungerar">Så fungerar kopplingen</a>
+        <a href="#oversikt">Funktioner i portalen</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="foretagets-behov" aria-labelledby="company-need-title" data-motion="section">
+        <p class="reminder-section-label">När flera personer har egna intyg</p>
+        <div class="reminder-intro__layout">
+            <h2 id="company-need-title">En gemensam översikt minskar letandet efter personalens dokument</h2>
+            <div class="reminder-prose">
+                <p>
+                    När utbildningsintyg ligger i separata inkorgar, lokala mappar och pärmar kan
+                    det ta tid att kontrollera vem som har vilket dokument och när ett intyg går
+                    ut. Ett kalkylblad kan visa datum, men innehåller inte alltid själva underlaget.
+                </p>
+                <p>
+                    Utbildningsintyg.se låter varje person behålla och hantera sitt eget
+                    privatkonto. Efter en godkänd koppling kan företaget se det kopplade kontots
+                    intyg i företagsportalen. På så sätt samlas översikten utan att företaget tar
+                    över uppladdning eller redigering av personens dokument.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            Företagsportalen är en intygsöversikt för kopplade konton. Den är inte ett fullständigt
+            HR-system och innehåller inte bemanningsplanering, utbildningsbokning eller en
+            kompetensmatris över utbildningar som saknas.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="sa-fungerar" aria-labelledby="company-process-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Åtkomst efter godkännande</p>
+                <h2 id="company-process-title">Så kopplas privatkonto och företagskonto ihop</h2>
+            </div>
+            <p>En koppling skapas först när rätt konto har hittats och förfrågan har godkänts.</p>
+        </div>
+        <ol class="reminder-process" data-motion-group="company-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Personen har ett aktivt privatkonto</h3>
+                    <p>Privatkontot innehåller personens egna uppladdade intyg, kategorier, anteckningar och eventuella utgångsdatum.</p>
+                </div>
+                <p class="reminder-process__detail">Eget arkiv</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Företaget skickar en förfrågan</h3>
+                    <p>Företagskontot söker fram privatkontot med personnummer och skickar en kopplingsförfrågan.</p>
+                </div>
+                <p class="reminder-process__detail">Ingen direkt åtkomst</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Privatpersonen väljer</h3>
+                    <p>Förfrågan visas i privatkontot och kan godkännas eller avböjas. Först efter ett godkännande blir kopplingen aktiv.</p>
+                </div>
+                <p class="reminder-process__detail">Aktivt godkännande</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Företaget får en samlad vy</h3>
+                    <p>Den kopplade personen och alla intyg i personens arkiv visas i företagsportalen. Båda parter kan senare ta bort kopplingen.</p>
+                </div>
+                <p class="reminder-process__detail">Åtkomst kan avslutas</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="reminder-capabilities" id="oversikt" aria-labelledby="company-overview-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Det här finns i företagsportalen</p>
+                <h2 id="company-overview-title">Översikt över kopplade användare och deras intyg</h2>
+            </div>
+            <p>Portalen utgår från dokumenten som varje privatkonto själv har lagt in.</p>
+        </div>
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Personer</dt>
+                <dd>Se namn på kopplade privatkonton och hur många intyg respektive konto innehåller.</dd>
+            </div>
+            <div>
+                <dt>Sökning</dt>
+                <dd>Sök på personens namn, intygets filnamn eller utbildningskategori.</dd>
+            </div>
+            <div>
+                <dt>Dokument</dt>
+                <dd>Visa intyg i webbläsaren eller ladda ner PDF-filen när ett underlag behövs.</dd>
+            </div>
+            <div>
+                <dt>Giltighet</dt>
+                <dd>Se ett registrerat utgångsdatum vid intyget. Datumet anges och uppdateras av privatkontots ägare.</dd>
+            </div>
+            <div>
+                <dt>Delning</dt>
+                <dd>Skicka ett intyg som PDF-bilaga till en angiven e-postadress direkt från företagsportalen.</dd>
+            </div>
+            <div>
+                <dt>Kopplingar</dt>
+                <dd>Skicka nya förfrågningar och ta bort åtkomst när kopplingen inte längre ska finnas kvar.</dd>
+            </div>
+        </dl>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="company-account-split">
+        <section aria-labelledby="employee-responsibility-title" data-motion-child>
+            <p class="reminder-section-label">Privatkontots ansvar</p>
+            <h2 id="employee-responsibility-title">Medarbetaren hanterar sina egna dokument</h2>
+            <ul class="reminder-check-list">
+                <li>Laddar upp intyg i PDF, PNG eller JPG.</li>
+                <li>Väljer kategori och lägger till en eventuell anteckning.</li>
+                <li>Registrerar och ändrar utgångsdatum.</li>
+                <li>Byter filnamn eller raderar dokument som inte ska finnas kvar.</li>
+                <li>Godkänner, avböjer och kan ta bort företagskopplingar.</li>
+            </ul>
+        </section>
+        <section aria-labelledby="company-responsibility-title" data-motion-child>
+            <p class="reminder-section-label">Företagskontots möjligheter</p>
+            <h2 id="company-responsibility-title">Företaget följer upp det som finns i arkiven</h2>
+            <ul class="reminder-check-list">
+                <li>Ser godkända, kopplade privatkonton i en gemensam lista.</li>
+                <li>Öppnar och laddar ner intyg utan att ändra originalet.</li>
+                <li>Ser kategorier och registrerade utgångsdatum.</li>
+                <li>Delar ett valt intyg via e-post.</li>
+                <li>Avslutar åtkomsten genom att ta bort kopplingen.</li>
+            </ul>
+        </section>
+    </div>
+
+    <section class="reminder-process-section" aria-labelledby="company-reminders-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Giltighet och påminnelser</p>
+                <h2 id="company-reminders-title">Uppmärksamma intyg som snart går ut</h2>
+            </div>
+            <p>Påminnelserna gäller intygens registrerade utgångsdatum, inte bokade utbildningstillfällen.</p>
+        </div>
+        <div class="reminder-prose">
+            <p>
+                När påminnelsefunktionen är aktiverad kontrolleras intyg med utgångsdatum. Ett
+                privatkonto får en egen e-postsammanfattning, och ett anslutet företagskonto kan få
+                en separat sammanfattning grupperad per kopplad person.
+            </p>
+            <p>
+                Intyg utan utgångsdatum tas inte med. Redan utgångna intyg visas fortfarande med
+                sitt datum i arkivet, men påminnelsejobbet skickar inte nya utskick för dem. Läs mer
+                om <a href="{{ url_for('expiry_reminders_info') }}">påminnelser för utbildningsintyg</a>.
+            </p>
+        </div>
+    </section>
+
+    <section class="reminder-capabilities" aria-labelledby="account-comparison-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Rätt konto för rätt uppgift</p>
+                <h2 id="account-comparison-title">Företagskonto och privatkonto kompletterar varandra</h2>
+            </div>
+        </div>
+        <div class="table-scroll responsive-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Funktion</th>
+                        <th scope="col">Privatkonto</th>
+                        <th scope="col">Företagskonto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Huvudsyfte</th>
+                        <td>Hantera egna utbildningsintyg.</td>
+                        <td>Se intyg för godkända, kopplade privatkonton.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Uppladdning och redigering</th>
+                        <td>Ja, för det egna arkivet.</td>
+                        <td>Nej, dokumenten hanteras av privatkontot.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Översikt över flera personer</th>
+                        <td>Nej.</td>
+                        <td>Ja, för aktiva kopplingar.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Delning via e-post</th>
+                        <td>Ett eller flera valda intyg.</td>
+                        <td>Ett intyg i taget för en kopplad person.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="company-faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="company-faq-title">Om utbildningsintyg för företag</h2>
+            </div>
+        </div>
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Hur lägger företaget till en medarbetare?</summary>
+                <p>Företagskontot skickar en kopplingsförfrågan till ett befintligt privatkonto. Personen behöver godkänna förfrågan innan kontot och dess intyg visas i portalen.</p>
+            </details>
+            <details>
+                <summary>Vilka intyg kan företaget se?</summary>
+                <p>När kopplingen är aktiv visas alla intyg i det kopplade privatkontots arkiv. Tjänsten har inte separata behörigheter för enskilda intyg.</p>
+            </details>
+            <details>
+                <summary>Kan företaget ladda upp eller ändra personalens intyg?</summary>
+                <p>Nej. Privatkontots ägare sköter uppladdning, namn, anteckning, utgångsdatum och radering. Företagskontot kan visa, ladda ner och dela dokumenten.</p>
+            </details>
+            <details>
+                <summary>Vad händer när en person slutar?</summary>
+                <p>Företaget eller privatpersonen behöver ta bort kopplingen manuellt. Då upphör företagets åtkomst, medan privatkontot och personens eget arkiv finns kvar.</p>
+            </details>
+            <details>
+                <summary>Är tjänsten ett komplett kompetens- eller HR-system?</summary>
+                <p>Nej. Portalen samlar dokumentation och registrerade giltighetsdatum för kopplade konton. Den hanterar inte anställningar, utbildningsbokning, roller eller kravprofiler.</p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-label="Relaterade guider">
+        <h2>Läs vidare</h2>
+        <ul>
+            <li><a href="{{ url_for('competence_register_info') }}">Digitalt kompetensregister</a></li>
+            <li><a href="{{ url_for('staff_training_info') }}">Håll koll på personalens utbildningar</a></li>
+            <li><a href="{{ url_for('manage_certificates_info') }}">Hantera utbildningsintyg</a></li>
+            <li><a href="{{ url_for('certificate_gdpr_info') }}">Utbildningsintyg och GDPR</a></li>
+            <li><a href="{{ url_for('gdpr_info') }}">Läs tjänstens integritetspolicy</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="company-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">En samlad vy över aktiva kopplingar</p>
+        <h2 id="company-cta-title">Ansök om företagskonto</h2>
+        <p>Skicka in företagets uppgifter för granskning och få tillgång till företagsportalen när ansökan har godkänts.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+            <a class="btn btn-ghost" href="{{ url_for('pricing') }}">Se företagspriser</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

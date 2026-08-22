@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}Kompetensregister – Digital kontroll på personalens utbildningar{% endblock %}
+{% block head %}
+    <meta name="description" content="Skapa ett digitalt kompetensregister för företagets personal. Samla utbildningsintyg, följ giltighetstider och se vilka utbildningar som behöver förnyas.">
+    <meta name="keywords" content="kompetensregister, digitalt kompetensregister, kompetensregister personal">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/kompetensregister">
+    <meta property="og:title" content="Kompetensregister – Digital kontroll på personalens utbildningar">
+    <meta property="og:description" content="Skapa ett digitalt kompetensregister för företagets personal. Samla utbildningsintyg, följ giltighetstider och se vilka utbildningar som behöver förnyas.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/kompetensregister">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/digitalt-kompetensregister.webp">
+    <meta property="og:image:alt" content="Digitalt kompetensregister för personalens utbildningar">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero" aria-labelledby="competence-register-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Kompetensregister</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="competence-register-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Dokumenterad utbildning på ett ställe</p>
+                <h1 id="competence-register-title" data-motion-child>Digitalt kompetensregister för personalens utbildningar</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Ett kompetensregister samlar information om genomförda utbildningar och de
+                    intyg som styrker dem. Med en gemensam översikt blir det enklare att hitta
+                    dokumentationen, följa utgångsdatum och planera vilka intyg som behöver
+                    förnyas.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+                    <a class="reminder-text-link" href="#vad-ar-ett-kompetensregister">Läs hur registret fungerar</a>
+                </div>
+            </div>
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/digitalt-kompetensregister.webp') }}"
+                    alt="Digitalt kompetensregister för personalens utbildningar"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#vad-ar-ett-kompetensregister">Vad är ett kompetensregister?</a>
+        <a href="#innehall">Vad bör ingå?</a>
+        <a href="#digitalt-eller-kalkylblad">Digitalt eller kalkylblad</a>
+        <a href="#sa-fungerar-tjansten">Så fungerar tjänsten</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="vad-ar-ett-kompetensregister" aria-labelledby="what-title" data-motion="section">
+        <p class="reminder-section-label">Kort förklarat</p>
+        <div class="reminder-intro__layout">
+            <h2 id="what-title">Ett register som kopplar utbildningen till dokumentationen</h2>
+            <div class="reminder-prose">
+                <p>
+                    Ett kompetensregister är en strukturerad översikt över personalens genomförda
+                    utbildningar. För varje person behöver det gå att se vilket intyg som finns,
+                    vad det avser och om det har ett utgångsdatum. Själva utbildningsintyget är
+                    dokumentationen som visar vad personen har genomfört.
+                </p>
+                <p>
+                    När uppgifterna ligger i separata mappar, mejltrådar och kalkylblad måste den
+                    som ansvarar för utbildningarna leta på flera ställen. Ett digitalt register
+                    samlar i stället översikten och dokumenten i samma arbetsflöde.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Viktig avgränsning:</strong> Utbildningsintyg är ett register för
+            utbildningsintyg och deras giltighetstider. Tjänsten är inte en fullständig HR-plattform
+            och hanterar inte exempelvis bemanning, lön, utvecklingssamtal eller kursbokning.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="innehall" aria-labelledby="contents-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Registrets byggstenar</p>
+                <h2 id="contents-title">Det här behöver en användbar utbildningsöversikt visa</h2>
+            </div>
+            <p>Utgå från den information som faktiskt behövs för att hitta och följa upp intygen.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="competence-register-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Person och intyg</h3>
+                    <p>
+                        Dokumentet behöver vara kopplat till rätt person. I företagsportalen visas
+                        kopplade privatkonton och deras uppladdade utbildningsintyg tillsammans.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Rätt dokument till rätt person</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Kategori och tydligt namn</h3>
+                    <p>
+                        Kategorier och begripliga filnamn gör det lättare att hitta intyg inom rätt
+                        utbildningsområde. En kort anteckning kan ge ytterligare sammanhang.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Sökbar struktur</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Utgångsdatum när det finns</h3>
+                    <p>
+                        Alla intyg löper inte ut. För de intyg som har begränsad giltighet kan ett
+                        utgångsdatum registreras, visas i översikten och ligga till grund för en
+                        påminnelse.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Giltighet och förnyelse</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Originaldokumentet nära till hands</h3>
+                    <p>
+                        En rad i ett register räcker inte alltid. När kunden, beställaren eller en
+                        ansvarig behöver se underlaget ska intyget gå att visa eller ladda ner.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Dokumenterad utbildning</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="reminder-capabilities" id="digitalt-eller-kalkylblad" aria-labelledby="comparison-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Två arbetssätt</p>
+                <h2 id="comparison-title">Digitalt kompetensregister eller kalkylblad?</h2>
+            </div>
+            <p>Båda kan ge en lista, men de hjälper organisationen på olika sätt.</p>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Arbetssätt</th>
+                        <th scope="col">Styrka</th>
+                        <th scope="col">Det kräver av organisationen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Kalkylblad och mappar</th>
+                        <td>Kan vara tillräckligt för en liten och stabil lista.</td>
+                        <td>Manuell uppdatering av både register, filer och kalenderpåminnelser.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Digitalt intygsregister</th>
+                        <td>Samlar person, dokument, kategori och utgångsdatum i ett arbetsflöde.</td>
+                        <td>Tydliga rutiner för vem som laddar upp, granskar och förnyar intygen.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="reminder-capabilities__summary">
+            Ett digitalt register ersätter inte organisationens ansvar för korrekta uppgifter.
+            Däremot minskar behovet av att föra samma information i flera separata system.
+        </p>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="competence-register-audiences">
+        <section aria-labelledby="company-view-title" data-motion-child>
+            <p class="reminder-section-label">För den ansvariga</p>
+            <h2 id="company-view-title">En samlad vy över kopplade användare</h2>
+            <p>
+                Företagsportalen visar de privatkonton som är kopplade till organisationen. Där kan
+                den ansvariga söka på person, filnamn eller kategori och öppna användarens intyg.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Se kopplade användare och antal uppladdade intyg.</li>
+                <li>Visa registrerade utgångsdatum.</li>
+                <li>Visa, ladda ner eller dela ett intyg via e-post.</li>
+                <li>Ta emot en samlad påminnelse när relevanta intyg närmar sig sitt slutdatum.</li>
+            </ul>
+        </section>
+
+        <section aria-labelledby="employee-control-title" data-motion-child>
+            <p class="reminder-section-label">För den enskilda</p>
+            <h2 id="employee-control-title">Privatkontot behåller sitt eget arkiv</h2>
+            <p>
+                Den enskilda användaren laddar upp och hanterar sina intyg i privatkontot. En
+                kopplingsförfrågan från ett företag behöver godkännas innan företaget får åtkomst.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Samla egna intyg under valda kategorier.</li>
+                <li>Lägga till anteckning och valfritt utgångsdatum.</li>
+                <li>Godkänna, avböja eller senare ta bort en företagskoppling.</li>
+                <li>Fortsätta använda sitt eget digitala arkiv.</li>
+            </ul>
+        </section>
+    </div>
+
+    <section class="reminder-intro" id="sa-fungerar-tjansten" aria-labelledby="service-title" data-motion="section">
+        <p class="reminder-section-label">Utbildningsintyg i praktiken</p>
+        <div class="reminder-intro__layout">
+            <h2 id="service-title">Från privat arkiv till företagets utbildningsöversikt</h2>
+            <div class="reminder-prose">
+                <p>
+                    Utbildningsintyg bygger företagets översikt på kopplingen mellan ett
+                    företagskonto och personalens privatkonton. Den modellen gör att den enskilda
+                    personen kan hantera sitt arkiv samtidigt som företaget får den åtkomst som
+                    behövs för uppföljningen.
+                </p>
+                <p>
+                    Vill du först läsa om hela företagsflödet finns en separat sida om
+                    <a href="{{ url_for('company_certificates_info') }}">utbildningsintyg för företag</a>.
+                    För en praktisk arbetsprocess kan du också läsa guiden om att
+                    <a href="{{ url_for('staff_training_info') }}">hålla koll på personalens utbildningar</a>.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="faq-title">Om digitala kompetensregister</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Vad är ett kompetensregister?</summary>
+                <p>
+                    Det är en strukturerad översikt över personalens utbildningar och den
+                    dokumentation som hör till dem. I Utbildningsintyg består översikten av
+                    kopplade personer, uppladdade intyg, kategorier och eventuella utgångsdatum.
+                </p>
+            </details>
+            <details>
+                <summary>Är Utbildningsintyg ett komplett HR-system?</summary>
+                <p>
+                    Nej. Tjänsten fokuserar på digital lagring, organisering, delning och bevakning
+                    av utbildningsintyg. Den hanterar inte lön, bemanning, kursbokning eller andra
+                    breda HR-processer.
+                </p>
+            </details>
+            <details>
+                <summary>Vem lägger in personalens utbildningsintyg?</summary>
+                <p>
+                    Användaren laddar upp och hanterar intygen i sitt privatkonto. När kontot är
+                    kopplat till företaget kan behöriga användare i företagsportalen se intygen.
+                </p>
+            </details>
+            <details>
+                <summary>Kan registret påminna om intyg som går ut?</summary>
+                <p>
+                    Ja, om ett utgångsdatum har registrerats. Påminnelser skickas via e-post för
+                    intyg som närmar sig slutdatum. Intyg utan utgångsdatum ligger kvar i arkivet
+                    men utlöser ingen påminnelse.
+                </p>
+            </details>
+            <details>
+                <summary>Verifierar tjänsten att ett utbildningsintyg är äkta?</summary>
+                <p>
+                    Nej. Användaren eller företaget ansvarar för att uppladdade uppgifter och intyg
+                    är riktiga. Tjänsten är ett arkiv och register, inte en utfärdare eller juridisk
+                    verifiering av intygets innehåll.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-label="Relaterade guider" data-motion="section">
+        <h2>Relaterade guider och tjänster</h2>
+        <ul>
+            <li><a href="{{ url_for('company_certificates_info') }}">Utbildningsintyg för företag</a></li>
+            <li><a href="{{ url_for('staff_training_info') }}">Så håller du koll på personalens utbildningar</a></li>
+            <li><a href="{{ url_for('expiry_reminders_info') }}">Påminnelser för utbildningsintyg</a></li>
+            <li><a href="{{ url_for('certificate_gdpr_info') }}">Utbildningsintyg och GDPR</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="competence-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Samla dokumentationen</p>
+        <h2 id="competence-cta-title">Skapa en tydligare översikt över personalens intyg</h2>
+        <p>Ansök om företagskonto eller se hur priset beräknas efter antal anslutna användare.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+            <a class="btn btn-ghost" href="{{ url_for('pricing') }}">Se priser</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

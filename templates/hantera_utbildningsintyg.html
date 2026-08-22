@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% block title %}Hantera utbildningsintyg enkelt på ett ställe{% endblock %}
+{% block head %}
+    <meta name="description" content="Slipp mappar, mejl och Excel. Samla och hantera utbildningsintyg digitalt, hitta rätt intyg snabbt och få bättre kontroll över giltighetstider.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/hantera-utbildningsintyg">
+    <meta property="og:title" content="Hantera utbildningsintyg enkelt på ett ställe">
+    <meta property="og:description" content="Slipp mappar, mejl och Excel. Samla och hantera utbildningsintyg digitalt, hitta rätt intyg snabbt och få bättre kontroll över giltighetstider.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/hantera-utbildningsintyg">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/hantera-utbildningsintyg-digitalt.webp">
+    <meta property="og:image:alt" content="Hantera och samla utbildningsintyg digitalt på ett ställe">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero seo-hero" aria-labelledby="hantera-intyg-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Hantera utbildningsintyg</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="seo-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Ordning utan parallella listor</p>
+                <h1 id="hantera-intyg-title" data-motion-child>Hantera utbildningsintyg utan mappar, mejl och kalkylblad</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Samla dokument, kategorier, anteckningar och utgångsdatum i samma webbaserade
+                    arkiv och minska tiden som går åt till att leta efter rätt intyg.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_account') }}">Skapa konto</a>
+                    <a class="reminder-text-link" href="#arbetsflode">Se ett enklare arbetsflöde</a>
+                </div>
+            </div>
+
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/hantera-utbildningsintyg-digitalt.webp') }}"
+                    alt="Hantera och samla utbildningsintyg digitalt på ett ställe"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+                <figcaption>Från utspridda dokument till en samlad översikt.</figcaption>
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#utmaningar">Vanliga utmaningar</a>
+        <a href="#jamforelse">Traditionellt eller digitalt</a>
+        <a href="#arbetsflode">Arbetsflöde</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="utmaningar" aria-labelledby="management-intro-title" data-motion="section">
+        <p class="reminder-section-label">När administrationen växer</p>
+        <div class="reminder-intro__layout">
+            <h2 id="management-intro-title">Det är lätt att tappa överblicken när varje intyg hanteras på olika sätt</h2>
+            <div class="reminder-prose">
+                <p>
+                    Ett utbildningsintyg kan ligga som en bilaga i inkorgen, som en inskannad bild
+                    på datorn eller som ett papper i en pärm. Om giltighetstiden samtidigt följs i
+                    ett separat kalkylblad behöver flera källor hållas aktuella.
+                </p>
+                <p>
+                    Ett digitalt intygsarkiv samlar själva dokumentet och den information som behövs
+                    för att hitta det: filnamn, utbildningskategori, anteckning och ett valfritt
+                    utgångsdatum.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reminder-process-section" aria-labelledby="control-points-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Fyra kontrollpunkter</p>
+                <h2 id="control-points-title">Det här behöver vara lätt att göra</h2>
+            </div>
+            <p>Bra intygshantering handlar både om dokumentet och om uppgifterna runt omkring.</p>
+        </div>
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Samla</dt>
+                <dd>Ladda upp PDF, PNG eller JPG och få dokumenten sparade som PDF i samma arkiv.</dd>
+            </div>
+            <div>
+                <dt>Ordna</dt>
+                <dd>Koppla varje intyg till en kategori och komplettera med en kort anteckning.</dd>
+            </div>
+            <div>
+                <dt>Hitta</dt>
+                <dd>Sök på filnamn, anteckning eller kategori och öppna rätt dokument från översikten.</dd>
+            </div>
+            <div>
+                <dt>Följa</dt>
+                <dd>Registrera ett utgångsdatum och se om det har passerat eller närmar sig.</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="reminder-capabilities" id="jamforelse" aria-labelledby="comparison-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Kort jämförelse</p>
+                <h2 id="comparison-title">Traditionell hantering jämfört med ett digitalt arkiv</h2>
+            </div>
+            <p>Olika arbetssätt kan kombineras, men en gemensam källa minskar dubbelarbete.</p>
+        </div>
+        <div class="table-scroll responsive-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Område</th>
+                        <th scope="col">Mappar, mejl och kalkylblad</th>
+                        <th scope="col">Digitalt intygsarkiv</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Dokument</th>
+                        <td>Kan ligga på flera platser och ha olika filnamn.</td>
+                        <td>Sparas som PDF och visas under samma inloggning.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Ordning</th>
+                        <td>Beror på manuella mappar, kolumner och namnrutiner.</td>
+                        <td>Varje intyg får en kategori och kan kompletteras med anteckning.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Giltighet</th>
+                        <td>Datum kan behöva följas i en separat lista eller kalender.</td>
+                        <td>Utgångsdatum visas tillsammans med intyget när det har registrerats.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Delning</th>
+                        <td>Bilagan behöver först hittas och kontrolleras.</td>
+                        <td>Valda intyg kan skickas som PDF-bilagor från dashboarden.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="reminder-process-section" id="arbetsflode" aria-labelledby="workflow-management-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">En praktisk rutin</p>
+                <h2 id="workflow-management-title">Ett enklare arbetsflöde för varje nytt intyg</h2>
+            </div>
+            <p>En konsekvent rutin gör arkivet lättare att använda även när antalet dokument växer.</p>
+        </div>
+        <ol class="reminder-process" data-motion-group="management-workflow">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Ladda upp dokumentet</h3>
+                    <p>Välj en fil på högst 50 MB. PNG och JPG omvandlas till PDF innan dokumentet sparas.</p>
+                </div>
+                <p class="reminder-process__detail">Ett dokument i taget</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Välj rätt kategori</h3>
+                    <p>Kategorin gör det lättare att skilja exempelvis arbetsmiljö-, transport- och ledarskapsintyg åt.</p>
+                </div>
+                <p class="reminder-process__detail">Tydligare arkiv</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Registrera relevant metadata</h3>
+                    <p>Lägg till en anteckning och ett utgångsdatum om det behövs. Datumet anges manuellt och kan ändras senare.</p>
+                </div>
+                <p class="reminder-process__detail">Valfria uppgifter</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Gå igenom arkivet regelbundet</h3>
+                    <p>Kontrollera utgångsdatum, ersätt gamla dokument när en utbildning har förnyats och radera det som inte längre ska finnas kvar.</p>
+                </div>
+                <p class="reminder-process__detail">Återkommande översyn</p>
+            </li>
+        </ol>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="management-audiences">
+        <section aria-labelledby="private-management-title" data-motion-child>
+            <p class="reminder-section-label">För privatpersoner</p>
+            <h2 id="private-management-title">Hantera dina egna utbildningsintyg</h2>
+            <p>
+                Privatkontot ger dig kontroll över dina egna dokument. Du kan ladda upp, byta
+                intygsnamn, ändra anteckning och utgångsdatum, ladda ner, dela och radera intyg.
+            </p>
+        </section>
+        <section aria-labelledby="company-management-title" data-motion-child>
+            <p class="reminder-section-label">För företag</p>
+            <h2 id="company-management-title">Få en översikt över godkända kopplingar</h2>
+            <p>
+                Företagskontot visar anslutna privatkonton och deras befintliga intyg. Företaget
+                kan söka, visa, ladda ner och dela dokument, men den enskilda användaren hanterar
+                uppladdning och redigering i sitt eget arkiv.
+            </p>
+        </section>
+    </div>
+
+    <p class="reminder-note">
+        Behöver ni en bredare personalöversikt? Läs om
+        <a href="{{ url_for('company_certificates_info') }}">utbildningsintyg för företag</a> och
+        hur intygen kan användas som dokumentation i ett
+        <a href="{{ url_for('competence_register_info') }}">kompetensregister</a>. Tjänsten är inte
+        ett fullständigt HR-system.
+    </p>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="management-faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="management-faq-title">Om att samla och hantera utbildningsintyg</h2>
+            </div>
+        </div>
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Kan jag söka efter ett intyg?</summary>
+                <p>Ja. I privatkontot kan du söka på filnamn, anteckning och kategori. Sökfältet visas när arkivet innehåller fler än fem intyg.</p>
+            </details>
+            <details>
+                <summary>Kan systemet läsa utgångsdatumet ur dokumentet?</summary>
+                <p>Nej. Du registrerar själv ett exakt datum eller en giltighetstid i år och månader. Uppgiften kan ändras senare.</p>
+            </details>
+            <details>
+                <summary>Behöver ett intyg ha ett utgångsdatum?</summary>
+                <p>Nej. Datumet är valfritt. Ett intyg utan registrerat datum ligger kvar i arkivet men omfattas inte av utgångspåminnelser.</p>
+            </details>
+            <details>
+                <summary>Kan företaget ändra den anställdes intyg?</summary>
+                <p>Nej. Företaget kan se, ladda ner och dela intyg för godkända kopplingar. Privatkontots ägare sköter uppladdning, redigering och radering.</p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-label="Relaterade guider">
+        <h2>Läs vidare</h2>
+        <ul>
+            <li><a href="{{ url_for('digital_certificate_storage_info') }}">Lagra utbildningsintyg digitalt</a></li>
+            <li><a href="{{ url_for('digital_certificates_info') }}">Vad är digitala utbildningsintyg?</a></li>
+            <li><a href="{{ url_for('staff_training_info') }}">Så håller du koll på personalens utbildningar</a></li>
+            <li><a href="{{ url_for('expiry_reminders_info') }}">Påminnelser om utgångsdatum</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="management-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Samla dokument och datum</p>
+        <h2 id="management-cta-title">Gör nästa utbildningsintyg lättare att hitta</h2>
+        <p>Skapa ett privatkonto för dina egna intyg eller ansök om företagskonto för en gemensam översikt.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_account') }}">Välj konto</a>
+            <a class="btn btn-ghost" href="{{ url_for('pricing') }}">Se priser</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

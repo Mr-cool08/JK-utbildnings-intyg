@@ -139,6 +139,61 @@
         </div>
     </section>
 
+    <section class="home-guides" aria-labelledby="home-guides-title" data-motion="section">
+        <div class="home-guides__heading">
+            <div>
+                <p class="home-guides__eyebrow">Fördjupa dig</p>
+                <h2 id="home-guides-title">Guider och artiklar</h2>
+            </div>
+            <p>
+                Praktiska svar om digitala intyg, personalöversikt, delning och
+                personuppgifter.
+            </p>
+        </div>
+        <div class="home-guides__grid" data-motion-group="home-guides">
+            <a href="{{ url_for('digital_certificates_info') }}" data-motion-child>
+                <span>Grunderna</span>
+                <h3>Digitala utbildningsintyg</h3>
+                <p>Vad ett digitalt intygsarkiv är och hur det fungerar.</p>
+            </a>
+            <a href="{{ url_for('manage_certificates_info') }}" data-motion-child>
+                <span>Ordning</span>
+                <h3>Hantera utbildningsintyg</h3>
+                <p>Samla dokument, datum och anteckningar på ett ställe.</p>
+            </a>
+            <a href="{{ url_for('company_certificates_info') }}" data-motion-child>
+                <span>För företag</span>
+                <h3>Utbildningsintyg för företag</h3>
+                <p>Se hur godkända kontokopplingar ger en gemensam översikt.</p>
+            </a>
+            <a href="{{ url_for('competence_register_info') }}" data-motion-child>
+                <span>Översikt</span>
+                <h3>Digitalt kompetensregister</h3>
+                <p>Dokumentera utbildningar utan att bygga en hel HR-plattform.</p>
+            </a>
+            <a href="{{ url_for('staff_training_info') }}" data-motion-child>
+                <span>Praktisk guide</span>
+                <h3>Håll koll på personalens utbildningar</h3>
+                <p>En tydlig rutin för dokument, giltighet och uppföljning.</p>
+            </a>
+            <a href="{{ url_for('digital_certificate_storage_info') }}" data-motion-child>
+                <span>Digital lagring</span>
+                <h3>Lagra utbildningsintyg digitalt</h3>
+                <p>Format, åtkomst och struktur i ett samlat arkiv.</p>
+            </a>
+            <a href="{{ url_for('share_certificates_info') }}" data-motion-child>
+                <span>Dela</span>
+                <h3>Dela utbildningsintyg</h3>
+                <p>Skicka valda intyg som PDF-bilagor via e-post.</p>
+            </a>
+            <a href="{{ url_for('certificate_gdpr_info') }}" data-motion-child>
+                <span>Dataskydd</span>
+                <h3>Utbildningsintyg och GDPR</h3>
+                <p>Vad företag behöver tänka på när intyg innehåller personuppgifter.</p>
+            </a>
+        </div>
+    </section>
+
     <section class="cta-panel" aria-labelledby="cta-title" data-motion="section">
         <h2 id="cta-title">Redo att samla intygen digitalt?</h2>
         <p>Skapa ett konto så hjälper vi dig att komma igång.</p>

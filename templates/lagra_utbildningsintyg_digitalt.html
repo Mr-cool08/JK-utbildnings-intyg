@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% block title %}Lagra utbildningsintyg digitalt – Samlat och lättillgängligt{% endblock %}
+{% block head %}
+    <meta name="description" content="Lagra utbildningsintyg digitalt istället för i pärmar och mejl. Få ett sökbart arkiv som är tillgängligt från mobil, surfplatta och dator.">
+    <meta name="keywords" content="lagra utbildningsintyg digitalt, spara utbildningsintyg digitalt, digitalt intygsarkiv">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/lagra-utbildningsintyg-digitalt">
+    <meta property="og:title" content="Lagra utbildningsintyg digitalt – Samlat och lättillgängligt">
+    <meta property="og:description" content="Lagra utbildningsintyg digitalt istället för i pärmar och mejl. Få ett sökbart arkiv som är tillgängligt från mobil, surfplatta och dator.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/lagra-utbildningsintyg-digitalt">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/lagra-utbildningsintyg-digitalt.webp">
+    <meta property="og:image:alt" content="Digital lagring av utbildningsintyg i ett inloggningsskyddat arkiv">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero" aria-labelledby="digital-storage-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Lagra utbildningsintyg digitalt</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="digital-storage-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Ett digitalt arkiv för viktiga dokument</p>
+                <h1 id="digital-storage-title" data-motion-child>Lagra utbildningsintyg digitalt och hitta dem när du behöver dem</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Samla PDF-filer och bilder av utbildningsintyg i ett sökbart arkiv. Med
+                    kategorier, anteckningar och valfria utgångsdatum blir dokumenten enklare att
+                    hitta från mobil, surfplatta och dator.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_standardkonto') }}">Skapa privatkonto</a>
+                    <a class="reminder-text-link" href="#sa-fungerar-lagringen">Se hur lagringen fungerar</a>
+                </div>
+            </div>
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/lagra-utbildningsintyg-digitalt.webp') }}"
+                    alt="Digital lagring av utbildningsintyg i ett inloggningsskyddat arkiv"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#varfor-digitalt">Varför lagra digitalt?</a>
+        <a href="#sa-fungerar-lagringen">Så fungerar det</a>
+        <a href="#format-och-atkomst">Format och åtkomst</a>
+        <a href="#skydd-och-ansvar">Skydd och ansvar</a>
+        <a href="#privat-och-foretag">Privat och företag</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="varfor-digitalt" aria-labelledby="why-title" data-motion="section">
+        <p class="reminder-section-label">Från utspridda filer till ett arkiv</p>
+        <div class="reminder-intro__layout">
+            <h2 id="why-title">Digital lagring gör intygen lättare att hitta och använda</h2>
+            <div class="reminder-prose">
+                <p>
+                    Ett utbildningsintyg kan behövas långt efter att utbildningen genomfördes. Ett
+                    pappersoriginal kan ligga i en pärm, en PDF i en gammal mejltråd och en bild i
+                    telefonen. När dokumenten sparas på olika ställen tar varje förfrågan längre
+                    tid att hantera.
+                </p>
+                <p>
+                    Ett digitalt intygsarkiv samlar dokumenten bakom en inloggning och ger dem en
+                    gemensam struktur. Du kan söka efter filnamn eller anteckning, bläddra efter
+                    kategori och öppna eller ladda ner rätt intyg när det behövs.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Kom ihåg:</strong> Digital lagring gör inte ett intyg mer giltigt och
+            Utbildningsintyg verifierar inte dokumentets juridiska innehåll. Användaren eller
+            företaget ansvarar för att det uppladdade underlaget är riktigt.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="sa-fungerar-lagringen" aria-labelledby="process-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Från fil till digitalt arkiv</p>
+                <h2 id="process-title">Så lagras och organiseras ett utbildningsintyg</h2>
+            </div>
+            <p>Du lägger in dokumentet och den information som hjälper dig att hitta det igen.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="digital-storage-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Välj PDF, JPG eller PNG</h3>
+                    <p>
+                        Ladda upp ett befintligt PDF-dokument eller en tydlig bild i JPG- eller
+                        PNG-format. Högsta tillåtna filstorlek är 50 MB per uppladdning.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Tre filformat</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Bildfiler görs om till PDF</h3>
+                    <p>
+                        En uppladdad JPG- eller PNG-bild konverteras till PDF innan den sparas. Det
+                        ger arkivet ett enhetligt dokumentformat för visning, hämtning och delning.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Enhetligt arkiv</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Välj kategori och lägg till information</h3>
+                    <p>
+                        Koppla intyget till en utbildningskategori. Du kan också skriva en kort
+                        anteckning och ange ett utgångsdatum, eller markera att intyget inte har
+                        någon utgångstid.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Sökbar dokumentation</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Visa, ladda ner eller dela</h3>
+                    <p>
+                        När intyget ligger i arkivet kan du öppna det i webbläsaren, ladda ner en
+                        kopia eller välja ett eller flera intyg och skicka dem som PDF-bilagor via
+                        e-post.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Tillgängligt när det behövs</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="reminder-capabilities" id="format-och-atkomst" aria-labelledby="access-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Praktiska funktioner</p>
+                <h2 id="access-title">Ett arkiv som fungerar i webbläsaren</h2>
+            </div>
+            <p>Ingen särskild mobilapp behövs för att logga in och hitta ett intyg.</p>
+        </div>
+
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Filformat</dt>
+                <dd>Ladda upp PDF, JPG eller PNG. Bilder sparas som PDF.</dd>
+            </div>
+            <div>
+                <dt>Filstorlek</dt>
+                <dd>Varje uppladdning får vara högst 50 MB.</dd>
+            </div>
+            <div>
+                <dt>Struktur</dt>
+                <dd>Ordna intygen med kategori, filnamn, anteckning och valfritt utgångsdatum.</dd>
+            </div>
+            <div>
+                <dt>Sökning</dt>
+                <dd>Sök efter filnamn eller anteckning och bläddra bland kategorier.</dd>
+            </div>
+            <div>
+                <dt>Enheter</dt>
+                <dd>Logga in via webbläsaren från dator, surfplatta eller mobil.</dd>
+            </div>
+            <div>
+                <dt>Användning</dt>
+                <dd>Visa, ladda ner, redigera uppgifter, ta bort eller dela intyg via e-post.</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="reminder-intro" id="skydd-och-ansvar" aria-labelledby="protection-title" data-motion="section">
+        <p class="reminder-section-label">Skydd i flera steg</p>
+        <div class="reminder-intro__layout">
+            <h2 id="protection-title">Säker hantering börjar med begränsad åtkomst</h2>
+            <div class="reminder-prose">
+                <p>
+                    Intyg kan innehålla personuppgifter och ska inte ligga öppet för fler personer
+                    än vad arbetet kräver. Arkivet nås efter inloggning. Ett företagskonto får bara
+                    tillgång till de privatkonton som har kopplats till företaget, och systemet
+                    kontrollerar behörigheten när ett intyg visas eller hämtas.
+                </p>
+                <p>
+                    Uppladdade PDF-filer kontrolleras innan de sparas. Sessionskakor och
+                    CSRF-skydd används för att motverka obehöriga ändringar, och lösenord lagras
+                    som hashvärden. Användaren ansvarar samtidigt för att skydda sina
+                    inloggningsuppgifter och bara dela intyg med rätt mottagare.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Vid delning:</strong> Ett intyg skickas som PDF-bilaga via e-post. Kontrollera
+            mottagarens adress innan du skickar, eftersom mottagaren då får en egen kopia utanför
+            arkivet.
+        </p>
+    </section>
+
+    <div class="reminder-audiences" id="privat-och-foretag" data-motion-group="digital-storage-audiences">
+        <section aria-labelledby="private-storage-title" data-motion-child>
+            <p class="reminder-section-label">För privatpersoner</p>
+            <h2 id="private-storage-title">Behåll ett eget digitalt intygsarkiv</h2>
+            <p>
+                Privatkontot är kostnadsfritt och är till för dig som vill hantera dina egna
+                utbildningsintyg. Du laddar upp dokumenten, väljer kategori och bestämmer vilka
+                utgångsdatum som ska bevakas.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Sök och sortera dina egna intyg.</li>
+                <li>Ändra namn, anteckning eller utgångsdatum.</li>
+                <li>Ladda ner eller dela valda dokument.</li>
+                <li>Godkänn eller avböj en koppling till ett företagskonto.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                Läs mer om hur du kan
+                <a href="{{ url_for('manage_certificates_info') }}">hantera utbildningsintyg</a>
+                utan utspridda mappar och mejl.
+            </p>
+        </section>
+
+        <section aria-labelledby="company-storage-title" data-motion-child>
+            <p class="reminder-section-label">För företag</p>
+            <h2 id="company-storage-title">Se kopplade användares intyg i företagsportalen</h2>
+            <p>
+                Företaget får en gemensam översikt över de privatkonton som har kopplats till
+                organisationen. Där kan en behörig användare hitta dokument, se utgångsdatum och
+                visa eller ladda ner ett intyg.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Sök på person, filnamn eller utbildningskategori.</li>
+                <li>Se dokumenten tillsammans med registrerade utgångsdatum.</li>
+                <li>Dela ett intyg som PDF-bilaga via e-post.</li>
+                <li>Få en samlad påminnelse för anslutna personer när intyg närmar sig slutdatum.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                Se hela flödet för
+                <a href="{{ url_for('company_certificates_info') }}">utbildningsintyg för företag</a>.
+            </p>
+        </section>
+    </div>
+
+    <section class="reminder-intro" aria-labelledby="retention-title" data-motion="section">
+        <p class="reminder-section-label">När informationen förändras</p>
+        <div class="reminder-intro__layout">
+            <h2 id="retention-title">Rätta, radera och avsluta åtkomst när det behövs</h2>
+            <div class="reminder-prose">
+                <p>
+                    Användaren kan redigera uppgifter om ett intyg eller ta bort dokumentet från
+                    sitt arkiv. Det går också att ta bort en koppling mellan ett privatkonto och
+                    ett företagskonto. Begäran om rättelse eller radering av kontouppgifter görs
+                    genom att kontakta supporten.
+                </p>
+                <p>
+                    Företag behöver egna rutiner för hur länge intyg och andra personuppgifter ska
+                    sparas. Läs den praktiska guiden om
+                    <a href="{{ url_for('certificate_gdpr_info') }}">utbildningsintyg och GDPR</a>
+                    och tjänstens <a href="{{ url_for('gdpr_info') }}">integritetspolicy</a> innan
+                    ni bestämmer hur arkivet ska användas.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="faq-title">Om digital lagring av utbildningsintyg</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Vilka filformat kan jag ladda upp?</summary>
+                <p>
+                    Du kan ladda upp PDF, JPG och PNG. JPG- och PNG-bilder konverteras till PDF
+                    innan de sparas, så att dokumenten får ett enhetligt format i arkivet.
+                </p>
+            </details>
+            <details>
+                <summary>Hur stor får en fil vara?</summary>
+                <p>En uppladdad fil får vara högst 50 MB.</p>
+            </details>
+            <details>
+                <summary>Kan jag använda arkivet från mobilen?</summary>
+                <p>
+                    Ja. Tjänsten används i webbläsaren och är tillgänglig från mobil, surfplatta
+                    och dator när du kan logga in och har internetanslutning.
+                </p>
+            </details>
+            <details>
+                <summary>Kan ett företag se alla privatkonton?</summary>
+                <p>
+                    Nej. Företagsportalen visar de privatkonton som har kopplats till företaget.
+                    En kopplingsförfrågan behöver godkännas innan företaget får åtkomst till
+                    användarens intyg.
+                </p>
+            </details>
+            <details>
+                <summary>Hur delar jag ett lagrat utbildningsintyg?</summary>
+                <p>
+                    I privatkontot kan du välja ett eller flera intyg, ange mottagarens
+                    e-postadress och skicka dokumenten som PDF-bilagor. Läs mer om att
+                    <a href="{{ url_for('share_certificates_info') }}">dela utbildningsintyg digitalt</a>.
+                </p>
+            </details>
+            <details>
+                <summary>Får jag en påminnelse om intyget går ut?</summary>
+                <p>
+                    Ja, om du har registrerat ett utgångsdatum. Intyg utan utgångsdatum sparas i
+                    arkivet men ingår inte i den automatiska påminnelsen.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-label="Relaterade guider" data-motion="section">
+        <h2>Relaterade guider och tjänster</h2>
+        <ul>
+            <li><a href="{{ url_for('manage_certificates_info') }}">Hantera utbildningsintyg</a></li>
+            <li><a href="{{ url_for('share_certificates_info') }}">Dela utbildningsintyg digitalt</a></li>
+            <li><a href="{{ url_for('company_certificates_info') }}">Utbildningsintyg för företag</a></li>
+            <li><a href="{{ url_for('certificate_gdpr_info') }}">Utbildningsintyg och GDPR</a></li>
+            <li><a href="{{ url_for('digital_certificates_info') }}">Vad är digitala utbildningsintyg?</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="storage-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Samla dina dokument</p>
+        <h2 id="storage-cta-title">Börja bygga ditt digitala intygsarkiv</h2>
+        <p>Privatkontot är gratis. Företag kan ansöka om en gemensam portal för kopplade användare.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_standardkonto') }}">Skapa privatkonto</a>
+            <a class="btn btn-ghost" href="{{ url_for('apply_foretagskonto') }}">Ansök om företagskonto</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
