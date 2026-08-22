@@ -35,6 +35,7 @@ class TestSitemapXml(unittest.TestCase):
         self.assertIn("/ansok/standardkonto", body)
         self.assertIn("/ansok/foretagskonto", body)
         self.assertIn("/organisationer", body)
+        self.assertIn("/paminnelse-utbildningsintyg", body)
 
         self.assertNotIn("/admin", body)
         self.assertNotIn("/dashboard", body)

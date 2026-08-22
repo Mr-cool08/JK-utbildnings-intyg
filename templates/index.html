@@ -1,11 +1,11 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}Utbildningsintyg – Samla, spara och dela intyg enkelt{% endblock %}
+{% block title %}Utbildningsintyg – Digitalt register med påminnelser{% endblock %}
 {% block head %}
     <meta name="description" content="Samla, spara och dela utbildningsintyg digitalt. Få automatiska påminnelser innan intyg går ut. Kom åt dina intyg när du behöver dem.">
     <meta name="keywords" content="utbildningsintyg, intyg, lagring, delning, verifiering, påminnelse, utgångsdatum, kompetenshantering, certifikatbevakning">
     <meta name="robots" content="index, follow">
-    <meta property="og:title" content="Utbildningsintyg – Samla, spara och dela intyg enkelt">
+    <meta property="og:title" content="Utbildningsintyg – Digitalt register med påminnelser">
     <meta property="og:description" content="Samla, spara och dela utbildningsintyg digitalt. Få automatiska påminnelser innan intyg går ut. Kom åt dina intyg när du behöver dem.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
@@ -19,7 +19,7 @@
             <ul class="hero-list" data-motion-group="hero-list">
                 <li data-motion-child>
                     <span class="hero-check" aria-hidden="true">
-                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" focusable="false">
                             <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
                         </svg>
                     </span>
@@ -27,7 +27,7 @@
                 </li>
                 <li data-motion-child>
                     <span class="hero-check" aria-hidden="true">
-                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" focusable="false">
                             <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
                         </svg>
                     </span>
@@ -35,7 +35,7 @@
                 </li>
                 <li data-motion-child>
                     <span class="hero-check" aria-hidden="true">
-                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" focusable="false">
                             <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
                         </svg>
                     </span>
@@ -43,7 +43,7 @@
                 </li>
                 <li data-motion-child>
                     <span class="hero-check" aria-hidden="true">
-                        <svg class="hero-check__icon" viewBox="0 0 24 24" focusable="false">
+                        <svg class="hero-check__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" focusable="false">
                             <path class="hero-check__path" pathLength="1" d="M5.5 12.5 10 17l8.5-9"></path>
                         </svg>
                     </span>
@@ -93,6 +93,9 @@
             <article class="feature-card" data-motion-child>
                 <h3>Missa aldrig ett utgångsdatum</h3>
                 <p>Få en automatisk påminnelse i god tid innan ett intyg löper ut, så du alltid hinner förnya i tid.</p>
+                <a class="feature-link" href="{{ url_for('expiry_reminders_info') }}">
+                    Så fungerar påminnelser för utbildningsintyg
+                </a>
             </article>
             <article class="feature-card" data-motion-child>
                 <h3>Dela intyg säkert</h3>

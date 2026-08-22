@@ -231,6 +231,7 @@ def send_email(
     subject: str,
     html_body: str,
     attachments: Sequence[tuple[str, bytes]] | None = None,
+    attachment_content_ids: Sequence[str] | None = None,
 ) -> None:
     """Create an ``EmailMessage`` and send it to ``recipient_email``."""
 
@@ -242,6 +243,11 @@ def send_email(
         recipient_mask,
         len(attachments) if attachments else 0,
     )
+
+    if attachment_content_ids is not None and len(attachment_content_ids) != len(
+        attachments or ()
+    ):
+        raise ValueError("Antalet bilage-ID:n måste motsvara antalet bilagor.")
 
     if should_disable_email_sending():
         logger.info("E-postutskick är avstängt i aktuell miljö; hoppar över sändning")
@@ -265,12 +271,19 @@ def send_email(
     msg.set_content(html_body, subtype="html")
 
     if attachments:
-        for filename, content in attachments:
+        for index, (filename, content) in enumerate(attachments):
+            content_id = (
+                attachment_content_ids[index]
+                if attachment_content_ids is not None
+                else None
+            )
+            attachment_headers = {"cid": content_id} if content_id else {}
             msg.add_attachment(
                 content,
                 maintype="application",
                 subtype="pdf",
                 filename=filename,
+                **attachment_headers,
             )
 
     send_email_message(msg, normalized_email, settings)
@@ -522,23 +535,53 @@ def send_pdf_share_email(
     attachments: Sequence[tuple[str, bytes]],
     sender_name: str,
     owner_name: str | None = None,
+    category_labels: Sequence[Sequence[str]] | None = None,
 ) -> None:
     """Send shared certificate emails with ``attachments``."""
 
     if not attachments:
         raise ValueError("Minst ett intyg krävs för delning.")
+    if category_labels is not None and len(category_labels) != len(attachments):
+        raise ValueError("Varje intyg måste ha motsvarande kategoriinformation.")
 
-    safe_sender = escape(sender_name.strip() or "Ett standardkonto")
-    safe_owner = escape((owner_name or "").strip()) if owner_name else None
+    sender_label = sender_name.strip() or "Ett standardkonto"
+    owner_label = (owner_name or "").strip()
+    safe_sender = escape(sender_label)
+    safe_owner = escape(owner_label) if owner_label else None
+    attachment_content_ids = [
+        make_msgid(idstring=f"intyg-{index + 1}", domain="utbildningsintyg.se")
+        for index in range(len(attachments))
+    ]
+
+    certificate_sections = []
+    for index, (filename, _) in enumerate(attachments):
+        labels = category_labels[index] if category_labels is not None else ()
+        safe_categories = [escape(label.strip()) for label in labels if label.strip()]
+        category_heading = " · ".join(safe_categories) or "Okategoriserade intyg"
+        safe_filename = escape(filename)
+        content_id_reference = escape(
+            attachment_content_ids[index].strip("<>"),
+            quote=True,
+        )
+        certificate_sections.append(
+            "<div style='margin:20px 0;'>"
+            f"<h2 style='margin:0 0 8px;font-family:Arial,sans-serif;font-size:18px;"
+            f"line-height:1.4;color:#4c1d95;'>{category_heading}</h2>"
+            f"<p style='margin:0;'><a href='cid:{content_id_reference}' "
+            "style='color:#6d28d9;font-weight:bold;text-decoration:underline;'>"
+            f"{safe_filename}</a></p>"
+            "</div>"
+        )
+
+    certificate_list = "".join(certificate_sections)
 
     subject_prefix = "Delade" if len(attachments) > 1 else "Delat"
-    if safe_owner:
-        subject = f"{subject_prefix} intyg för {safe_owner} från {safe_sender}"
+    if owner_label:
+        subject = f"{subject_prefix} intyg för {owner_label} från {sender_label}"
     else:
-        subject = f"{subject_prefix} intyg från {safe_sender}"
+        subject = f"{subject_prefix} intyg från {sender_label}"
 
     if len(attachments) == 1:
-        safe_filename = escape(attachments[0][0])
         if safe_owner:
             sharing_line = f"<p><strong>{safe_sender}</strong> delar <strong>{safe_owner}</strong>s intyg med dig via utbildningsintyg.se.</p>"
         else:
@@ -546,23 +589,35 @@ def send_pdf_share_email(
         content = (
             "<p>Hej,</p>"
             + sharing_line
-            + f"<p>Intyget hittar du i bilagan med filnamnet <em>{safe_filename}</em>.</p>"
-            "<p>Har du inte begärt detta intyg kan du ignorera detta e-postmeddelande.</p>"
+            + "<p>Intyget följer nedan med sin kategori som rubrik. "
+            "Klicka på filnamnet för att öppna bilagan.</p>"
+            + certificate_list
+            + "<p>Har du inte begärt detta intyg kan du ignorera detta "
+            "e-postmeddelande.</p>"
         )
     else:
-        item_list = "".join(f"<li><em>{escape(filename)}</em></li>" for filename, _ in attachments)
         if safe_owner:
             sharing_line = f"<p><strong>{safe_sender}</strong> delar intyg som tillhör <strong>{safe_owner}</strong> med dig via utbildningsintyg.se.</p>"
         else:
             sharing_line = f"<p><strong>{safe_sender}</strong> har delat flera intyg med dig via utbildningsintyg.se.</p>"
         content = (
-            "<p>Hej,</p>" + sharing_line + "<p>Intygen hittar du i följande bilagor:</p>"
-            f"<ul>{item_list}</ul>"
-            "<p>Har du inte begärt dessa intyg kan du ignorera detta e-postmeddelande.</p>"
+            "<p>Hej,</p>"
+            + sharing_line
+            + "<p>Intygen följer nedan med sin kategori som rubrik. "
+            "Klicka på ett filnamn för att öppna bilagan.</p>"
+            + certificate_list
+            + "<p>Har du inte begärt dessa intyg kan du ignorera detta "
+            "e-postmeddelande.</p>"
         )
 
     body_html = format_email_html(subject, content, accent_color="#a40ee9")
-    send_email(recipient_email, subject, body_html, attachments=attachments)
+    send_email(
+        recipient_email,
+        subject,
+        body_html,
+        attachments=attachments,
+        attachment_content_ids=attachment_content_ids,
+    )
 
 
 def send_application_rejection_email(to_email: str, company_name: str, reason: str) -> None:

@@ -405,7 +405,7 @@ def test_home_page_markets_expiry_reminders(empty_db):
     assert f'<meta name="keywords" content="{keywords}">' in body
     assert (
         '<meta property="og:title" '
-        'content="Utbildningsintyg – Samla, spara och dela intyg enkelt">'
+        'content="Utbildningsintyg – Digitalt register med påminnelser">'
         in body
     )
     assert f'<meta property="og:description" content="{description}">' in body
@@ -426,6 +426,17 @@ def test_home_page_markets_expiry_reminders(empty_db):
         "Få en automatisk påminnelse i god tid innan ett intyg löper ut, "
         "så du alltid hinner förnya i tid."
     ) in body
+    reminder_card = body.split(
+        "<h3>Missa aldrig ett utgångsdatum</h3>", maxsplit=1
+    )[1].split("</article>", maxsplit=1)[0]
+    reminder_link = (
+        '<a class="feature-link" href="/paminnelse-utbildningsintyg">'
+    )
+    assert reminder_link in reminder_card
+    assert "Så fungerar påminnelser för utbildningsintyg" in reminder_card
+    assert "btn" not in reminder_card.split(reminder_link, maxsplit=1)[1].split(
+        "</a>", maxsplit=1
+    )[0]
 
 
 def test_home_page_prioritizes_needs_shared_by_people_and_companies(empty_db):
@@ -457,7 +468,11 @@ def test_home_page_exposes_subtle_cta_and_checkmark_animations(empty_db):
 
     assert body.count('class="btn hero-btn hero-btn--shine"') == 1
     assert body.count('class="hero-check" aria-hidden="true"') == 4
-    assert body.count('class="hero-check__icon"') == 4
+    safe_icon_markup = (
+        'class="hero-check__icon" viewBox="0 0 24 24" '
+        'width="16" height="16" fill="none" focusable="false"'
+    )
+    assert body.count(safe_icon_markup) == 4
     assert body.count('class="hero-check__path" pathLength="1"') == 4
     assert body.count('focusable="false"') == 4
 

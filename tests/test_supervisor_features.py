@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import app  # noqa: E402
 import functions  # noqa: E402
+from course_categories import COURSE_CATEGORIES  # noqa: E402
 
 
 def _admin_client():
@@ -603,11 +604,18 @@ def test_org_request_becomes_visible_after_company_account_is_created(empty_db):
 def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     captured = {}
 
-    def fake_send(recipient, attachments, sender, owner_name=None):
+    def fake_send(
+        recipient,
+        attachments,
+        sender,
+        owner_name=None,
+        category_labels=None,
+    ):
         captured["recipient"] = recipient
         captured["attachments"] = attachments
         captured["sender"] = sender
         captured["owner"] = owner_name
+        captured["category_labels"] = category_labels
 
     monkeypatch.setattr(app.email_service, "send_pdf_share_email", fake_send)
 
@@ -616,6 +624,11 @@ def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     )
     pdfs = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])
     pdf_id = pdfs[0]["id"]
+    assert functions.update_pdf_categories(
+        supervisor_setup["personnummer"],
+        pdf_id,
+        [COURSE_CATEGORIES[0][0]],
+    )
     response = client.post(
         f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}/{pdf_id}",
         data={"recipient_email": "mottagare@example.com", "anchor": "user-anchor"},
@@ -625,6 +638,7 @@ def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     assert captured["sender"] == supervisor_setup["name"]
     assert captured["owner"] == supervisor_setup["user_name"]
     assert captured["attachments"][0][0] == "intyg.pdf"
+    assert captured["category_labels"] == [[COURSE_CATEGORIES[0][1]]]
 
 
 def test_supervisor_remove_connection(supervisor_setup):

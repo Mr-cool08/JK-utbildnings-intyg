@@ -1181,6 +1181,8 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
         flash("Intyget kunde inte hittas.", "error")
         return redirect(redirect_target)
 
+    pdf_metadata = functions.get_pdf_metadata(person_hash, pdf_id) or {}
+    category_labels = labels_for_slugs(pdf_metadata.get("categories") or [])
     owner_name = functions.get_username_by_personnummer_hash(person_hash) or "Standardkontot"
     attachments = [(pdf[0], pdf[1])]
 
@@ -1190,6 +1192,7 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
             attachments,
             supervisor_name,
             owner_name=owner_name,
+            category_labels=[category_labels],
         )
     except RuntimeError:
         logger.error(
@@ -1297,6 +1300,12 @@ def home():
     # Render the landing page.
     logger.debug("Renderar startsida")
     return render_template("index.html")
+
+
+@app.route("/paminnelse-utbildningsintyg", methods=["GET"])
+def expiry_reminders_info():
+    # Förklara intygsbevakningen på en publik, sökbar informationssida.
+    return render_template("expiry_reminders.html")
 
 
 @app.route("/ansok", methods=["GET"])
@@ -2144,6 +2153,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
         return jsonify({"fel": "Saknar användaruppgifter."}), 400
 
     attachments: list[tuple[str, bytes]] = []
+    attachment_category_labels: list[list[str]] = []
 
     for pdf_id in pdf_ids:
         pdf = functions.get_pdf_content(pnr_hash, pdf_id)
@@ -2152,6 +2162,10 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
             return jsonify({"fel": "Intyget kunde inte hittas."}), 404
         filename, content = pdf
         attachments.append((filename, content))
+        pdf_metadata = functions.get_pdf_metadata(pnr_hash, pdf_id) or {}
+        attachment_category_labels.append(
+            labels_for_slugs(pdf_metadata.get("categories") or [])
+        )
 
     sender_name = session.get("username")
     if not sender_name:
@@ -2179,6 +2193,7 @@ def share_pdf() -> tuple[Response, int]:  # pragma: no cover
             normalized_recipient,
             attachments,
             sender_display,
+            category_labels=attachment_category_labels,
         )
     except RuntimeError as exc:
         logger.error(

@@ -147,11 +147,18 @@ def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monke
 
     shared = {}
 
-    def _fake_share(recipient, attachments, sender_name, owner_name=None):
+    def _fake_share(
+        recipient,
+        attachments,
+        sender_name,
+        owner_name=None,
+        category_labels=None,
+    ):
         shared["recipient"] = recipient
         shared["attachments"] = attachments
         shared["sender"] = sender_name
         shared["owner"] = owner_name
+        shared["category_labels"] = category_labels
 
     monkeypatch.setattr(app.email_service, "send_pdf_share_email", _fake_share)
 
@@ -165,6 +172,7 @@ def test_e2e_standardkonto_flow_registration_to_upload_and_share(empty_db, monke
     assert share_payload["meddelande"] == "Intyget har skickats via e-post."
     assert shared["recipient"] == "mottagare@example.com"
     assert shared["attachments"][0][0] == uploaded.filename
+    assert shared["category_labels"] == [[COURSE_CATEGORIES[0][1]]]
 
 
 @pytest.mark.allow_public_rate_limited

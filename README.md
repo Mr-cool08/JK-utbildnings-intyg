@@ -5,9 +5,9 @@
 ![Website](https://img.shields.io/website?url=https%3A%2F%2Futbildningsintyg.se&label=utbildningsintyg.se)
 ![GitHub top language](https://img.shields.io/github/languages/top/Mr-cool08/JK-utbildnings-intyg)
 
-# JK Utbildningsintyg
+# Utbildningsintyg.se
 
-JK Utbildningsintyg är en Flask-baserad tjänst för att hantera utbildningsintyg som PDF för både standardkonton och företagskonton.
+Utbildningsintyg.se är en Flask-baserad tjänst för att hantera utbildningsintyg som PDF för både standardkonton och företagskonton.
 
 ## Aktuella huvudfunktioner
 

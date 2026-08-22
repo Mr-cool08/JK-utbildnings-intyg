@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% block title %}Påminnelse för utbildningsintyg – bevaka utgångsdatum{% endblock %}
+{% block head %}
+    <meta name="description" content="Få påminnelse när utbildningsintyg eller certifikat går ut. Se hur du bevakar utgångsdatum och håller koll på personalens utbildningar.">
+    <meta name="keywords" content="påminnelse utbildningsintyg, utbildningsintyg utgångsdatum, certifikat påminnelse, certifikat utgångsdatum, utbildningsregister med påminnelser, automatiska påminnelser utbildningsintyg, digitalt utbildningsregister, certifikathantering med påminnelser">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/paminnelse-utbildningsintyg">
+    <meta property="og:title" content="Påminnelse när utbildningsintyg och certifikat går ut">
+    <meta property="og:description" content="Samla utbildningsintyg, bevaka utgångsdatum och få automatiska påminnelser via e-post – för både privatpersoner och företag.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/paminnelse-utbildningsintyg">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://www.utbildningsintyg.se/#website",
+                "url": "https://www.utbildningsintyg.se/",
+                "name": "Utbildningsintyg",
+                "inLanguage": "sv-SE"
+            },
+            {
+                "@type": "WebPage",
+                "@id": "https://www.utbildningsintyg.se/paminnelse-utbildningsintyg#webpage",
+                "url": "https://www.utbildningsintyg.se/paminnelse-utbildningsintyg",
+                "name": "Påminnelse när utbildningsintyg och certifikat går ut",
+                "description": "Så fungerar automatiska påminnelser och bevakning av utgångsdatum för utbildningsintyg, kursintyg och certifikat.",
+                "inLanguage": "sv-SE",
+                "isPartOf": {
+                    "@id": "https://www.utbildningsintyg.se/#website"
+                }
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Hem",
+                        "item": "https://www.utbildningsintyg.se/"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Påminnelser för utbildningsintyg",
+                        "item": "https://www.utbildningsintyg.se/paminnelse-utbildningsintyg"
+                    }
+                ]
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": "Hur håller man koll på utbildningar som går ut?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Samla intygen i ett digitalt utbildningsregister och registrera ett utgångsdatum för varje intyg. Utbildningsintyg bevakar datumen och skickar en sammanfattning via e-post när det är dags att planera en förnyelse."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "När skickas en påminnelse om ett utbildningsintyg?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "I standardkonfigurationen kontrolleras registret varje månad och kommande utgångsdatum inom sex månader tas med. Påminnelserna samlas i ett e-postmeddelande. Efter ett lyckat utskick kan intyget påminnas igen vid en senare månadskontroll om det ännu inte har förnyats."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Vem får mejlet när ett certifikat går ut?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Privatkontots ägare får en egen sammanfattning. Om kontot är kopplat till ett företagskonto får företaget också en separat översikt, grupperad per kopplad person."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Vad händer om ett intyg saknar utgångsdatum?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Intyget ligger kvar i det digitala arkivet, men ingen automatisk påminnelse kan skickas förrän ett utgångsdatum har lagts till."
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
+{% endblock %}
+{% block content %}
+<article class="reminder-page">
+    <header class="reminder-hero" aria-labelledby="reminder-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Påminnelser</span>
+        </nav>
+
+        <div class="reminder-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="reminder-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Digital bevakning för privatpersoner och företag</p>
+                <h1 id="reminder-title" data-motion-child>Påminnelse när utbildningsintyg och certifikat går ut</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Samla dina intyg i ett digitalt arkiv, registrera deras utgångsdatum och få
+                    automatiska påminnelser via e-post innan det är dags att förnya.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="{{ url_for('apply_account') }}">Skapa konto</a>
+                    <a class="reminder-text-link" href="#sa-fungerar">Se hur påminnelsen fungerar</a>
+                </div>
+            </div>
+
+            <aside class="reminder-signal" aria-label="Påminnelsens fyra steg" data-motion-child>
+                <p class="reminder-signal__label">Från intyg till förnyelse</p>
+                <ol class="reminder-signal__steps">
+                    <li><span>01</span><strong>Ladda upp</strong></li>
+                    <li><span>02</span><strong>Ange datum</strong></li>
+                    <li><span>03</span><strong>Automatisk bevakning</strong></li>
+                    <li><span>04</span><strong>Påminnelse via e-post</strong></li>
+                </ol>
+            </aside>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#sa-fungerar">Så fungerar det</a>
+        <a href="#foretag">För företag</a>
+        <a href="#privatpersoner">För privatpersoner</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" aria-labelledby="reminder-intro-title" data-motion="section">
+        <p class="reminder-section-label">Kort förklarat</p>
+        <div class="reminder-intro__layout">
+            <h2 id="reminder-intro-title">Ett utbildningsregister med påminnelser tar bort den manuella bevakningen</h2>
+            <div class="reminder-prose">
+                <p>
+                    Utbildningsintyg fungerar som ett digitalt utbildningsregister där du kan
+                    spara utbildningsintyg, kursintyg och certifikat tillsammans med ett
+                    utgångsdatum. Systemet bevakar kommande datum och sammanställer de intyg som
+                    behöver uppmärksamhet.
+                </p>
+                <p>
+                    I standardkonfigurationen kontrolleras registret varje månad. Intyg som går ut
+                    inom de kommande sex månaderna tas med i ett samlat e-postmeddelande. Efter ett
+                    lyckat utskick kan intyget påminnas igen vid en senare månadskontroll om det
+                    ännu inte har förnyats.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Viktigt:</strong> Bevakningen startar först när intyget har ett registrerat
+            utgångsdatum. Ett intyg utan datum ligger tryggt kvar i arkivet men utlöser ingen
+            påminnelse.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="sa-fungerar" aria-labelledby="process-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Steg för steg</p>
+                <h2 id="process-title">Så fungerar påminnelsefunktionen</h2>
+            </div>
+            <p>Du registrerar uppgifterna en gång. Därefter sköter systemet bevakningen.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="reminder-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Samla och ladda upp intygen</h3>
+                    <p>
+                        Skapa ett konto och ladda upp utbildningsintyg i PDF, JPG eller PNG.
+                        Bildfiler sparas som PDF, så arkivet får ett enhetligt format.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Digitalt arkiv</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Lägg till rätt utgångsdatum</h3>
+                    <p>
+                        Ange datumet när du laddar upp intyget eller lägg till och ändra det senare.
+                        Du kan också välja att ett intyg inte har något utgångsdatum.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Valfritt datumfält</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Systemet bevakar kommande datum</h3>
+                    <p>
+                        Den automatiska kontrollen letar efter intyg som fortfarande är giltiga men
+                        närmar sig sitt slutdatum. Du behöver inte föra en separat kalender eller
+                        lista.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Automatisk bevakning</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Du får en samlad påminnelse via e-post</h3>
+                    <p>
+                        Meddelandet visar vilka utbildningar eller certifikat som går ut och på
+                        vilket datum. Därefter kan du planera förnyelsen och uppdatera intyget i
+                        arkivet.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Tid för åtgärd</p>
+            </li>
+        </ol>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="reminder-audiences">
+        <section id="foretag" aria-labelledby="company-reminder-title" data-motion-child>
+            <p class="reminder-section-label">För företag</p>
+            <h2 id="company-reminder-title">Så kan företag hålla koll på personalens utbildningar och certifikat</h2>
+            <p>
+                När personalens privatkonton är kopplade till företaget blir tjänsten ett
+                kompetensregister med påminnelser. Företagsportalen samlar överblicken utan att ta
+                ifrån den enskilda användaren kontrollen över sitt eget arkiv.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Få åtkomst först efter att privatpersonen har godkänt kopplingen.</li>
+                <li>Se kopplade användare och deras utbildningsintyg på ett ställe.</li>
+                <li>Sök på person, filnamn eller utbildningskategori.</li>
+                <li>Se certifikatens utgångsdatum samt visa, ladda ner och dela intyg.</li>
+                <li>Få företagets påminnelse grupperad per person när flera intyg går ut.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                Det gör automatisk bevakning av utbildningsintyg till ett enklare alternativ till
+                kalkylark och manuella kalendernotiser.
+            </p>
+        </section>
+
+        <section id="privatpersoner" aria-labelledby="private-reminder-title" data-motion-child>
+            <p class="reminder-section-label">För privatpersoner</p>
+            <h2 id="private-reminder-title">Håll koll på dina egna utbildningsintyg</h2>
+            <p>
+                Privatkontot är ett digitalt arkiv för dina utbildningar. Du samlar intygen,
+                väljer kategori, skriver anteckningar och registrerar de datum du vill bevaka.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Kom åt arkivet från dator, surfplatta eller mobil.</li>
+                <li>Ladda ner, skriv ut eller dela valda intyg via e-post.</li>
+                <li>Få en egen sammanfattning när utbildningsintyg går ut.</li>
+                <li>Ändra utgångsdatum när ett certifikat har förnyats.</li>
+            </ul>
+            <p class="reminder-audience__closing">
+                På så sätt kan du samla utbildningsintyg och bevaka utgångsdatum utan att själv
+                kontrollera varje dokument.
+            </p>
+        </section>
+    </div>
+
+    <section class="reminder-capabilities" aria-labelledby="capabilities-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Mer än en certifikatpåminnelse</p>
+                <h2 id="capabilities-title">Så fungerar resten av appen</h2>
+            </div>
+            <p>Ett sammanhängande flöde från uppladdning till delning och förnyelse.</p>
+        </div>
+
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Samla</dt>
+                <dd>Spara digitala utbildningsintyg i ett gemensamt och sökbart arkiv.</dd>
+            </div>
+            <div>
+                <dt>Ordna</dt>
+                <dd>Kategorisera intyg, lägg till anteckningar och se deras giltighetstid.</dd>
+            </div>
+            <div>
+                <dt>Dela</dt>
+                <dd>Välj ett eller flera intyg och skicka dem som PDF-filer via e-post.</dd>
+            </div>
+            <div>
+                <dt>Koppla</dt>
+                <dd>Anslut privatkonton efter godkännande för en gemensam personalöversikt.</dd>
+            </div>
+            <div>
+                <dt>Bevaka</dt>
+                <dd>Följ utbildningsintygens och certifikatens kommande utgångsdatum.</dd>
+            </div>
+        </dl>
+
+        <p class="reminder-capabilities__summary">
+            För den som söker ett system för certifikatpåminnelser kombinerar Utbildningsintyg
+            digital certifikathantering med påminnelser, säker delning och ett tydligt
+            utbildningsregister.
+        </p>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="faq-title">Om utbildningsintyg, påminnelser och utgångsdatum</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Hur håller man koll på utbildningar som går ut?</summary>
+                <p>
+                    Samla intygen i ett digitalt utbildningsregister och registrera ett
+                    utgångsdatum för varje intyg. Utbildningsintyg bevakar datumen och skickar en
+                    sammanfattning via e-post när det är dags att planera en förnyelse.
+                </p>
+            </details>
+            <details>
+                <summary>När skickas en påminnelse om ett utbildningsintyg?</summary>
+                <p>
+                    I standardkonfigurationen kontrolleras registret varje månad och kommande
+                    utgångsdatum inom sex månader tas med. Påminnelserna samlas i ett
+                    e-postmeddelande. Efter ett lyckat utskick kan intyget påminnas igen vid en
+                    senare månadskontroll om det ännu inte har förnyats.
+                </p>
+            </details>
+            <details>
+                <summary>Fungerar påminnelsen för certifikat och kursintyg?</summary>
+                <p>
+                    Ja. Funktionen utgår från det registrerade utgångsdatumet och kan därför
+                    användas för utbildningsintyg, utbildningsbevis, kursintyg och andra certifikat
+                    som har en begränsad giltighetstid.
+                </p>
+            </details>
+            <details>
+                <summary>Vem får mejlet när ett certifikat går ut?</summary>
+                <p>
+                    Privatkontots ägare får en egen sammanfattning. Om kontot är kopplat till ett
+                    företagskonto får företaget också en separat översikt, grupperad per kopplad
+                    person.
+                </p>
+            </details>
+            <details>
+                <summary>Vad händer om ett intyg saknar utgångsdatum?</summary>
+                <p>
+                    Intyget ligger kvar i det digitala arkivet, men ingen automatisk påminnelse kan
+                    skickas förrän ett utgångsdatum har lagts till.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <section class="reminder-cta" aria-labelledby="reminder-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Slipp manuella listor</p>
+        <h2 id="reminder-cta-title">Börja bevaka utbildningsintygens utgångsdatum</h2>
+        <p>Välj kontoform, samla intygen och låt påminnelsefunktionen hålla reda på datumen.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('apply_account') }}">Skapa konto</a>
+            <a class="btn btn-ghost" href="{{ url_for('pricing') }}">Se priser</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
