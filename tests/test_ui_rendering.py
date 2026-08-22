@@ -403,6 +403,11 @@ def test_home_page_markets_expiry_reminders(empty_db):
 
     assert f'<meta name="description" content="{description}">' in body
     assert f'<meta name="keywords" content="{keywords}">' in body
+    assert (
+        '<meta property="og:title" '
+        'content="Utbildningsintyg – Samla, spara och dela intyg enkelt">'
+        in body
+    )
     assert f'<meta property="og:description" content="{description}">' in body
     assert reminder_item in body
     assert body.index("Dela intyg säkert med arbetsgivare eller kunder") < body.index(
