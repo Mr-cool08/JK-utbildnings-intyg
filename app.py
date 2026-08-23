@@ -586,7 +586,7 @@ app = create_app()
 @app.before_request
 def _before_first_request():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(days=178)
+    app.permanent_session_lifetime = timedelta(days=30)
 
 
 @app.before_request
