@@ -2297,6 +2297,11 @@ small.hint {
 
 .seo-page .table-scroll table {
     margin: 0;
+    color: var(--color-text);
+}
+
+.seo-page .table-scroll td {
+    color: var(--color-text);
 }
 
 .seo-page .table-scroll th {
