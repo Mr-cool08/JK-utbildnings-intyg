@@ -125,9 +125,14 @@
       const details = detailsId ? document.getElementById(detailsId) : null;
       const openLabel = button.dataset.openLabel || 'Visa detaljer';
       const closeLabel = button.dataset.closeLabel || 'Dölj detaljer';
+      const visibleLabel = button.querySelector('[data-user-toggle-label]');
 
       button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
-      button.textContent = shouldExpand ? closeLabel : openLabel;
+      if (visibleLabel) {
+        visibleLabel.textContent = shouldExpand ? closeLabel : openLabel;
+      } else {
+        button.textContent = shouldExpand ? closeLabel : openLabel;
+      }
 
       if (details) {
         details.hidden = !shouldExpand;
@@ -183,7 +188,20 @@
           card.dataset.userSearchText || card.dataset.userName || ''
         );
         const matches = !query || haystack.includes(query);
+        const toggle = card.querySelector('[data-user-toggle]');
         card.hidden = !matches;
+
+        if (toggle && query) {
+          if (typeof card.dataset.searchWasExpanded === 'undefined') {
+            card.dataset.searchWasExpanded = toggle.getAttribute('aria-expanded');
+          }
+          if (matches) {
+            updateToggleState(toggle, true);
+          }
+        } else if (toggle && typeof card.dataset.searchWasExpanded !== 'undefined') {
+          updateToggleState(toggle, card.dataset.searchWasExpanded === 'true');
+          delete card.dataset.searchWasExpanded;
+        }
 
         if (matches) {
           visibleCount += 1;
@@ -199,6 +217,458 @@
 
     searchInput.addEventListener('input', filterUsers);
     filterUsers();
+  }
+
+  function setupSupervisorShareModal() {
+    const shareWorkspace = document.querySelector('[data-supervisor-share-workspace]');
+    const shareModal = document.getElementById('supervisorShareModal');
+    const shareForm = document.getElementById('supervisorShareForm');
+    const shareEmailInput = document.getElementById('supervisorShareRecipientEmail');
+    const csrfInput = document.getElementById('supervisorShareCsrfToken');
+    const shareFeedback = document.getElementById('supervisorShareFeedback');
+    const shareDocumentSummary = document.getElementById(
+      'supervisorShareDocumentSummary'
+    );
+    const shareOwnerSummary = document.getElementById('supervisorShareOwnerSummary');
+    const shareDocumentList = document.getElementById('supervisorShareDocumentList');
+    const submitButton = shareForm
+      ? shareForm.querySelector('[data-supervisor-share-submit]')
+      : null;
+    const globalSelection = document.querySelector(
+      '[data-supervisor-global-selection]'
+    );
+    const globalStatus = document.querySelector('[data-supervisor-global-status]');
+    const globalShareButton = document.querySelector('[data-supervisor-global-share]');
+    const clearSelectionButton = document.querySelector(
+      '[data-supervisor-clear-selection]'
+    );
+    const sharePanels = Array.from(
+      document.querySelectorAll('[data-supervisor-person-hash]')
+    );
+    const batchShareUrl = shareWorkspace
+      ? shareWorkspace.dataset.supervisorBatchShareUrl || ''
+      : '';
+    const supportsNativeDialog =
+      !!shareModal &&
+      typeof shareModal.showModal === 'function' &&
+      typeof shareModal.close === 'function';
+
+    if (
+      !shareModal ||
+      !shareForm ||
+      !shareEmailInput ||
+      !csrfInput ||
+      !submitButton ||
+      !shareWorkspace ||
+      !batchShareUrl ||
+      !globalSelection ||
+      !globalStatus ||
+      !globalShareButton ||
+      !clearSelectionButton ||
+      !sharePanels.length
+    ) {
+      return;
+    }
+
+    const closeButtons = Array.from(
+      shareModal.querySelectorAll('[data-supervisor-share-close]')
+    );
+
+    if (!supportsNativeDialog) {
+      shareModal.setAttribute('data-polyfill', 'true');
+      shareModal.setAttribute('aria-hidden', 'true');
+    }
+
+    let activePdfs = [];
+    let clearSelectionOnSuccess = false;
+    let isSubmitting = false;
+    let returnFocusTarget = null;
+
+    function setFeedback(message = '', state = '') {
+      if (!shareFeedback) {
+        return;
+      }
+
+      if (!message) {
+        shareFeedback.textContent = '';
+        shareFeedback.dataset.state = '';
+        shareFeedback.hidden = true;
+        shareFeedback.setAttribute('role', 'status');
+        return;
+      }
+
+      shareFeedback.textContent = message;
+      shareFeedback.dataset.state = state;
+      shareFeedback.hidden = false;
+      shareFeedback.setAttribute('role', state === 'error' ? 'alert' : 'status');
+    }
+
+    function pdfFromCheckbox(checkbox, panel = null) {
+      const id = Number.parseInt(checkbox.value || '', 10);
+      const personHash =
+        checkbox.dataset.personHash || panel?.dataset.supervisorPersonHash || '';
+      if (!Number.isInteger(id) || id < 1 || !personHash) {
+        return null;
+      }
+
+      return {
+        id,
+        personHash,
+        name: checkbox.dataset.pdfName || 'intyget',
+        ownerName:
+          checkbox.dataset.ownerName ||
+          panel?.dataset.supervisorOwnerName ||
+          'användaren',
+      };
+    }
+
+    function selectedPdfsForPanel(panel) {
+      return Array.from(
+        panel.querySelectorAll('[data-supervisor-share-select]:checked')
+      )
+        .map((checkbox) => pdfFromCheckbox(checkbox, panel))
+        .filter(Boolean);
+    }
+
+    function selectedPdfsAcrossWorkspace() {
+      return Array.from(
+        shareWorkspace.querySelectorAll('[data-supervisor-share-select]:checked')
+      )
+        .map((checkbox) => pdfFromCheckbox(checkbox, checkbox.closest('[data-supervisor-person-hash]')))
+        .filter(Boolean);
+    }
+
+    function updatePanelSelection(panel) {
+      const checkboxes = Array.from(
+        panel.querySelectorAll('[data-supervisor-share-select]')
+      );
+      const selected = selectedPdfsForPanel(panel);
+      const selectAll = panel.querySelector('[data-supervisor-select-all]');
+      const selectionBar = panel.querySelector('[data-supervisor-selection-bar]');
+      const status = panel.querySelector('[data-supervisor-selection-status]');
+
+      if (selectAll) {
+        selectAll.checked = checkboxes.length > 0 && selected.length === checkboxes.length;
+        selectAll.indeterminate = selected.length > 0 && selected.length < checkboxes.length;
+      }
+
+      if (selectionBar) {
+        selectionBar.classList.toggle('has-selection', selected.length > 0);
+      }
+
+      if (status) {
+        if (selected.length === 0) {
+          status.textContent = 'Inga intyg markerade';
+        } else if (selected.length === 1) {
+          status.textContent = '1 intyg markerat';
+        } else {
+          status.textContent = `${selected.length} intyg markerade`;
+        }
+      }
+
+    }
+
+    function updateGlobalSelection() {
+      const selected = selectedPdfsAcrossWorkspace();
+      const ownerCount = new Set(selected.map((pdf) => pdf.personHash)).size;
+      globalSelection.classList.toggle('has-selection', selected.length > 0);
+
+      if (selected.length === 0) {
+        globalStatus.textContent = 'Inga intyg markerade';
+      } else {
+        const certificateText =
+          selected.length === 1
+            ? '1 intyg markerat'
+            : `${selected.length} intyg markerade`;
+        const ownerText = ownerCount === 1 ? '1 person' : `${ownerCount} personer`;
+        globalStatus.textContent = `${certificateText} från ${ownerText}`;
+      }
+
+      globalShareButton.disabled = selected.length === 0;
+      globalShareButton.textContent =
+        selected.length > 0 ? `Dela ${selected.length} intyg` : 'Dela markerade';
+      clearSelectionButton.disabled = selected.length === 0;
+    }
+
+    function updateAllSelectionStates() {
+      sharePanels.forEach(updatePanelSelection);
+      updateGlobalSelection();
+    }
+
+    function renderSelection(pdfs) {
+      if (!shareDocumentList) {
+        return;
+      }
+
+      shareDocumentList.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      const ownerCount = new Set(pdfs.map((pdf) => pdf.personHash)).size;
+      pdfs.forEach((pdf) => {
+        const item = document.createElement('li');
+        item.textContent =
+          ownerCount > 1
+            ? `${pdf.ownerName}: ${pdf.name || 'Intyg'}`
+            : pdf.name || 'Intyg';
+        fragment.appendChild(item);
+      });
+      shareDocumentList.appendChild(fragment);
+    }
+
+    function setSubmitting(submitting) {
+      isSubmitting = submitting;
+      submitButton.disabled = submitting;
+      shareEmailInput.readOnly = submitting;
+      closeButtons.forEach((button) => {
+        button.disabled = submitting;
+      });
+    }
+
+    function resetModalState() {
+      if (isSubmitting) {
+        return;
+      }
+
+      activePdfs = [];
+      clearSelectionOnSuccess = false;
+      shareEmailInput.value = '';
+      setFeedback();
+      if (shareDocumentList) {
+        shareDocumentList.innerHTML = '';
+      }
+      if (shareDocumentSummary) {
+        shareDocumentSummary.textContent = 'intyget';
+      }
+      if (shareOwnerSummary) {
+        shareOwnerSummary.textContent = 'användaren';
+      }
+      submitButton.textContent = 'Skicka intyg';
+      setSubmitting(false);
+    }
+
+    function closeShareModal() {
+      if (isSubmitting) {
+        setFeedback('Vänta tills delningen är klar.', 'info');
+        return;
+      }
+
+      if (supportsNativeDialog) {
+        if (shareModal.open) {
+          shareModal.close();
+        }
+      } else {
+        shareModal.classList.remove('is-visible');
+        shareModal.setAttribute('aria-hidden', 'true');
+        resetModalState();
+        if (returnFocusTarget) {
+          returnFocusTarget.focus();
+        }
+        returnFocusTarget = null;
+      }
+    }
+
+    function openShareModal(pdfs, trigger, clearAfterSuccess) {
+      if (!pdfs.length || isSubmitting) {
+        return;
+      }
+
+      activePdfs = pdfs;
+      clearSelectionOnSuccess = clearAfterSuccess;
+      returnFocusTarget = trigger || null;
+      shareEmailInput.value = '';
+      setFeedback();
+      renderSelection(pdfs);
+
+      if (shareDocumentSummary) {
+        shareDocumentSummary.textContent =
+          pdfs.length === 1 ? pdfs[0].name || 'intyget' : `${pdfs.length} intyg`;
+      }
+      if (shareOwnerSummary) {
+        const owners = Array.from(
+          new Set(pdfs.map((pdf) => pdf.ownerName || 'användaren'))
+        );
+        shareOwnerSummary.textContent =
+          owners.length === 1 ? owners[0] : `${owners.length} personer`;
+      }
+      submitButton.textContent =
+        pdfs.length === 1 ? 'Skicka intyg' : `Skicka ${pdfs.length} intyg`;
+
+      if (supportsNativeDialog) {
+        if (!shareModal.open) {
+          shareModal.showModal();
+        }
+      } else {
+        shareModal.classList.add('is-visible');
+        shareModal.setAttribute('aria-hidden', 'false');
+      }
+
+      window.setTimeout(() => shareEmailInput.focus(), 0);
+    }
+
+    closeButtons.forEach((button) =>
+      button.addEventListener('click', closeShareModal)
+    );
+
+    if (supportsNativeDialog) {
+      shareModal.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        closeShareModal();
+      });
+      shareModal.addEventListener('close', () => {
+        resetModalState();
+        if (returnFocusTarget) {
+          returnFocusTarget.focus();
+        }
+        returnFocusTarget = null;
+      });
+    } else {
+      shareModal.addEventListener('click', (event) => {
+        if (event.target === shareModal) {
+          closeShareModal();
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && shareModal.classList.contains('is-visible')) {
+          closeShareModal();
+        }
+      });
+    }
+
+    sharePanels.forEach((panel) => {
+      const checkboxes = Array.from(
+        panel.querySelectorAll('[data-supervisor-share-select]')
+      );
+      const selectAll = panel.querySelector('[data-supervisor-select-all]');
+
+      checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          updatePanelSelection(panel);
+          updateGlobalSelection();
+        });
+      });
+
+      if (selectAll) {
+        selectAll.addEventListener('change', () => {
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = selectAll.checked;
+          });
+          updatePanelSelection(panel);
+          updateGlobalSelection();
+        });
+      }
+
+      panel.querySelectorAll('[data-supervisor-share-one]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const row = button.closest('[data-supervisor-pdf-row]');
+          const checkbox = row
+            ? row.querySelector('[data-supervisor-share-select]')
+            : null;
+          if (!checkbox) {
+            return;
+          }
+          const selectedPdf = pdfFromCheckbox(checkbox, panel);
+          if (!selectedPdf) {
+            return;
+          }
+          openShareModal([selectedPdf], button, false);
+        });
+      });
+    });
+
+    clearSelectionButton.addEventListener('click', () => {
+      shareWorkspace
+        .querySelectorAll('[data-supervisor-share-select]')
+        .forEach((checkbox) => {
+          checkbox.checked = false;
+        });
+      updateAllSelectionStates();
+    });
+
+    globalShareButton.addEventListener('click', () => {
+      openShareModal(selectedPdfsAcrossWorkspace(), globalShareButton, true);
+    });
+
+    updateAllSelectionStates();
+
+    shareForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (isSubmitting || !activePdfs.length) {
+        return;
+      }
+
+      const recipientEmail = shareEmailInput.value.trim();
+      if (!recipientEmail || !shareEmailInput.checkValidity()) {
+        setFeedback('Ange en giltig e-postadress.', 'error');
+        shareEmailInput.focus();
+        return;
+      }
+
+      const requestPdfs = activePdfs.map((pdf) => ({ ...pdf }));
+      const shouldClearSelection = clearSelectionOnSuccess;
+      setSubmitting(true);
+      setFeedback(
+        requestPdfs.length === 1 ? 'Skickar intyget...' : 'Skickar intygen...',
+        'info'
+      );
+
+      try {
+        const response = await fetch(batchShareUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            items: requestPdfs.map((pdf) => ({
+              person_hash: pdf.personHash,
+              pdf_id: pdf.id,
+            })),
+            recipient_email: recipientEmail,
+            csrf_token: csrfInput.value,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          setFeedback(
+            data.fel || 'Intygen kunde inte skickas. Försök igen.',
+            'error'
+          );
+          return;
+        }
+
+        setFeedback(
+          data.meddelande ||
+            (requestPdfs.length === 1
+              ? 'Intyget har skickats via e-post.'
+              : 'Intygen har skickats via e-post.'),
+          'success'
+        );
+        shareEmailInput.value = '';
+
+        if (shouldClearSelection) {
+          const sharedKeys = new Set(
+            requestPdfs.map((pdf) => `${pdf.personHash}:${pdf.id}`)
+          );
+          shareWorkspace
+            .querySelectorAll('[data-supervisor-share-select]')
+            .forEach((checkbox) => {
+              const pdf = pdfFromCheckbox(
+                checkbox,
+                checkbox.closest('[data-supervisor-person-hash]')
+              );
+              if (pdf && sharedKeys.has(`${pdf.personHash}:${pdf.id}`)) {
+                checkbox.checked = false;
+              }
+            });
+          updateAllSelectionStates();
+          clearSelectionOnSuccess = false;
+        }
+      } catch (error) {
+        setFeedback('Det gick inte att ansluta till servern. Försök igen.', 'error');
+      } finally {
+        setSubmitting(false);
+      }
+    });
   }
 
   function setupEditPdfModal() {
@@ -797,6 +1267,7 @@
   setupDashboardSearch();
   setupExpiryStatuses();
   setupSupervisorDashboard();
+  setupSupervisorShareModal();
   setupEditPdfModal();
   setupShareModal();
 })();

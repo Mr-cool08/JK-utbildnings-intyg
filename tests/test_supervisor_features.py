@@ -65,6 +65,32 @@ def supervisor_setup(empty_db):
     }
 
 
+@pytest.fixture
+def second_connected_user(supervisor_setup):
+    email = "andra.anvandaren@example.com"
+    name = "Andra Användaren"
+    personnummer = "19850505-4321"
+    assert functions.admin_create_user(email, name, personnummer)
+    person_hash = functions.hash_value(functions.normalize_personnummer(personnummer))
+    assert functions.user_create_user("Hemligt456", person_hash)
+    pdf_id = functions.store_pdf_blob(
+        person_hash,
+        "andra-intyget.pdf",
+        b"%PDF-1.4 second owner",
+        [COURSE_CATEGORIES[1][0]],
+    )
+    success, reason, _ = functions.admin_link_supervisor_to_user(
+        supervisor_setup["orgnr"],
+        personnummer,
+    )
+    assert success and reason == "created"
+    return {
+        "name": name,
+        "personnummer_hash": person_hash,
+        "pdf_id": pdf_id,
+    }
+
+
 def _supervisor_client(email_hash, name, orgnr=None, csrf_token=None):
     client = app.app.test_client()
     with client.session_transaction() as sess:
@@ -190,6 +216,30 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     assert "intyg.pdf" in body
 
 
+def test_supervisor_dashboard_exposes_total_pdf_count(
+    monkeypatch,
+    supervisor_setup,
+):
+    captured = {}
+
+    def fake_render(template_name, **context):
+        captured["template_name"] = template_name
+        captured["context"] = context
+        return "Företagsportal"
+
+    monkeypatch.setattr(app, "render_template", fake_render)
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+    )
+
+    response = client.get("/foretagskonto")
+
+    assert response.status_code == 200
+    assert captured["template_name"] == "supervisor_dashboard.html"
+    assert captured["context"]["total_pdf_count"] == 1
+
+
 @pytest.mark.parametrize(
     ("target_table", "fetcher"),
     [
@@ -263,6 +313,12 @@ def test_supervisor_dashboard_has_user_list_and_search(supervisor_setup):
     assert 'class="supervisor-user-list"' in body
     assert 'data-user-toggle' in body
     assert 'data-user-panel' in body
+    assert 'data-supervisor-share-select' in body
+    assert 'data-supervisor-select-all' in body
+    assert 'data-supervisor-global-selection' in body
+    assert 'data-supervisor-global-share' in body
+    assert 'id="supervisorShareModal"' in body
+    assert 'id="supervisorShareRecipientEmail"' in body
     assert "dashboard.css" in body
     assert "dashboard.js" in body
     assert "Sök på namn, filnamn eller kategori" in body
@@ -278,7 +334,7 @@ def test_supervisor_dashboard_search_indexes_certificate_metadata(supervisor_set
 
     assert 'data-user-search-text="' in body
     assert "intyg.pdf" in body
-    assert "Visa detaljer" in body
+    assert "Visa intyg" in body
 
 
 def test_supervisor_dashboard_lists_pending_organization_requests(supervisor_setup):
@@ -297,7 +353,7 @@ def test_supervisor_dashboard_lists_pending_organization_requests(supervisor_set
     response = client.get("/foretagskonto")
     assert response.status_code == 200
     body = response.get_data(as_text=True)
-    assert "Väntande organisationsförfrågningar" in body
+    assert "Väntande förfrågningar" in body
     assert "Ny Person" in body
     assert "Inväntar lösenord" in body
 
@@ -588,7 +644,7 @@ def test_org_request_becomes_visible_after_company_account_is_created(empty_db):
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert "Ny Person" in body
-    assert "Väntande organisationsförfrågningar" in body
+    assert "Väntande förfrågningar" in body
 
     with empty_db.connect() as conn:
         request_row = conn.execute(
@@ -639,6 +695,568 @@ def test_supervisor_share_pdf(monkeypatch, supervisor_setup):
     assert captured["owner"] == supervisor_setup["user_name"]
     assert captured["attachments"][0][0] == "intyg.pdf"
     assert captured["category_labels"] == [[COURSE_CATEGORIES[0][1]]]
+
+
+def test_supervisor_share_multiple_pdfs_deduplicates_ids(
+    monkeypatch,
+    supervisor_setup,
+):
+    first_pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    second_pdf_id = functions.store_pdf_blob(
+        supervisor_setup["personnummer_hash"],
+        "andra-intyget.pdf",
+        b"%PDF-1.4 second",
+        [COURSE_CATEGORIES[1][0]],
+    )
+    captured = {}
+
+    def fake_send(
+        recipient,
+        attachments,
+        sender,
+        owner_name=None,
+        category_labels=None,
+    ):
+        captured["recipient"] = recipient
+        captured["attachments"] = attachments
+        captured["sender"] = sender
+        captured["owner"] = owner_name
+        captured["category_labels"] = category_labels
+
+    monkeypatch.setattr(app.email_service, "send_pdf_share_email", fake_send)
+    csrf_token = "batch-share-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}",
+        json={
+            "pdf_ids": [first_pdf_id, second_pdf_id, first_pdf_id],
+            "recipient_email": " mottagare@example.com ",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"meddelande": "Intygen har skickats via e-post."}
+    assert captured["recipient"] == "mottagare@example.com"
+    assert captured["sender"] == supervisor_setup["name"]
+    assert captured["owner"] == supervisor_setup["user_name"]
+    assert [filename for filename, _ in captured["attachments"]] == [
+        "intyg.pdf",
+        "andra-intyget.pdf",
+    ]
+    assert captured["category_labels"] == [
+        [],
+        [COURSE_CATEGORIES[1][1]],
+    ]
+
+
+def test_supervisor_share_multiple_pdfs_requires_csrf(
+    monkeypatch,
+    supervisor_setup,
+):
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token="expected-token",
+    )
+    pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+
+    response = client.post(
+        f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}",
+        json={
+            "pdf_ids": [pdf_id],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": "wrong-token",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"fel": app.CSRF_EXPIRED_MESSAGE}
+    assert sent == []
+
+
+def test_supervisor_share_multiple_pdfs_requires_selection(
+    monkeypatch,
+    supervisor_setup,
+):
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "batch-share-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}",
+        json={
+            "pdf_ids": [],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"fel": "Välj minst ett intyg."}
+    assert sent == []
+
+
+def test_supervisor_share_multiple_pdfs_is_all_or_nothing(
+    monkeypatch,
+    supervisor_setup,
+):
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "batch-share-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+    owned_pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+
+    response = client.post(
+        f"/foretagskonto/dela/{supervisor_setup['personnummer_hash']}",
+        json={
+            "pdf_ids": [owned_pdf_id, owned_pdf_id + 9999],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.get_json() == {
+        "fel": "Ett eller flera intyg kunde inte hittas."
+    }
+    assert sent == []
+
+
+def test_supervisor_share_multiple_pdfs_denies_unconnected_user(
+    monkeypatch,
+    supervisor_setup,
+):
+    foreign_person_hash = functions.hash_value(
+        functions.normalize_personnummer("19850505-4321")
+    )
+    foreign_pdf_id = functions.store_pdf_blob(
+        foreign_person_hash,
+        "främmande-intyg.pdf",
+        b"%PDF-1.4 foreign",
+        [],
+    )
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "batch-share-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        f"/foretagskonto/dela/{foreign_person_hash}",
+        json={
+            "pdf_ids": [foreign_pdf_id],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.get_json() == {"fel": "Åtgärden kunde inte utföras."}
+    assert sent == []
+
+
+def test_supervisor_share_selection_across_users(
+    monkeypatch,
+    supervisor_setup,
+    second_connected_user,
+):
+    first_pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    captured = {}
+
+    def fake_send(
+        recipient,
+        attachments,
+        sender,
+        owner_name=None,
+        category_labels=None,
+    ):
+        captured["recipient"] = recipient
+        captured["attachments"] = attachments
+        captured["sender"] = sender
+        captured["owner"] = owner_name
+        captured["category_labels"] = category_labels
+
+    monkeypatch.setattr(app.email_service, "send_pdf_share_email", fake_send)
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": first_pdf_id,
+                },
+                {
+                    "person_hash": second_connected_user["personnummer_hash"],
+                    "pdf_id": second_connected_user["pdf_id"],
+                },
+            ],
+            "recipient_email": " mottagare@example.com ",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"meddelande": "Intygen har skickats via e-post."}
+    assert captured["recipient"] == "mottagare@example.com"
+    assert captured["sender"] == supervisor_setup["name"]
+    assert captured["owner"] is None
+    assert [filename for filename, _ in captured["attachments"]] == [
+        "intyg.pdf",
+        "andra-intyget.pdf",
+    ]
+    assert captured["category_labels"] == [
+        [f"Ägare: {supervisor_setup['user_name']}"],
+        [
+            f"Ägare: {second_connected_user['name']}",
+            COURSE_CATEGORIES[1][1],
+        ],
+    ]
+
+
+def test_supervisor_share_selection_deduplicates_items(
+    monkeypatch,
+    supervisor_setup,
+):
+    pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    captured = {}
+
+    def fake_send(
+        recipient,
+        attachments,
+        sender,
+        owner_name=None,
+        category_labels=None,
+    ):
+        captured["attachments"] = attachments
+        captured["owner"] = owner_name
+        captured["category_labels"] = category_labels
+
+    monkeypatch.setattr(app.email_service, "send_pdf_share_email", fake_send)
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+    item = {
+        "person_hash": supervisor_setup["personnummer_hash"],
+        "pdf_id": pdf_id,
+    }
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [item, item],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"meddelande": "Intyget har skickats via e-post."}
+    assert len(captured["attachments"]) == 1
+    assert captured["owner"] == supervisor_setup["user_name"]
+    assert captured["category_labels"] == [[]]
+
+
+def test_supervisor_share_selection_requires_strict_csrf(
+    monkeypatch,
+    supervisor_setup,
+):
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+    )
+    pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": pdf_id,
+                }
+            ],
+            "recipient_email": "mottagare@example.com",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"fel": app.CSRF_EXPIRED_MESSAGE}
+    assert sent == []
+
+
+def test_supervisor_share_selection_rejects_invalid_items(
+    monkeypatch,
+    supervisor_setup,
+):
+    sent = []
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+    valid_hash = supervisor_setup["personnummer_hash"]
+    invalid_items = [
+        {"person_hash": "inte-en-hash", "pdf_id": 1},
+        {"person_hash": valid_hash, "pdf_id": 0},
+        {"person_hash": valid_hash, "pdf_id": True},
+        {"person_hash": valid_hash, "pdf_id": "1"},
+    ]
+
+    for item in invalid_items:
+        response = client.post(
+            "/foretagskonto/dela",
+            json={
+                "items": [item],
+                "recipient_email": "mottagare@example.com",
+                "csrf_token": csrf_token,
+            },
+        )
+        assert response.status_code == 400
+        assert response.get_json() == {"fel": "Ogiltiga intyg angivna."}
+
+    assert sent == []
+
+
+def test_supervisor_share_selection_denies_all_before_fetching(
+    monkeypatch,
+    supervisor_setup,
+):
+    authorized_pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    foreign_person_hash = functions.hash_value(functions.normalize_personnummer("19770707-7777"))
+    foreign_pdf_id = functions.store_pdf_blob(
+        foreign_person_hash,
+        "obehorig.pdf",
+        b"%PDF-1.4 foreign",
+        [],
+    )
+    fetched = []
+    sent = []
+    original_get_pdf_content = app.functions.get_pdf_content
+
+    def tracked_get_pdf_content(person_hash, pdf_id):
+        fetched.append((person_hash, pdf_id))
+        return original_get_pdf_content(person_hash, pdf_id)
+
+    monkeypatch.setattr(app.functions, "get_pdf_content", tracked_get_pdf_content)
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": authorized_pdf_id,
+                },
+                {
+                    "person_hash": foreign_person_hash,
+                    "pdf_id": foreign_pdf_id,
+                },
+            ],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.get_json() == {"fel": "Åtgärden kunde inte utföras."}
+    assert fetched == []
+    assert sent == []
+
+
+def test_supervisor_share_selection_rechecks_access_before_sending(
+    monkeypatch,
+    supervisor_setup,
+):
+    pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    access_results = iter([True, False])
+    sent = []
+    monkeypatch.setattr(
+        app.functions,
+        "supervisor_has_access",
+        lambda *_args: next(access_results),
+    )
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": pdf_id,
+                }
+            ],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.get_json() == {"fel": "Åtgärden kunde inte utföras."}
+    assert sent == []
+
+
+def test_supervisor_share_selection_enforces_certificate_limit(
+    monkeypatch,
+    supervisor_setup,
+):
+    monkeypatch.setattr(
+        app.functions,
+        "get_pdf_content",
+        lambda *_args: pytest.fail("Intyg ska inte hämtas när gränsen överskrids"),
+    )
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+    items = [
+        {
+            "person_hash": supervisor_setup["personnummer_hash"],
+            "pdf_id": pdf_id,
+        }
+        for pdf_id in range(1, app.SUPERVISOR_SHARE_MAX_CERTIFICATES + 2)
+    ]
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": items,
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"fel": app.SUPERVISOR_SHARE_TOO_MANY_MESSAGE}
+
+
+def test_supervisor_share_selection_enforces_total_size_limit(
+    monkeypatch,
+    supervisor_setup,
+):
+    first_pdf_id = functions.get_user_pdfs(supervisor_setup["personnummer_hash"])[0]["id"]
+    second_pdf_id = functions.store_pdf_blob(
+        supervisor_setup["personnummer_hash"],
+        "stor-bilaga.pdf",
+        b"%PDF-1.4 more bytes",
+        [],
+    )
+    sent = []
+    monkeypatch.setattr(app, "SUPERVISOR_SHARE_MAX_TOTAL_BYTES", 10)
+    monkeypatch.setattr(
+        app.email_service,
+        "send_pdf_share_email",
+        lambda *args, **kwargs: sent.append((args, kwargs)),
+    )
+    csrf_token = "selection-token"
+    client = _supervisor_client(
+        supervisor_setup["email_hash"],
+        supervisor_setup["name"],
+        csrf_token=csrf_token,
+    )
+
+    response = client.post(
+        "/foretagskonto/dela",
+        json={
+            "items": [
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": first_pdf_id,
+                },
+                {
+                    "person_hash": supervisor_setup["personnummer_hash"],
+                    "pdf_id": second_pdf_id,
+                },
+            ],
+            "recipient_email": "mottagare@example.com",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.get_json() == {"fel": app.SUPERVISOR_SHARE_TOO_LARGE_MESSAGE}
+    assert sent == []
 
 
 def test_supervisor_remove_connection(supervisor_setup):

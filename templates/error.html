@@ -1,13 +1,68 @@
 <!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->
 {% extends 'base.html' %}
-{% block title %}{% if error_code == 404 %}Sidan hittades inte (404){% else %}Fel ({{ error_code }}){% endif %}{% endblock %}
+{% block title %}{% if error_code == 403 %}Åtkomst nekad (403){% elif error_code == 404 %}Sidan hittades inte (404){% else %}Fel ({{ error_code }}){% endif %}{% endblock %}
 {% block head %}
 	{{ super() }}
 	<meta name="robots" content="noindex">
 	<link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
 {% endblock %}
 {% block content %}
-	{% if error_code == 404 %}
+	{% if error_code == 403 %}
+		<section class="error-403" aria-labelledby="error-403-title">
+			<div class="error-403__content">
+				<p class="error-403__code">Fel 403</p>
+				<h1 id="error-403-title">Stopp vid dörren</h1>
+				<p class="error-403__message">{{ error_message }}</p>
+				<a class="btn error-403__home-link" href="/">Till startsidan</a>
+			</div>
+
+			<div class="error-403__visual">
+				<svg
+					class="error-403__gatekeeper"
+					viewBox="0 0 420 360"
+					width="420"
+					height="360"
+					role="img"
+					aria-labelledby="error-403-gatekeeper-title error-403-gatekeeper-description"
+				>
+					<title id="error-403-gatekeeper-title">Åtkomst nekad</title>
+					<desc id="error-403-gatekeeper-description">Ett nyckelkort försöker komma in, men hänglåset skakar bestämt på huvudet.</desc>
+
+					<circle class="error-403__backdrop" cx="260" cy="180" r="150"></circle>
+					<path class="error-403__floor" d="M34 310 H390"></path>
+
+					<g class="error-403__pass">
+						<path class="error-403__pass-lanyard" d="M79 62 C79 23 45 16 45 47 C45 68 64 80 79 89"></path>
+						<rect class="error-403__pass-card" x="30" y="72" width="112" height="158" rx="18"></rect>
+						<circle class="error-403__pass-photo" cx="65" cy="118" r="18"></circle>
+						<path class="error-403__pass-shoulders" d="M41 159 C45 139 85 139 89 159"></path>
+						<path class="error-403__pass-line" d="M101 111 H126 M101 130 H126 M48 188 H124"></path>
+					</g>
+
+					<path class="error-403__scan" d="M184 94 V246"></path>
+
+					<g class="error-403__lock">
+						<path class="error-403__lock-shackle" d="M238 143 V105 C238 61 312 61 312 105 V143"></path>
+						<rect class="error-403__lock-body" x="205" y="133" width="140" height="148" rx="30"></rect>
+						<circle class="error-403__lock-eye" cx="251" cy="185" r="16"></circle>
+						<circle class="error-403__lock-eye" cx="299" cy="185" r="16"></circle>
+						<g class="error-403__lock-pupils">
+							<circle class="error-403__lock-pupil" cx="251" cy="185" r="6"></circle>
+							<circle class="error-403__lock-pupil" cx="299" cy="185" r="6"></circle>
+						</g>
+						<path class="error-403__lock-mouth" d="M252 238 C266 224 284 224 298 238"></path>
+						<path class="error-403__lock-keyhole" d="M275 207 V216"></path>
+					</g>
+
+					<g class="error-403__refusal" aria-hidden="true">
+						<path d="M356 141 L378 128"></path>
+						<path d="M361 164 H387"></path>
+						<path d="M356 187 L378 200"></path>
+					</g>
+				</svg>
+			</div>
+		</section>
+	{% elif error_code == 404 %}
 		<section class="error-404" aria-labelledby="error-404-title">
 			<div class="error-404__content">
 				<p class="error-404__code">Fel 404</p>
