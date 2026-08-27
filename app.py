@@ -177,13 +177,21 @@ CLIENT_LOG_TRUNCATION_LIMITS = {
 }
 
 UPLOAD_MAX_MB = 50
-UPLOAD_MAX_BYTES = 52_428_800 
+UPLOAD_MAX_BYTES = 52_428_800
+SUPERVISOR_SHARE_MAX_CERTIFICATES = 20
+SUPERVISOR_SHARE_MAX_TOTAL_BYTES = UPLOAD_MAX_BYTES
 
 # Gemensamma användarmeddelanden
 CSRF_EXPIRED_MESSAGE = "Formuläret är inte längre giltigt. Ladda om sidan och försök igen."
 TOO_MANY_ATTEMPTS_MESSAGE = "Du har gjort för många försök. Vänta en stund och prova igen."
 UPLOAD_TOO_LARGE_MESSAGE = (
     f"Uppladdningen är för stor. Max {UPLOAD_MAX_MB} MB tillåts."
+)
+SUPERVISOR_SHARE_TOO_MANY_MESSAGE = (
+    f"Du kan dela högst {SUPERVISOR_SHARE_MAX_CERTIFICATES} intyg åt gången."
+)
+SUPERVISOR_SHARE_TOO_LARGE_MESSAGE = (
+    f"De valda intygen är för stora för att delas samtidigt. Max {UPLOAD_MAX_MB} MB totalt."
 )
 
 
@@ -967,6 +975,7 @@ def supervisor_dashboard():
                 "pdfs": pdfs,
             }
         )
+    total_pdf_count = sum(len(user["pdfs"]) for user in users)
 
     company_name = None
     organization_link_requests = []
@@ -997,6 +1006,7 @@ def supervisor_dashboard():
         supervisor_orgnr=supervisor_orgnr,
         supervisor_name=supervisor_name,
         users=users,
+        total_pdf_count=total_pdf_count,
         csrf_token=csrf_token,
     )
 
@@ -1145,6 +1155,246 @@ def supervisor_download_pdf(person_hash: str, pdf_id: int):
     return response
 
 
+def _share_supervisor_pdf_items(
+    email_hash: str,
+    supervisor_name: str,
+    items: list[tuple[str, int]],
+    recipient_email: str,
+) -> tuple[str, int]:
+    unique_items = list(dict.fromkeys(items))
+    if not unique_items:
+        return "Välj minst ett intyg.", 400
+    if len(unique_items) > SUPERVISOR_SHARE_MAX_CERTIFICATES:
+        return SUPERVISOR_SHARE_TOO_MANY_MESSAGE, 400
+
+    person_hashes = list(dict.fromkeys(person_hash for person_hash, _ in unique_items))
+    denied_person_hashes = [
+        person_hash
+        for person_hash in person_hashes
+        if not functions.supervisor_has_access(email_hash, person_hash)
+    ]
+    if denied_person_hashes:
+        logger.warning(
+            "Handledare %s försökte dela intyg för %s utan behörighet",
+            email_hash,
+            [mask_hash(person_hash) for person_hash in denied_person_hashes],
+        )
+        return "Åtgärden kunde inte utföras.", 404
+
+    if not recipient_email:
+        return "Ange en e-postadress.", 400
+
+    try:
+        normalized_recipient = email_service.normalize_valid_email(recipient_email)
+    except ValueError:
+        return "Ogiltig e-postadress.", 400
+
+    owner_names = {
+        person_hash: (functions.get_username_by_personnummer_hash(person_hash) or "Standardkontot")
+        for person_hash in person_hashes
+    }
+    attachments: list[tuple[str, bytes]] = []
+    attachment_category_labels: list[list[str]] = []
+    total_attachment_bytes = 0
+    for person_hash, pdf_id in unique_items:
+        pdf = functions.get_pdf_content(person_hash, pdf_id)
+        if not pdf:
+            missing_message = (
+                "Intyget kunde inte hittas."
+                if len(unique_items) == 1
+                else "Ett eller flera intyg kunde inte hittas."
+            )
+            return missing_message, 404
+        filename, content = pdf
+        total_attachment_bytes += len(content)
+        if total_attachment_bytes > SUPERVISOR_SHARE_MAX_TOTAL_BYTES:
+            return SUPERVISOR_SHARE_TOO_LARGE_MESSAGE, 413
+        attachments.append((filename, content))
+        pdf_metadata = functions.get_pdf_metadata(person_hash, pdf_id) or {}
+        attachment_category_labels.append(labels_for_slugs(pdf_metadata.get("categories") or []))
+
+    multiple_owners = len(person_hashes) > 1
+    if multiple_owners:
+        attachment_category_labels = [
+            [f"Ägare: {owner_names[person_hash]}", *category_labels]
+            for (person_hash, _), category_labels in zip(
+                unique_items,
+                attachment_category_labels,
+                strict=True,
+            )
+        ]
+    owner_name = None if multiple_owners else owner_names[person_hashes[0]]
+
+    revoked_person_hashes = [
+        person_hash
+        for person_hash in person_hashes
+        if not functions.supervisor_has_access(email_hash, person_hash)
+    ]
+    if revoked_person_hashes:
+        logger.warning(
+            "Handledarens behörighet ändrades före delning för %s",
+            [mask_hash(person_hash) for person_hash in revoked_person_hashes],
+        )
+        return "Åtgärden kunde inte utföras.", 404
+
+    try:
+        email_service.send_pdf_share_email(
+            normalized_recipient,
+            attachments,
+            supervisor_name,
+            owner_name=owner_name,
+            category_labels=attachment_category_labels,
+        )
+    except RuntimeError:
+        logger.error(
+            "Misslyckades med att dela intyg %s av handledare %s",
+            [(mask_hash(person_hash), pdf_id) for person_hash, pdf_id in unique_items],
+            email_hash,
+        )
+        error_message = (
+            "Ett internt fel inträffade när intyget skulle delas."
+            if len(unique_items) == 1
+            else "Ett internt fel inträffade när intygen skulle delas."
+        )
+        return error_message, 500
+
+    logger.info(
+        "Handledare %s delade intyg %s till %s",
+        email_hash,
+        [(mask_hash(person_hash), pdf_id) for person_hash, pdf_id in unique_items],
+        mask_email(normalized_recipient),
+    )
+    success_message = (
+        "Intyget har skickats via e-post."
+        if len(attachments) == 1
+        else "Intygen har skickats via e-post."
+    )
+    return success_message, 200
+
+
+def _share_supervisor_pdfs(
+    email_hash: str,
+    supervisor_name: str,
+    person_hash: str,
+    pdf_ids: list[int],
+    recipient_email: str,
+) -> tuple[str, int]:
+    return _share_supervisor_pdf_items(
+        email_hash,
+        supervisor_name,
+        [(person_hash, pdf_id) for pdf_id in pdf_ids],
+        recipient_email,
+    )
+
+
+@app.post("/foretagskonto/dela")
+def supervisor_share_selected_pdfs_route() -> tuple[Response, int]:
+    email_hash, supervisor_name = _require_supervisor()
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"fel": "Ogiltig begäran."}), 400
+
+    if not validate_csrf_token():
+        return jsonify({"fel": CSRF_EXPIRED_MESSAGE}), 400
+
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+
+    items: list[tuple[str, int]] = []
+    seen_items: set[tuple[str, int]] = set()
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        raw_person_hash = raw_item.get("person_hash")
+        raw_pdf_id = raw_item.get("pdf_id")
+        if not isinstance(raw_person_hash, str) or not re.fullmatch(
+            r"[0-9a-fA-F]{64}", raw_person_hash
+        ):
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        if (
+            isinstance(raw_pdf_id, bool)
+            or not isinstance(raw_pdf_id, int)
+            or raw_pdf_id <= 0
+            or raw_pdf_id > sys.maxsize
+        ):
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+
+        item = (raw_person_hash.lower(), raw_pdf_id)
+        if item in seen_items:
+            continue
+        seen_items.add(item)
+        items.append(item)
+        if len(items) > SUPERVISOR_SHARE_MAX_CERTIFICATES:
+            return jsonify({"fel": SUPERVISOR_SHARE_TOO_MANY_MESSAGE}), 400
+
+    if not items:
+        return jsonify({"fel": "Välj minst ett intyg."}), 400
+
+    recipient_email = payload.get("recipient_email")
+    if not isinstance(recipient_email, str):
+        recipient_email = ""
+
+    message, status_code = _share_supervisor_pdf_items(
+        email_hash,
+        supervisor_name,
+        items,
+        recipient_email.strip(),
+    )
+    response_key = "meddelande" if status_code == 200 else "fel"
+    return jsonify({response_key: message}), status_code
+
+
+@app.post("/foretagskonto/dela/<person_hash>")
+def supervisor_share_pdfs_route(person_hash: str) -> tuple[Response, int]:
+    email_hash, supervisor_name = _require_supervisor()
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"fel": "Ogiltig begäran."}), 400
+
+    if not validate_csrf_token():
+        return jsonify({"fel": CSRF_EXPIRED_MESSAGE}), 400
+
+    raw_pdf_ids = payload.get("pdf_ids")
+    if not isinstance(raw_pdf_ids, list):
+        return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+
+    pdf_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw_pdf_id in raw_pdf_ids:
+        if isinstance(raw_pdf_id, bool):
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        if isinstance(raw_pdf_id, float) and not raw_pdf_id.is_integer():
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        try:
+            pdf_id = int(raw_pdf_id)
+        except (TypeError, ValueError):
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        if pdf_id <= 0 or pdf_id > sys.maxsize:
+            return jsonify({"fel": "Ogiltiga intyg angivna."}), 400
+        if pdf_id in seen_ids:
+            continue
+        seen_ids.add(pdf_id)
+        pdf_ids.append(pdf_id)
+
+    if not pdf_ids:
+        return jsonify({"fel": "Välj minst ett intyg."}), 400
+
+    recipient_email = payload.get("recipient_email")
+    if not isinstance(recipient_email, str):
+        recipient_email = ""
+
+    message, status_code = _share_supervisor_pdfs(
+        email_hash,
+        supervisor_name,
+        person_hash,
+        pdf_ids,
+        recipient_email.strip(),
+    )
+    response_key = "meddelande" if status_code == 200 else "fel"
+    return jsonify({response_key: message}), status_code
+
+
 @app.post("/foretagskonto/dela/<person_hash>/<int:pdf_id>")
 def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
     email_hash, supervisor_name = _require_supervisor()
@@ -1157,63 +1407,15 @@ def supervisor_share_pdf_route(person_hash: str, pdf_id: int):
         flash("Formuläret är inte längre giltigt. Ladda om sidan och försök igen.", "error")
         return redirect(redirect_target)
 
-    if not functions.supervisor_has_access(email_hash, person_hash):
-        logger.warning(
-            "Handledare %s försökte dela pdf %s för %s utan behörighet",
-            email_hash,
-            pdf_id,
-            person_hash,
-        )
-        flash("Åtgärden kunde inte utföras.", "error")
-        return redirect(redirect_target)
-
     recipient_email = (request.form.get("recipient_email") or "").strip()
-    if not recipient_email:
-        flash("Ange en e-postadress.", "error")
-        return redirect(redirect_target)
-
-    try:
-        normalized_recipient = email_service.normalize_valid_email(recipient_email)
-    except ValueError:
-        flash("Ogiltig e-postadress.", "error")
-        return redirect(redirect_target)
-
-    pdf = functions.get_pdf_content(person_hash, pdf_id)
-    if not pdf:
-        flash("Intyget kunde inte hittas.", "error")
-        return redirect(redirect_target)
-
-    pdf_metadata = functions.get_pdf_metadata(person_hash, pdf_id) or {}
-    category_labels = labels_for_slugs(pdf_metadata.get("categories") or [])
-    owner_name = functions.get_username_by_personnummer_hash(person_hash) or "Standardkontot"
-    attachments = [(pdf[0], pdf[1])]
-
-    try:
-        email_service.send_pdf_share_email(
-            normalized_recipient,
-            attachments,
-            supervisor_name,
-            owner_name=owner_name,
-            category_labels=[category_labels],
-        )
-    except RuntimeError:
-        logger.error(
-            "Misslyckades med att dela pdf %s för %s av handledare %s",
-            pdf_id,
-            person_hash,
-            email_hash,
-        )
-        flash("Ett internt fel inträffade när intyget skulle delas.", "error")
-        return redirect(redirect_target)
-
-    logger.info(
-        "Handledare %s delade pdf %s för %s till %s",
+    message, status_code = _share_supervisor_pdfs(
         email_hash,
-        pdf_id,
+        supervisor_name,
         person_hash,
-        mask_email(normalized_recipient),
+        [pdf_id],
+        recipient_email,
     )
-    flash("Intyget har skickats via e-post.", "success")
+    flash(message, "success" if status_code == 200 else "error")
     return redirect(redirect_target)
 
 
@@ -4262,6 +4464,17 @@ def unauthorized_error(_):  # pragma: no cover
     return render_template(
         "error.html", error_code=error_code, error_message=error_message, time=time.time()
     ), 401
+
+
+@app.errorhandler(403)
+def forbidden_error(_):  # pragma: no cover
+    # Visa en tydlig 403-sida när användaren saknar behörighet.
+    logger.warning("403 Åtkomst nekad: %s", request.path)
+    error_code = 403
+    error_message = "Du har inte behörighet att se den här sidan."
+    return render_template(
+        "error.html", error_code=error_code, error_message=error_message, time=time.time()
+    ), 403
 
 
 @app.errorhandler(409)

@@ -5,6 +5,25 @@ from flask import render_template
 import app
 
 
+def test_custom_403_page():
+    with app.app.test_client() as client:
+        response = client.get("/foretagskonto/standardkonto/test/pdf/1")
+        page = response.get_data(as_text=True)
+
+        assert response.status_code == 403
+        assert "Åtkomst nekad (403)" in page
+        assert "Stopp vid dörren" in page
+        assert "Du har inte behörighet att se den här sidan." in page
+        assert '<meta name="robots" content="noindex">' in page
+        assert "css/error.css" in page
+        assert 'class="error-403"' in page
+        assert 'class="error-403__gatekeeper"' in page
+        assert "Ett nyckelkort försöker komma in" in page
+        assert 'class="btn error-403__home-link" href="/"' in page
+        assert 'class="error-404"' not in page
+        assert 'class="error-general"' not in page
+
+
 def test_custom_404_page():
     with app.app.test_client() as client:
         response = client.get("/this-page-does-not-exist")
@@ -40,6 +59,7 @@ def test_general_error_layout_does_not_show_404_animation(
         )
 
     assert 'class="error-404"' not in page
+    assert 'class="error-403"' not in page
     assert 'class="error-general"' in page
     assert "css/error.css" in page
     assert page.count('class="error-general__gear ') == 3
@@ -59,7 +79,19 @@ def test_error_animations_respect_reduced_motion():
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
     assert ".error-general__gear" in stylesheet
     assert "error-general-jam-clockwise" in stylesheet
+    assert "error-403-pass-tries" in stylesheet
     assert "animation: none;" in stylesheet
+    assert (
+        ".error-403__pass {\n"
+        "        transform: translate(0.8rem, 0.9rem) rotate(-9deg);\n"
+        "    }"
+    ) in stylesheet
+    assert (
+        ".error-403__refusal {\n"
+        "        opacity: 1;\n"
+        "        transform: scale(1);\n"
+        "    }"
+    ) in stylesheet
     assert (
         ".error-404__face-eyes {\n"
         "        transform: translate(0, 112.5px);\n"
