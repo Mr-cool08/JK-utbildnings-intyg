@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% block title %}Utbildningsintyg och GDPR – Säker hantering av personuppgifter{% endblock %}
+{% block head %}
+    <meta name="description" content="Hur ska utbildningsintyg hanteras enligt GDPR? Läs om säker digital lagring, personuppgifter, åtkomst och hantering av företagets utbildningsintyg.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.utbildningsintyg.se/gdpr-utbildningsintyg">
+    <meta property="og:title" content="Utbildningsintyg och GDPR – Säker hantering av personuppgifter">
+    <meta property="og:description" content="Hur ska utbildningsintyg hanteras enligt GDPR? Läs om säker digital lagring, personuppgifter, åtkomst och hantering av företagets utbildningsintyg.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.utbildningsintyg.se/gdpr-utbildningsintyg">
+    <meta property="og:image" content="https://www.utbildningsintyg.se/static/pictures/gdpr-utbildningsintyg.webp">
+    <meta property="og:image:alt" content="Säker hantering av utbildningsintyg och personuppgifter enligt GDPR">
+    <meta property="og:image:width" content="1536">
+    <meta property="og:image:height" content="1024">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": "https://www.utbildningsintyg.se/gdpr-utbildningsintyg#webpage",
+                "url": "https://www.utbildningsintyg.se/gdpr-utbildningsintyg",
+                "name": "Utbildningsintyg och GDPR – Säker hantering av personuppgifter",
+                "description": "Hur ska utbildningsintyg hanteras enligt GDPR? Läs om säker digital lagring, personuppgifter, åtkomst och hantering av företagets utbildningsintyg.",
+                "inLanguage": "sv-SE"
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Hem",
+                        "item": "https://www.utbildningsintyg.se/"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Utbildningsintyg och GDPR",
+                        "item": "https://www.utbildningsintyg.se/gdpr-utbildningsintyg"
+                    }
+                ]
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": "Innehåller utbildningsintyg personuppgifter?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Ja, ofta. Ett utbildningsintyg kan exempelvis innehålla namn, arbetsgivare, utbildning, datum och andra uppgifter som kan kopplas till en person."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Blir ett företag automatiskt GDPR-kompatibelt genom att använda Utbildningsintyg?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Nej. Tjänsten kan stödja ordnad lagring och åtkomst, men varje organisation ansvarar fortfarande för bland annat rättslig grund, behörigheter, lagringstider och sina egna rutiner."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Hur länge får ett utbildningsintyg sparas?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Det finns ingen enda lagringstid som passar alla intyg. Organisationen behöver bedöma ändamål och rättslig grund, dokumentera sin gallringsrutin och ta bort uppgifter som inte längre behövs."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Vad bör göras med en tidigare anställds utbildningsintyg?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Ta bort åtkomst som inte längre behövs, avsluta onödiga kontokopplingar och bedöm om det finns ett dokumenterat ändamål och rättslig grund för fortsatt lagring."
+                        }
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Vad bör man tänka på när ett intyg delas via e-post?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Kontrollera mottagaradressen, skicka bara nödvändiga dokument och kom ihåg att en PDF-bilaga skapar en ny kopia utanför det ursprungliga arkivet."
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
+{% endblock %}
+{% block content %}
+<article class="seo-page reminder-page">
+    <header class="reminder-hero seo-hero" aria-labelledby="certificate-gdpr-title" data-motion="hero">
+        <nav class="reminder-breadcrumb" aria-label="Brödsmulor">
+            <a href="{{ url_for('home') }}">Hem</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Utbildningsintyg och GDPR</span>
+        </nav>
+
+        <div class="seo-hero__layout">
+            <div class="reminder-hero__copy" data-motion-group="gdpr-hero-copy">
+                <p class="reminder-eyebrow" data-motion-child>Personuppgifter i utbildningsdokument</p>
+                <h1 id="certificate-gdpr-title" data-motion-child>Utbildningsintyg och GDPR – vad behöver företag tänka på?</h1>
+                <p class="reminder-lead" data-motion-child>
+                    Utbildningsintyg kan innehålla uppgifter som går att koppla till en person.
+                    Därför behöver företag veta varför dokumenten sparas, vem som får se dem och
+                    när de ska tas bort.
+                </p>
+                <div class="reminder-hero__actions" data-motion-child>
+                    <a class="btn" href="#praktiska-steg">Se praktiska steg</a>
+                    <a class="reminder-text-link" href="{{ url_for('gdpr_info') }}">Läs integritetspolicyn</a>
+                </div>
+            </div>
+
+            <figure class="seo-hero__media" data-motion-child>
+                <img
+                    src="{{ url_for('static', filename='pictures/gdpr-utbildningsintyg.webp') }}"
+                    alt="Säker hantering av utbildningsintyg och personuppgifter enligt GDPR"
+                    width="1536"
+                    height="1024"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                >
+                <figcaption>Ordning, begränsad åtkomst och tydliga gallringsrutiner behöver fungera tillsammans.</figcaption>
+            </figure>
+        </div>
+    </header>
+
+    <nav class="reminder-jump-links" aria-label="Innehåll på sidan" data-motion="section">
+        <span>På sidan</span>
+        <a href="#personuppgifter">Personuppgifter i intyg</a>
+        <a href="#praktiska-steg">Praktiska steg</a>
+        <a href="#tidigare-anstallda">Tidigare anställda</a>
+        <a href="#fragor">Vanliga frågor</a>
+    </nav>
+
+    <section class="reminder-intro" id="personuppgifter" aria-labelledby="personal-data-title" data-motion="section">
+        <p class="reminder-section-label">Utgångspunkten</p>
+        <div class="reminder-intro__layout">
+            <h2 id="personal-data-title">Ett utbildningsintyg är ofta mer än bara ett dokument</h2>
+            <div class="reminder-prose">
+                <p>
+                    Namn, arbetsgivare, utbildningens innehåll, genomförandedatum och giltighetstid
+                    är exempel på uppgifter som kan förekomma i ett intyg. När informationen kan
+                    knytas till en person är den en personuppgift och behöver hanteras därefter.
+                </p>
+                <p>
+                    GDPR handlar inte bara om var filen ligger. Företaget behöver även ha ett
+                    tydligt ändamål med behandlingen, bedöma vilken rättslig grund som används och
+                    kunna beskriva vilka personer som får åtkomst. Den bedömningen görs av den
+                    ansvariga organisationen och kan inte ersättas av ett tekniskt system.
+                </p>
+            </div>
+        </div>
+        <p class="reminder-note">
+            <strong>Observera:</strong> Den här sidan ger allmän information och är inte juridisk
+            rådgivning. Ta hjälp av organisationens dataskyddsombud eller juridiska rådgivare när
+            en konkret bedömning behövs.
+        </p>
+    </section>
+
+    <section class="reminder-process-section" id="praktiska-steg" aria-labelledby="gdpr-steps-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">En tydligare rutin</p>
+                <h2 id="gdpr-steps-title">Fem praktiska steg för hantering av utbildningsintyg</h2>
+            </div>
+            <p>Tekniken hjälper först när den används tillsammans med dokumenterade beslut och återkommande kontroller.</p>
+        </div>
+
+        <ol class="reminder-process" data-motion-group="gdpr-process">
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">01</span>
+                <div>
+                    <h3>Bestäm varför intygen behövs</h3>
+                    <p>
+                        Beskriv ändamålet innan dokument samlas in. Det kan exempelvis handla om att
+                        planera utbildningar eller kunna visa att en viss utbildning har genomförts.
+                        Bedöm och dokumentera även den rättsliga grunden för behandlingen.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Ändamål</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">02</span>
+                <div>
+                    <h3>Samla inte in mer än vad som behövs</h3>
+                    <p>
+                        Begränsa dokument, filnamn och anteckningar till den information som behövs
+                        för det beslutade ändamålet. Undvik extra personuppgifter som inte hjälper
+                        organisationen att hantera utbildningen.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Minimering</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">03</span>
+                <div>
+                    <h3>Begränsa och följ upp åtkomsten</h3>
+                    <p>
+                        Bestäm vilka roller som behöver se intygen och se över åtkomsten när
+                        arbetsuppgifter förändras. I Utbildningsintyg får ett företagskonto tillgång
+                        till en privat användares intyg först efter att användaren har godkänt
+                        kontokopplingen.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Behörighet</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">04</span>
+                <div>
+                    <h3>Bestäm en lagringstid och gallra</h3>
+                    <p>
+                        Sätt en rutin för när intyg ska granskas, uppdateras eller tas bort. Ett
+                        utgångsdatum för utbildningen är användbart för planering, men avgör inte
+                        automatiskt hur länge personuppgifterna får sparas.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Lagringstid</p>
+            </li>
+            <li data-motion-child>
+                <span class="reminder-process__number" aria-hidden="true">05</span>
+                <div>
+                    <h3>Hantera delning som en ny behandling</h3>
+                    <p>
+                        När ett intyg skickas som en PDF-bilaga via e-post skapas en kopia utanför
+                        det digitala arkivet. Kontrollera mottagaren och dela bara det underlag som
+                        behövs. Läs mer om att
+                        <a href="{{ url_for('share_certificates_info') }}">dela utbildningsintyg digitalt</a>.
+                    </p>
+                </div>
+                <p class="reminder-process__detail">Delning</p>
+            </li>
+        </ol>
+    </section>
+
+    <div class="reminder-audiences" data-motion-group="gdpr-responsibilities">
+        <section aria-labelledby="organization-responsibility-title" data-motion-child>
+            <p class="reminder-section-label">Organisationens ansvar</p>
+            <h2 id="organization-responsibility-title">Ett system ersätter inte företagets egna beslut</h2>
+            <p>
+                Företaget behöver själv avgöra vilka intyg som ska behandlas, varför behandlingen
+                är tillåten, vilka som får åtkomst och när uppgifterna ska gallras. Rutinerna bör
+                vara begripliga för både ansvariga chefer och de personer vars intyg hanteras.
+            </p>
+            <ul class="reminder-check-list">
+                <li>Dokumentera ändamål och rättslig grund.</li>
+                <li>Informera berörda personer på ett tydligt sätt.</li>
+                <li>Begränsa åtkomst efter arbetsuppgift och behov.</li>
+                <li>Följ upp lagringstider och genomför beslutad gallring.</li>
+            </ul>
+        </section>
+
+        <section aria-labelledby="service-support-title" data-motion-child>
+            <p class="reminder-section-label">Vad tjänsten stödjer</p>
+            <h2 id="service-support-title">Ett samlat arkiv ger bättre förutsättningar för ordning</h2>
+            <p>
+                Utbildningsintyg samlar dokument i ett digitalt arkiv och låter privata användare
+                godkänna en kontokoppling innan ett företag får åtkomst. Kopplade användare och
+                deras intyg kan därefter visas i företagsportalen.
+            </p>
+            <p>
+                Funktionerna kan stödja företagets arbete, men de gör inte organisationen
+                automatiskt GDPR-kompatibel. Läs mer om upplägget på sidan om
+                <a href="{{ url_for('company_certificates_info') }}">utbildningsintyg för företag</a>.
+            </p>
+        </section>
+    </div>
+
+    <section class="reminder-capabilities" id="tidigare-anstallda" aria-labelledby="former-employees-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">När anställningen upphör</p>
+                <h2 id="former-employees-title">Tidigare anställdas intyg kräver ett aktivt beslut</h2>
+            </div>
+            <p>Att ett dokument går att spara betyder inte att det alltid ska ligga kvar eller vara åtkomligt.</p>
+        </div>
+
+        <dl class="reminder-capability-list">
+            <div>
+                <dt>Ta bort åtkomst</dt>
+                <dd>Avsluta kontokopplingar och andra behörigheter som inte längre behövs.</dd>
+            </div>
+            <div>
+                <dt>Bedöm fortsatt behov</dt>
+                <dd>Kontrollera om det finns ett dokumenterat ändamål och en rättslig grund för fortsatt lagring.</dd>
+            </div>
+            <div>
+                <dt>Gallra enligt rutin</dt>
+                <dd>Ta bort uppgifter när ändamålet har upphört och ingen annan grund motiverar fortsatt behandling.</dd>
+            </div>
+            <div>
+                <dt>Dokumentera beslutet</dt>
+                <dd>Gör det tydligt varför information sparas eller tas bort och vem som ansvarar för uppföljningen.</dd>
+            </div>
+        </dl>
+
+        <p class="reminder-capabilities__summary">
+            En samlad vy kan göra översynen enklare än om intygen ligger i separata mejl och
+            mappar. Läs mer om att
+            <a href="{{ url_for('digital_certificate_storage_info') }}">lagra utbildningsintyg digitalt</a>.
+        </p>
+    </section>
+
+    <section class="reminder-faq" id="fragor" aria-labelledby="gdpr-faq-title" data-motion="section">
+        <div class="reminder-section-heading">
+            <div>
+                <p class="reminder-section-label">Vanliga frågor</p>
+                <h2 id="gdpr-faq-title">Om utbildningsintyg, personuppgifter och GDPR</h2>
+            </div>
+        </div>
+
+        <div class="reminder-faq__list">
+            <details>
+                <summary>Innehåller utbildningsintyg personuppgifter?</summary>
+                <p>
+                    Ja, ofta. Ett utbildningsintyg kan exempelvis innehålla namn, arbetsgivare,
+                    utbildning, datum och andra uppgifter som kan kopplas till en person.
+                </p>
+            </details>
+            <details>
+                <summary>Blir ett företag automatiskt GDPR-kompatibelt genom att använda Utbildningsintyg?</summary>
+                <p>
+                    Nej. Tjänsten kan stödja ordnad lagring och åtkomst, men varje organisation
+                    ansvarar fortfarande för bland annat rättslig grund, behörigheter, lagringstider
+                    och sina egna rutiner.
+                </p>
+            </details>
+            <details>
+                <summary>Hur länge får ett utbildningsintyg sparas?</summary>
+                <p>
+                    Det finns ingen enda lagringstid som passar alla intyg. Organisationen behöver
+                    bedöma ändamål och rättslig grund, dokumentera sin gallringsrutin och ta bort
+                    uppgifter som inte längre behövs.
+                </p>
+            </details>
+            <details>
+                <summary>Vad bör göras med en tidigare anställds utbildningsintyg?</summary>
+                <p>
+                    Ta bort åtkomst som inte längre behövs, avsluta onödiga kontokopplingar och
+                    bedöm om det finns ett dokumenterat ändamål och rättslig grund för fortsatt
+                    lagring.
+                </p>
+            </details>
+            <details>
+                <summary>Vad bör man tänka på när ett intyg delas via e-post?</summary>
+                <p>
+                    Kontrollera mottagaradressen, skicka bara nödvändiga dokument och kom ihåg att
+                    en PDF-bilaga skapar en ny kopia utanför det ursprungliga arkivet.
+                </p>
+            </details>
+        </div>
+    </section>
+
+    <nav class="seo-related" aria-labelledby="gdpr-related-title" data-motion="section">
+        <p class="reminder-section-label">Guider och artiklar</p>
+        <h2 id="gdpr-related-title">Fördjupa arbetet med intyg och personuppgifter</h2>
+        <ul>
+            <li><a href="{{ url_for('digital_certificate_storage_info') }}">Lagra utbildningsintyg digitalt</a></li>
+            <li><a href="{{ url_for('company_certificates_info') }}">Utbildningsintyg för företag</a></li>
+            <li><a href="{{ url_for('competence_register_info') }}">Digitalt kompetensregister</a></li>
+        </ul>
+    </nav>
+
+    <section class="reminder-cta" aria-labelledby="gdpr-cta-title" data-motion="section">
+        <p class="reminder-cta__eyebrow">Tydliga rutiner före tekniska verktyg</p>
+        <h2 id="gdpr-cta-title">Se hur tjänsten kan passa in i företagets intygshantering</h2>
+        <p>Utforska företagslösningen och läs den fullständiga integritetspolicyn innan ni går vidare.</p>
+        <div class="reminder-cta__actions">
+            <a class="btn reminder-cta__primary" href="{{ url_for('company_certificates_info') }}">För företag</a>
+            <a class="btn btn-ghost" href="{{ url_for('gdpr_info') }}">Integritetspolicy</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
+<!-- # Copyright (c) Liam Suorsa and Mika Suorsa -->

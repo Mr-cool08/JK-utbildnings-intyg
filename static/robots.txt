@@ -3,17 +3,23 @@
 # Den här filen beskriver hur sökrobotar får genomsöka webbplatsen
 
 User-agent: *
-# Tillåt all åtkomst till innehåll som kan genomsökas
+# Tillåt genomsökning av publikt innehåll
 Allow: /
 
-# Blockera känsliga eller irrelevanta områden
-Disallow: /login/
-Disallow: /tmp/
-Disallow: /uploads/
+# Blockera privata, administrativa och engångsbaserade sidor
+Disallow: /login
+Disallow: /dashboard
+Disallow: /foretagskonto/login
+Disallow: /foretagskonto/skapa/
 
-# Tillåt viktiga resurser för rendering
+# Förhindra indexering av återstående interna endpoint-sökvägar
+Disallow: /health
+Disallow: /error
+
+# Tillåt offentliga resurser som behövs för rendering
 Allow: /static/
 Allow: /media/
+Disallow: /uploads/
 Allow: /uploads/public/
 
 # Webbplatskarta för bättre indexering

@@ -10,6 +10,7 @@ from functools import partial
 import importlib
 import importlib.util
 import logging
+import mimetypes
 import os
 import re
 import secrets
@@ -66,6 +67,7 @@ from functions.requests import as_bool, get_request_ip, register_public_submissi
 
 load_environment()
 configure_root_logging()
+mimetypes.add_type("image/webp", ".webp")
 
 import functions
 
@@ -1508,6 +1510,54 @@ def home():
 def expiry_reminders_info():
     # Förklara intygsbevakningen på en publik, sökbar informationssida.
     return render_template("expiry_reminders.html")
+
+
+@app.route("/digitala-utbildningsintyg", methods=["GET"])
+def digital_certificates_info():
+    # Förklara hur digitala utbildningsintyg kan samlas och användas.
+    return render_template("digitala_utbildningsintyg.html")
+
+
+@app.route("/hantera-utbildningsintyg", methods=["GET"])
+def manage_certificates_info():
+    # Visa hur ett digitalt arkiv förenklar ordning och administration.
+    return render_template("hantera_utbildningsintyg.html")
+
+
+@app.route("/utbildningsintyg-for-foretag", methods=["GET"])
+def company_certificates_info():
+    # Beskriv företagsportalens verifierade flöde och funktioner.
+    return render_template("utbildningsintyg_for_foretag.html")
+
+
+@app.route("/kompetensregister", methods=["GET"])
+def competence_register_info():
+    # Förklara kompetensregister med fokus på dokumenterade utbildningar.
+    return render_template("kompetensregister.html")
+
+
+@app.route("/hall-koll-pa-personalens-utbildningar", methods=["GET"])
+def staff_training_info():
+    # Ge praktisk vägledning för uppföljning av personalens utbildningar.
+    return render_template("hall_koll_pa_personalens_utbildningar.html")
+
+
+@app.route("/lagra-utbildningsintyg-digitalt", methods=["GET"])
+def digital_certificate_storage_info():
+    # Beskriv format, åtkomst och ordning i det digitala intygsarkivet.
+    return render_template("lagra_utbildningsintyg_digitalt.html")
+
+
+@app.route("/dela-utbildningsintyg", methods=["GET"])
+def share_certificates_info():
+    # Förklara hur intyg delas som PDF-bilagor via e-post.
+    return render_template("dela_utbildningsintyg.html")
+
+
+@app.route("/gdpr-utbildningsintyg", methods=["GET"])
+def certificate_gdpr_info():
+    # Ge allmän information om GDPR vid hantering av utbildningsintyg.
+    return render_template("gdpr_utbildningsintyg.html")
 
 
 @app.route("/ansok", methods=["GET"])
