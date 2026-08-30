@@ -1,26 +1,21 @@
-# Copyright (c) Liam Suorsa and Mika Suorsa
+# Copyright (c) Liam Suorsa och Mika Suorsa
 # robots.txt för https://www.utbildningsintyg.se/
-# Den här filen beskriver hur sökrobotar får genomsöka webbplatsen
 
 User-agent: *
-# Tillåt genomsökning av publikt innehåll
+# Tillåt alla sök- och AI-botar att läsa publikt innehåll
 Allow: /
+Allow: /static/
+Allow: /media/
+Allow: /uploads/public/
 
-# Blockera privata, administrativa och engångsbaserade sidor
+# Blockera interna, privata och administrativa sidor för ALLA botar
 Disallow: /login
 Disallow: /dashboard
 Disallow: /foretagskonto/login
 Disallow: /foretagskonto/skapa/
-
-# Förhindra indexering av återstående interna endpoint-sökvägar
 Disallow: /health
 Disallow: /error
-
-# Tillåt offentliga resurser som behövs för rendering
-Allow: /static/
-Allow: /media/
 Disallow: /uploads/
-Allow: /uploads/public/
 
-# Webbplatskarta för bättre indexering
+# Webbplatskarta
 Sitemap: https://www.utbildningsintyg.se/sitemap.xml
