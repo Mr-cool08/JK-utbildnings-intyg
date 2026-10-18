@@ -2,6 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 import scripts.update_app as ua
 
 
@@ -39,6 +41,8 @@ def _patch_main_runtime(
     monkeypatch.setattr(ua, "_build_venv_command", lambda root, a, b: [venv_bin])
     monkeypatch.setattr(ua, "_find_requirements", lambda root: [])
     monkeypatch.setattr(ua, "_run_os_upgrade_if_enabled", lambda: None)
+    monkeypatch.setattr(ua, "_preflight_fail2ban", lambda root, env: [])
+    monkeypatch.setattr(ua, "_activate_fail2ban", lambda root, env, addresses: None)
     if cron_marker is None:
         monkeypatch.setattr(ua, "_ensure_expiry_reminder_cron", lambda root: None)
     else:
@@ -139,6 +143,8 @@ def test_main_sequence_runs_expected_commands(monkeypatch):
 
 def test_main_runs_pytest_with_deterministic_test_env(monkeypatch):
     calls = []
+    monkeypatch.setattr(ua, "_preflight_fail2ban", lambda root, env: [])
+    monkeypatch.setattr(ua, "_activate_fail2ban", lambda root, env, addresses: None)
 
     def fake_run(cmd, check=True, **kwargs):
         calls.append(
@@ -226,6 +232,7 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
             json.dumps(
                 {
                     "services": {
+                        "fail2ban": {},
                         "traefik": {},
                         "app": {},
                         "expiry_reminder": {},
@@ -358,3 +365,126 @@ def test_main_ensures_expiry_reminder_cron_after_compose_up(monkeypatch):
     )
     cron_index = _index_of_command(calls, ["cron-ensure"])
     assert cron_index == up_index + 1
+
+
+
+def test_fail2ban_access_is_idempotent_and_preserves_existing_addresses(tmp_path):
+    env = {"SSH_CONNECTION": "203.0.113.7 50000 192.0.2.1 2222"}
+    ua._prepare_fail2ban_access(tmp_path, env)
+    path = tmp_path / "deploy/fail2ban/ssh-access.local"
+    original = path.read_bytes()
+    ua._prepare_fail2ban_access(tmp_path, env)
+    assert path.read_bytes() == original
+    ua._prepare_fail2ban_access(
+        tmp_path, {"SSH_CONNECTION": "2001:db8::7 50001 2001:db8::1 2222"}
+    )
+    content = path.read_text(encoding="utf-8")
+    assert "203.0.113.7/32" in content
+    assert "2001:db8::7/128" in content
+    assert "port = 2222" in content
+
+
+@pytest.mark.parametrize("env", [
+    {},
+    {"SSH_CONNECTION": "felaktigt"},
+    {"SSH_CONNECTION": "ingen-ip 50000 192.0.2.1 22"},
+    {"FAIL2BAN_ADMIN_IPS": "203.0.113.7", "FAIL2BAN_SSH_PORTS": "0"},
+    {"FAIL2BAN_ADMIN_IPS": "127.0.0.1", "FAIL2BAN_SSH_PORTS": "22"},
+])
+def test_fail2ban_missing_or_invalid_access_does_not_write_file(tmp_path, env):
+    with pytest.raises(ValueError):
+        ua._prepare_fail2ban_access(tmp_path, env)
+    assert not (tmp_path / "deploy/fail2ban/ssh-access.local").exists()
+
+
+def test_fail2ban_existing_access_supports_unattended_updates(tmp_path):
+    env = {"FAIL2BAN_ADMIN_IPS": "203.0.113.7 2001:db8::7", "FAIL2BAN_SSH_PORTS": "22,2222"}
+    expected = ua._prepare_fail2ban_access(tmp_path, env)
+    assert ua._prepare_fail2ban_access(tmp_path, {}) == expected
+
+
+def test_fail2ban_rejects_overrides_that_disable_protection(tmp_path):
+    path = tmp_path / "deploy/fail2ban/ssh-access.local"
+    path.parent.mkdir(parents=True)
+    content = "[sshd]\nenabled = false\nignoreip = 203.0.113.7\nport = 22\n"
+    path.write_text(content)
+    with pytest.raises(ValueError):
+        ua._prepare_fail2ban_access(tmp_path, {})
+    assert path.read_text() == content
+
+
+def test_fail2ban_preflight_uses_no_daemon_and_never_stops_services(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(ua, "_run", lambda cmd, **kw: calls.append(cmd))
+    ua._preflight_fail2ban(tmp_path, {"SSH_CONNECTION": "203.0.113.7 50000 192.0.2.1 22"})
+    assert len(calls) == 2
+    assert calls[0] == ua._compose_command("config", "--quiet")
+    assert calls[1][-1] == "test -s /var/log/host/auth.log && fail2ban-client -t"
+    assert "--no-deps" in calls[1]
+    assert "stop" not in calls[1]
+
+
+@pytest.mark.parametrize("failure", [None, "up", "maxretry", "ignoreip"])
+def test_fail2ban_activation_verifies_and_stops_only_fail2ban_on_failure(
+    monkeypatch, tmp_path, failure
+):
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "up" in cmd and failure == "up":
+            raise subprocess.TimeoutExpired(cmd, 210)
+        output = {
+            "maxretry": "5", "findtime": "600", "bantime": "3600",
+            "ignoreip": (
+                "These IP addresses/networks are ignored:\n"
+                "|- 127.0.0.0/8\n|- ::1\n`- 203.0.113.7"
+            ),
+        }.get(cmd[-1], "")
+        if cmd[-1] == failure:
+            output = "0"
+        return subprocess.CompletedProcess(cmd, 0, output, "")
+
+    monkeypatch.setattr(ua, "_run", run)
+    if failure:
+        with pytest.raises((RuntimeError, subprocess.TimeoutExpired)):
+            ua._activate_fail2ban(tmp_path, {}, ["203.0.113.7/32"])
+        assert calls[-1] == ua._compose_command("stop", "-t", "30", "fail2ban")
+    else:
+        ua._activate_fail2ban(tmp_path, {}, ["203.0.113.7/32"])
+        assert not any("stop" in cmd for cmd in calls)
+    assert "--wait" in calls[0]
+    assert all("fail2ban" in cmd for cmd in calls)
+
+
+def test_fail2ban_only_skips_all_general_update_steps(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ua, "_load_project_environment", lambda root: None)
+    monkeypatch.setattr(
+        ua, "_preflight_fail2ban", lambda root, env: calls.append("preflight") or []
+    )
+    monkeypatch.setattr(
+        ua, "_activate_fail2ban", lambda root, env, addresses: calls.append("activate")
+    )
+    monkeypatch.setattr(
+        ua, "_run", lambda *args, **kwargs: pytest.fail("Övriga tjänster får inte påverkas")
+    )
+    ua.main(fail2ban_only=True)
+    assert calls == ["preflight", "activate"]
+
+
+def test_main_preflight_failure_prevents_stopping_services(monkeypatch):
+    calls = []
+    _patch_main_runtime(monkeypatch, calls)
+
+    def fail(root, env):
+        raise RuntimeError("Konfigurationen är felaktig")
+
+    monkeypatch.setattr(ua, "_preflight_fail2ban", fail)
+    with pytest.raises(RuntimeError):
+        ua.main()
+    assert not any("stop" in cmd or "up" in cmd for cmd, _ in calls)
+    assert any("pull" in cmd for cmd, _ in calls)
+
+
+# Copyright (c) Liam Suorsa and Mika Suorsa

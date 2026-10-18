@@ -14,9 +14,9 @@ The sequence executed by :func:`main` is:
 6. locate virtualenv commands
 7. install Python requirements found in the repo tree
 8. run the test suite with pytest
-9. stop main compose containers
-10. pull latest images
-11. rebuild and bring up the main compose services without cache
+9. pull latest images and validate Fail2ban with SSH access exceptions
+10. stop main compose containers
+11. rebuild and bring up the main compose services without cache; verify Fail2ban
 13. display live ``docker stats`` for sixty seconds
 14. run a series of ``docker prune`` commands to clean up space
 
@@ -27,6 +27,9 @@ underlying exceptions such as ``subprocess.CalledProcessError`` and
 
 from __future__ import annotations
 
+import argparse
+import configparser
+import ipaddress
 import json
 import os
 import shlex
@@ -34,13 +37,14 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 from typing import Iterable, List
 
 from dotenv import load_dotenv
 
 COMPOSE_FILE = "docker-compose.yml"
-COMPOSE_UP_EXCLUDED_SERVICES = frozenset({"expiry_reminder"})
+COMPOSE_UP_EXCLUDED_SERVICES = frozenset({"expiry_reminder", "fail2ban"})
 DEFAULT_EXPIRY_REMINDER_CRON_SCHEDULE = "0 7 1 * *"
 EXPIRY_REMINDER_CRON_MARKER = "# jk-utbildnings-intyg expiry_reminder"
 
@@ -297,11 +301,134 @@ def _run_os_upgrade_if_enabled() -> None:
 
 
 # --- workflow ---------------------------------------------------------------
-def main() -> None:
+def _prepare_fail2ban_access(root: Path, env: dict[str, str]) -> list[str]:
+    """Preserve existing access exceptions and include the current SSH client."""
+    path = root / "deploy/fail2ban/ssh-access.local"
+    config = configparser.ConfigParser(interpolation=None)
+    if path.exists():
+        config.read(path, encoding="utf-8")
+    if config.defaults() or any(section != "sshd" for section in config.sections()):
+        raise ValueError("Åtkomstfilen får endast innehålla sektionen [sshd].")
+    if not config.has_section("sshd"):
+        config.add_section("sshd")
+    if set(config["sshd"]) - {"ignoreip", "port"}:
+        raise ValueError("Åtkomstfilen får endast ange ignoreip och port.")
+    addresses = config.get("sshd", "ignoreip", fallback="").split()
+    addresses += env.get("FAIL2BAN_ADMIN_IPS", "").split()
+    connection = env.get("SSH_CONNECTION", "").split()
+    port = env.get("FAIL2BAN_SSH_PORTS") or config.get("sshd", "port", fallback="")
+    if connection:
+        if len(connection) != 4:
+            raise ValueError("SSH_CONNECTION måste innehålla fyra fält.")
+        addresses.append(str(ipaddress.ip_address(connection[0])))
+        if not port:
+            port = connection[3]
+    networks = [ipaddress.ip_network(value, strict=False) for value in addresses]
+    if not any(not network.is_loopback for network in networks):
+        raise ValueError(
+            "Administrationsadress saknas. Bevara SSH_CONNECTION via sudo eller "
+            "ange FAIL2BAN_ADMIN_IPS och FAIL2BAN_SSH_PORTS."
+        )
+    ports = port.split(",")
+    if not all(value.isdecimal() and 1 <= int(value) <= 65535 for value in ports):
+        raise ValueError("SSH-portarna måste vara kommaseparerade tal mellan 1 och 65535.")
+    addresses = list(dict.fromkeys(["127.0.0.0/8", "::1/128", *map(str, networks)]))
+    config["sshd"]["ignoreip"] = " ".join(addresses)
+    config["sshd"]["port"] = ",".join(str(int(value)) for value in ports)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            config.write(stream)
+            stream.write("\n# Copyright (c) Liam Suorsa and Mika Suorsa\n")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+    print("SSH-undantagen har sparats. Befintliga administrationsadresser behålls.")
+    return addresses
+
+
+def _preflight_fail2ban(root: Path, env: dict[str, str]) -> list[str]:
+    addresses = _prepare_fail2ban_access(root, env)
+    _run(_compose_command("config", "--quiet"), cwd=root, env=env)
+    _run(
+        _compose_command(
+            "run", "--rm", "--no-deps", "--pull", "never",
+            "fail2ban", "sh", "-c",
+            "test -s /var/log/host/auth.log && fail2ban-client -t",
+        ),
+        cwd=root, env=env,
+    )
+    return addresses
+
+
+def _activate_fail2ban(root: Path, env: dict[str, str], addresses: list[str]) -> None:
+    """Start only Fail2ban and stop it if runtime verification fails."""
+    try:
+        _run(
+            _compose_command(
+                "up", "-d", "--no-deps", "--pull", "never", "--force-recreate",
+                "--wait", "--wait-timeout", "180", "fail2ban",
+            ),
+            cwd=root, env=env, timeout=210,
+        )
+        for setting, expected in (("maxretry", "5"), ("findtime", "600"), ("bantime", "3600")):
+            result = _run(
+                _compose_command("exec", "-T", "fail2ban", "fail2ban-client",
+                                 "get", "sshd", setting),
+                cwd=root, env=env, capture_output=True, text=True, timeout=15,
+            )
+            if result.stdout.strip() != expected:
+                raise RuntimeError(f"Fel värde för sshd/{setting}: förväntade {expected}.")
+        # Kontrollera att varje undantag faktiskt finns i den körande jailen.
+        result = _run(
+            _compose_command("exec", "-T", "fail2ban", "fail2ban-client",
+                             "get", "sshd", "ignoreip"),
+            cwd=root, env=env, capture_output=True, text=True, timeout=15,
+        )
+        active = set()
+        for token in result.stdout.split():
+            try:
+                active.add(ipaddress.ip_network(token, strict=False))
+            except ValueError:
+                continue
+        if not all(ipaddress.ip_network(value, strict=False) in active for value in addresses):
+            raise RuntimeError("SSH-undantagen saknas i den körande jailen.")
+        _run(
+            _compose_command("exec", "-T", "fail2ban", "fail2ban-client", "status", "sshd"),
+            cwd=root, env=env, timeout=15,
+        )
+    except (Exception, KeyboardInterrupt):
+        print("Verifieringen misslyckades. Stoppar endast Fail2ban för att skydda SSH-åtkomsten.")
+        try:
+            _run(
+                _compose_command("stop", "-t", "30", "fail2ban"),
+                cwd=root, env=env, timeout=45,
+            )
+        except Exception as error:
+            print(
+                "Kunde inte stoppa Fail2ban. Använd serverkonsolen för att "
+                f"kontrollera SSH-reglerna: {error}"
+            )
+        raise
+    print("Fail2ban är healthy: SSH-jail och åtkomstundantag har verifierats.")
+
+
+def main(*, fail2ban_only: bool = False) -> None:
     root = Path(__file__).resolve().parent.parent
     _load_project_environment(root)
     compose_env = os.environ.copy()
     compose_env["POSTGRES_PUBLIC_PORT"] = _get_valid_postgres_public_port()
+
+    if fail2ban_only:
+        addresses = _preflight_fail2ban(root, compose_env)
+        _activate_fail2ban(root, compose_env, addresses)
+        return
 
 
     # 1. container status
@@ -334,16 +461,20 @@ def main() -> None:
     # 8. run pytest
     _run([*pytest_cmd], cwd=root, env=_build_pytest_environment(root))
 
-    # 8. stop containers
-    _run(_compose_command("stop"), cwd=root, env=compose_env)
-
     # 8.5 pull images
     _run(_compose_command("pull"), cwd=root, env=compose_env)
+
+    # Validera den hämtade imagen innan några tjänster stoppas.
+    addresses = _preflight_fail2ban(root, compose_env)
+
+    # 8. stop containers
+    _run(_compose_command("stop"), cwd=root, env=compose_env)
 
     # 9. rebuild & up without cache
     _run(_compose_command("build", "--no-cache"), cwd=root, env=compose_env)
     _run(_build_compose_up_command(root, compose_env), cwd=root, env=compose_env)
     _ensure_expiry_reminder_cron(root)
+    _activate_fail2ban(root, compose_env, addresses)
 
     # 13. show stats for 60 seconds
     proc = subprocess.Popen(["docker", "stats", "--all"], cwd=root)
@@ -360,6 +491,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Uppdatera applikationen och verifiera Fail2ban.")
+    parser.add_argument(
+        "--fail2ban-only", action="store_true",
+        help="Förbered och verifiera endast Fail2ban, utan övriga uppdateringssteg.",
+    )
+    main(fail2ban_only=parser.parse_args().fail2ban_only)
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

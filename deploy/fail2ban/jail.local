@@ -3,13 +3,15 @@
 bantime = 1h
 findtime = 10m
 maxretry = 5
-backend = auto
+backend = polling
+ignoreip = 127.0.0.1/8 ::1
 
 [sshd]
 enabled = true
 port = ssh
-mode = aggressive
+mode = normal
+chain = INPUT
+banaction = iptables-multiport
 logpath = /var/log/host/auth.log
-          /var/log/host/secure
 
 # Copyright (c) Liam Suorsa and Mika Suorsa

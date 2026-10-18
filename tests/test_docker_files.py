@@ -307,6 +307,11 @@ def test_fail2ban_service_reads_host_ssh_logs_instead_of_traefik_logs():
 
     assert "      - /var/log:/var/log/host:ro" in fail2ban_service
     assert "      - traefik_logs:/var/log/traefik:ro" not in fail2ban_service
+    assert "/data/jail.d/jail.local:ro" in fail2ban_service
+    assert "/etc/fail2ban/fail2ban.local:ro" in fail2ban_service
+    assert "target: /data/jail.d/zz-ssh-access.local" in fail2ban_service
+    assert "create_host_path: false" in fail2ban_service
+    assert '["CMD", "fail2ban-client", "status", "sshd"]' in fail2ban_service
 
 
 def test_fail2ban_jail_prioritizes_sshd_protection():
@@ -315,9 +320,15 @@ def test_fail2ban_jail_prioritizes_sshd_protection():
     assert "[sshd]" in jail
     assert "enabled = true" in jail
     assert "port = ssh" in jail
-    assert "mode = aggressive" in jail
+    assert "mode = normal" in jail
+    assert "chain = INPUT" in jail
+    assert "banaction = iptables-multiport" in jail
+    assert "backend = polling" in jail
+    assert "maxretry = 5" in jail
+    assert "findtime = 10m" in jail
+    assert "bantime = 1h" in jail
     assert "logpath = /var/log/host/auth.log" in jail
-    assert "/var/log/host/secure" in jail
+    assert "/var/log/host/secure" not in jail
     assert "[traefik-http-auth]" not in jail
     assert "[traefik-badbots]" not in jail
 

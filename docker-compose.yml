@@ -36,20 +36,35 @@ services:
 
   fail2ban:
     image: crazymax/fail2ban
+    environment:
+      TZ: ${TZ:-Europe/Stockholm}
     cap_add:
       - NET_ADMIN
       - NET_RAW
     network_mode: host
     volumes:
-      - ./deploy/fail2ban/jail.local:/data/jail.local:ro
-      - ./deploy/fail2ban/fail2ban.local:/data/fail2ban.local:ro
+      - ./deploy/fail2ban/jail.local:/data/jail.d/jail.local:ro
+      - ./deploy/fail2ban/fail2ban.local:/etc/fail2ban/fail2ban.local:ro
+      # Skapas på servern före start; innehåller tillåten administratörsadress och SSH-port.
+      - type: bind
+        source: ./deploy/fail2ban/ssh-access.local
+        target: /data/jail.d/zz-ssh-access.local
+        read_only: true
+        bind:
+          create_host_path: false
       - /var/log:/var/log/host:ro
       - fail2ban_data:/data/db
+    healthcheck:
+      test: ["CMD", "fail2ban-client", "status", "sshd"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
-    mem_limit: 96m
-    memswap_limit: 96m
-    cpus: "0.10"
-    pids_limit: 100
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpus: "0.20"
+    pids_limit: 200
 
   app:
     build: .

@@ -73,7 +73,7 @@ För publik drift bör direktåtkomst till origin begränsas med brandvägg, sä
 
 ## Fail2ban
 
-`fail2ban` är konfigurerad för att läsa hostens SSH-loggar från `/var/log/auth.log` eller `/var/log/secure` och bannlysa upprepade inloggningsförsök mot SSH.
+`fail2ban` läser värdens SSH-logg `/var/log/auth.log` och blockerar efter fem matchande fel inom tio minuter i en timme. Före start måste den lokala filen `deploy/fail2ban/ssh-access.local` skapas med administrationsadress och SSH-port. Följ [driftsättningsguiden för Fail2ban](../deploy/fail2ban/README.md) för förkontroll, säker aktivering och verifiering.
 
 Publik webbtrafik bör i stället filtreras av Cloudflare och serverns brandvägg, så att fail2ban inte behöver vara primärt webbskydd för HTTP/HTTPS.
 
