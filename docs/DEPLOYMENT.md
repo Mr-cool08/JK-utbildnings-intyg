@@ -64,7 +64,7 @@ Exempel på cron den första dagen varje månad klockan 07:00:
 
 Direkta host-portar i Compose:
 
-- `80:80` - huvudappen
+- `80:80` - Traefik, med omdirigering till HTTPS
 - `443:443` - Traefik för HTTPS
 - `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
 - `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
@@ -131,6 +131,73 @@ python scripts/update_app.py
 ```
 
 På Linux-servrar där `crontab` finns installerat säkerställer skriptet också att månadsjobbet för `expiry_reminder` finns inlagt en gång, utan dubbletter.
+
+## HTTP på dev-servern utan port 443
+
+Produktionsstarten ovan kräver Traefik, port 443 och origin-certifikat.
+`app` har endast `expose: 80`, vilket inte publicerar någon port på värden.
+För dev-servern finns tjänsten `dev_http` i samma `docker-compose.yml`.
+Den är profilavstängd som standard och vägrar starta utan exakt `DEV_MODE=true`.
+Den använder en separat HTTP-konfiguration utanför produktionsproxyns
+konfigurationskatalog, utan certifikat, HTTPS-omdirigering eller Docker-socket.
+
+Kör endast på dev-servern och från dess befintliga projektkatalog. Behåll
+projektnamn, databasinställningar och volymer. Hämta först den granskade
+kodändringen genom er vanliga Git-rutin. Kontrollera därefter nuläget:
+
+```bash
+git rev-parse --short HEAD
+docker compose -f docker-compose.yml ps --all
+docker compose -f docker-compose.yml port app 80
+sudo ss -ltnp '( sport = :80 or sport = :443 )'
+docker compose -f docker-compose.yml exec -T app curl -fsS http://127.0.0.1:80/health
+```
+
+För den första återställningen behövs ingen omstart eller ombyggnad av appen.
+Följande stoppar endast projektets produktionsproxy på dev-servern och startar
+HTTP-proxyn. Bindningen begränsas till serverns LAN-adress:
+
+```bash
+DEV_MODE=true DEV_HTTP_BIND_IP=192.168.10.116 docker compose -f docker-compose.yml --profile dev-http config --quiet
+docker compose -f docker-compose.yml stop traefik
+DEV_MODE=true DEV_HTTP_BIND_IP=192.168.10.116 docker compose -f docker-compose.yml up -d --no-deps dev_http
+docker compose -f docker-compose.yml ps --all dev_http app
+docker compose -f docker-compose.yml port dev_http 80
+docker compose -f docker-compose.yml logs --tail=50 dev_http
+curl --max-time 10 -i http://192.168.10.116/health
+curl --max-time 10 -I http://192.168.10.116/
+```
+
+Förväntat: HTTP 200 på `/health`, en publicerad `192.168.10.116:80` och ingen
+HTTPS-omdirigering från proxyn. Kör även curl från en annan dator på LAN.
+Om det fungerar på servern men inte från LAN återstår nätverk/brandvägg att
+undersöka. Kontrollera också inloggning och formulär i webbläsaren.
+Tailscale på 443 och övriga tjänster behöver inte ändras.
+
+För bestående dev-konfiguration, ändra endast följande i dev-serverns befintliga
+`.env`, utan att ersätta filens databasvärden eller hemligheter:
+
+```dotenv
+DEV_MODE=true
+DEV_HTTP_BIND_IP=192.168.10.116
+```
+
+`dev_server.env` läses inte automatiskt. `update_app.py` läser processmiljön,
+sedan `/config/.env` om den finns på värden, sedan projektets `.env`, utan att
+skriva över redan satta värden. Använd exakt `true`; standardläget är `false`.
+Flaggan aktiverar även appens befintliga debugbeteende nästa gång appen återskapas.
+
+`update_app.py` väljer nu `dev_http` i stället för `traefik` när `DEV_MODE=true`.
+I övriga lägen väljs produktionsproxyn och `dev_http` utesluts. Skriptets vanliga
+uppdateringsflöde stoppar dock fortfarande hela stacken, bygger om, hanterar
+Fail2ban/cron och rensar Docker-data. Använd därför de riktade kommandona ovan
+för just denna reparation. Ett allmänt `docker compose up -d` väljer fortfarande
+produktionsstarten; aktivera inte båda proxyerna på samma värdport.
+
+Återställning av denna dev-åtgärd: `docker compose -f docker-compose.yml stop dev_http`.
+Det återgår till läget utan extern HTTP-åtkomst och ändrar inga volymer.
+Vid ett avsiktligt byte till produktionsdrift måste dev-proxyn först stoppas;
+produktionsdrift använder `DEV_MODE=false` och kräver fungerande port 443 och TLS.
 
 ## Vid publik Cloudflare-drift
 

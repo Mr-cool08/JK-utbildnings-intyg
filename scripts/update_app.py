@@ -138,14 +138,22 @@ def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[s
 
     config = json.loads(output)
     services = list((config.get("services") or {}).keys())
+    # Behåll produktionsproxyn om DEV_MODE inte uttryckligen är true.
+    dev_mode = compose_env.get("DEV_MODE") == "true"
+    excluded_services = COMPOSE_UP_EXCLUDED_SERVICES | {
+        "traefik" if dev_mode else "dev_http"
+    }
     filtered_services = [
         service
         for service in services
-        if service not in COMPOSE_UP_EXCLUDED_SERVICES
+        if service not in excluded_services
     ]
     if not filtered_services:
         raise RuntimeError("Inga docker compose-tjanster kunde startas.")
 
+    if dev_mode and "dev_http" not in filtered_services:
+        # Ett explicit tjänstenamn aktiverar dess profil utan fler dev-tjänster.
+        filtered_services.append("dev_http")
     return _compose_command("up", "-d", *filtered_services)
 
 
