@@ -1,0 +1,13 @@
+http:
+  routers:
+    dev-app:
+      entryPoints: [web]
+      rule: "PathPrefix(`/`)"
+      service: dev-app
+  services:
+    dev-app:
+      loadBalancer:
+        servers:
+          - url: "http://app:80"
+
+# Copyright (c) Liam Suorsa and Mika Suorsa
