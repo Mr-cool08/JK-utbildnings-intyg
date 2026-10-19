@@ -14,6 +14,7 @@ def _patch_main_runtime(
     cron_marker=None,
     compose_services=None,
 ):
+    monkeypatch.setenv("DEV_MODE", "false")
     if compose_services is None:
         compose_services = (
             "traefik",
@@ -258,6 +259,34 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
         "app",
         "postgres",
     ]
+
+
+@pytest.mark.parametrize("dev_mode", [None, "false", "true", "1", "TRUE"])
+@pytest.mark.parametrize("profile_active", [False, True])
+def test_compose_up_selects_only_one_proxy(
+    monkeypatch, tmp_path, dev_mode, profile_active
+):
+    services = {name: {} for name in (
+        "traefik", "app", "postgres", "postgres_backup",
+        "fail2ban", "expiry_reminder",
+    )}
+    if profile_active:
+        services["dev_http"] = {}
+
+    def fake_run(cmd, **kwargs):
+        return subprocess.CompletedProcess(
+            cmd, 0, json.dumps({"services": services}), ""
+        )
+
+    monkeypatch.setattr(ua, "_run", fake_run)
+    env = {} if dev_mode is None else {"DEV_MODE": dev_mode}
+    command = ua._build_compose_up_command(tmp_path, env)
+    expected = ["app", "postgres", "postgres_backup"]
+    if dev_mode == "true":
+        expected.append("dev_http")
+    else:
+        expected.insert(0, "traefik")
+    assert command == ua._compose_command("up", "-d", *expected)
 
 
 def test_build_expiry_reminder_cron_line_uses_env_schedule(monkeypatch):

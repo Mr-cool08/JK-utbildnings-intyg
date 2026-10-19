@@ -120,6 +120,39 @@ def test_compose_uses_direct_host_port_bindings_for_main_services():
     assert "127.0.0.1:80:80" not in compose
 
 
+def test_dev_http_is_opt_in_and_has_no_production_tls_dependencies():
+    compose = _read(ROOT / "docker-compose.yml")
+    service = _extract_service_block(compose, "dev_http")
+    assert "profiles: [dev-http]" in service
+    assert "DEV_MODE: ${DEV_MODE:-false}" in service
+    assert 'if [ "$${DEV_MODE}" != "true" ]; then' in service
+    assert service.index("exit 1") < service.index("exec traefik")
+    assert '${DEV_HTTP_BIND_IP:-127.0.0.1}:80:80' in service
+    for forbidden in ("443", "docker.sock", "origin.crt", "depends_on:"):
+        assert forbidden not in service
+    assert "./deploy/traefik/dev-http.yml:/etc/traefik/dev-http.yml:ro" in service
+    config = _read(ROOT / "deploy/traefik/dev-http.yml")
+    assert 'rule: "PathPrefix(`/`)"' in config
+    assert 'url: "http://app:80"' in config
+    assert "tls:" not in config
+    assert "redirect" not in config.lower()
+    assert not (ROOT / "deploy/traefik/dynamic/dev-http.yml").exists()
+
+
+def test_production_proxy_keeps_https_and_domain_routing():
+    compose = _read(ROOT / "docker-compose.yml")
+    proxy = _extract_service_block(compose, "traefik")
+    app = _extract_service_block(compose, "app")
+    assert "profiles:" not in proxy
+    assert '"80:80"' in proxy and '"443:443"' in proxy
+    assert "--entrypoints.web.http.redirections.entrypoint.to=websecure" in proxy
+    assert "./deploy/traefik/dynamic:/etc/traefik/dynamic:ro" in proxy
+    assert "traefik.http.routers.app.entrypoints=websecure" in app
+    assert "traefik.http.routers.app.tls=true" in app
+    assert "Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)" in app
+    assert "\n    ports:" not in app
+
+
 def test_compose_does_not_include_rclone_cloud_backup_service():
     compose = _read(ROOT / "docker-compose.yml")
 
