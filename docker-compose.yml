@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     mem_limit: 96m
     memswap_limit: 96m
-    cpus: "0.15"
+    cpus: "1.00"
     pids_limit: 100
 
   fail2ban:
