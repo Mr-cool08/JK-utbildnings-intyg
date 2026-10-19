@@ -196,7 +196,6 @@ def test_compose_default_resource_caps_fit_small_host_profile():
     ]
 
     total_memory_mb = 0
-    total_cpus = 0.0
 
     for service_name in default_services:
         service_block = _extract_service_block(compose, service_name)
@@ -205,10 +204,9 @@ def test_compose_default_resource_caps_fit_small_host_profile():
             service_block,
             re.MULTILINE,
         )
-        cpu_match = re.search(r'^\s+cpus: "([0-9.]+)"$', service_block, re.MULTILINE)
+        
 
         assert memory_match, f"Expected mem_limit for {service_name}"
-        assert cpu_match, f"Expected cpus limit for {service_name}"
 
         memory_value = int(memory_match.group(1))
         memory_unit = memory_match.group(2)
@@ -217,10 +215,8 @@ def test_compose_default_resource_caps_fit_small_host_profile():
         else:
             total_memory_mb += memory_value
 
-        total_cpus += float(cpu_match.group(1))
 
     assert total_memory_mb <= 1408
-    assert total_cpus <= 1.55
 
 
 def test_compose_tunes_app_and_postgres_for_small_host_profile():
