@@ -1,6 +1,32 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 
 services:
+  # Startas uttryckligen på dev-servern; ingår inte i standardstarten.
+  dev_http:
+    image: traefik
+    profiles: [dev-http]
+    environment:
+      DEV_MODE: ${DEV_MODE:-false}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ "$${DEV_MODE}" != "true" ]; then
+          echo "HTTP-proxyn kräver DEV_MODE=true." >&2
+          exit 1
+        fi
+        exec traefik --entrypoints.web.address=:80 --providers.file.filename=/etc/traefik/dev-http.yml
+    ports:
+      - "${DEV_HTTP_BIND_IP:-127.0.0.1}:80:80"
+    volumes:
+      - ./deploy/traefik/dev-http.yml:/etc/traefik/dev-http.yml:ro
+    networks:
+      - public_net
+    restart: unless-stopped
+    mem_limit: 96m
+    memswap_limit: 96m
+    cpus: "0.15"
+    pids_limit: 100
+
   traefik:
     image: traefik
     ports:
