@@ -8,7 +8,8 @@ Det här är de workflows som finns i `.github/workflows` i dag.
 `ci.yml`
 
 - Kör på `push` och `pull_request`.
-- Testar Python `3.10`, `3.11` och `3.12`.
+- Testar Python `3.10`, `3.11`, `3.12`, `3.13`, `3.14` och `3.15`.
+- Pipenv och Docker använder Python `3.15`; äldre versioner finns kvar i CI för kompatibilitetskontroll.
 - Installerar beroenden från `requirements.txt`.
 - Kör `mypy app.py functions services`.
 - Kör `pytest` utan coverage när `CODACY_PROJECT_TOKEN` saknas.
@@ -20,6 +21,9 @@ Det här är de workflows som finns i `.github/workflows` i dag.
 
 - Kör på `push` och `pull_request` mot `main`.
 - Bygger Compose-upplägget från `docker-compose.yml`.
+- Använder `python:3.15.0-alpine3.24`. YARA kan byggas från källkod med tillfälliga byggverktyg som tas bort efter installationen.
+- Kontrollerar paketberoenden, import av PostgreSQL-drivrutiner, en enkel YARA-regel och riktig PDF-skanning med Quicksand under bygget.
+- Installerar `libpq` för psycopg och har `DEV_MODE=false` som standard.
 - Har två byggsteg men båda använder samma Compose-fil i nuvarande repo.
 
 ## Dependency review

@@ -38,3 +38,6 @@ artifacts/pytesttmp/**
 **/pytesttmp/
 **/pytesttmp/**
 
+
+# Lokala verktyg och nedladdade Pythonversioner
+.cache/
