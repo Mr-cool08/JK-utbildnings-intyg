@@ -24,7 +24,6 @@ services:
     restart: unless-stopped
     mem_limit: 96m
     memswap_limit: 96m
-    cpus: "0.15"
     pids_limit: 100
 
   traefik:
@@ -57,7 +56,6 @@ services:
     restart: unless-stopped
     mem_limit: 96m
     memswap_limit: 96m
-    cpus: "1.00"
     pids_limit: 100
 
   fail2ban:
@@ -89,7 +87,6 @@ services:
     restart: unless-stopped
     mem_limit: 192m
     memswap_limit: 192m
-    cpus: "0.20"
     pids_limit: 200
 
   app:
@@ -127,7 +124,6 @@ services:
     restart: unless-stopped
     mem_limit: 384m
     memswap_limit: 384m
-    cpus: "0.45"
     pids_limit: 200
 
   expiry_reminder:
@@ -150,7 +146,6 @@ services:
     restart: "no"
     mem_limit: 128m
     memswap_limit: 128m
-    cpus: "0.10"
     pids_limit: 120
 
   vscode:
@@ -215,7 +210,6 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
-    cpus: "0.60"
     pids_limit: 200
 
   postgres_backup:
@@ -240,7 +234,6 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     memswap_limit: 64m
-    cpus: "0.05"
     pids_limit: 50
 
 volumes:
