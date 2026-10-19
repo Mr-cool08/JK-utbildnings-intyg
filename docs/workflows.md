@@ -23,7 +23,8 @@ Det här är de workflows som finns i `.github/workflows` i dag.
 - Bygger Compose-upplägget från `docker-compose.yml`.
 - Använder `python:3.15.0-alpine3.24`. YARA kan byggas från källkod med tillfälliga byggverktyg som tas bort efter installationen.
 - Kontrollerar paketberoenden, import av PostgreSQL-drivrutiner, en enkel YARA-regel och riktig PDF-skanning med Quicksand under bygget.
-- Installerar `libpq` för psycopg och har `DEV_MODE=false` som standard.
+- Bygger psycopgs C-variant i samma version som `requirements.txt` mot systemets `libpq`. Bygget kontrollerar att C-varianten fungerar efter att byggverktygen tagits bort på Alpine.
+- Har `DEV_MODE=false` som standard.
 - Har två byggsteg men båda använder samma Compose-fil i nuvarande repo.
 
 ## Dependency review

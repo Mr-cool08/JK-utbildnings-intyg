@@ -12,13 +12,15 @@ WORKDIR /app
 
 # Kopiera beroenden först (bättre cache)
 COPY requirements.txt .
-# YARA byggs från källkod när en wheel saknas för Pythonversionen.
-RUN apk add --no-cache --virtual .build-deps build-base \
+# Bygg psycopgs C-variant så att libpq hittas utan byggverktyg på Alpine.
+# YARA byggs också från källkod när en wheel saknas.
+RUN apk add --no-cache --virtual .build-deps build-base libpq-dev \
     && python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir "psycopg[c]==$(python -c 'from importlib.metadata import version; print(version("psycopg"))')" \
     && apk del .build-deps \
     && python -m pip check \
-    && python -c "import psycopg, psycopg2, yara; assert yara.compile(source='rule smoke { condition: true }').match(data=b'test')"
+    && python -c "import psycopg, psycopg2, yara; assert psycopg.pq.__impl__ == 'c'; assert yara.compile(source='rule smoke { condition: true }').match(data=b'test')"
 
 # Kopiera projektet
 COPY . .
