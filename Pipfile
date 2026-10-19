@@ -11,7 +11,7 @@ jinja2 = "==3.1.6"
 itsdangerous = "==2.2.0"
 click = "==8.4.2"
 sqlalchemy = "==2.0.52"
-markupsafe = "==3.0.3"
+markupsafe = "==3.0.4"
 markdown = "==3.10.3"
 pytest = "==9.1.1"
 pytest-xdist = "==3.8.0"
@@ -20,7 +20,7 @@ requests = "==2.34.2"
 pillow = "==12.3.0"
 psutil = "==7.2.2"
 psycopg = {version = "==3.3.4", markers = "platform_system == \"Linux\""}
-psycopg2-binary = {version = "==2.9.12", markers = "platform_system == \"Linux\" or platform_system == \"Windows\""}
+psycopg2-binary = {version = "==2.9.13", markers = "platform_system == \"Linux\" or platform_system == \"Windows\""}
 gunicorn = {version = "==26.1.0", markers = "platform_system == \"Linux\""}
 pysqlite3-binary = {version = ">=0.5.3", markers = "platform_system == \"Linux\" and python_version < \"3.12\""}
 quicksand = {version = "==2.1.4", markers = "platform_system == \"Linux\""}
@@ -28,4 +28,4 @@ quicksand = {version = "==2.1.4", markers = "platform_system == \"Linux\""}
 [dev-packages]
 
 [requires]
-python_version = "3.13"
+python_version = "3.15"
