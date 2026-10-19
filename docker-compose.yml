@@ -172,7 +172,7 @@ services:
       TZ: ${TZ:-Europe/Stockholm}
     working_dir: /workspace
     ports:
-      - "${VSCODE_BIND_IP:-127.0.0.1}:8083:8080"
+      - "${VSCODE_BIND_IP:-127.0.0.1}:8087:8080"
     volumes:
       - .:/workspace
     networks:
