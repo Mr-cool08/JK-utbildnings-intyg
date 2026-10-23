@@ -979,11 +979,14 @@ def supervisor_dashboard():
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     csrf_token = sec.ensure_csrf_token()
     connections = functions.list_supervisor_connections(email_hash)
+    pdfs_by_user = functions.get_user_pdfs_for_users(
+        [entry["personnummer_hash"] for entry in connections]
+    )
     users = []
     for entry in connections:
         person_hash = entry["personnummer_hash"]
         username = (entry.get("username") or "Standardkonto").strip()
-        pdfs = functions.get_user_pdfs(person_hash)
+        pdfs = pdfs_by_user.get(person_hash, [])
         for pdf in pdfs:
             pdf["category_labels"] = labels_for_slugs(pdf.get("categories") or [])
         users.append(

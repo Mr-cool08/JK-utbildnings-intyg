@@ -1,6 +1,8 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import app
 import functions
@@ -160,6 +162,77 @@ def test_debug_and_demo_modes_create_demo_user_and_certificates_on_startup(
         "demo-hlr.pdf",
         "demo-hlr-utgatt.pdf",
     }
+
+
+def test_debug_startup_does_not_seed_demo_certificates_for_another_account(
+    empty_db, monkeypatch
+):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    assert functions.admin_create_user(
+        "real.user@example.com", "Riktig användare", DEMO_PARAMS["user_personnummer"]
+    )
+    assert functions.user_create_user("RealUserPassword1!", personnummer_hash)
+
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO_USER_PERSONNUMMER", DEMO_PARAMS["user_personnummer"])
+    monkeypatch.setenv("DEMO_USER_EMAIL", DEMO_PARAMS["user_email"])
+    monkeypatch.setenv("DEMO_USER_NAME", DEMO_PARAMS["user_name"])
+    monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PARAMS["user_password"])
+
+    app.create_app()
+
+    assert functions.get_user_pdfs(personnummer_hash) == []
+    user = functions.get_user_info(DEMO_PARAMS["user_personnummer"])
+    assert user.email == functions.normalize_email("real.user@example.com")
+
+
+def test_ensure_demo_user_retries_after_concurrent_creation(monkeypatch):
+    calls = []
+
+    def ensure_once(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise demo_module.IntegrityError(
+                "INSERT", {}, Exception("duplicate account")
+            )
+        return True
+
+    monkeypatch.setattr(demo_module, "_ensure_demo_user_once", ensure_once)
+
+    assert functions.ensure_demo_user(
+        user_email=DEMO_PARAMS["user_email"],
+        user_name=DEMO_PARAMS["user_name"],
+        user_personnummer=DEMO_PARAMS["user_personnummer"],
+        user_password=DEMO_PARAMS["user_password"],
+    )
+    assert len(calls) == 2
+
+
+def test_concurrent_demo_user_initialization_adds_certificates_once(empty_db):
+    barrier = Barrier(2)
+
+    def initialize():
+        barrier.wait()
+        return functions.ensure_demo_user(
+            user_email=DEMO_PARAMS["user_email"],
+            user_name=DEMO_PARAMS["user_name"],
+            user_personnummer=DEMO_PARAMS["user_personnummer"],
+            user_password=DEMO_PARAMS["user_password"],
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert list(executor.map(lambda _: initialize(), range(2))) == [True, True]
+
+    with empty_db.connect() as conn:
+        filenames = conn.execute(
+            select(functions.user_pdfs_table.c.filename)
+        ).scalars().all()
+    assert sorted(filenames) == sorted(
+        definition["filename"] for definition in functions.DEMO_PDF_DEFINITIONS
+    )
 
 
 def test_ensure_demo_data_handles_pending_users_without_orgnr_default(empty_db):

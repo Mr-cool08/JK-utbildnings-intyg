@@ -67,9 +67,9 @@
 
     const today = new Date();
     const todayTimestamp = Date.UTC(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate()
     );
     const daysUntilExpiry = Math.round((expiryTimestamp - todayTimestamp) / 86400000);
     let statusClass;

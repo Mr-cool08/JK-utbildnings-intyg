@@ -7,7 +7,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, func, insert, select
+from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from functions.dates import add_months_to_date
 from functions.database import (
@@ -349,7 +350,7 @@ def ensure_demo_certificates(user_personnummer: str) -> bool:
     return True
 
 
-def ensure_demo_user(
+def _ensure_demo_user_once(
     *,
     user_email: str,
     user_name: str,
@@ -362,11 +363,22 @@ def ensure_demo_user(
     filenames = {definition["filename"] for definition in DEMO_PDF_DEFINITIONS}
 
     with get_engine().begin() as conn:
-        user = conn.execute(
-            select(users_table.c.personnummer).where(
-                users_table.c.personnummer == personnummer_hash
+        if conn.dialect.name == "sqlite":
+            conn.execute(
+                update(users_table)
+                .where(users_table.c.personnummer == personnummer_hash)
+                .values(username=users_table.c.username)
             )
+        user = conn.execute(
+            select(users_table.c.email).where(
+                users_table.c.personnummer == personnummer_hash
+            ).with_for_update()
         ).first()
+        if user is not None and user.email not in email_values:
+            logger.warning(
+                "Demointyg skapades inte eftersom personnummer tillhör ett annat konto."
+            )
+            return False
         if user is None:
             email_conflict = conn.execute(
                 select(users_table.c.id).where(users_table.c.email.in_(email_values))
@@ -413,6 +425,30 @@ def ensure_demo_user(
             )
 
     return True
+
+
+def ensure_demo_user(
+    *,
+    user_email: str,
+    user_name: str,
+    user_personnummer: str,
+    user_password: str,
+) -> bool:
+    try:
+        return _ensure_demo_user_once(
+            user_email=user_email,
+            user_name=user_name,
+            user_personnummer=user_personnummer,
+            user_password=user_password,
+        )
+    except IntegrityError:
+        logger.info("Demokontot skapades samtidigt av en annan process. Försöker igen.")
+        return _ensure_demo_user_once(
+            user_email=user_email,
+            user_name=user_name,
+            user_personnummer=user_personnummer,
+            user_password=user_password,
+        )
 
 
 def reset_demo_database(demo_defaults: dict[str, str]) -> bool:
