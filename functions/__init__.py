@@ -45,7 +45,9 @@ from functions.database import (
 )
 from functions.demo import (
     DEMO_PDF_DEFINITIONS,
+    ensure_demo_certificates,
     ensure_demo_data,
+    ensure_demo_user,
     reset_demo_database,
 )
 from functions.hashing import (
@@ -186,7 +188,9 @@ __all__ = [
     "delete_user_pdf",
     "DEMO_PDF_DEFINITIONS",
     "email_lookup_values",
+    "ensure_demo_certificates",
     "ensure_demo_data",
+    "ensure_demo_user",
     "ensure_pending_supervisor_activation_token",
     "fetch_table_rows",
     "get_application_request",

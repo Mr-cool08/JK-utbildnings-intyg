@@ -18,13 +18,46 @@
 
   function updateExpiryStatus(pdfItem) {
     const statusElement = pdfItem.querySelector('[data-expiry-status]');
+    const expiryTextElement = pdfItem.querySelector('[data-pdf-expiry-text]');
+    const expiryLabel = pdfItem.querySelector('[data-expiry-label]');
     const expiryValue = pdfItem.dataset.pdfExpiresOn || '';
 
     if (!statusElement) {
       return;
     }
 
+    const statusClasses = [
+      'expiry-status--expired',
+      'expiry-status--soon',
+      'expiry-status--valid',
+    ];
+    statusElement.classList.remove(...statusClasses);
+    expiryTextElement?.classList.remove(...statusClasses);
+
     if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryValue)) {
+      if (expiryLabel) {
+        expiryLabel.textContent = expiryValue ? `Gäller till ${expiryValue}` : '';
+      }
+      statusElement.textContent = '';
+      statusElement.hidden = true;
+      statusElement.removeAttribute('aria-label');
+      statusElement.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    const [, year, month, day] = expiryValue.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+    const expiryTimestamp = Date.UTC(Number(year), Number(month) - 1, Number(day));
+    const expiryDate = new Date(expiryTimestamp);
+    if (
+      expiryDate.getUTCFullYear() !== Number(year) ||
+      expiryDate.getUTCMonth() !== Number(month) - 1 ||
+      expiryDate.getUTCDate() !== Number(day)
+    ) {
+      if (expiryLabel) {
+        expiryLabel.textContent = `Gäller till ${expiryValue}`;
+      }
       statusElement.textContent = '';
       statusElement.hidden = true;
       statusElement.removeAttribute('aria-label');
@@ -33,26 +66,41 @@
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiryDate = new Date(`${expiryValue}T00:00:00`);
-    const daysUntilExpiry = Math.ceil(
-      (expiryDate.getTime() - today.getTime()) / 86400000
+    const todayTimestamp = Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
     );
-    let emoji;
+    const daysUntilExpiry = Math.round((expiryTimestamp - todayTimestamp) / 86400000);
+    let statusClass;
+    let statusIcon;
     let label;
 
     if (daysUntilExpiry < 0) {
-      emoji = '🔴';
-      label = 'Intyget har gått ut';
+      const daysSinceExpiry = Math.abs(daysUntilExpiry);
+      statusClass = 'expiry-status--expired';
+      statusIcon = '×';
+      label = `Gick ut för ${daysSinceExpiry} ${daysSinceExpiry === 1 ? 'dag' : 'dagar'} sedan`;
     } else if (daysUntilExpiry <= 30) {
-      emoji = '🟡';
-      label = 'Intyget går ut inom 30 dagar';
+      statusClass = 'expiry-status--soon';
+      statusIcon = '!';
+      if (daysUntilExpiry === 0) {
+        label = 'Går ut idag';
+      } else {
+        label = `Går ut om ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'dag' : 'dagar'}`;
+      }
     } else {
-      emoji = '🟢';
-      label = 'Intyget går ut om mer än 30 dagar';
+      statusClass = 'expiry-status--valid';
+      statusIcon = '✓';
+      label = `Gäller till ${expiryValue}`;
     }
 
-    statusElement.textContent = emoji;
+    if (expiryLabel) {
+      expiryLabel.textContent = label;
+    }
+    statusElement.textContent = statusIcon;
+    statusElement.classList.add(statusClass);
+    expiryTextElement?.classList.add(statusClass);
     statusElement.setAttribute('aria-label', label);
     statusElement.setAttribute('title', label);
     statusElement.setAttribute('aria-hidden', 'false');
@@ -856,7 +904,6 @@
       }
 
       if (expiryElement) {
-        expiryElement.textContent = expiresOn ? `Gäller till ${expiresOn}` : '';
         expiryElement.hidden = !expiresOn;
       }
 
