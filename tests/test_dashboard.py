@@ -105,6 +105,7 @@ def test_dashboard_shows_certificate_expiry_date(user_db):
 
     assert b"G\xc3\xa4ller till 2027-05-27" in response.data
     assert b'data-expiry-status hidden' in response.data
+    assert b'data-expiry-label' in response.data
 
 
 def test_upload_page_formats_logged_in_user_name(user_db):

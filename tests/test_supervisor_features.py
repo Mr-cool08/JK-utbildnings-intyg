@@ -216,6 +216,36 @@ def test_supervisor_dashboard_lists_users(supervisor_setup):
     assert "intyg.pdf" in body
 
 
+def test_supervisor_dashboard_batches_connected_users_pdf_lookup(
+    monkeypatch, supervisor_setup, second_connected_user
+):
+    original_fetch = functions.get_user_pdfs_for_users
+    calls = []
+
+    def capture_fetch(personnummer_hashes):
+        calls.append(list(personnummer_hashes))
+        return original_fetch(personnummer_hashes)
+
+    monkeypatch.setattr(app.functions, "get_user_pdfs_for_users", capture_fetch)
+    monkeypatch.setattr(
+        app.functions,
+        "get_user_pdfs",
+        lambda *_args: pytest.fail("Per-user PDF queries should not run"),
+    )
+    client = _supervisor_client(
+        supervisor_setup["email_hash"], supervisor_setup["name"]
+    )
+
+    response = client.get("/foretagskonto")
+
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert set(calls[0]) == {
+        supervisor_setup["personnummer_hash"],
+        second_connected_user["personnummer_hash"],
+    }
+
+
 def test_supervisor_dashboard_exposes_total_pdf_count(
     monkeypatch,
     supervisor_setup,

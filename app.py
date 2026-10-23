@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from calendar import monthrange
 from datetime import date, timedelta
 import atexit
 from functools import partial
@@ -62,6 +61,7 @@ from functions.emails import service as email_service
 from functions.pdf import service as pdf
 from functions.notifications import critical_events
 from functions import security as sec
+from functions.dates import add_months_to_date as _add_months_to_date
 from functions.requests import as_bool, get_request_ip, register_public_submission
 
 
@@ -206,15 +206,6 @@ def _safe_user_error(message: str, allowed: set[str], fallback: str) -> str:
     if cleaned in allowed:
         return cleaned
     return fallback
-
-
-def _add_months_to_date(base_date: date, months: int) -> date:
-    # Bevara dag i månaden när det går, annars använd månadens sista dag.
-    absolute_month = (base_date.year * 12) + (base_date.month - 1) + months
-    target_year, target_month_index = divmod(absolute_month, 12)
-    target_month = target_month_index + 1
-    target_day = min(base_date.day, monthrange(target_year, target_month)[1])
-    return date(target_year, target_month, target_day)
 
 
 def _parse_duration_expiry_value(raw_value: str, field_label: str, maximum: int) -> int:
@@ -528,6 +519,32 @@ def _enable_debug_mode(app: Flask) -> None:
 
     functions.logger.debug("Utvecklingsläge är aktiverat")
     logger.debug("Utvecklingsläge är aktiverat")
+
+
+def _ensure_debug_demo_certificates(app: Flask) -> None:
+    if not app.config["DEV_MODE"] or not as_bool(os.getenv("ENABLE_DEMO_MODE")):
+        return
+
+    demo_personnummer = os.getenv("DEMO_USER_PERSONNUMMER", "").strip()
+    if not demo_personnummer:
+        logger.warning(
+            "Demointyg skapades inte eftersom DEMO_USER_PERSONNUMMER saknas."
+        )
+        return
+
+    if functions.ensure_demo_user(
+        user_email=os.getenv("DEMO_USER_EMAIL", "demo.anvandare@example.com"),
+        user_name=os.getenv("DEMO_USER_NAME", "Demoanvändare"),
+        user_personnummer=demo_personnummer,
+        user_password=os.getenv("DEMO_USER_PASSWORD", "DemoLösenord1!"),
+    ):
+        logger.info("Kontrollerade demointyg för den aktiva demoanvändaren.")
+    else:
+        logger.info(
+            "Demointyg väntar tills demokontots konto-konflikt har lösts."
+        )
+
+
 def _is_pytest_running() -> bool:
     return "PYTEST_CURRENT_TEST" in os.environ or any("pytest" in arg for arg in sys.argv)
 
@@ -576,6 +593,7 @@ def create_app() -> Flask:
     with app.app_context():
         if debug_mode:
             _enable_debug_mode(app)
+    _ensure_debug_demo_certificates(app)
 
     logger.debug("Applikationen skapad och databasen initialiserad")
     # Email handlers for ERROR and CRITICAL logs are now automatically attached
@@ -961,11 +979,14 @@ def supervisor_dashboard():
     supervisor_orgnr = (session.get("supervisor_orgnr") or "").strip()
     csrf_token = sec.ensure_csrf_token()
     connections = functions.list_supervisor_connections(email_hash)
+    pdfs_by_user = functions.get_user_pdfs_for_users(
+        [entry["personnummer_hash"] for entry in connections]
+    )
     users = []
     for entry in connections:
         person_hash = entry["personnummer_hash"]
         username = (entry.get("username") or "Standardkonto").strip()
-        pdfs = functions.get_user_pdfs(person_hash)
+        pdfs = pdfs_by_user.get(person_hash, [])
         for pdf in pdfs:
             pdf["category_labels"] = labels_for_slugs(pdf.get("categories") or [])
         users.append(
