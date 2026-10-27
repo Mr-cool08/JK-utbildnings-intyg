@@ -45,7 +45,9 @@ from functions.database import (
 )
 from functions.demo import (
     DEMO_PDF_DEFINITIONS,
+    ensure_demo_certificates,
     ensure_demo_data,
+    ensure_demo_user,
     reset_demo_database,
 )
 from functions.hashing import (
@@ -86,6 +88,7 @@ from functions.pdf_storage import (
     get_pdf_content,
     get_pdf_metadata,
     get_user_pdfs,
+    get_user_pdfs_for_users,
     store_pdf_blob,
     update_pdf_categories,
     update_user_pdf_metadata,
@@ -186,7 +189,9 @@ __all__ = [
     "delete_user_pdf",
     "DEMO_PDF_DEFINITIONS",
     "email_lookup_values",
+    "ensure_demo_certificates",
     "ensure_demo_data",
+    "ensure_demo_user",
     "ensure_pending_supervisor_activation_token",
     "fetch_table_rows",
     "get_application_request",
@@ -205,6 +210,7 @@ __all__ = [
     "get_account_orgnr",
     "get_public_organization_overview",
     "get_user_pdfs",
+    "get_user_pdfs_for_users",
     "get_username",
     "get_username_by_personnummer_hash",
     "get_pending_user_personnummer_hash",

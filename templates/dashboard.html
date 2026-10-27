@@ -115,7 +115,7 @@
                                 </a>
                                 <div class="pdf-meta" data-pdf-meta {% if not pdf.note and not pdf.expires_on %}hidden{% endif %}>
                                     <span class="pdf-note" data-pdf-note-text {% if not pdf.note %}hidden{% endif %}>{{ pdf.note or '' }}</span>
-                                    <span class="pdf-note" data-pdf-expiry-text {% if not pdf.expires_on %}hidden{% endif %}>{% if pdf.expires_on %}Gäller till {{ pdf.expires_on }}{% endif %}<span class="expiry-status" data-expiry-status hidden aria-hidden="true"></span></span>
+                                    <span class="pdf-note" data-pdf-expiry-text {% if not pdf.expires_on %}hidden{% endif %}><span data-expiry-label>{% if pdf.expires_on %}Gäller till {{ pdf.expires_on }}{% endif %}</span><span class="expiry-status" data-expiry-status hidden aria-hidden="true"></span></span>
                                 </div>
                             </div>
                         </div>
