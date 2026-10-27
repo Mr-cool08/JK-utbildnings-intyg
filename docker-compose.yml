@@ -22,9 +22,6 @@ services:
     networks:
       - public_net
     restart: unless-stopped
-    mem_limit: 96m
-    memswap_limit: 96m
-    pids_limit: 100
 
   traefik:
     image: traefik
@@ -54,9 +51,6 @@ services:
     networks:
       - public_net
     restart: unless-stopped
-    mem_limit: 96m
-    memswap_limit: 96m
-    pids_limit: 100
 
   fail2ban:
     image: crazymax/fail2ban
@@ -85,9 +79,6 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
-    mem_limit: 192m
-    memswap_limit: 192m
-    pids_limit: 200
 
   app:
     build: .
@@ -122,9 +113,6 @@ services:
       - traefik.http.routers.app-mta-sts.middlewares=security-headers@file
       - traefik.http.services.app.loadbalancer.server.port=80
     restart: unless-stopped
-    mem_limit: 384m
-    memswap_limit: 384m
-    pids_limit: 200
 
   expiry_reminder:
     build: .
@@ -144,9 +132,6 @@ services:
       - public_net
       - db_net
     restart: "no"
-    mem_limit: 128m
-    memswap_limit: 128m
-    pids_limit: 120
 
   vscode:
     image: codercom/code-server:latest
@@ -208,9 +193,6 @@ services:
       - pg_pub_net
       - db_net
     restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
-    pids_limit: 200
 
   postgres_backup:
     image: postgres:16
@@ -232,9 +214,6 @@ services:
     networks:
       - db_net
     restart: unless-stopped
-    mem_limit: 64m
-    memswap_limit: 64m
-    pids_limit: 50
 
 volumes:
   env_data:
