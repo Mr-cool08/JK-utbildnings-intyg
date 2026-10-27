@@ -184,39 +184,27 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
     assert "      - public_net" in expiry_service
 
 
-def test_compose_default_resource_caps_fit_small_host_profile():
+def test_compose_services_have_no_docker_resource_limits():
     compose = _read(ROOT / "docker-compose.yml")
-    default_services = [
+    services = [
+        "dev_http",
         "traefik",
         "fail2ban",
         "app",
         "expiry_reminder",
+        "vscode",
         "postgres",
         "postgres_backup",
     ]
+    resource_limit_pattern = re.compile(
+        r"(?m)^\\s+(?:mem_limit|memswap_limit|pids_limit|cpus|cpu_quota|cpu_period|cpuset):"
+    )
 
-    total_memory_mb = 0
-
-    for service_name in default_services:
+    for service_name in services:
         service_block = _extract_service_block(compose, service_name)
-        memory_match = re.search(
-            r"^\s+mem_limit: (\d+)([mg])$",
-            service_block,
-            re.MULTILINE,
+        assert resource_limit_pattern.search(service_block) is None, (
+            f"Unexpected Docker resource limit for {service_name}"
         )
-        
-
-        assert memory_match, f"Expected mem_limit for {service_name}"
-
-        memory_value = int(memory_match.group(1))
-        memory_unit = memory_match.group(2)
-        if memory_unit == "g":
-            total_memory_mb += memory_value * 1024
-        else:
-            total_memory_mb += memory_value
-
-
-    assert total_memory_mb <= 1408
 
 
 def test_compose_tunes_app_and_postgres_for_small_host_profile():
