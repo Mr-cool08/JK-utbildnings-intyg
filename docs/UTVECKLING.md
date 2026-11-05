@@ -59,10 +59,11 @@ DEV_MODE=true
 
 ## Docker-utveckling
 
-Starta hela stacken:
+På en separat dev-värd förbereder administratören nätverket `jk_public_net`. Sätt `DEV_MODE=true` i dev-serverns `.env` och starta med HTTP-profilen.
 
 ```bash
-docker compose up --build
+docker network inspect jk_public_net
+docker compose --profile dev-http up --build
 ```
 
 Viktiga lokala adresser:

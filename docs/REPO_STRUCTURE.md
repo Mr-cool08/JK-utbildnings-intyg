@@ -27,7 +27,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 ## Drift och verktyg
 
-- `deploy/` - Traefik, MTA-STS, certifikatexempel, Fail2ban och rclone-relaterade filer.
+- `deploy/` - HTTP-proxy för utveckling, MTA-STS, certifikatexempel, Fail2ban och rclone-relaterade filer.
 - `scripts/` - drift- och underhållsskript, bland annat `manage_compose.py` och `update_app.py`.
 
 ## Test och dokumentation

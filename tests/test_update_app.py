@@ -17,7 +17,6 @@ def _patch_main_runtime(
     monkeypatch.setenv("DEV_MODE", "false")
     if compose_services is None:
         compose_services = (
-            "traefik",
             "app",
             "expiry_reminder",
             "postgres",
@@ -165,7 +164,6 @@ def test_main_runs_pytest_with_deterministic_test_env(monkeypatch):
             "json",
         ]:
             services = {
-                "traefik": {},
                 "app": {},
                 "expiry_reminder": {},
                 "postgres": {},
@@ -213,6 +211,7 @@ def test_main_runs_compose_up_without_scale_flags(monkeypatch):
     up_command = _find_command_prefix(
         calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
     )
+    assert all("prune" not in cmd and "--remove-orphans" not in cmd for cmd, _ in calls)
     assert "--scale" not in up_command
 
 
@@ -234,7 +233,6 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
                 {
                     "services": {
                         "fail2ban": {},
-                        "traefik": {},
                         "app": {},
                         "expiry_reminder": {},
                         "postgres": {},
@@ -255,7 +253,6 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
         "docker-compose.yml",
         "up",
         "-d",
-        "traefik",
         "app",
         "postgres",
     ]
@@ -263,11 +260,11 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
 
 @pytest.mark.parametrize("dev_mode", [None, "false", "true", "1", "TRUE"])
 @pytest.mark.parametrize("profile_active", [False, True])
-def test_compose_up_selects_only_one_proxy(
+def test_compose_up_selects_dev_proxy_only_in_dev_mode(
     monkeypatch, tmp_path, dev_mode, profile_active
 ):
     services = {name: {} for name in (
-        "traefik", "app", "postgres", "postgres_backup",
+        "app", "postgres", "postgres_backup",
         "fail2ban", "expiry_reminder",
     )}
     if profile_active:
@@ -284,8 +281,6 @@ def test_compose_up_selects_only_one_proxy(
     expected = ["app", "postgres", "postgres_backup"]
     if dev_mode == "true":
         expected.append("dev_http")
-    else:
-        expected.insert(0, "traefik")
     assert command == ua._compose_command("up", "-d", *expected)
 
 
@@ -387,7 +382,6 @@ def test_main_ensures_expiry_reminder_cron_after_compose_up(monkeypatch):
             "docker-compose.yml",
             "up",
             "-d",
-            "traefik",
             "app",
             "postgres",
         ],
