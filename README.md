@@ -63,6 +63,10 @@ Om du använder värdena från `.example.env` kör appen normalt på `http://loc
 
 - `DEV_MODE=true` aktiverar lokal debug-loggning och utvecklarvänligt beteende.
 - `DEV_MODE=false` ska användas i produktion.
+- Med både `DEV_MODE=true` och `ENABLE_DEMO_MODE=true` skapas demokontot i
+  `DEMO_USER_PERSONNUMMER` om det saknas, och saknade demointyg fylls på vid appstart.
+  Ett befintligt konto med en e-postadress eller ett personnummer som krockar skrivs
+  inte över.
 
 Exempel:
 

@@ -1,8 +1,12 @@
 # Copyright (c) Liam Suorsa and Mika Suorsa
+from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import app
 import functions
+from functions import demo as demo_module
 from sqlalchemy import func, select, text
 
 
@@ -18,7 +22,15 @@ DEMO_PARAMS = dict(
 )
 
 
-def test_ensure_demo_data_creates_accounts(empty_db):
+def test_ensure_demo_data_creates_accounts(empty_db, monkeypatch):
+    today = date(2026, 10, 22)
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return today
+
+    monkeypatch.setattr(demo_module, "date", FixedDate)
     functions.ensure_demo_data(**DEMO_PARAMS)
 
     assert functions.check_personnummer_password(
@@ -51,6 +63,12 @@ def test_ensure_demo_data_creates_accounts(empty_db):
     filenames = {pdf["filename"] for pdf in pdfs}
     expected = {item["filename"] for item in functions.DEMO_PDF_DEFINITIONS}
     assert expected.issubset(filenames)
+    expiry_dates = {pdf["filename"]: pdf["expires_on"] for pdf in pdfs}
+    assert expiry_dates == {
+        "demo-arbetsmiljo-grund.pdf": app._add_months_to_date(today, 6),
+        "demo-hlr.pdf": today + timedelta(days=14),
+        "demo-hlr-utgatt.pdf": today - timedelta(days=30),
+    }
 
     demo_dir = Path(functions.APP_ROOT) / "demo_assets" / "pdfs"
     with empty_db.connect() as conn:
@@ -67,7 +85,154 @@ def test_ensure_demo_data_creates_accounts(empty_db):
     for definition in functions.DEMO_PDF_DEFINITIONS:
         filename = definition["filename"]
         assert filename in stored
-        assert stored[filename] == (demo_dir / filename).read_bytes()
+        source_filename = definition.get("source_filename", filename)
+        assert stored[filename] == (demo_dir / source_filename).read_bytes()
+
+
+def test_demo_expiry_date_uses_calendar_months():
+    assert demo_module._demo_expiry_date(
+        {"expires_in_months": 6}, date(2025, 8, 31)
+    ) == date(2026, 2, 28)
+
+
+def test_debug_and_demo_modes_seed_missing_certificates_on_startup(
+    empty_db, monkeypatch
+):
+    functions.ensure_demo_data(**DEMO_PARAMS)
+    demo_personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    with empty_db.begin() as conn:
+        conn.execute(
+            functions.user_pdfs_table.delete().where(
+                functions.user_pdfs_table.c.personnummer == demo_personnummer_hash
+            )
+        )
+        conn.execute(
+            functions.user_pdfs_table.insert().values(
+                personnummer=demo_personnummer_hash,
+                filename="mitt-eget-intyg.pdf",
+                content=b"mitt eget innehall",
+                categories="arbetsmiljo-sakerhet",
+                note="",
+                expires_on=None,
+            )
+        )
+
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO_USER_PERSONNUMMER", DEMO_PARAMS["user_personnummer"])
+    monkeypatch.setenv("DEMO_USER_EMAIL", DEMO_PARAMS["user_email"])
+    monkeypatch.setenv("DEMO_USER_NAME", DEMO_PARAMS["user_name"])
+    monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PARAMS["user_password"])
+
+    app.create_app()
+    app.create_app()
+
+    pdfs = functions.get_user_pdfs(demo_personnummer_hash)
+    assert {pdf["filename"] for pdf in pdfs} == {
+        "demo-arbetsmiljo-grund.pdf",
+        "demo-hlr.pdf",
+        "demo-hlr-utgatt.pdf",
+        "mitt-eget-intyg.pdf",
+    }
+
+
+def test_debug_and_demo_modes_create_demo_user_and_certificates_on_startup(
+    empty_db, monkeypatch
+):
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO_USER_PERSONNUMMER", DEMO_PARAMS["user_personnummer"])
+    monkeypatch.setenv("DEMO_USER_EMAIL", DEMO_PARAMS["user_email"])
+    monkeypatch.setenv("DEMO_USER_NAME", DEMO_PARAMS["user_name"])
+    monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PARAMS["user_password"])
+
+    app.create_app()
+
+    assert functions.check_personnummer_password(
+        DEMO_PARAMS["user_personnummer"], DEMO_PARAMS["user_password"]
+    )
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    pdfs = functions.get_user_pdfs(personnummer_hash)
+    assert {pdf["filename"] for pdf in pdfs} == {
+        "demo-arbetsmiljo-grund.pdf",
+        "demo-hlr.pdf",
+        "demo-hlr-utgatt.pdf",
+    }
+
+
+def test_debug_startup_does_not_seed_demo_certificates_for_another_account(
+    empty_db, monkeypatch
+):
+    personnummer_hash = functions.hash_value(
+        functions.normalize_personnummer(DEMO_PARAMS["user_personnummer"])
+    )
+    assert functions.admin_create_user(
+        "real.user@example.com", "Riktig användare", DEMO_PARAMS["user_personnummer"]
+    )
+    assert functions.user_create_user("RealUserPassword1!", personnummer_hash)
+
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("ENABLE_DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO_USER_PERSONNUMMER", DEMO_PARAMS["user_personnummer"])
+    monkeypatch.setenv("DEMO_USER_EMAIL", DEMO_PARAMS["user_email"])
+    monkeypatch.setenv("DEMO_USER_NAME", DEMO_PARAMS["user_name"])
+    monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PARAMS["user_password"])
+
+    app.create_app()
+
+    assert functions.get_user_pdfs(personnummer_hash) == []
+    user = functions.get_user_info(DEMO_PARAMS["user_personnummer"])
+    assert user.email == functions.normalize_email("real.user@example.com")
+
+
+def test_ensure_demo_user_retries_after_concurrent_creation(monkeypatch):
+    calls = []
+
+    def ensure_once(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise demo_module.IntegrityError(
+                "INSERT", {}, Exception("duplicate account")
+            )
+        return True
+
+    monkeypatch.setattr(demo_module, "_ensure_demo_user_once", ensure_once)
+
+    assert functions.ensure_demo_user(
+        user_email=DEMO_PARAMS["user_email"],
+        user_name=DEMO_PARAMS["user_name"],
+        user_personnummer=DEMO_PARAMS["user_personnummer"],
+        user_password=DEMO_PARAMS["user_password"],
+    )
+    assert len(calls) == 2
+
+
+def test_concurrent_demo_user_initialization_adds_certificates_once(empty_db):
+    barrier = Barrier(2)
+
+    def initialize():
+        barrier.wait()
+        return functions.ensure_demo_user(
+            user_email=DEMO_PARAMS["user_email"],
+            user_name=DEMO_PARAMS["user_name"],
+            user_personnummer=DEMO_PARAMS["user_personnummer"],
+            user_password=DEMO_PARAMS["user_password"],
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert list(executor.map(lambda _: initialize(), range(2))) == [True, True]
+
+    with empty_db.connect() as conn:
+        filenames = conn.execute(
+            select(functions.user_pdfs_table.c.filename)
+        ).scalars().all()
+    assert sorted(filenames) == sorted(
+        definition["filename"] for definition in functions.DEMO_PDF_DEFINITIONS
+    )
 
 
 def test_ensure_demo_data_handles_pending_users_without_orgnr_default(empty_db):

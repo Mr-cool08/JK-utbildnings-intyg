@@ -1,6 +1,0 @@
-ändra text i anteckngarna i för standard användare
-
-
-
-
-ta bort demo?

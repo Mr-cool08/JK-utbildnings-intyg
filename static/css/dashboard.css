@@ -214,9 +214,43 @@
 
 .expiry-status {
     display: inline-block;
-    margin-left: 0.4rem;
+    margin-left: 0.25rem;
     flex-shrink: 0;
     line-height: 1;
+    font-weight: 700;
+}
+
+.pdf-note.expiry-status--expired {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.3rem 0.65rem;
+    color: #b42318;
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+}
+
+.pdf-note.expiry-status--soon {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.3rem 0.65rem;
+    color: #b54708;
+    background-color: #fef08a;
+    border: 1px solid #eab308;
+    border-radius: 999px;
+}
+
+.pdf-note.expiry-status--valid {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.3rem 0.65rem;
+    color: #166534;
+    background-color: #dcfce7;
+    border: 1px solid #bbf7d0;
+    border-radius: 999px;
 }
 
 .pdf-details a {

@@ -152,14 +152,24 @@ def store_pdf_blob(
     return int(pdf_id)
 
 
-def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
-    # Return metadata for all PDFs belonging to ``personnummer_hash``.
-    if not _is_valid_hash(personnummer_hash):
-        logger.warning("Avvisade ogiltig hash för personnummer")
-        return []
+def get_user_pdfs_for_users(
+    personnummer_hashes: Sequence[str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    # Fetch connected users' PDFs in batches instead of one query per user.
+    pdfs_by_user: Dict[str, List[Dict[str, Any]]] = {}
+    for personnummer_hash in personnummer_hashes:
+        if not _is_valid_hash(personnummer_hash):
+            logger.warning("Avvisade ogiltig hash för personnummer")
+            continue
+        pdfs_by_user.setdefault(personnummer_hash, [])
 
+    if not pdfs_by_user:
+        return pdfs_by_user
+
+    personnummer_hashes = list(pdfs_by_user)
     query = (
         select(
+            user_pdfs_table.c.personnummer,
             user_pdfs_table.c.id,
             user_pdfs_table.c.filename,
             user_pdfs_table.c.categories,
@@ -167,38 +177,52 @@ def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
             user_pdfs_table.c.note,
             user_pdfs_table.c.expires_on,
         )
-        .where(user_pdfs_table.c.personnummer == personnummer_hash)
         .order_by(
+            user_pdfs_table.c.personnummer.asc(),
             user_pdfs_table.c.uploaded_at.desc(),
             user_pdfs_table.c.id.desc(),
         )
     )
 
     for attempt in (1, 2):
+        for user_pdfs in pdfs_by_user.values():
+            user_pdfs.clear()
         try:
             with get_engine().connect() as conn:
-                rows = conn.execute(query)
-                return [
-                    {
-                        "id": row.id,
-                        "filename": row.filename,
-                        "categories": _deserialize_categories(row.categories),
-                        "uploaded_at": row.uploaded_at,
-                        "note": getattr(row, "note", "") or "",
-                        "expires_on": getattr(row, "expires_on", None),
-                    }
-                    for row in rows
-                ]
+                for start in range(0, len(personnummer_hashes), 500):
+                    rows = conn.execute(
+                        query.where(
+                            user_pdfs_table.c.personnummer.in_(
+                                personnummer_hashes[start : start + 500]
+                            )
+                        )
+                    )
+                    for row in rows:
+                        pdfs_by_user[row.personnummer].append(
+                            {
+                                "id": row.id,
+                                "filename": row.filename,
+                                "categories": _deserialize_categories(row.categories),
+                                "uploaded_at": row.uploaded_at,
+                                "note": getattr(row, "note", "") or "",
+                                "expires_on": getattr(row, "expires_on", None),
+                            }
+                        )
+            return pdfs_by_user
         except OperationalError:
             if attempt == 2:
                 raise
             logger.warning(
-                "Databasanslutningen tappades vid hämtning av PDF-lista för %s. Försöker igen.",
-                mask_hash(personnummer_hash),
+                "Databasanslutningen tappades vid hämtning av PDF-listor. Försöker igen."
             )
             get_engine().dispose()
 
-    return []
+    return pdfs_by_user
+
+
+def get_user_pdfs(personnummer_hash: str) -> List[Dict[str, Any]]:
+    # Return metadata for all PDFs belonging to ``personnummer_hash``.
+    return get_user_pdfs_for_users([personnummer_hash]).get(personnummer_hash, [])
 
 
 def count_user_pdfs(personnummer_hash: str) -> int:

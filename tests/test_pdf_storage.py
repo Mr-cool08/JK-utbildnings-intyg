@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import OperationalError
 
@@ -124,6 +124,7 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
     pnr_hash = _personnummer_hash("9001011234")
     expected_uploaded_at = datetime(2026, 1, 1, 12, 30, 0)
     row = SimpleNamespace(
+        personnummer=pnr_hash,
         id=7,
         filename="retry.pdf",
         categories="truck,hlr",
@@ -172,6 +173,29 @@ def test_get_user_pdfs_retries_once_after_operational_error(monkeypatch):
             "expires_on": None,
         }
     ]
+
+
+def test_get_user_pdfs_for_users_uses_one_query_and_groups_results(empty_db):
+    first_hash = _personnummer_hash("9001011234")
+    second_hash = _personnummer_hash("9001015678")
+    functions.store_pdf_blob(first_hash, "first.pdf", b"%PDF-1.4 first", [])
+    functions.store_pdf_blob(second_hash, "second.pdf", b"%PDF-1.4 second", [])
+    query_count = 0
+
+    def count_pdf_queries(_conn, _cursor, statement, _params, _context, _many):
+        nonlocal query_count
+        if "FROM user_pdfs" in statement:
+            query_count += 1
+
+    event.listen(empty_db, "before_cursor_execute", count_pdf_queries)
+    try:
+        results = functions.get_user_pdfs_for_users([first_hash, second_hash])
+    finally:
+        event.remove(empty_db, "before_cursor_execute", count_pdf_queries)
+
+    assert query_count == 1
+    assert [pdf["filename"] for pdf in results[first_hash]] == ["first.pdf"]
+    assert [pdf["filename"] for pdf in results[second_hash]] == ["second.pdf"]
 
 
 def test_count_user_pdfs_counts_only_matching_owner(empty_db):
