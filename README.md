@@ -75,6 +75,8 @@ PORT=8080
 
 Projektet använder i dagsläget en gemensam `docker-compose.yml` för både lokal körning och serverdrift.
 
+Publik HTTPS går via en extern Traefik på det befintliga Docker-nätverket `jk_public_net`. Se [integration, migrering och återställning](docs/DEPLOYMENT.md#extern-traefik).
+
 ### Starta hela stacken
 
 ```bash
@@ -83,7 +85,7 @@ docker compose up --build
 
 Viktiga host-portar i Compose:
 
-- Huvudapp: `http://localhost`
+- Huvudapp: intern port 80. För lokal HTTP används utvecklingsprofilen i [driftguiden](docs/DEPLOYMENT.md#http-på-dev-servern-utan-port-443).
 - VS Code i webbläsaren: `http://localhost:8083` när `DEV_MODE=true`
 - PostgreSQL: `127.0.0.1:1543` som standard
 

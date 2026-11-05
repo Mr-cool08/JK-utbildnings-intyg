@@ -112,14 +112,6 @@ def test_compose_avoids_host_volumes():
     assert re.search(r"-\s+\./[^:\n]*:/config", app_service) is None
 
 
-def test_compose_uses_direct_host_port_bindings_for_main_services():
-    compose = _read(ROOT / "docker-compose.yml")
-
-    assert "dev_main_port:" not in compose
-    assert "80:80" in compose
-    assert "127.0.0.1:80:80" not in compose
-
-
 def test_dev_http_is_opt_in_and_has_no_production_tls_dependencies():
     compose = _read(ROOT / "docker-compose.yml")
     service = _extract_service_block(compose, "dev_http")
@@ -141,12 +133,18 @@ def test_dev_http_is_opt_in_and_has_no_production_tls_dependencies():
 
 def test_production_proxy_keeps_https_and_domain_routing():
     compose = _read(ROOT / "docker-compose.yml")
-    proxy = _extract_service_block(compose, "traefik")
+    assert "\n  traefik:\n" not in compose
+    assert "docker.sock" not in compose
     app = _extract_service_block(compose, "app")
-    assert "profiles:" not in proxy
-    assert '"80:80"' in proxy and '"443:443"' in proxy
-    assert "--entrypoints.web.http.redirections.entrypoint.to=websecure" in proxy
-    assert "./deploy/traefik/dynamic:/etc/traefik/dynamic:ro" in proxy
+    assert "traefik.enable=true" in app
+    assert "traefik.docker.network=jk_public_net" in app
+    assert "traefik.http.services.app.loadbalancer.server.port=80" in app
+    assert "traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file" in app
+    router = "traefik.http.routers.app-mta-sts"
+    assert f"{router}.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in app
+    assert f"{router}.entrypoints=websecure" in app
+    assert f"{router}.tls=true" in app
+    assert f"{router}.middlewares=security-headers@file" in app
     assert "traefik.http.routers.app.entrypoints=websecure" in app
     assert "traefik.http.routers.app.tls=true" in app
     assert "Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)" in app
@@ -187,7 +185,6 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
 def test_compose_default_resource_caps_fit_small_host_profile():
     compose = _read(ROOT / "docker-compose.yml")
     default_services = [
-        "traefik",
         "fail2ban",
         "app",
         "expiry_reminder",
@@ -320,14 +317,12 @@ def test_entrypoint_requires_explicit_true_for_dev_mode():
     assert dev_mode_patterns == ["true:*"]
 
 
-def test_compose_assigns_explicit_traefik_logs_volume_name():
+def test_external_proxy_network_and_storage():
     compose = _read(ROOT / "docker-compose.yml")
-
-    assert (
-        "  traefik_logs:\n"
-        "    name: jk-utbildnings-intyg_traefik_logs\n"
-        in compose
-    )
+    assert "  public_net:\n    external: true\n    name: jk_public_net" in compose
+    assert "      - public_net" in _extract_service_block(compose, "app")
+    assert "public_net" not in _extract_service_block(compose, "postgres")
+    assert "traefik_logs" not in compose
 
 
 def test_fail2ban_service_reads_host_ssh_logs_instead_of_traefik_logs():

@@ -7,13 +7,11 @@ Den här guiden gäller nuvarande projektupplägg där `docker-compose.yml` anv�
 
 - Du behöver en server med Docker och Docker Compose.
 - Du behöver en domän som hanteras i Cloudflare.
-- Du behöver en färdig `.env` med korrekta certifikat- och proxyinställningar.
+- Du behöver en färdig `.env` med korrekta proxyinställningar.
 
 ## Rekommenderade miljövariabler
 
 ```env
-ORIGIN_CERT_PATH=/etc/ssl/cloudflare/origin.crt
-ORIGIN_KEY_PATH=/etc/ssl/cloudflare/origin.key
 TRUSTED_PROXY_COUNT=1
 PREFERRED_URL_SCHEME=https
 SESSION_COOKIE_SECURE=true
@@ -33,10 +31,8 @@ Aktivera proxyn i Cloudflare där det är relevant.
 
 ## TLS
 
-1. Skapa ett Cloudflare Origin CA-certifikat.
-2. Lägg certifikat och nyckel på servern.
-3. Peka `ORIGIN_CERT_PATH` och `ORIGIN_KEY_PATH` mot filerna.
-4. Sätt SSL-läget i Cloudflare till **Full (strict)**.
+1. Låt extern Traefik läsa befintligt origin-certifikat och nyckel på deras nuvarande platser. Certifikatet ska täcka alla tre domäner. Se [integrationsguiden](DEPLOYMENT.md#extern-traefik).
+2. Sätt SSL-läget i Cloudflare till **Full (strict)**.
 
 ## Starta tjänsterna
 
@@ -76,7 +72,7 @@ curl -I https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt
 
 ## Vanliga fallgropar
 
-- Fel certifikatvägar i `.env`
+- Fel certifikatvägar i den externa proxyn
 - Glömt att proxya `mta-sts`-subdomänen
 - Brandväggen släpper fortfarande igenom direkt trafik till origin
 - Felaktigt `TRUSTED_PROXY_COUNT`, vilket kan ge fel klient-IP eller felaktiga redirects
