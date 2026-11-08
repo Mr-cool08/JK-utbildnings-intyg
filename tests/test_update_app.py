@@ -215,6 +215,33 @@ def test_main_runs_compose_up_without_scale_flags(monkeypatch):
     assert "--scale" not in up_command
 
 
+@pytest.mark.parametrize("dev_mode", [None, "false", "1", "TRUE", "true"])
+def test_main_stops_dev_http_only_when_dev_mode_is_disabled(monkeypatch, dev_mode):
+    calls = []
+    _patch_main_runtime(
+        monkeypatch, calls, compose_services=("app", "postgres", "dev_http")
+    )
+    if dev_mode is None:
+        monkeypatch.delenv("DEV_MODE", raising=False)
+    else:
+        monkeypatch.setenv("DEV_MODE", dev_mode)
+
+    ua.main()
+
+    commands = [command for command, _ in calls]
+    proxy_stop = ua._compose_command("--profile", "dev-http", "stop", "dev_http")
+    regular_stop = ua._compose_command("stop")
+    up_command = _find_command_prefix(calls, ua._compose_command("up", "-d"))
+    assert regular_stop in commands
+    if dev_mode == "true":
+        assert proxy_stop not in commands
+        assert "dev_http" in up_command
+    else:
+        assert commands.count(proxy_stop) == 1
+        assert commands.index(proxy_stop) < commands.index(regular_stop)
+        assert "dev_http" not in up_command
+
+
 def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path):
     def fake_run(cmd, check=True, **kwargs):
         assert list(cmd) == [
