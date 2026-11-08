@@ -29,10 +29,11 @@ Skapa och proxya de domäner som används i Compose:
 
 Aktivera proxyn i Cloudflare där det är relevant.
 
-## TLS
+## TLS och certifikat
 
-1. Låt extern Traefik läsa befintligt origin-certifikat och nyckel på deras nuvarande platser. Certifikatet ska täcka alla tre domäner. Se [integrationsguiden](DEPLOYMENT.md#extern-traefik).
-2. Sätt SSL-läget i Cloudflare till **Full (strict)**.
+Den separata [gemensamma Traefik-stacken](https://github.com/Mr-cool08/traefik) äger certifikat, TLS och routing för alla berörda domäner, inklusive MTA-STS. Inga `ORIGIN_CERT_PATH`, `ORIGIN_KEY_PATH`, `TLS_CERT` eller `TLS_KEY` behövs i applikationens `.env`. Låt Traefik läsa privata nycklar från servern och använd Cloudflare **Full (strict)** där Cloudflare proxar HTTPS.
+
+Verifiera att MTA-STS-adressen presenterar ett publikt betrott certifikat för externa e-postavsändare. Se [migreringsordningen](DEPLOYMENT.md#säker-driftsättning-beroende-mellan-två-prer).
 
 ## Starta tjänsterna
 
