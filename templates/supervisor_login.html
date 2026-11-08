@@ -19,6 +19,10 @@
 
                 <button type="submit" class="btn">Logga in</button>
             </form>
+            <div class="cta-actions">
+                <a class="btn btn-ghost" href="{{ url_for('apply_foretagskonto') }}">Skapa företagskonto</a>
+                <a class="btn btn-ghost" href="{{ url_for('login') }}">Privatinloggning</a>
+            </div>
         </div>
     </div>
 {% endblock %}
