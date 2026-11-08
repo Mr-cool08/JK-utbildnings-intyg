@@ -79,7 +79,7 @@ PORT=8080
 
 Projektet använder i dagsläget en gemensam `docker-compose.yml` för både lokal körning och serverdrift.
 
-Publik HTTPS går via en extern Traefik på det befintliga Docker-nätverket `jk_public_net`. Se [integration, migrering och återställning](docs/DEPLOYMENT.md#extern-traefik).
+Publik HTTPS, certifikat, domänrouting och säkerhets-middlewares hanteras **helt i den gemensamma [Traefik-stacken](https://github.com/Mr-cool08/traefik)**. Appens Compose definierar endast det stabila nätverksaliaset `utbildningsintyg-web` på `jk_public_net` och intern HTTP-port 80. Se [integration, migrering och återställning](docs/DEPLOYMENT.md#extern-traefik-routing-och-tls-sköts-centralt).
 
 ### Starta hela stacken
 
