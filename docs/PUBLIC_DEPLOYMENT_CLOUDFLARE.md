@@ -21,7 +21,7 @@ SESSION_COOKIE_SECURE=true
 
 ## DNS-poster i Cloudflare
 
-Skapa och proxya de domäner som används i Compose:
+Skapa DNS-poster för värdnamnen som routas av den gemensamma Traefik-konfigurationen:
 
 - `utbildningsintyg.se`
 - `www.utbildningsintyg.se`
