@@ -471,6 +471,15 @@ def main(*, fail2ban_only: bool = False) -> None:
     # Validera den hämtade imagen innan några tjänster stoppas.
     addresses = _preflight_fail2ban(root, compose_env)
 
+    # En profilbaserad proxy ingår inte i ett vanligt compose stop.
+    # Stoppa därför dev_http uttryckligen när utvecklingsläget är avstängt.
+    if compose_env.get("DEV_MODE") != "true":
+        _run(
+            _compose_command("--profile", "dev-http", "stop", "dev_http"),
+            cwd=root,
+            env=compose_env,
+        )
+
     # 8. stop containers
     _run(_compose_command("stop"), cwd=root, env=compose_env)
 
