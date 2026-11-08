@@ -131,24 +131,31 @@ def test_dev_http_is_opt_in_and_has_no_production_tls_dependencies():
     assert not (ROOT / "deploy/traefik/dynamic/dev-http.yml").exists()
 
 
-def test_production_proxy_keeps_https_and_domain_routing():
+def test_production_app_delegates_tls_and_routing_to_shared_proxy():
     compose = _read(ROOT / "docker-compose.yml")
     assert "\n  traefik:\n" not in compose
     assert "docker.sock" not in compose
     app = _extract_service_block(compose, "app")
-    assert "traefik.enable=true" in app
-    assert "traefik.docker.network=jk_public_net" in app
-    assert "traefik.http.services.app.loadbalancer.server.port=80" in app
-    assert "traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file" in app
-    router = "traefik.http.routers.app-mta-sts"
-    assert f"{router}.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)" in app
-    assert f"{router}.entrypoints=websecure" in app
-    assert f"{router}.tls=true" in app
-    assert f"{router}.middlewares=security-headers@file" in app
-    assert "traefik.http.routers.app.entrypoints=websecure" in app
-    assert "traefik.http.routers.app.tls=true" in app
-    assert "Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)" in app
+    assert "    labels:" not in app
+    assert "traefik." not in app
+    assert "Host(`utbildningsintyg.se`)" not in compose
+    assert "security-headers@file" not in compose
+    assert "upload-buffer@file" not in compose
+    assert "    expose:\n      - \"80\"" in app
     assert "\n    ports:" not in app
+    assert "    networks:\n      public_net:\n        aliases:\n          - utbildningsintyg-web\n      db_net:" in app
+    assert "tls:" not in app.lower()
+    assert "certificate" not in app.lower()
+
+
+def test_deployment_docs_identify_shared_proxy_as_routing_owner():
+    readme = _read(ROOT / "README.md")
+    deployment = _read(ROOT / "docs/DEPLOYMENT.md")
+    assert "Mr-cool08/traefik" in deployment
+    assert "dynamic/utbildningsintyg.yml" in deployment
+    assert "utbildningsintyg-web" in deployment
+    assert "jk_public_net" in readme
+    assert "Traefik" in deployment
 
 
 def test_compose_does_not_include_rclone_cloud_backup_service():
