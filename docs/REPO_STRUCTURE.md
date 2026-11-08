@@ -27,7 +27,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 ## Drift och verktyg
 
-- `deploy/` - HTTP-proxy för utveckling, MTA-STS, certifikatexempel, Fail2ban och rclone-relaterade filer.
+- `deploy/` - HTTP-proxy endast för utveckling, MTA-STS-policy och Fail2ban. Publik HTTPS/TLS och certifikat hanteras i det separata Traefik-repot.
 - `scripts/` - drift- och underhållsskript, bland annat `manage_compose.py` och `update_app.py`.
 
 ## Test och dokumentation
