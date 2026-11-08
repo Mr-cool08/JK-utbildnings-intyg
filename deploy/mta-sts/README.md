@@ -12,7 +12,7 @@ Filen ska vara nåbar via:
 
 `https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt`
 
-I nuvarande projekt routas den via huvudappen och Traefik-regler i `docker-compose.yml`.
+Policyn serveras av huvudappen. Domän- och TLS-routingen ligger centralt i [Traefik-repots `dynamic/utbildningsintyg.yml`](https://github.com/Mr-cool08/traefik/blob/main/dynamic/utbildningsintyg.yml), inte i appens `docker-compose.yml`.
 
 ## Kontrollera innan `mode: enforce`
 
