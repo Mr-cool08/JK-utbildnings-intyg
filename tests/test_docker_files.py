@@ -131,7 +131,7 @@ def test_dev_http_is_opt_in_and_has_no_production_tls_dependencies():
     assert not (ROOT / "deploy/traefik/dynamic/dev-http.yml").exists()
 
 
-def test_production_app_delegates_tls_and_routing_to_shared_proxy():
+def test_production_app_delegates_tls_and_routing_to_cloudflare_tunnel():
     compose = _read(ROOT / "docker-compose.yml")
     assert "\n  traefik:\n" not in compose
     assert "docker.sock" not in compose
@@ -143,19 +143,21 @@ def test_production_app_delegates_tls_and_routing_to_shared_proxy():
     assert "upload-buffer@file" not in compose
     assert "    expose:\n      - \"80\"" in app
     assert "\n    ports:" not in app
-    assert "    networks:\n      public_net:\n        aliases:\n          - utbildningsintyg-web\n      db_net:" in app
+    assert "    networks:\n      tunnel:\n        aliases:\n          - utbildningsintyg\n      db_net:\n      dev_net:" in app
     assert "tls:" not in app.lower()
     assert "certificate" not in app.lower()
 
 
-def test_deployment_docs_identify_shared_proxy_as_routing_owner():
+def test_deployment_docs_identify_cloudflare_tunnel_as_routing_owner():
     readme = _read(ROOT / "README.md")
     deployment = _read(ROOT / "docs/DEPLOYMENT.md")
-    assert "Mr-cool08/traefik" in deployment
-    assert "dynamic/utbildningsintyg.yml" in deployment
-    assert "utbildningsintyg-web" in deployment
-    assert "jk_public_net" in readme
-    assert "Traefik" in deployment
+    cloudflare = _read(ROOT / "docs/PUBLIC_DEPLOYMENT_CLOUDFLARE.md")
+    for document in (readme, deployment, cloudflare):
+        assert "Cloudflare Tunnel" in document
+        assert "jk_tunnel_net" in document
+        assert "http://utbildningsintyg:80" in document
+    assert "Mr-cool08/infrastruktur_JK" in deployment
+    assert "Mr-cool08/traefik" not in deployment
 
 
 def test_compose_does_not_include_rclone_cloud_backup_service():
@@ -186,7 +188,9 @@ def test_compose_has_expiry_reminder_service_that_only_runs_script():
     assert "gunicorn" not in expiry_service
     assert "entrypoint.sh" not in expiry_service
     assert "      - db_net" in expiry_service
-    assert "      - public_net" in expiry_service
+    assert "      - worker_net" in expiry_service
+    assert "      - tunnel" not in expiry_service
+    assert "      - dev_net" not in expiry_service
 
 
 def test_compose_services_have_no_docker_resource_limits():
@@ -312,12 +316,36 @@ def test_entrypoint_requires_explicit_true_for_dev_mode():
     assert dev_mode_patterns == ["true:*"]
 
 
-def test_external_proxy_network_and_storage():
+def test_cloudflare_tunnel_network_and_storage_isolation():
     compose = _read(ROOT / "docker-compose.yml")
-    assert "  public_net:\n    external: true\n    name: jk_public_net" in compose
-    assert "      - public_net" in _extract_service_block(compose, "app")
-    assert "public_net" not in _extract_service_block(compose, "postgres")
+    app = _extract_service_block(compose, "app")
+    postgres = _extract_service_block(compose, "postgres")
+    backup = _extract_service_block(compose, "postgres_backup")
+    dev_proxy = _extract_service_block(compose, "dev_http")
+    vscode = _extract_service_block(compose, "vscode")
+    expiry = _extract_service_block(compose, "expiry_reminder")
+    assert "  tunnel:\n    external: true\n    name: jk_tunnel_net" in compose
+    assert "  dev_net: {}" in compose
+    assert "  worker_net: {}" in compose
+    assert "  db_net:\n    internal: true" in compose
+    assert "      tunnel:\n        aliases:\n          - utbildningsintyg" in app
+    assert "      db_net:" in app
+    assert "      dev_net:" in app
+    assert "      - db_net" in postgres
+    assert "      - db_net" in backup
+    assert "      - worker_net" in expiry  # SMTP kräver utgående trafik.
+    assert "      - dev_net" in dev_proxy
+    assert "      - dev_net" in vscode
+    for service in (postgres, backup, expiry, dev_proxy, vscode):
+        assert "      - tunnel" not in service
+        assert "      tunnel:" not in service
+    assert "    ports:" not in postgres
+    assert "POSTGRES_BIND_IP" not in compose
+    assert "pg_pub_net" not in compose
+    assert "jk_public_net" not in compose
     assert "traefik_logs" not in compose
+    assert "    name: jk-utbildnings-intyg_pgdata" in compose
+    assert "    name: jk-utbildnings-intyg_pgdata_backups" in compose
 
 
 def test_fail2ban_service_reads_host_ssh_logs_instead_of_traefik_logs():
