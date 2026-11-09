@@ -7,7 +7,7 @@ Det här projektet använder i dagsläget **en gemensam `docker-compose.yml`** f
 
 1. Vid nyinstallation, kopiera `.example.env` till `.env`. Vid migrering, behåll serverns befintliga `.env`.
 2. Fyll i minst databas-, admin- och SMTP-inställningar.
-3. Kontrollera att `docker network inspect jk_public_net` hittar det externa nätverket. På en separat dev-värd skapar administratören vid behov nätverket en gång med `docker network create jk_public_net`. För produktion, följ migreringsordningen nedan.
+3. Kontrollera att det externa Docker-nätverket `jk_tunnel_net` finns på värden där gemensam `cloudflared` körs. Skapa det vid behov en gång med `docker network create jk_tunnel_net`. Även en separat dev-värd behöver skapa ett lokalt nät med detta namn för att Compose-konfigurationen ska kunna startas (ingen fungerande tunnel krävs för `dev_http`). Se migreringsordningen nedan.
 
 Viktiga variabler att gå igenom:
 
@@ -60,12 +60,13 @@ Exempel på cron den första dagen varje månad klockan 07:00:
 
 ## Portar och exponering
 
-Direkta host-portar i Compose:
+- `app` nås internt på port **80** via `jk_tunnel_net` på adressen `http://utbildningsintyg:80`; ingen host-port är publicerad.
+- `postgres` har **ingen** publicerad host-port. Databasen finns endast på `db_net` tillsammans med appen och backup-tjänsterna.
+- `expiry_reminder` använder `db_net` och ett eget `worker_net` för utgående SMTP.
+- `dev_http` kan publicera `${DEV_HTTP_BIND_IP:-127.0.0.1}:80:80` i utvecklingsprofilen och är enbart ansluten till lokala `dev_net`.
+- `vscode` kan publicera `${VSCODE_BIND_IP:-127.0.0.1}:8087:8080` i sin utvecklingsprofil, ansluten till `dev_net`.
 
-- `${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432` - PostgreSQL
-- `${VSCODE_BIND_IP:-127.0.0.1}:8083:8080` - code-server vid DEV_MODE
-
-För publik drift bör direktåtkomst till origin begränsas med brandvägg, särskilt om Cloudflare används framför servern.
+Exponera inte PostgreSQL eller appens HTTP-port direkt på värden. För databasadministration: `docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`.
 
 ## Fail2ban
 
@@ -73,51 +74,46 @@ För publik drift bör direktåtkomst till origin begränsas med brandvägg, sä
 
 Publik webbtrafik bör i stället filtreras av Cloudflare och serverns brandvägg, så att fail2ban inte behöver vara primärt webbskydd för HTTP/HTTPS.
 
-## Extern Traefik: routing och TLS sköts centralt
+## Cloudflare Tunnel: routing och SSL sköts centralt
 
-**Det här applikationsprojektet äger inte produktionsroutrar, certifikat, TLS-inställningar eller proxy-middlewares.** De ligger i den separata proxystacken [Mr-cool08/traefik](https://github.com/Mr-cool08/traefik):
+Detta projekt innehåller **inte någon publik Traefik-proxy**. Den gemensamma [Cloudflare Tunnel-infrastrukturen](https://github.com/Mr-cool08/infrastruktur_JK) kör `cloudflared` i en egen Compose-stack. Cloudflare hanterar externa certifikat, DNS och publicerade hostnamn.
 
-- `dynamic/utbildningsintyg.yml` definierar domänreglerna för `utbildningsintyg.se`, `www.utbildningsintyg.se` och MTA-STS, HTTPS på `websecure`, routrar, tjänst och middleware-kopplingar.
-- `dynamic/tls.yml` definierar delade säkerhetsheaders, uppladdningsgränser och certifikat. Privata nycklar förvaras endast på servern.
-- `docker-compose.yml` i **det här repot** ansluter `app` till det externa Docker-nätverket `jk_public_net` med alias `utbildningsintyg-web`, och exponerar bara containerns port 80. Databasen förblir på `db_net`.
-- Den gemensamma Traefik-containern når appen via `http://utbildningsintyg-web:80` i Docker-nätverket; den publika anslutningen är HTTPS. Applikationens `PREFERRED_URL_SCHEME=https` och `SESSION_COOKIE_SECURE=true` måste behållas. Sätt `TRUSTED_PROXY_COUNT` enligt den verkliga kedjan av betrodda proxysteg.
+- Webbcontainern `app` ansluter till externt `jk_tunnel_net` med aliaset `utbildningsintyg` och lyssnar internt på port 80.
+- Publicerade Cloudflare-rutter: `utbildningsintyg.se` och `www.utbildningsintyg.se` → `http://utbildningsintyg:80`.
+- MTA-STS: `mta-sts.utbildningsintyg.se` → samma service för `/.well-known/mta-sts.txt`. Begränsa den publicerade rutten till denna path och verifiera att andra sökvägar ger 404.
+- `postgres` ligger endast på `db_net`; `expiry_reminder` ansluter inte till tunnelnätet men kan nå utgående SMTP via `worker_net`.
+- Ingen publik TLS-konfiguration eller Traefik-labels behöver finnas i appens Compose. Intern HTTP mellan `cloudflared` och `app` används på samma Docker-värd. För olika servrar krävs separat bedömning av TLS på sista hoppen.
+- Behåll `PREFERRED_URL_SCHEME=https` och `SESSION_COOKIE_SECURE=true`; verifiera `TRUSTED_PROXY_COUNT`, klient-IP och rätt HTTPS-redirects.
+- Säkerhetsheaders, uppladdningsgränser och andra tidigare Traefik-middlewares måste hanteras i appen eller i Cloudflare, inte antas följa med automatiskt.
 
-Att låta appen sakna Traefik-labels är avsiktligt. Docker-providern har `exposedByDefault=false`, så **utan den centrala routingfilen blir appen inte publik**.
+Se också [den kompletta Cloudflare-guiden](PUBLIC_DEPLOYMENT_CLOUDFLARE.md).
 
-### Säker driftsättning: beroende mellan två PR:er
+### Säker migrering till Cloudflare Tunnel
 
-**Driftsätt aldrig denna PR #530 innan motsvarande konfiguration i proxystacken är införd.** Se [Traefik-repots driftsättningsordning](https://github.com/Mr-cool08/traefik/blob/main/README.md) när dess ändring har mergats.
+**Merga/driftsätt inte denna PR #530 förrän Cloudflare Tunnel kan nå nätverket `jk_tunnel_net`.** Ett fungerande Kursplan-upplägg innebär inte automatiskt att Utbildningsintygets hostname är konfigurerat.
 
-1. **Före koduppdatering:** pausa schemalagda uppdateringar, notera aktuell Git-revision och Compose-projektnamn. Spara befintlig `.env`, tidigare Compose och monterad Traefik-konfiguration separat. Verifiera en aktuell backup och kontrollera `docker network inspect jk_public_net`. Återanvänd existerande datavolymer och projektnamn.
-2. **Förbered gemensam Traefik först.** Läs in `dynamic/utbildningsintyg.yml` i den nya proxyn, där huvud- och MTA-STS-routrarna har `priority: 1`. Befintliga Docker-label-routrar har högre prioritet och fortsätter att hantera webbtrafik tills denna app uppdateras. Om en gammal proxy äger port 80/443 måste just den containern stoppas innan nya proxyn tar portarna; behåll gamla containern för rollback. Kontrollera huvuddomän, www, `/health`, MTA-STS och inloggning.
-3. **Uppdatera sedan utbildningsintyg.se** till denna PR med **samma Compose-projektnamn, befintlig `.env` och volymer**. Kör `docker compose config --quiet`. Kontrollera att `app` får nätverksaliaset `utbildningsintyg-web` och att `db_net` fortfarande är separat. Återskapa endast appcontainern om det behövs, exempelvis `docker compose up -d --no-deps app`.
-4. **Verifiera central routing:** kontrollera `https://utbildningsintyg.se/health` och `https://www.utbildningsintyg.se/health` (HTTP 200), MTA-STS-policyn på `https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt`, 404 för annan sökväg på MTA-STS-domänen, rätt TLS-certifikat och headers samt fungerande inloggning och uppladdningar. Kontrollera accessloggarna i den gemensamma proxyn.
-5. Återuppta uppdateringsjobb först efter lyckad verifiering. Ta bort gammal proxycontainer först efter att återställningsfönstret stängts.
+1. **Förbered:** notera aktuellt Compose-projektnamn, Git-revision, fungerande `.env`, befintliga tjänster och nätverk. Verifiera databasbackup och behåll befintliga volymer, särskilt `jk-utbildnings-intyg_pgdata`.
+2. **Kontrollera infrastrukturen:** `docker network inspect jk_tunnel_net`, och se att gemensam `cloudflared` ansluter till nätverket. Konfigurera tre publicerade hostnamn/rutter i Cloudflare inklusive MTA-STS; kontrollera DNS och edge-certifikat.
+3. **Planera avbrott:** om gammal lokal Traefik fortfarande serverar trafik på 80/443 ska den tas ur drift kontrollerat, utan att ändra databasvolymer. Stäng inte av fungerande routing innan den nya är verifierbar.
+4. **Uppdatera appen:** använd **samma Compose-projektnamn**, befintlig `.env` och volymer. Kör `docker compose -f docker-compose.yml config --quiet` och `docker compose -f docker-compose.yml up -d --build` vid planerad migrering. Kontrollera att `app` ansluts med aliaset `utbildningsintyg`, och att PostgreSQL inte publiceras till hosten.
+5. **Verifiera:** testa `https://utbildningsintyg.se/health`, `https://www.utbildningsintyg.se/health`, `https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt`, 404 för andra vägar på MTA-STS-domänen, korrekt HTTPS, säkerhetsheaders, inloggning, filuppladdningar och e-postutskick. Kontrollera också databasbackup.
+6. **Städa först efter godkänd verifiering:** frigör gamla 80/443-bindningar och tidigare Traefik-filer när återställningsmöjlighet inte längre behövs. Återuppta uppdateringsjobb sist.
 
-Undvik `docker compose down -v`, `docker volume prune` och nya Compose-projektnamn under hela migreringen. De kan påverka databasen och andra tjänster på den delade värden.
+Undvik `docker compose down -v`, `docker volume prune` och byte av Compose-projektnamn. Förlust av projektnamn kan innebära att olika namngivna volymer används. En extern nätverks- och DNS-flytt är **inte** ett skäl att återställa eller återskapa PostgreSQL-data.
 
 ### Återställning
 
-Om ett fel uppstår **före** uppdateringen av appen, behåll de befintliga Docker-labelsen och återställ vid behov gamla proxyn efter att frigjort port 80/443.
+Vid fel: återställ tidigare körande Git-revision/Compose-definition i **samma projekt**, och växla DNS/rutt tillbaka till den tidigare fungerande proxyn först när den är igång. Testa därefter huvuddomän, www, MTA-STS, inloggning och databaskoppling. Återställ inte databasen enbart för att routningen har ändrats.
 
-Om felet uppstår **efter** appuppdateringen, återställ föregående Git-revision och Compose-fil för appen (med samma projektnamn, `.env` och volymer) och återskapa enbart appcontainern. Den gamla routingen via Docker-labels återkommer då och har högre prioritet än `@file`-routrarna. Kontrollera alla tre domäner, TLS, MTA-STS och inloggning. Återställ aldrig databasen bara för att proxykonfigurationen ändrats.
+## PostgreSQL – endast internt
 
-## PostgreSQL publik exponering
+PostgreSQL 16 och dess befintliga namngivna volym behålls, men databasen exponeras inte längre som `127.0.0.1:1543`. Adminåtkomst sker med exempelvis:
 
-Databasen är som standard endast bunden till loopback:
+~~~bash
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+~~~
 
-```env
-POSTGRES_BIND_IP=127.0.0.1
-POSTGRES_PUBLIC_PORT=1543
-```
-
-Om du måste exponera PostgreSQL utanför servern:
-
-```env
-POSTGRES_BIND_IP=0.0.0.0
-```
-
-Gör det bara tillsammans med brandvägg eller IP-allowlist.
+Om annan programvara på värden tidigare har använt `127.0.0.1:1543` måste den migreras till en säker alternativ anslutning **innan** porten tas bort i produktion.
 
 ## Backup
 
@@ -141,7 +137,7 @@ Compose-hantering:
 python scripts/manage_compose.py --action <stop|pull|up|cycle|git-pull|pytest|prune-volumes|system-df>
 ```
 
-På en delad Docker-värd hanteras systemuppgraderingar separat. Låt `ENABLE_OS_UPGRADE` och `CHECK_OS_UPDATES` vara avstängda vid ordinarie JK-uppdateringar. Den manuella åtgärden `prune-volumes` gäller hela Docker-värden och ska inte användas vid proxybytet.
+På en delad Docker-värd hanteras systemuppgraderingar separat. Låt `ENABLE_OS_UPGRADE` och `CHECK_OS_UPDATES` vara avstängda vid ordinarie JK-uppdateringar. Den manuella åtgärden `prune-volumes` gäller hela Docker-värden och ska inte användas vid tunnelmigreringen.
 
 Uppdateringssekvens:
 
@@ -153,7 +149,7 @@ På Linux-servrar där `crontab` finns installerat säkerställer skriptet ocks�
 
 ## HTTP på dev-servern utan port 443
 
-För publik HTTPS hanterar den externa Traefik-stacken port 443 och origin-certifikat.
+För publik HTTPS hanterar Cloudflare edge-certifikatet och tunneln. Ingen publik port 443 eller origin-certifikat behövs för denna Compose-stack.
 `app` har endast `expose: 80`, vilket inte publicerar någon port på värden.
 För dev-servern finns tjänsten `dev_http` i samma `docker-compose.yml`.
 Den är profilavstängd som standard och vägrar starta utan exakt `DEV_MODE=true`.
@@ -204,12 +200,12 @@ sedan `/config/.env` om den finns på värden, sedan projektets `.env`, utan att
 skriva över redan satta värden. Använd exakt `true`; standardläget är `false`.
 Flaggan aktiverar även appens befintliga debugbeteende nästa gång appen återskapas.
 
-`update_app.py` väljer `dev_http` endast vid exakt `DEV_MODE=true`. I produktion sköter den externa stacken HTTPS.
+`update_app.py` väljer `dev_http` endast vid exakt `DEV_MODE=true`. I produktion sköter Cloudflare Tunnel HTTPS. På dev-värden måste nätverket `jk_tunnel_net` finnas eftersom appen också deklarerar det som externt, men den lokala HTTP-proxyn använder endast `dev_net`.
 
 Återställning av denna dev-åtgärd: `docker compose -f docker-compose.yml stop dev_http`.
 Det återgår till läget utan extern HTTP-åtkomst och ändrar inga volymer.
 Vid ett avsiktligt byte till produktionsdrift måste dev-proxyn först stoppas;
-produktionsdrift använder `DEV_MODE=false` och kräver fungerande port 443 och TLS.
+produktionsdrift använder `DEV_MODE=false` och kräver en fungerande Cloudflare Tunnel-rutt samt HTTPS-certifikat hos Cloudflare.
 
 ## Vid publik Cloudflare-drift
 
