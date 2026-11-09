@@ -20,7 +20,7 @@ services:
     volumes:
       - ./deploy/traefik/dev-http.yml:/etc/traefik/dev-http.yml:ro
     networks:
-      - public_net
+      - dev_net
     restart: unless-stopped
 
   fail2ban:
@@ -69,10 +69,11 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      public_net:
+      tunnel:
         aliases:
-          - utbildningsintyg-web
+          - utbildningsintyg
       db_net:
+      dev_net:
     restart: unless-stopped
 
   expiry_reminder:
@@ -89,9 +90,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Behöver databasåtkomst och utgående SMTP, men inte tunnelnätet.
     networks:
-      - public_net
       - db_net
+      - worker_net
     restart: "no"
 
   vscode:
@@ -117,7 +119,7 @@ services:
     volumes:
       - .:/workspace
     networks:
-      - public_net
+      - dev_net
     restart: "no"
 
   postgres:
@@ -141,9 +143,6 @@ services:
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      # Publik exponering kräver POSTGRES_BIND_IP=0.0.0.0 (default är endast lokal åtkomst).
-      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-} -d ${POSTGRES_DB:-} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -151,7 +150,6 @@ services:
       retries: 20
       start_period: 5s
     networks:
-      - pg_pub_net
       - db_net
     restart: unless-stopped
 
@@ -190,9 +188,12 @@ volumes:
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
 networks:
-  public_net:
+  # Delat med infrastrukturen/cloudflared. Skapas en gång på Docker-värden.
+  tunnel:
     external: true
-    name: jk_public_net
-  pg_pub_net: {}
+    name: jk_tunnel_net
+  # Separata Compose-interna nät för utveckling och utgående jobb.
+  dev_net: {}
+  worker_net: {}
   db_net:
     internal: true
