@@ -79,6 +79,8 @@ PORT=8080
 
 Projektet använder i dagsläget en gemensam `docker-compose.yml` för både lokal körning och serverdrift.
 
+Publik HTTPS och domänrouting hanteras via **Cloudflare Tunnel** i det [gemensamma infrastrukturprojektet](https://github.com/Mr-cool08/infrastruktur_JK). Appen ansluts till `jk_tunnel_net` med aliaset `utbildningsintyg`; tunneln når `http://utbildningsintyg:80`. Databasen stannar på eget internt nät. Se [migrering och återställning](docs/DEPLOYMENT.md#säker-migrering-till-cloudflare-tunnel).
+
 ### Starta hela stacken
 
 ```bash
@@ -87,9 +89,9 @@ docker compose up --build
 
 Viktiga host-portar i Compose:
 
-- Huvudapp: `http://localhost`
-- VS Code i webbläsaren: `http://localhost:8083` när `DEV_MODE=true`
-- PostgreSQL: `127.0.0.1:1543` som standard
+- Huvudapp: intern port 80. För lokal HTTP används utvecklingsprofilen i [driftguiden](docs/DEPLOYMENT.md#http-på-dev-servern-utan-port-443).
+- VS Code i webbläsaren: `http://localhost:8087` när `DEV_MODE=true`
+- PostgreSQL: ingen host-port, nås bara internt via `db_net` (använd `docker compose exec postgres` för administration)
 
 ### VS Code-container i DEV_MODE
 

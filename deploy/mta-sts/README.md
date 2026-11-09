@@ -12,7 +12,7 @@ Filen ska vara nåbar via:
 
 `https://mta-sts.utbildningsintyg.se/.well-known/mta-sts.txt`
 
-I nuvarande projekt routas den via huvudappen och Traefik-regler i `docker-compose.yml`.
+Policyn serveras av huvudappen på `/.well-known/mta-sts.txt`. HTTPS och hostname-routning hanteras via den [gemensamma Cloudflare Tunnel-infrastrukturen](https://github.com/Mr-cool08/infrastruktur_JK), inte i appens `docker-compose.yml`. Skapa en publicerad tunnelrutt för `mta-sts.utbildningsintyg.se` mot `http://utbildningsintyg:80`, helst begränsad till just policyfilens sökväg. Andra sökvägar på MTA-STS-hostnamnet ska inte exponera webbappen; kontrollera 404.
 
 ## Kontrollera innan `mode: enforce`
 

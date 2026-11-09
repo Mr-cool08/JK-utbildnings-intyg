@@ -20,36 +20,7 @@ services:
     volumes:
       - ./deploy/traefik/dev-http.yml:/etc/traefik/dev-http.yml:ro
     networks:
-      - public_net
-    restart: unless-stopped
-
-  traefik:
-    image: traefik
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./deploy/traefik/dynamic:/etc/traefik/dynamic:ro
-      - ${ORIGIN_CERT_PATH:-/etc/ssl/cloudflare/origin.crt}:/etc/traefik/certs/origin.crt:ro
-      - ${ORIGIN_KEY_PATH:-/etc/ssl/cloudflare/origin.key}:/etc/traefik/certs/origin.key:ro
-      - traefik_logs:/var/log/traefik
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.websecure.http.tls=true
-      - --log.level=INFO
-      - --log.filepath=/var/log/traefik/traefik.log
-      - --accesslog=true
-      - --accesslog.filepath=/var/log/traefik/access.log
-      
-    networks:
-      - public_net
+      - dev_net
     restart: unless-stopped
 
   fail2ban:
@@ -98,20 +69,11 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - public_net
-      - db_net
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${PUBLIC_NETWORK_NAME:-jk_public_net}
-      - traefik.http.routers.app.rule=Host(`utbildningsintyg.se`) || Host(`www.utbildningsintyg.se`)
-      - traefik.http.routers.app-mta-sts.rule=Host(`mta-sts.utbildningsintyg.se`) && Path(`/.well-known/mta-sts.txt`)
-      - traefik.http.routers.app.entrypoints=websecure
-      - traefik.http.routers.app-mta-sts.entrypoints=websecure
-      - traefik.http.routers.app.tls=true
-      - traefik.http.routers.app-mta-sts.tls=true
-      - traefik.http.routers.app.middlewares=security-headers@file,upload-buffer@file
-      - traefik.http.routers.app-mta-sts.middlewares=security-headers@file
-      - traefik.http.services.app.loadbalancer.server.port=80
+      tunnel:
+        aliases:
+          - utbildningsintyg
+      db_net:
+      dev_net:
     restart: unless-stopped
 
   expiry_reminder:
@@ -128,9 +90,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Behöver databasåtkomst och utgående SMTP, men inte tunnelnätet.
     networks:
-      - public_net
       - db_net
+      - worker_net
     restart: "no"
 
   vscode:
@@ -156,7 +119,7 @@ services:
     volumes:
       - .:/workspace
     networks:
-      - public_net
+      - dev_net
     restart: "no"
 
   postgres:
@@ -180,9 +143,6 @@ services:
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      # Publik exponering kräver POSTGRES_BIND_IP=0.0.0.0 (default är endast lokal åtkomst).
-      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PUBLIC_PORT:-1543}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-} -d ${POSTGRES_DB:-} -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -190,7 +150,6 @@ services:
       retries: 20
       start_period: 5s
     networks:
-      - pg_pub_net
       - db_net
     restart: unless-stopped
 
@@ -223,16 +182,18 @@ volumes:
     name: jk-utbildnings-intyg_demo_logs
   status_logs:
     name: jk-utbildnings-intyg_status_logs
-  traefik_logs:
-    name: jk-utbildnings-intyg_traefik_logs
   fail2ban_data:
   pgdata:
     name: jk-utbildnings-intyg_pgdata
   pgdata_backups:
     name: jk-utbildnings-intyg_pgdata_backups
 networks:
-  public_net:
-    name: ${PUBLIC_NETWORK_NAME:-jk_public_net}
-  pg_pub_net: {}
+  # Delat med infrastrukturen/cloudflared. Skapas en gång på Docker-värden.
+  tunnel:
+    external: true
+    name: jk_tunnel_net
+  # Separata Compose-interna nät för utveckling och utgående jobb.
+  dev_net: {}
+  worker_net: {}
   db_net:
     internal: true
