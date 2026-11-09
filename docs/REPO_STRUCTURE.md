@@ -27,7 +27,7 @@ Det här är den nuvarande huvudstrukturen i projektet.
 
 ## Drift och verktyg
 
-- `deploy/` - HTTP-proxy endast för utveckling, MTA-STS-policy och Fail2ban. Publik HTTPS/TLS och certifikat hanteras i det separata Traefik-repot.
+- `deploy/` - HTTP-proxy endast för utveckling, MTA-STS-policy och Fail2ban. Publik HTTPS/TLS hanteras genom Cloudflare Tunnel i [infrastrukturprojektet](https://github.com/Mr-cool08/infrastruktur_JK).
 - `scripts/` - drift- och underhållsskript, bland annat `manage_compose.py` och `update_app.py`.
 
 ## Test och dokumentation
