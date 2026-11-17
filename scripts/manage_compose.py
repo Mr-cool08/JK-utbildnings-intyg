@@ -7,7 +7,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -106,15 +105,6 @@ def _run_docker_system_df(
 ) -> None:
     # Run docker system df to show disk usage.
     runner(["docker", "system", "df"], check=True)
-
-
-def _run_docker_prune_commands(
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> None:
-    # Run docker prune commands to clean up unused data.
-    runner(["docker", "image", "prune", "-a"], check=True)
-    runner(["docker", "builder", "prune"], check=True)
-    runner(["docker", "system", "prune", "-a"], check=True)
 
 
 def _build_venv_command(
@@ -322,27 +312,14 @@ def _ensure_volume_present(
     volume_name: str,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> bool:
-    # Ensure a docker volume exists and has a valid mountpoint.
+    # Create missing volumes and preserve existing volumes.
     info = _inspect_volume(volume_name, runner=runner)
     if not info:
         print(f"Skapar Docker-volym: {volume_name}")
         runner(["docker", "volume", "create", volume_name], check=True)
         return True
-    mountpoint = info.get("Mountpoint")
-    if mountpoint and os.path.exists(mountpoint):
-        return False
-    print(f"Återskapar Docker-volym: {volume_name}")
-    try:
-        runner(["docker", "volume", "rm", volume_name], check=True)
-    except subprocess.CalledProcessError as exc:
-        print(
-            "Varning: Kunde inte ta bort Docker-volymen eftersom den används. "
-            "Hoppar över återskapning.",
-            file=sys.stderr,
-        )
-        return False
-    runner(["docker", "volume", "create", volume_name], check=True)
-    return True
+    # Docker kan ligga på en annan värd än skriptet. Bevara befintlig volym.
+    return False
 
 
 def _ensure_compose_volumes(
@@ -465,10 +442,6 @@ def run_compose_action(
             print("Hämtar senaste ändringarna med git pull...")
             runner(["git", "pull"], check=True)
             
-            print("Uppdaterar systemet...")
-            runner(["sudo", "apt", "update"], check=True)
-            runner(["sudo", "apt", "upgrade", "-y"], check=True)
-            
             # Använd stop för att undvika att volymer tas bort vid omstart.
             run_compose_command(compose_args, ["stop"], runner)
 
@@ -488,15 +461,7 @@ def run_compose_action(
 
             print("Startar Docker Compose-tjänsterna...")
             _ensure_compose_volumes(compose_args, runner=runner)
-            run_compose_command(
-                compose_args,
-                ["up", "-d", "--remove-orphans", "--renew-anon-volumes"],
-                runner,
-            )
-            
-            
-            print("Rensar oanvända Docker-artefakter...")
-            _run_docker_prune_commands(runner=runner)
+            run_compose_command(compose_args, ["up", "-d"], runner)
 
             print("Klar.")
             # Gather statuses and notify with details

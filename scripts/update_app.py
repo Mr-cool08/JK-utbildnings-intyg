@@ -18,7 +18,6 @@ The sequence executed by :func:`main` is:
 10. stop main compose containers
 11. rebuild and bring up the main compose services without cache; verify Fail2ban
 13. display live ``docker stats`` for sixty seconds
-14. run a series of ``docker prune`` commands to clean up space
 
 Most shell steps are executed via :func:`_run`. If a command fails,
 underlying exceptions such as ``subprocess.CalledProcessError`` and
@@ -138,11 +137,8 @@ def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[s
 
     config = json.loads(output)
     services = list((config.get("services") or {}).keys())
-    # Behåll produktionsproxyn om DEV_MODE inte uttryckligen är true.
     dev_mode = compose_env.get("DEV_MODE") == "true"
-    excluded_services = COMPOSE_UP_EXCLUDED_SERVICES | {
-        "traefik" if dev_mode else "dev_http"
-    }
+    excluded_services = COMPOSE_UP_EXCLUDED_SERVICES | {"dev_http"}
     filtered_services = [
         service
         for service in services
@@ -151,7 +147,7 @@ def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[s
     if not filtered_services:
         raise RuntimeError("Inga docker compose-tjanster kunde startas.")
 
-    if dev_mode and "dev_http" not in filtered_services:
+    if dev_mode:
         # Ett explicit tjänstenamn aktiverar dess profil utan fler dev-tjänster.
         filtered_services.append("dev_http")
     return _compose_command("up", "-d", *filtered_services)
@@ -475,6 +471,15 @@ def main(*, fail2ban_only: bool = False) -> None:
     # Validera den hämtade imagen innan några tjänster stoppas.
     addresses = _preflight_fail2ban(root, compose_env)
 
+    # En profilbaserad proxy ingår inte i ett vanligt compose stop.
+    # Stoppa därför dev_http uttryckligen när utvecklingsläget är avstängt.
+    if compose_env.get("DEV_MODE") != "true":
+        _run(
+            _compose_command("--profile", "dev-http", "stop", "dev_http"),
+            cwd=root,
+            env=compose_env,
+        )
+
     # 8. stop containers
     _run(_compose_command("stop"), cwd=root, env=compose_env)
 
@@ -491,11 +496,6 @@ def main(*, fail2ban_only: bool = False) -> None:
     finally:
         proc.terminate()
         proc.wait()
-
-    # 14. prune docker data
-    _run(["docker", "image", "prune", "-a", "-f"])
-    _run(["docker", "builder", "prune", "-f"])
-    _run(["docker", "system", "prune", "-a", "-f"])
 
 
 if __name__ == "__main__":

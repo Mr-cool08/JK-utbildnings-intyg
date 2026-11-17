@@ -59,16 +59,17 @@ DEV_MODE=true
 
 ## Docker-utveckling
 
-Starta hela stacken:
+På en separat dev-värd skapas ett lokalt Docker-nät med namnet `jk_tunnel_net` (Compose kräver att det externa nätet finns, även om Cloudflare Tunnel inte används i utveckling). Den lokala HTTP-proxyn går däremot över `dev_net`. Sätt `DEV_MODE=true` i dev-serverns `.env` och starta med HTTP-profilen.
 
 ```bash
-docker compose up --build
+docker network inspect jk_tunnel_net || docker network create jk_tunnel_net
+docker compose --profile dev-http up --build
 ```
 
 Viktiga lokala adresser:
 
 - Huvudapp: `http://localhost`
-- VS Code i webbläsaren: `http://localhost:8083` när `DEV_MODE=true`
+- VS Code i webbläsaren: `http://localhost:8087` när `DEV_MODE=true`
 
 ## VS Code-container i webbläsaren
 

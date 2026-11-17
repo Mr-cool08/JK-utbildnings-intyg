@@ -95,8 +95,6 @@ def test_run_compose_action_cycle_orders_commands():
 
     assert events == [
         {"event": "cmd", "cmd": ["git", "pull"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["sudo", "apt", "update"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["sudo", "apt", "upgrade", "-y"], "check": True, "cwd": None},
 
         {
             "event": "cmd",
@@ -129,16 +127,11 @@ def test_run_compose_action_cycle_orders_commands():
                 "docker-compose.yml",
                 "up",
                 "-d",
-                "--remove-orphans",
-                "--renew-anon-volumes",
             ],
             "check": True,
             "cwd": None,
         },
 
-        {"event": "cmd", "cmd": ["docker", "image", "prune", "-a"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "builder", "prune"], "check": True, "cwd": None},
-        {"event": "cmd", "cmd": ["docker", "system", "prune", "-a"], "check": True, "cwd": None},
     ]
 
 def test_run_compose_action_build_up_orders_commands():
@@ -372,7 +365,7 @@ def test_ensure_compose_volumes_creates_missing_volume():
     ]
 
 
-def test_ensure_compose_volumes_recreates_missing_mountpoint(tmp_path):
+def test_ensure_compose_volumes_preserves_existing_volume_with_inaccessible_mountpoint(tmp_path):
     module = _load_module()
     calls: list[list[str]] = []
     missing_mount = tmp_path / "missing"
@@ -403,38 +396,7 @@ def test_ensure_compose_volumes_recreates_missing_mountpoint(tmp_path):
     assert calls == [
         ["docker", "compose", "-f", "docker-compose.yml", "--project-name", "local", "config", "--format", "json"],
         ["docker", "volume", "inspect", "local_env_data"],
-        ["docker", "volume", "rm", "local_env_data"],
-        ["docker", "volume", "create", "local_env_data"],
     ]
-
-
-def test_ensure_volume_present_handles_in_use_volume(capsys, tmp_path):
-    module = _load_module()
-    calls: list[list[str]] = []
-    missing_mount = tmp_path / "missing"
-
-    def fake_runner(cmd, check, **kwargs):
-        calls.append(list(cmd))
-        if cmd[:3] == ["docker", "volume", "inspect"]:
-            return subprocess.CompletedProcess(
-                cmd,
-                0,
-                stdout=f'[{{"Mountpoint": "{missing_mount}"}}]',
-                stderr="",
-            )
-        if cmd[:3] == ["docker", "volume", "rm"]:
-            raise subprocess.CalledProcessError(1, cmd, stderr="volume is in use")
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-    result = module._ensure_volume_present("local_env_data", runner=fake_runner)
-
-    assert result is False
-    assert calls == [
-        ["docker", "volume", "inspect", "local_env_data"],
-        ["docker", "volume", "rm", "local_env_data"],
-    ]
-    captured = capsys.readouterr()
-    assert "Varning: Kunde inte ta bort Docker-volymen" in captured.err
 
 
 def test_run_menu_executes_selected_action():
