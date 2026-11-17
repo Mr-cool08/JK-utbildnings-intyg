@@ -14,6 +14,10 @@
                 <input type="password" id="password" name="password" required>
                 <button type="submit" class="btn">Logga in</button>
             </form>
+            <div class="cta-actions">
+                <a class="btn btn-ghost" href="{{ url_for('apply_standardkonto') }}">Skapa privatkonto</a>
+                <a class="btn btn-ghost" href="{{ url_for('supervisor_login') }}">Företagsinloggning</a>
+            </div>
         </div>
     </div>
 {% endblock %}
