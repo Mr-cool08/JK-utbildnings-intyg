@@ -13,6 +13,7 @@ def _patch_main_runtime(
     venv_bin="X",
     cron_marker=None,
     compose_services=None,
+    project_name="utbildningsintyg-test",
 ):
     monkeypatch.setenv("DEV_MODE", "false")
     if compose_services is None:
@@ -34,7 +35,8 @@ def _patch_main_runtime(
             "json",
         ]:
             services = {service_name: {} for service_name in compose_services}
-            return subprocess.CompletedProcess(cmd, 0, json.dumps({"services": services}), "")
+            config = {"name": project_name, "services": services}
+            return subprocess.CompletedProcess(cmd, 0, json.dumps(config), "")
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(ua, "_run", fake_run)
@@ -171,7 +173,7 @@ def test_main_runs_pytest_with_deterministic_test_env(monkeypatch):
             return subprocess.CompletedProcess(
                 cmd,
                 0,
-                json.dumps({"services": services}),
+                json.dumps({"name": "utbildningsintyg-test", "services": services}),
                 "",
             )
         return subprocess.CompletedProcess(cmd, 0)
@@ -211,7 +213,7 @@ def test_main_runs_compose_up_without_scale_flags(monkeypatch):
     up_command = _find_command_prefix(
         calls, ["docker", "compose", "-f", "docker-compose.yml", "up", "-d"]
     )
-    assert all("prune" not in cmd and "--remove-orphans" not in cmd for cmd, _ in calls)
+    assert all("--remove-orphans" not in cmd for cmd, _ in calls)
     assert "--scale" not in up_command
 
 
@@ -242,36 +244,45 @@ def test_main_stops_dev_http_only_when_dev_mode_is_disabled(monkeypatch, dev_mod
         assert "dev_http" not in up_command
 
 
-def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path):
-    def fake_run(cmd, check=True, **kwargs):
-        assert list(cmd) == [
-            "docker",
-            "compose",
-            "-f",
-            "docker-compose.yml",
-            "config",
-            "--format",
-            "json",
-        ]
-        return subprocess.CompletedProcess(
-            cmd,
-            0,
-            json.dumps(
-                {
-                    "services": {
-                        "fail2ban": {},
-                        "app": {},
-                        "expiry_reminder": {},
-                        "postgres": {},
-                    }
-                }
-            ),
-            "",
+def test_main_prunes_only_its_compose_project_after_startup(monkeypatch):
+    calls = []
+    _patch_main_runtime(monkeypatch, calls, project_name="custom-jk-prod")
+    monkeypatch.setattr(
+        ua, "_activate_fail2ban",
+        lambda root, env, addresses: calls.append((["fail2ban-activated"], root)),
+    )
+
+    ua.main()
+
+    activation_idx = _index_of_command(calls, ["fail2ban-activated"])
+    project_root = calls[activation_idx][1]
+    assert [(cmd, cwd) for cmd, cwd in calls if "prune" in cmd] == [
+        (
+            [
+                "docker", "container", "prune", "--force", "--filter",
+                "label=com.docker.compose.project=custom-jk-prod",
+            ],
+            project_root,
         )
+    ]
+    assert activation_idx < len(calls) - 1
+    assert "prune" in calls[-1][0]
 
-    monkeypatch.setattr(ua, "_run", fake_run)
 
-    command = ua._build_compose_up_command(tmp_path, {"POSTGRES_PUBLIC_PORT": "1543"})
+@pytest.mark.parametrize("project_name", [None, "", " "])
+def test_main_skips_stop_and_prune_without_project_name(monkeypatch, project_name):
+    calls = []
+    _patch_main_runtime(monkeypatch, calls, project_name=project_name)
+
+    with pytest.raises(RuntimeError, match="namnet på Docker Compose-projektet"):
+        ua.main()
+
+    assert not any("stop" in cmd or "prune" in cmd for cmd, _ in calls)
+
+
+def test_build_compose_up_command_excludes_expiry_reminder():
+    services = {name: {} for name in ("fail2ban", "app", "expiry_reminder", "postgres")}
+    command = ua._build_compose_up_command({"services": services}, {})
 
     assert command == [
         "docker",
@@ -287,9 +298,7 @@ def test_build_compose_up_command_excludes_expiry_reminder(monkeypatch, tmp_path
 
 @pytest.mark.parametrize("dev_mode", [None, "false", "true", "1", "TRUE"])
 @pytest.mark.parametrize("profile_active", [False, True])
-def test_compose_up_selects_dev_proxy_only_in_dev_mode(
-    monkeypatch, tmp_path, dev_mode, profile_active
-):
+def test_compose_up_selects_dev_proxy_only_in_dev_mode(dev_mode, profile_active):
     services = {name: {} for name in (
         "app", "postgres", "postgres_backup",
         "fail2ban", "expiry_reminder",
@@ -297,14 +306,8 @@ def test_compose_up_selects_dev_proxy_only_in_dev_mode(
     if profile_active:
         services["dev_http"] = {}
 
-    def fake_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(
-            cmd, 0, json.dumps({"services": services}), ""
-        )
-
-    monkeypatch.setattr(ua, "_run", fake_run)
     env = {} if dev_mode is None else {"DEV_MODE": dev_mode}
-    command = ua._build_compose_up_command(tmp_path, env)
+    command = ua._build_compose_up_command({"services": services}, env)
     expected = ["app", "postgres", "postgres_backup"]
     if dev_mode == "true":
         expected.append("dev_http")
@@ -533,7 +536,7 @@ def test_main_preflight_failure_prevents_stopping_services(monkeypatch):
     monkeypatch.setattr(ua, "_preflight_fail2ban", fail)
     with pytest.raises(RuntimeError):
         ua.main()
-    assert not any("stop" in cmd or "up" in cmd for cmd, _ in calls)
+    assert not any({"stop", "up", "prune"}.intersection(cmd) for cmd, _ in calls)
     assert any("pull" in cmd for cmd, _ in calls)
 
 
