@@ -18,6 +18,7 @@ The sequence executed by :func:`main` is:
 10. stop main compose containers
 11. rebuild and bring up the main compose services without cache; verify Fail2ban
 13. display live ``docker stats`` for sixty seconds
+14. remove stopped containers belonging to the Compose project
 
 Most shell steps are executed via :func:`_run`. If a command fails,
 underlying exceptions such as ``subprocess.CalledProcessError`` and
@@ -38,7 +39,7 @@ import sys
 import time
 import tempfile
 from pathlib import Path
-from typing import Iterable, List
+from typing import Any, Iterable, List
 
 from dotenv import load_dotenv
 
@@ -121,9 +122,7 @@ def _command_exists(command: str) -> bool:
     return shutil.which(command) is not None
 
 
-def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[str]:
-    """Build a compose up command that excludes one-shot reminder services."""
-
+def _read_compose_config(root: Path, compose_env: dict[str, str]) -> dict[str, Any]:
     result = _run(
         _compose_command("config", "--format", "json"),
         cwd=root,
@@ -133,9 +132,15 @@ def _build_compose_up_command(root: Path, compose_env: dict[str, str]) -> list[s
     )
     output = (result.stdout or "").strip()
     if not output:
-        raise RuntimeError("Kunde inte lasa docker compose-konfigurationen.")
+        raise RuntimeError("Kunde inte läsa Docker Compose-konfigurationen.")
+    return json.loads(output)
 
-    config = json.loads(output)
+
+def _build_compose_up_command(
+    config: dict[str, Any], compose_env: dict[str, str]
+) -> list[str]:
+    """Build a compose up command that excludes one-shot reminder services."""
+
     services = list((config.get("services") or {}).keys())
     dev_mode = compose_env.get("DEV_MODE") == "true"
     excluded_services = COMPOSE_UP_EXCLUDED_SERVICES | {"dev_http"}
@@ -470,6 +475,11 @@ def main(*, fail2ban_only: bool = False) -> None:
 
     # Validera den hämtade imagen innan några tjänster stoppas.
     addresses = _preflight_fail2ban(root, compose_env)
+    config = _read_compose_config(root, compose_env)
+    project_name = config.get("name")
+    if not isinstance(project_name, str) or not project_name.strip():
+        raise RuntimeError("Kunde inte fastställa namnet på Docker Compose-projektet.")
+    compose_up = _build_compose_up_command(config, compose_env)
 
     # En profilbaserad proxy ingår inte i ett vanligt compose stop.
     # Stoppa därför dev_http uttryckligen när utvecklingsläget är avstängt.
@@ -485,7 +495,7 @@ def main(*, fail2ban_only: bool = False) -> None:
 
     # 9. rebuild & up without cache
     _run(_compose_command("build", "--no-cache"), cwd=root, env=compose_env)
-    _run(_build_compose_up_command(root, compose_env), cwd=root, env=compose_env)
+    _run(compose_up, cwd=root, env=compose_env)
     _ensure_expiry_reminder_cron(root)
     _activate_fail2ban(root, compose_env, addresses)
 
@@ -496,6 +506,16 @@ def main(*, fail2ban_only: bool = False) -> None:
     finally:
         proc.terminate()
         proc.wait()
+
+    # Docker filtrerar på Compose-projektets etikett och på stoppade containrar.
+    _run(
+        [
+            "docker", "container", "prune", "--force", "--filter",
+            f"label=com.docker.compose.project={project_name}",
+        ],
+        cwd=root,
+        env=compose_env,
+    )
 
 
 if __name__ == "__main__":

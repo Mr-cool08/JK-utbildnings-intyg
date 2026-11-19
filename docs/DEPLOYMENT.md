@@ -145,6 +145,11 @@ Uppdateringssekvens:
 python scripts/update_app.py
 ```
 
+I slutet av uppdateringen rensar skriptet stoppade containrar med samma
+Compose-projektnamn som används för `docker-compose.yml`. Använd samma
+`COMPOSE_PROJECT_NAME` vid uppdatering som när stacken startades, om du
+anger ett eget projektnamn.
+
 På Linux-servrar där `crontab` finns installerat säkerställer skriptet också att månadsjobbet för `expiry_reminder` finns inlagt en gång, utan dubbletter.
 
 ## HTTP på dev-servern utan port 443
